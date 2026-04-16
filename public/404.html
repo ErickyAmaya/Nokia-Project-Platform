@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Nokia Project Platform</title>
+  <script>
+    // GitHub Pages SPA redirect trick
+    // Converts the path to a query param so index.html can restore it
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.host + l.pathname.split('/').slice(0, 2).join('/') +
+      '/?p=/' + l.pathname.slice(1).replace(/&/g, '~and~') +
+      (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+</html>

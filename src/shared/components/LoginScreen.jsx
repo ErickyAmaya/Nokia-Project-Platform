@@ -13,7 +13,7 @@ export default function LoginScreen() {
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [empresa,  setEmpresa]  = useState(null)   // empresa detectada en vivo
+  const [empresa,  setEmpresa]  = useState(null)
   const [error,    setError]    = useState('')
   const [busy,     setBusy]     = useState(false)
 
@@ -44,7 +44,7 @@ export default function LoginScreen() {
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(135deg, #f0f4f0 0%, #e8f0e8 100%)',
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
+      fontFamily: "'Barlow', 'Segoe UI', sans-serif",
     }}>
       <div style={{
         width: '100%', maxWidth: 400, background: '#fff',
@@ -52,34 +52,60 @@ export default function LoginScreen() {
         overflow: 'hidden',
       }}>
 
-        {/* Header con branding dinámico */}
+        {/* ── Header con branding dinámico ── */}
         <div style={{
           background: CN,
-          padding: '28px 32px 24px',
+          padding: '24px 28px 20px',
           transition: 'background 0.3s ease',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, marginBottom: 6 }}>
-            NOKIA PROJECT PLATFORM
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
-            {empresa ? empresa.nombre : 'INGETEL'}
-          </div>
-          {empresa && (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, marginBottom: 5 }}>
+              NOKIA PROJECT PLATFORM
+            </div>
             <div style={{
-              marginTop: 8, display: 'inline-block',
-              background: 'rgba(255,255,255,0.15)',
-              borderRadius: 20, padding: '2px 10px',
-              fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.9)',
-              letterSpacing: 1,
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: 0.5,
+              lineHeight: 1, marginBottom: empresa ? 8 : 0,
             }}>
-              {empresa.nombre_corto} detectado
+              {empresa ? empresa.nombre : 'INGETEL'}
+            </div>
+            {empresa && (
+              <div style={{
+                display: 'inline-block',
+                background: 'rgba(255,255,255,0.15)',
+                borderRadius: 20, padding: '2px 10px',
+                fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
+                letterSpacing: 1, textTransform: 'uppercase',
+              }}>
+                {empresa.nombre_corto} detectado
+              </div>
+            )}
+          </div>
+
+          {/* Logo empresa */}
+          {empresa?.logoUrl && (
+            <div style={{
+              flexShrink: 0,
+              background: '#fff',
+              borderRadius: 10,
+              padding: '6px 10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              maxWidth: 120,
+            }}>
+              <img
+                src={empresa.logoUrl}
+                alt={empresa.nombre}
+                style={{ height: 44, width: 'auto', display: 'block', objectFit: 'contain' }}
+              />
             </div>
           )}
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '28px 32px 32px' }}>
-          <div style={{ marginBottom: 18 }}>
+        {/* ── Form ── */}
+        <form onSubmit={handleSubmit} style={{ padding: '24px 28px 20px' }}>
+          <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Correo electrónico</label>
             <input
               type="email"
@@ -88,11 +114,11 @@ export default function LoginScreen() {
               placeholder="usuario@empresa.com"
               autoFocus
               required
-              style={inputStyle(CN)}
+              style={inputStyle}
             />
           </div>
 
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Contraseña</label>
             <input
               type="password"
@@ -100,13 +126,13 @@ export default function LoginScreen() {
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              style={inputStyle(CN)}
+              style={inputStyle}
             />
           </div>
 
           {error && (
             <div style={{
-              marginBottom: 16, padding: '10px 14px',
+              marginBottom: 14, padding: '9px 13px',
               background: '#fef2f2', border: '1px solid #fecaca',
               borderRadius: 8, fontSize: 12, color: '#dc2626',
             }}>
@@ -116,7 +142,7 @@ export default function LoginScreen() {
 
           {!empresa && email.includes('@') && email.split('@')[1]?.length > 2 && (
             <div style={{
-              marginBottom: 16, padding: '10px 14px',
+              marginBottom: 14, padding: '9px 13px',
               background: '#fffbeb', border: '1px solid #fde68a',
               borderRadius: 8, fontSize: 12, color: '#92400e',
             }}>
@@ -134,28 +160,48 @@ export default function LoginScreen() {
               fontSize: 14, fontWeight: 700, cursor: empresa ? 'pointer' : 'not-allowed',
               transition: 'background 0.3s ease, opacity 0.2s',
               opacity: (busy || loading) ? 0.7 : 1,
+              fontFamily: "'Barlow Condensed', sans-serif",
+              letterSpacing: 1,
             }}
           >
             {busy ? 'Ingresando…' : 'Ingresar'}
           </button>
         </form>
+
+        {/* ── Footer "Diseñado por Scytel" ── */}
+        <div style={{
+          borderTop: '1px solid #f0f0f0',
+          padding: '10px 28px 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5,
+        }}>
+          <span style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', letterSpacing: .5, textTransform: 'uppercase' }}>
+            Diseñado por
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 800, color: '#1a4f7a', letterSpacing: 1,
+            fontFamily: "'Barlow Condensed', sans-serif",
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#1a4f7a">
+              <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+            </svg>
+            SCYTEL
+          </span>
+        </div>
+
       </div>
     </div>
   )
 }
 
 const labelStyle = {
-  display: 'block', marginBottom: 6,
-  fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: 0.5,
+  display: 'block', marginBottom: 5,
+  fontSize: 10, fontWeight: 700, color: '#6b7280', letterSpacing: .5, textTransform: 'uppercase',
 }
 
-function inputStyle(accentColor) {
-  return {
-    width: '100%', boxSizing: 'border-box',
-    padding: '10px 12px', border: '1.5px solid #e5e7eb',
-    borderRadius: 8, fontSize: 13, color: '#111827',
-    outline: 'none', transition: 'border-color 0.2s',
-    fontFamily: 'inherit',
-    // focus handled via CSS; accentColor passed for potential use
-  }
+const inputStyle = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '10px 12px', border: '1.5px solid #e5e7eb',
+  borderRadius: 8, fontSize: 13, color: '#111827',
+  outline: 'none', fontFamily: 'inherit',
 }

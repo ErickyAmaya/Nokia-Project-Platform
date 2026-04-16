@@ -14,7 +14,7 @@ export const EMPRESAS = {
     nombre_corto: 'Ingetel',
     supabaseUrl:  import.meta.env.VITE_INGETEL_URL,
     supabaseKey:  import.meta.env.VITE_INGETEL_KEY,
-    logoUrl:      null,       // ruta/import del logo, o null para mostrar nombre
+    logoUrl:      'https://raw.githubusercontent.com/ErickyAmaya/Nokia-Project-Platform/main/Logo_Ingetel_texto.png',
     color:        '#144E4A',  // color primario (barra de navegación, botones)
     modulo:       'nokia-billing',
   },
