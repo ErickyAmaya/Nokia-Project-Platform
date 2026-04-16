@@ -177,16 +177,11 @@ export default function LoginScreen() {
           <span style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', letterSpacing: .5, textTransform: 'uppercase' }}>
             Diseñado por
           </span>
-          <span style={{
-            fontSize: 10, fontWeight: 800, color: '#1a4f7a', letterSpacing: 1,
-            fontFamily: "'Barlow Condensed', sans-serif",
-            display: 'flex', alignItems: 'center', gap: 3,
-          }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#1a4f7a">
-              <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-            </svg>
-            SCYTEL
-          </span>
+          <img
+            src="https://raw.githubusercontent.com/ErickyAmaya/Nokia-Project-Platform/main/SCYTEL%20solologo.png"
+            alt="Scytel"
+            style={{ height: 18, width: 'auto', display: 'block', objectFit: 'contain' }}
+          />
         </div>
 
       </div>
