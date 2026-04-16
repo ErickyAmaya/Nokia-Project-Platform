@@ -129,7 +129,7 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
         <select className="fc" value={form.lc} onChange={e => upd('lc', e.target.value)}>
           <option value="">— Seleccionar LC —</option>
           {subcs.map(s => (
-            <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
+            <option key={s.lc} value={s.lc}>{s.lc}</option>
           ))}
         </select>
       </div>
