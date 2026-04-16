@@ -115,6 +115,7 @@ export const useAppStore = create((set, get) => ({
       catOverRedesign: r.cat_over_redesign || '',
       costos: r.costos || {}, actividades: r.actividades || [],
       crSubcExcluded: r.cr_subc_excluded || [],
+      region: r.region || '',
     }))
 
     const gastos = (gastosData || []).map(r => ({
