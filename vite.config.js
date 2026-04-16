@@ -42,21 +42,21 @@ export default defineConfig({
         scope: '/Nokia-Project-Platform/',
         icons: [
           {
-            src: '/pwa-192.png',
+            src: 'pwa-192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/pwa-512.png',
+            src: 'pwa-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
           },
         ],
         shortcuts: [
-          { name: 'Dashboard',  short_name: 'Dashboard',  url: '/dashboard', description: 'Ver resumen del proyecto' },
-          { name: 'Sitios TI',  short_name: 'TI',         url: '/ti',        description: 'Consolidado TI' },
-          { name: 'Analítica',  short_name: 'Analítica',  url: '/analitica', description: 'Gráficas del proyecto' },
+          { name: 'Dashboard',  short_name: 'Dashboard',  url: '/Nokia-Project-Platform/dashboard', description: 'Ver resumen del proyecto' },
+          { name: 'Sitios TI',  short_name: 'TI',         url: '/Nokia-Project-Platform/ti',        description: 'Consolidado TI' },
+          { name: 'Analítica',  short_name: 'Analítica',  url: '/Nokia-Project-Platform/analitica', description: 'Gráficas del proyecto' },
         ],
         categories: ['business', 'productivity'],
       },

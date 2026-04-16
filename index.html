@@ -3,15 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <script>
-      // Restore path from GitHub Pages 404 redirect
+      // Restaurar ruta guardada por 404.html (GitHub Pages SPA fallback)
       (function() {
-        var p = window.location.search.slice(1).split('&').reduce(function(acc, q) {
-          var kv = q.split('='); if (kv[0] === 'p') acc.path = kv[1]; if (kv[0] === 'q') acc.query = kv[1]; return acc;
-        }, {});
-        if (p.path) {
-          window.history.replaceState(null, null,
-            p.path.replace(/~and~/g, '&') + (p.query ? '?' + p.query.replace(/~and~/g, '&') : '') + window.location.hash
-          );
+        var redirect = sessionStorage.getItem('redirect');
+        if (redirect) {
+          sessionStorage.removeItem('redirect');
+          window.history.replaceState(null, null, redirect);
         }
       })();
     </script>
@@ -20,9 +17,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Liquidador" />
     <meta name="theme-color" content="#144E4A" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/Nokia-Project-Platform/favicon.svg" />
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <title>Liquidador Nokia 2026</title>
   </head>
