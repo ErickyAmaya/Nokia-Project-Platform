@@ -16,7 +16,7 @@ export default defineConfig({
         // Pre-cache all assets from the build
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Don't let SW cache Supabase API calls — always go to network
-        navigateFallback: '/index.html',
+        navigateFallback: '/Nokia-Project-Platform/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
@@ -38,8 +38,8 @@ export default defineConfig({
         background_color: '#f0f2f0',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/',
-        scope: '/',
+        start_url: '/Nokia-Project-Platform/',
+        scope: '/Nokia-Project-Platform/',
         icons: [
           {
             src: '/pwa-192.png',

@@ -44,6 +44,9 @@ jobs:
           # VITE_NUEVAEMPRESA_KEY: ${{ secrets.VITE_NUEVAEMPRESA_KEY }}
         run: npm run build
 
+      - name: Copiar index.html como 404.html (SPA fallback)
+        run: cp dist/index.html dist/404.html
+
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3
         with:

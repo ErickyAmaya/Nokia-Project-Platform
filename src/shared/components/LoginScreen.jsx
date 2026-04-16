@@ -180,8 +180,11 @@ export default function LoginScreen() {
           <img
             src="https://raw.githubusercontent.com/ErickyAmaya/Nokia-Project-Platform/main/SCYTEL%20solologo.png"
             alt="Scytel"
-            style={{ height: 18, width: 'auto', display: 'block', objectFit: 'contain' }}
+            style={{ height: 16, width: 'auto', display: 'block', objectFit: 'contain' }}
           />
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#1a4f7a', letterSpacing: 1, fontFamily: "'Barlow Condensed', sans-serif" }}>
+            SCYTEL
+          </span>
         </div>
 
       </div>
