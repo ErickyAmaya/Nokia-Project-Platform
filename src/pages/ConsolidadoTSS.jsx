@@ -273,7 +273,7 @@ export default function ConsolidadoTSS() {
                   <td style={{ fontSize: 10 }}>{r.lcVisita || '—'}</td>
                   <td>
                     <span className="badge bg-b" style={{ fontSize: 8 }}>
-                      {s.ciudad || 'Varios'}
+                      {s.region || '—'}
                     </span>
                   </td>
                   <td>

@@ -83,7 +83,7 @@ export default function NuevoTSSModal({ open, onClose, onCreated }) {
         nombre:      nom,
         fecha,
         lc,
-        ciudad:      region,
+        region,
         cat:         sub?.cat || 'A',
         actividades: buildActividades(acts),
       })

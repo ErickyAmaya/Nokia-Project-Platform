@@ -32,6 +32,7 @@ async function _debouncedSync(id, get) {
       cat_over_visita:   sitio.catOverVisita   || '',
       cat_over_reporte:  sitio.catOverReporte  || '',
       cat_over_redesign: sitio.catOverRedesign || '',
+      region:            sitio.region || '',
     }, { onConflict: 'id' })
   }, 1500)
 }
@@ -285,6 +286,7 @@ export const useAppStore = create((set, get) => ({
       estado:     'pre',
       costos:     { matTI: 0, matCW: 0, backoffice: 0 },
       actividades: [{ sec: 'MODERNIZACION', tipo: 'BASE', id: 'PM', cant: 1 }],
+      region:     sitioData.region || '',
     }
     const { error } = await supabase.from('sitios').insert(row)
     if (error) throw error
@@ -320,12 +322,13 @@ export const useAppStore = create((set, get) => ({
       cat_over_visita: '',
       cat_over_reporte: '',
       cat_over_redesign: '',
+      region: sitioData.region || '',
     }
     const { error } = await supabase.from('sitios').insert(row)
     if (error) throw error
     const local = {
       id: row.id, nombre: row.nombre, tipo: 'TSS',
-      fecha: row.fecha, ciudad: 'varios', lc: row.lc,
+      fecha: row.fecha, ciudad: row.ciudad || 'varios', lc: row.lc,
       cat: row.cat, catEfectiva: undefined,
       tiene_cw: false, cw_nokia: 0, cw_costo: 0, cw_conjunto: false,
       estado: 'pre', costos: row.costos,

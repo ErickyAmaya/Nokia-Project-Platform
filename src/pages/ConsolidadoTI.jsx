@@ -259,7 +259,7 @@ export default function ConsolidadoTI() {
                     )}
                   </td>
                   <td style={{ background: '#fff' }}>
-                    <span className="badge bg-b" style={{ fontSize: 8 }}>{s.ciudad ? s.ciudad.replace('Ciudad_','') : '—'}</span>
+                    <span className="badge bg-b" style={{ fontSize: 8 }}>{s.region || '—'}</span>
                   </td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.fecha || '—'}</td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.lc}</td>

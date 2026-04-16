@@ -624,7 +624,7 @@ export default function AnaliticaPage() {
         if ((sub?.tipoCuadrilla || '') !== filters.cuadrilla) return false
       }
       if (filters.region !== 'TODOS') {
-        if ((s.ciudad || '') !== filters.region) return false
+        if ((s.region || '') !== filters.region) return false
       }
       if (filters.estado !== 'TODOS' && s.estado !== filters.estado) return false
       if (filters.fechaDesde && s.fecha && s.fecha < filters.fechaDesde) return false

@@ -341,9 +341,9 @@ export default function LiquidadorPage() {
               <span className="badge" style={{ background: '#7c3aed', color: '#fff', fontSize: 9 }}>E</span>
             )}
             {lc && <span className="badge" style={{ background: '#f0f7f0', color: '#555f55', fontSize: 9 }}>{lc}</span>}
-            {sitio.ciudad && (
+            {sitio.region && (
               <span className="badge" style={{ background: '#f0f7f0', color: '#555f55', fontSize: 9 }}>
-                {sitio.ciudad}
+                {sitio.region}
               </span>
             )}
             {sitio.fecha && <span style={{ fontSize: 10, color: '#9ca89c' }}>{sitio.fecha}</span>}
@@ -376,11 +376,24 @@ export default function LiquidadorPage() {
           <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
               <div className="fg" style={{ marginBottom: 0 }}>
+                <label className="fl">Tipo Ciudad</label>
+                <select
+                  className="fc"
+                  value={sitio.ciudad || 'Ciudad_Principal'}
+                  onChange={e => updateSitioField(sitio.id, 'ciudad', e.target.value)}
+                  disabled={isFinal}
+                >
+                  {['Ciudad_Principal','Ciudad_Secundaria','Ciudad_Intermedia','Dificil Acceso'].map(z => (
+                    <option key={z} value={z}>{z.replace('Ciudad_', '')}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="fg" style={{ marginBottom: 0 }}>
                 <label className="fl">Región</label>
                 <select
                   className="fc"
-                  value={sitio.ciudad || ''}
-                  onChange={e => updateSitioField(sitio.id, 'ciudad', e.target.value)}
+                  value={sitio.region || ''}
+                  onChange={e => updateSitioField(sitio.id, 'region', e.target.value)}
                   disabled={isFinal}
                 >
                   <option value="">— Seleccionar —</option>

@@ -3,6 +3,13 @@ import Modal from '../components/Modal'
 import { useAppStore } from '../store/useAppStore'
 import { showToast } from '../components/Toast'
 
+const CIUDADES = [
+  { value: 'Ciudad_Principal',  label: 'Principal' },
+  { value: 'Ciudad_Secundaria', label: 'Secundaria' },
+  { value: 'Ciudad_Intermedia', label: 'Intermedia' },
+  { value: 'Dificil Acceso',    label: 'Difícil Acceso' },
+]
+
 const REGIONES = [
   'R1 – Costa',
   'R2 – Noroccidente',
@@ -12,13 +19,14 @@ const REGIONES = [
 ]
 
 const EMPTY = {
-  nombre: '', fecha: '', region: 'R4 – Centro', lc: '',
+  nombre: '', fecha: '', ciudad: 'Ciudad_Principal',
+  region: 'R4 – Centro', lc: '',
 }
 
 export default function NuevoSitioModal({ open, onClose, onCreated }) {
-  const [form,    setForm]    = useState(EMPTY)
-  const [saving,  setSaving]  = useState(false)
-  const [error,   setError]   = useState('')
+  const [form,   setForm]   = useState(EMPTY)
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
 
   const subcs      = useAppStore(s => s.subcs)
   const sitios     = useAppStore(s => s.sitios)
@@ -37,8 +45,8 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
 
   async function handleSubmit() {
     const nom = form.nombre.trim()
-    if (!nom)      { setError('El nombre del sitio es requerido'); return }
-    if (!form.lc)  { setError('El LC es requerido'); return }
+    if (!nom)     { setError('El nombre del sitio es requerido'); return }
+    if (!form.lc) { setError('El LC es requerido'); return }
     if (sitios.find(s => s.id === nom)) { setError(`Ya existe un sitio con el nombre "${nom}"`); return }
 
     setSaving(true)
@@ -48,7 +56,8 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
         id:       nom,
         nombre:   nom,
         fecha:    form.fecha,
-        ciudad:   form.region,   // ciudad field stores region
+        ciudad:   form.ciudad,
+        region:   form.region,
         lc:       form.lc,
         cat:      sub?.cat || 'A',
         tiene_cw: false,
@@ -102,20 +111,27 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
 
       <div className="g2">
         <div className="fg">
+          <label className="fl">Tipo Ciudad *</label>
+          <select className="fc" value={form.ciudad} onChange={e => upd('ciudad', e.target.value)}>
+            {CIUDADES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
+        <div className="fg">
           <label className="fl">Región *</label>
           <select className="fc" value={form.region} onChange={e => upd('region', e.target.value)}>
             {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
-        <div className="fg">
-          <label className="fl">LC / Subcontratista *</label>
-          <select className="fc" value={form.lc} onChange={e => upd('lc', e.target.value)}>
-            <option value="">— Seleccionar LC —</option>
-            {subcs.map(s => (
-              <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
-            ))}
-          </select>
-        </div>
+      </div>
+
+      <div className="fg">
+        <label className="fl">LC / Subcontratista *</label>
+        <select className="fc" value={form.lc} onChange={e => upd('lc', e.target.value)}>
+          <option value="">— Seleccionar LC —</option>
+          {subcs.map(s => (
+            <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
+          ))}
+        </select>
       </div>
 
       {error && (

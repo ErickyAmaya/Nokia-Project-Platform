@@ -170,11 +170,9 @@ export default function Dashboard() {
     'R4 – Centro':       'CTO',
     'R5 – Oriente':      'ORI',
   }
-  function cityShort(ciudad) {
-    if (!ciudad) return '—'
-    if (ciudad === 'varios') return 'Var'
-    if (REGION_SHORT[ciudad]) return REGION_SHORT[ciudad]
-    return ciudad.replace('Ciudad_', '').substring(0, 4)
+  function regionShort(region) {
+    if (!region) return '—'
+    return REGION_SHORT[region] || region.split('–')[0].trim()
   }
 
   return (
@@ -292,7 +290,7 @@ export default function Dashboard() {
                         : <span className="badge" style={{ background: '#d68910', color: '#fff', fontSize: 9, padding: '2px 8px' }}>PRE</span>
                       }
                     </td>
-                    <td><span className="badge bg-b" style={{ fontSize: 8 }}>{cityShort(s.ciudad)}</span></td>
+                    <td><span className="badge bg-b" style={{ fontSize: 8 }}>{regionShort(s.region)}</span></td>
                     <td className="num" style={{ color: 'var(--b)', fontWeight: 700 }}>{cop(c.totalVenta)}</td>
                     <td className="num" style={{ color: 'var(--o)' }}>{cop(c.totalCosto)}</td>
                     <td className={`num fw7 ${c.utilidad >= 0 ? 'tg' : 'tr'}`}>{cop(c.utilidad)}</td>
