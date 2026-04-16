@@ -370,8 +370,8 @@ export default function LiquidadorPage() {
         </div>
       </div>
 
-      {/* ── Config bar ───────────────────────────────────── */}
-      {!isViewer && (
+      {/* ── Config bar (solo TI/TSS, no CW) ─────────────── */}
+      {!isViewer && view !== 'cw' && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
@@ -413,7 +413,7 @@ export default function LiquidadorPage() {
                 >
                   <option value="">— Sin LC —</option>
                   {subcs.map(s => (
-                    <option key={s.lc} value={s.lc}>{s.lc} (Cat {s.cat})</option>
+                    <option key={s.lc} value={s.lc}>{s.lc}</option>
                   ))}
                 </select>
               </div>

@@ -56,9 +56,10 @@ export default function ConsolidadoCW() {
       updateSitioField(cwSitioId, 'tiene_cw',    true)
       updateSitioField(cwSitioId, 'cw_conjunto', cwTipo === 'conjunto')
       setModalCW(false)
+      const id = cwSitioId
       setCwSitioId('')
       setCwTipo('individual')
-      showToast('CW asociada al sitio')
+      navigate(`/liquidador/${id}?view=cw`)
     } finally {
       setCwSaving(false)
     }

@@ -129,6 +129,7 @@ export const useAppStore = create((set, get) => ({
       id: r.id, sitio_id: r.sitio_id, smp: r.smp || '',
       region: r.region || '', tipo_zona: r.tipo_zona || 'URBANO',
       lc: r.lc || '', estado: r.estado || 'pre', items: r.items || [],
+      fecha: r.fecha || '',
     }))
 
     const subcs = (subcData || []).map(r => ({
@@ -504,6 +505,7 @@ export const useAppStore = create((set, get) => ({
         id: liq.id, sitio_id: liq.sitio_id, smp: liq.smp,
         region: liq.region, tipo_zona: liq.tipo_zona,
         lc: liq.lc, estado: liq.estado, items: liq.items,
+        fecha: liq.fecha || null,
       }, { onConflict: 'id' })
     }, 2000)
   },
