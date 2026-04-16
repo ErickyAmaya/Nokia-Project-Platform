@@ -341,9 +341,11 @@ export default function LiquidadorPage() {
               <span className="badge" style={{ background: '#7c3aed', color: '#fff', fontSize: 9 }}>E</span>
             )}
             {lc && <span className="badge" style={{ background: '#f0f7f0', color: '#555f55', fontSize: 9 }}>{lc}</span>}
-            <span className="badge" style={{ background: '#f0f7f0', color: '#555f55', fontSize: 9 }}>
-              {(sitio.ciudad || '').replace('Ciudad_', '') || 'N/A'}
-            </span>
+            {sitio.ciudad && (
+              <span className="badge" style={{ background: '#f0f7f0', color: '#555f55', fontSize: 9 }}>
+                {sitio.ciudad}
+              </span>
+            )}
             {sitio.fecha && <span style={{ fontSize: 10, color: '#9ca89c' }}>{sitio.fecha}</span>}
           </div>
           {/* Marcar Final — TI or CW depending on active view */}
@@ -372,17 +374,18 @@ export default function LiquidadorPage() {
       {!isViewer && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
               <div className="fg" style={{ marginBottom: 0 }}>
-                <label className="fl">Tipo Unidad / Ciudad</label>
+                <label className="fl">Región</label>
                 <select
                   className="fc"
-                  value={sitio.ciudad || 'Ciudad_Principal'}
+                  value={sitio.ciudad || ''}
                   onChange={e => updateSitioField(sitio.id, 'ciudad', e.target.value)}
                   disabled={isFinal}
                 >
-                  {['Ciudad_Principal','Ciudad_Secundaria','Ciudad_Intermedia','Dificil Acceso'].map(z => (
-                    <option key={z} value={z}>{z.replace('Ciudad_', '')}</option>
+                  <option value="">— Seleccionar —</option>
+                  {['R1 – Costa','R2 – Noroccidente','R3 – Suroccidente','R4 – Centro','R5 – Oriente'].map(r => (
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>

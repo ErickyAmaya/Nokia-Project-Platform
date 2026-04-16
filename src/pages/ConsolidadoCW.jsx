@@ -291,7 +291,7 @@ export default function ConsolidadoCW() {
           <select className="fc" value={cwSitioId} onChange={e => setCwSitioId(e.target.value)}>
             <option value="">— Seleccionar sitio —</option>
             {tiSinCW.map(s => (
-              <option key={s.id} value={s.id}>{s.nombre} — {s.lc}</option>
+              <option key={s.id} value={s.id}>{s.nombre}</option>
             ))}
           </select>
           {tiSinCW.length === 0 && (
@@ -305,8 +305,8 @@ export default function ConsolidadoCW() {
           <label className="fl">Tipo de CW *</label>
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             {[
-              { value: 'individual', label: 'CW Individual', desc: 'Liquidación CW separada por sitio' },
-              { value: 'conjunto',   label: 'CW en Conjunto', desc: 'CW facturada junto con TI' },
+              { value: 'individual', label: 'CW Individual', desc: 'Liquidación CW Requerida' },
+              { value: 'conjunto',   label: 'CW en Conjunto', desc: 'CW en conjunto' },
             ].map(opt => (
               <div
                 key={opt.value}

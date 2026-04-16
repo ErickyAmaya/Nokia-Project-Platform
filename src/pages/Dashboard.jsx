@@ -163,9 +163,17 @@ export default function Dashboard() {
   const { tV, tC, tU, avgM } = totals
   const marginColor = avgM >= 0.3 ? '#1a7a1a' : avgM >= 0.2 ? '#FFC000' : '#c0392b'
 
+  const REGION_SHORT = {
+    'R1 – Costa':        'Cta',
+    'R2 – Noroccidente': 'NOC',
+    'R3 – Suroccidente': 'SOC',
+    'R4 – Centro':       'CTO',
+    'R5 – Oriente':      'ORI',
+  }
   function cityShort(ciudad) {
     if (!ciudad) return '—'
     if (ciudad === 'varios') return 'Var'
+    if (REGION_SHORT[ciudad]) return REGION_SHORT[ciudad]
     return ciudad.replace('Ciudad_', '').substring(0, 4)
   }
 
@@ -242,7 +250,7 @@ export default function Dashboard() {
                   <th>Sitio</th>
                   <th>LC</th>
                   <th>Liquidación</th>
-                  <th>Ciudad</th>
+                  <th>Región</th>
                   <th className="num th-nokia">Venta Nokia</th>
                   <th className="num th-subc">Costo SubC</th>
                   <th className="num">Utilidad</th>
