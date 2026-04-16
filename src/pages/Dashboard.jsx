@@ -218,9 +218,9 @@ export default function Dashboard() {
         />
         <StatCard
           label="Costo SubC"
-          value={<span style={{ fontSize: 17, color: 'var(--o)', fontWeight: 500 }}>{cop(tC)}</span>}
+          value={<span style={{ fontSize: 17, color: '#b45309', fontWeight: 500 }}>{cop(tC)}</span>}
           sub="SubC+Mat+Log+Adic"
-          borderColor="var(--o)"
+          borderColor="#b45309"
         />
         <StatCard
           label="Utilidad"
@@ -292,7 +292,7 @@ export default function Dashboard() {
                     </td>
                     <td><span className="badge bg-b" style={{ fontSize: 8 }}>{regionShort(s.region)}</span></td>
                     <td className="num" style={{ color: 'var(--b)', fontWeight: 700 }}>{cop(c.totalVenta)}</td>
-                    <td className="num" style={{ color: 'var(--o)' }}>{cop(c.totalCosto)}</td>
+                    <td className="num" style={{ color: '#b45309' }}>{cop(c.totalCosto)}</td>
                     <td className={`num fw7 ${c.utilidad >= 0 ? 'tg' : 'tr'}`}>{cop(c.utilidad)}</td>
                     <td className="num">
                       <span className={`badge ${mcls(c.margen)}`}>{pct(c.margen)}</span>
