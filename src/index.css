@@ -130,7 +130,7 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 5px 8px;
 }
 .th-nokia { background: #144E4A !important; color: #CDFBF2 !important; }
-.th-subc  { background: #FFF0CE !important; color: #000 !important; }
+.th-subc  { background: #FFF0CE !important; color: #92400e !important; }
 
 /* ── Margin bars ─────────────────────────────────────────────── */
 .mbar  { height: 7px; background: var(--g2); border-radius: 4px; overflow: hidden; margin-top: 4px; }

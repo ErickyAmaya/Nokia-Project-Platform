@@ -25,7 +25,7 @@ function ThNokia({ children, style }) {
 function ThSubc({ children, style }) {
   return (
     <th className="num" style={{
-      background: '#FFF0CE', color: '#000',
+      background: '#FFF0CE', color: '#92400e',
       fontFamily: "'Barlow Condensed', sans-serif",
       fontSize: 9, fontWeight: 700, padding: '9px 10px',
       letterSpacing: .7, textTransform: 'uppercase', whiteSpace: 'nowrap',
@@ -212,7 +212,7 @@ export default function ConsolidadoTSS() {
                 <th
                   colSpan={4}
                   style={{
-                    background: '#FFF0CE', color: '#000',
+                    background: '#FFF0CE', color: '#92400e',
                     fontFamily: "'Barlow Condensed', sans-serif",
                     fontSize: 8, fontWeight: 700, letterSpacing: .7,
                     padding: '4px 10px', textAlign: 'right',
@@ -286,10 +286,10 @@ export default function ConsolidadoTSS() {
                   <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaRD)}</td>
                   <td className="num fw7" style={{ background: '#dbeafe', color: 'var(--b)', borderRight: '2px solid #93c5fd' }}>{dash(r.nokiaVR)}</td>
                   {/* SubC */}
-                  <td className="num" style={{ background: '#fffbeb', color: 'var(--o)' }}>{dash(r.subcV)}</td>
-                  <td className="num" style={{ background: '#fffbeb', color: 'var(--o)' }}>{dash(r.subcR)}</td>
-                  <td className="num" style={{ background: '#fffbeb', color: 'var(--o)' }}>{dash(r.subcRD)}</td>
-                  <td className="num fw7" style={{ background: '#fef9c3', color: 'var(--o)', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
+                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcV)}</td>
+                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcR)}</td>
+                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcRD)}</td>
+                  <td className="num fw7" style={{ background: '#fef9c3', color: '#b45309', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
                   <td>
                     {!isViewer && s.estado !== 'final' && (
                       <button className="btn-del" onClick={() => handleEliminar(s)}>✕</button>
