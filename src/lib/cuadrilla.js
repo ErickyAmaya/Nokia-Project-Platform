@@ -10,14 +10,15 @@
  * Example: buildTiposCuadrilla('OFG')
  *   → ['TI OFG', 'TI Scytel', 'TSS OFG', 'TSS Scytel']
  */
-export function buildTiposCuadrilla(nombreCorto = 'Ingetel') {
+export function buildTiposCuadrilla(nombreCorto = 'Ingetel', extras = []) {
   const empresa = (nombreCorto || 'Ingetel').trim()
-  return [
+  const base = [
     `TI ${empresa}`,
     `TSS ${empresa}`,
     'TI Scytel',
     'TSS Scytel',
-  ].filter(t => !t.toLowerCase().includes('externa'))
+  ]
+  return [...new Set([...base, ...extras])].filter(t => !t.toLowerCase().includes('externa'))
 }
 
 /** Strip "externa" types from any arbitrary list */

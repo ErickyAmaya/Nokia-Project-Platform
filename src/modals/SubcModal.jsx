@@ -18,7 +18,7 @@ export default function SubcModal({ open, onClose, subc = null }) {
   const actualizarSubc = useAppStore(s => s.actualizarSubc)
   const empresaConfig  = useAppStore(s => s.empresaConfig)
 
-  const TIPOS = buildTiposCuadrilla(empresaConfig?.nombre_corto)
+  const TIPOS = buildTiposCuadrilla(empresaConfig?.nombre_corto, empresaConfig?.tipos_cuadrilla || [])
 
   const isEdit = !!subc
 

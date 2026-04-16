@@ -121,7 +121,8 @@ export default function Dashboard() {
   // Cuadrilla selector options — empresa-named defaults + actual subcs, no "externa"
   const tcOpts = useMemo(() => {
     const nombreCorto = empresaConfig?.nombre_corto || 'Ingetel'
-    const base     = buildTiposCuadrilla(nombreCorto)
+    const extras    = empresaConfig?.tipos_cuadrilla || []
+    const base      = buildTiposCuadrilla(nombreCorto, extras)
     const fromSubcs = sinExternas(subcs.map(s => s.tipoCuadrilla).filter(Boolean))
     const tipos = [...new Set([...base, ...fromSubcs])].sort()
     return buildTCOptions(tipos)
