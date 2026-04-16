@@ -381,6 +381,7 @@ export const useAppStore = create((set, get) => ({
         catOverVisita:   rec.cat_over_visita   || '',
         catOverReporte:  rec.cat_over_reporte  || '',
         catOverRedesign: rec.cat_over_redesign || '',
+        region:          rec.region            || '',
       }
       set(s => {
         if (event === 'INSERT') {
