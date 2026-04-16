@@ -1,0 +1,65 @@
+name: Build & Deploy — Nokia Project Platform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Permisos necesarios para desplegar en GitHub Pages
+permissions:
+  contents: read
+  pages:    write
+  id-token: write
+
+# Evita deploys paralelos si hay varios pushes seguidos
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  # ── Job 1: Build ──────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Build
+        env:
+          # ── Ingetel ───────────────────────────────────────────────
+          VITE_INGETEL_URL: ${{ secrets.VITE_INGETEL_URL }}
+          VITE_INGETEL_KEY: ${{ secrets.VITE_INGETEL_KEY }}
+          # ── Agregar aquí las variables de cada nueva empresa ──────
+          # VITE_NUEVAEMPRESA_URL: ${{ secrets.VITE_NUEVAEMPRESA_URL }}
+          # VITE_NUEVAEMPRESA_KEY: ${{ secrets.VITE_NUEVAEMPRESA_KEY }}
+        run: npm run build
+
+      - name: Subir artefacto de Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  # ── Job 2: Deploy (solo en push a main, no en PRs) ───────────────
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Deploy a GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

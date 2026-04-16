@@ -1,0 +1,63 @@
+name: CI — Liquidador Nokia 2026
+ 
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+ 
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+ 
+      - name: Validar index.html
+        run: |
+          echo "Verificando index.html..."
+ 
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html no encontrado"
+            exit 1
+          fi
+ 
+          SIZE=$(wc -c < index.html)
+          echo "Tamaño: $SIZE bytes"
+          if [ "$SIZE" -lt 10000 ]; then
+            echo "ERROR: index.html parece incompleto ($SIZE bytes)"
+            exit 1
+          fi
+ 
+          for TAG in "getSupabase" "USE_SUPABASE" "syncToSupabase" "initRealtime" "doLogin" "doLogout"; do
+            if ! grep -q "$TAG" index.html; then
+              echo "ERROR: función crítica '$TAG' no encontrada"
+              exit 1
+            fi
+          done
+ 
+          echo "✓ Todas las funciones críticas presentes"
+          echo "✓ Validación completada"
+ 
+      - name: Validar archivos PWA
+        run: |
+          for FILE in "manifest.json" "icon-192x192.png" "icon-512x512.png"; do
+            if [ ! -f "$FILE" ]; then
+              echo "WARN: $FILE no encontrado"
+            else
+              echo "✓ $FILE presente"
+            fi
+          done
+ 
+      - name: Resumen
+        run: |
+          echo "### ✅ Validación OK — Deploy automático vía GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **URL** | https://erick-amaya.github.io/Nokia-Billing-Tracker/ |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Autor** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Hora** | $(TZ='America/Bogota' date '+%Y-%m-%d %H:%M COT') |" >> $GITHUB_STEP_SUMMARY
+ 
