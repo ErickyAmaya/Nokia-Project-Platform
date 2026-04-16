@@ -214,7 +214,7 @@ export default function CatalogoPage() {
   const saveCatalogCWItem   = useAppStore(s => s.saveCatalogCWItem)
   const deleteCatalogCWItem = useAppStore(s => s.deleteCatalogCWItem)
 
-  const canEdit = user?.role === 'admin' || user?.role === 'coord'
+  const canEdit = user?.role === 'admin' || user?.role === 'coordinador' || user?.role === 'coord'
 
   if (!canEdit) {
     return (
