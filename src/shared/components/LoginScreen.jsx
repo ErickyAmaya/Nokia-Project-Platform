@@ -68,7 +68,7 @@ export default function LoginScreen() {
               fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: 0.5,
               lineHeight: 1, marginBottom: empresa ? 8 : 0,
             }}>
-              {empresa ? empresa.nombre : 'INGETEL'}
+              {empresa ? empresa.nombre : 'Iniciar Sesión'}
             </div>
             {empresa && (
               <div style={{
