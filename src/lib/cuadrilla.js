@@ -10,8 +10,8 @@
  * Example: buildTiposCuadrilla('OFG')
  *   → ['TI OFG', 'TI Scytel', 'TSS OFG', 'TSS Scytel']
  */
-export function buildTiposCuadrilla(nombreCorto = 'Ingetel', extras = []) {
-  const empresa = (nombreCorto || 'Ingetel').trim()
+export function buildTiposCuadrilla(nombreCorto = 'Empresa', extras = []) {
+  const empresa = (nombreCorto || 'Empresa').trim()
   const base = [
     `TI ${empresa}`,
     `TSS ${empresa}`,

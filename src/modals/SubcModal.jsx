@@ -6,7 +6,7 @@ import { buildTiposCuadrilla } from '../lib/cuadrilla'
 
 const CATS = ['A', 'AA', 'AAA']
 
-const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: 'TI Ingetel' }
+const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: '' }
 
 export default function SubcModal({ open, onClose, subc = null }) {
   const [form,   setForm]   = useState(EMPTY)
