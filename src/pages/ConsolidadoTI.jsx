@@ -208,7 +208,7 @@ export default function ConsolidadoTI() {
               {/* Row 2 — column headers */}
               <tr>
                 <th>Sitio</th>
-                <th>Ciudad</th>
+                <th>Región</th>
                 <th>Fecha</th>
                 <th>LC</th>
                 <th>Cat</th>
@@ -259,7 +259,7 @@ export default function ConsolidadoTI() {
                     )}
                   </td>
                   <td style={{ background: '#fff' }}>
-                    <span className="badge bg-b" style={{ fontSize: 8 }}>{cityShort(s.ciudad)}</span>
+                    <span className="badge bg-b" style={{ fontSize: 8 }}>{s.ciudad ? s.ciudad.replace('Ciudad_','') : '—'}</span>
                   </td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.fecha || '—'}</td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.lc}</td>

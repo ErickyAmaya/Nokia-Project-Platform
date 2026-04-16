@@ -80,7 +80,8 @@ INSERT INTO user_roles (user_id, role, nombre) VALUES
   ('uuid-usuario-2', 'coordinador', 'Nombre Coordinador'),
   ('uuid-usuario-3', 'TI',          'Nombre Técnico TI'),
   ('uuid-usuario-4', 'TSS',         'Nombre Técnico TSS'),
-  ('uuid-usuario-5', 'CW',          'Nombre Técnico CW');
+  ('uuid-usuario-5', 'CW',          'Nombre Técnico CW'),
+  ('uuid-usuario-5', 'viewer',      'Nombre Técnico Viewer');
 ```
 
 ### Permisos por rol

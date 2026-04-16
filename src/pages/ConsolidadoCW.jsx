@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { cop, pct, mcls } from '../lib/catalog'
+import Modal from '../components/Modal'
+import { showToast } from '../components/Toast'
 
 function calcLiq(liq) {
   let totNokia = 0, totSubc = 0
@@ -28,12 +30,39 @@ const thSubc = {
 }
 
 export default function ConsolidadoCW() {
-  const [filLC,  setFilLC]  = useState('')
+  const [filLC,      setFilLC]      = useState('')
+  const [modalCW,    setModalCW]    = useState(false)
+  const [cwSitioId,  setCwSitioId]  = useState('')
+  const [cwTipo,     setCwTipo]     = useState('individual')
+  const [cwSaving,   setCwSaving]   = useState(false)
 
-  const navigate         = useNavigate()
-  const sitios           = useAppStore(s => s.sitios)
-  const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
-  const user             = useAppStore(s => s.user)
+  const navigate            = useNavigate()
+  const sitios              = useAppStore(s => s.sitios)
+  const liquidaciones_cw    = useAppStore(s => s.liquidaciones_cw)
+  const user                = useAppStore(s => s.user)
+  const updateSitioField    = useAppStore(s => s.updateSitioField)
+
+  // TI sites WITHOUT CW (candidates for Agregar CW)
+  const tiSinCW = useMemo(() =>
+    sitios.filter(s => s.tipo === 'TI' && !s.tiene_cw)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    [sitios]
+  )
+
+  async function handleAgregarCW() {
+    if (!cwSitioId) return
+    setCwSaving(true)
+    try {
+      updateSitioField(cwSitioId, 'tiene_cw',    true)
+      updateSitioField(cwSitioId, 'cw_conjunto', cwTipo === 'conjunto')
+      setModalCW(false)
+      setCwSitioId('')
+      setCwTipo('individual')
+      showToast('CW asociada al sitio')
+    } finally {
+      setCwSaving(false)
+    }
+  }
 
   // TI sites that have CW
   const tiSitiosCW = useMemo(() =>
@@ -87,13 +116,11 @@ export default function ConsolidadoCW() {
             <option value="">Todos los LC</option>
             {lcsUniq.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
-          <button
-            className="btn bp btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            onClick={() => {/* TODO: export */}}
-          >
-            ↓ Excel CW
-          </button>
+          {!['viewer','TI','TSS'].includes(user?.role) && (
+            <button className="btn bp btn-sm" onClick={() => setModalCW(true)}>
+              ＋ Agregar CW
+            </button>
+          )}
         </div>
       </div>
 
@@ -244,6 +271,61 @@ export default function ConsolidadoCW() {
           </table>
         </div>
       </div>
+
+      {/* ── Modal Agregar CW ──────────────────────────────────── */}
+      <Modal
+        open={modalCW}
+        onClose={() => { setModalCW(false); setCwSitioId(''); setCwTipo('individual') }}
+        title="🔧 Asociar CW a Sitio TI"
+        footer={
+          <>
+            <button className="btn bou" onClick={() => setModalCW(false)} disabled={cwSaving}>Cancelar</button>
+            <button className="btn bp" onClick={handleAgregarCW} disabled={cwSaving || !cwSitioId}>
+              {cwSaving ? 'Guardando…' : '✓ Agregar CW'}
+            </button>
+          </>
+        }
+      >
+        <div className="fg" style={{ marginBottom: 14 }}>
+          <label className="fl">Sitio TI *</label>
+          <select className="fc" value={cwSitioId} onChange={e => setCwSitioId(e.target.value)}>
+            <option value="">— Seleccionar sitio —</option>
+            {tiSinCW.map(s => (
+              <option key={s.id} value={s.id}>{s.nombre} — {s.lc}</option>
+            ))}
+          </select>
+          {tiSinCW.length === 0 && (
+            <div style={{ fontSize: 11, color: '#9ca89c', marginTop: 4 }}>
+              Todos los sitios TI ya tienen CW asociada.
+            </div>
+          )}
+        </div>
+
+        <div className="fg">
+          <label className="fl">Tipo de CW *</label>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            {[
+              { value: 'individual', label: 'CW Individual', desc: 'Liquidación CW separada por sitio' },
+              { value: 'conjunto',   label: 'CW en Conjunto', desc: 'CW facturada junto con TI' },
+            ].map(opt => (
+              <div
+                key={opt.value}
+                onClick={() => setCwTipo(opt.value)}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                  border: `2px solid ${cwTipo === opt.value ? '#144E4A' : '#e0e4e0'}`,
+                  background: cwTipo === opt.value ? '#f0f7f0' : '#fff',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: cwTipo === opt.value ? '#144E4A' : '#374151' }}>
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{opt.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
     </>
   )
 }

@@ -3,16 +3,16 @@ import Modal from '../components/Modal'
 import { useAppStore } from '../store/useAppStore'
 import { showToast } from '../components/Toast'
 
-const CIUDADES = [
-  { value: 'Ciudad_Principal',   label: 'Ciudad Principal' },
-  { value: 'Ciudad_Secundaria',  label: 'Ciudad Secundaria' },
-  { value: 'Ciudad_Intermedia',  label: 'Ciudad Intermedia' },
-  { value: 'Dificil Acceso',     label: 'Difícil Acceso' },
+const REGIONES = [
+  'R1 – Costa',
+  'R2 – Noroccidente',
+  'R3 – Suroccidente',
+  'R4 – Centro',
+  'R5 – Oriente',
 ]
 
 const EMPTY = {
-  nombre: '', fecha: '', ciudad: 'Ciudad_Principal',
-  lc: '', cw: 'no', cw_nokia: '',
+  nombre: '', fecha: '', region: 'R4 – Centro', lc: '',
 }
 
 export default function NuevoSitioModal({ open, onClose, onCreated }) {
@@ -24,7 +24,7 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
   const sitios     = useAppStore(s => s.sitios)
   const crearSitio = useAppStore(s => s.crearSitio)
 
-  function set(field, value) {
+  function upd(field, value) {
     setForm(f => ({ ...f, [field]: value }))
     setError('')
   }
@@ -43,19 +43,17 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
 
     setSaving(true)
     try {
-      const sub       = subcs.find(s => s.lc === form.lc)
-      const tiene_cw  = form.cw !== 'no'
-      const cw_conjunto = form.cw === 'conjunto'
+      const sub   = subcs.find(s => s.lc === form.lc)
       const sitio = await crearSitio({
-        id:      nom,
-        nombre:  nom,
-        fecha:   form.fecha,
-        ciudad:  form.ciudad,
-        lc:      form.lc,
-        cat:     sub?.cat || 'A',
-        tiene_cw,
-        cw_conjunto,
-        cw_nokia: tiene_cw ? (parseInt(form.cw_nokia) || 0) : 0,
+        id:       nom,
+        nombre:   nom,
+        fecha:    form.fecha,
+        ciudad:   form.region,   // ciudad field stores region
+        lc:       form.lc,
+        cat:      sub?.cat || 'A',
+        tiene_cw: false,
+        cw_conjunto: false,
+        cw_nokia: 0,
       })
       showToast(`Sitio ${nom} creado`)
       handleClose()
@@ -88,7 +86,7 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
             type="text" className="fc"
             placeholder="Ej: CAL.Vallegrande-3"
             value={form.nombre}
-            onChange={e => set('nombre', e.target.value)}
+            onChange={e => upd('nombre', e.target.value)}
             autoFocus
           />
         </div>
@@ -97,49 +95,27 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
           <input
             type="date" className="fc"
             value={form.fecha}
-            onChange={e => set('fecha', e.target.value)}
+            onChange={e => upd('fecha', e.target.value)}
           />
         </div>
       </div>
 
       <div className="g2">
         <div className="fg">
-          <label className="fl">Tipo Ciudad *</label>
-          <select className="fc" value={form.ciudad} onChange={e => set('ciudad', e.target.value)}>
-            {CIUDADES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          <label className="fl">Región *</label>
+          <select className="fc" value={form.region} onChange={e => upd('region', e.target.value)}>
+            {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className="fg">
           <label className="fl">LC / Subcontratista *</label>
-          <select className="fc" value={form.lc} onChange={e => set('lc', e.target.value)}>
+          <select className="fc" value={form.lc} onChange={e => upd('lc', e.target.value)}>
             <option value="">— Seleccionar LC —</option>
             {subcs.map(s => (
               <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
             ))}
           </select>
         </div>
-      </div>
-
-      <div className="g2">
-        <div className="fg">
-          <label className="fl">¿Incluye CW (Obra Civil)?</label>
-          <select className="fc" value={form.cw} onChange={e => set('cw', e.target.value)}>
-            <option value="no">No aplica</option>
-            <option value="si">Sí incluye CW</option>
-            <option value="conjunto">CW en Conjunto</option>
-          </select>
-        </div>
-        {form.cw !== 'no' && (
-          <div className="fg">
-            <label className="fl">Valor CW Nokia</label>
-            <input
-              type="number" className="fc"
-              placeholder="0" min="0"
-              value={form.cw_nokia}
-              onChange={e => set('cw_nokia', e.target.value)}
-            />
-          </div>
-        )}
       </div>
 
       {error && (

@@ -7,6 +7,13 @@ import Modal from './Modal'
 
 const CATS = ['A', 'AA', 'AAA']
 
+const TIPO_COLOR_GASTO = {
+  Logistica:       { bg: '#eff6ff', color: '#1d4ed8' },
+  Adicionales:     { bg: '#fef3c7', color: '#b45309' },
+  'Materiales TI': { bg: '#f0fdf4', color: '#166534' },
+  'Materiales CW': { bg: '#faf5ff', color: '#7e22ce' },
+}
+
 // ── Pencil SVG icon ───────────────────────────────────────────────
 function IconEdit({ size = 13 }) {
   return (
@@ -939,17 +946,21 @@ export default function TSSLiquidadorView({ sitio, calc }) {
                 <table className="tbl">
                   <thead>
                     <tr>
-                      <th>Descripción</th>
                       <th>Sub-Sitio TSS</th>
+                      <th>Tipo</th>
+                      <th>Descripción</th>
                       <th className="num">Valor</th>
                       {!isViewer && <th style={{ width: 60 }} />}
                     </tr>
                   </thead>
                   <tbody>
-                    {gastosS.map(g => (
+                    {gastosS.map(g => {
+                      const tc = TIPO_COLOR_GASTO[g.tipo] || { bg: '#f3f4f6', color: '#374151' }
+                      return (
                       <tr key={g.id}>
-                        <td style={{ fontSize: 11, color: '#000' }}>{g.desc}</td>
                         <td style={{ fontSize: 10, color: '#555' }}>{g.sub_sitio || '—'}</td>
+                        <td><span className="badge" style={{ background: tc.bg, color: tc.color, fontSize: 9 }}>{g.tipo}</span></td>
+                        <td style={{ fontSize: 11, color: '#000' }}>{g.desc}</td>
                         <td className="num fw7" style={{ color: '#000' }}>{cop(g.valor)}</td>
                         {!isViewer && (
                           <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -958,11 +969,11 @@ export default function TSSLiquidadorView({ sitio, calc }) {
                           </td>
                         )}
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                   <tfoot>
                     <tr className="tr-tot">
-                      <td colSpan={2}><strong>Total Gastos</strong></td>
+                      <td colSpan={3}><strong>Total Gastos</strong></td>
                       <td className="num fw8" style={{ color: '#000' }}>{cop(totalGastos)}</td>
                       {!isViewer && <td />}
                     </tr>

@@ -306,7 +306,7 @@ export const useAppStore = create((set, get) => ({
       nombre:   sitioData.nombre,
       tipo:     'TSS',
       fecha:    sitioData.fecha || new Date().toISOString().split('T')[0],
-      ciudad:   'varios',
+      ciudad:   sitioData.ciudad || 'varios',
       lc:       sitioData.lc,
       cat:      sitioData.cat || 'A',
       tiene_cw: false,

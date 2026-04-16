@@ -15,9 +15,18 @@ function newActividad() {
   return { tipo: 'TSS_VR', sitio: '', ciudad: 'Ciudad_Principal', cant: 1 }
 }
 
+const REGIONES = [
+  'R1 – Costa',
+  'R2 – Noroccidente',
+  'R3 – Suroccidente',
+  'R4 – Centro',
+  'R5 – Oriente',
+]
+
 export default function NuevoTSSModal({ open, onClose, onCreated }) {
   const [nombre,  setNombre]  = useState('')
   const [fecha,   setFecha]   = useState('')
+  const [region,  setRegion]  = useState('R4 – Centro')
   const [lc,      setLc]      = useState('')
   const [acts,    setActs]    = useState([newActividad()])
   const [saving,  setSaving]  = useState(false)
@@ -28,7 +37,7 @@ export default function NuevoTSSModal({ open, onClose, onCreated }) {
   const crearTSS = useAppStore(s => s.crearTSS)
 
   function handleClose() {
-    setNombre(''); setFecha(''); setLc('')
+    setNombre(''); setFecha(''); setLc(''); setRegion('R4 – Centro')
     setActs([newActividad()]); setError('')
     onClose()
   }
@@ -74,6 +83,7 @@ export default function NuevoTSSModal({ open, onClose, onCreated }) {
         nombre:      nom,
         fecha,
         lc,
+        ciudad:      region,
         cat:         sub?.cat || 'A',
         actividades: buildActividades(acts),
       })
@@ -118,14 +128,22 @@ export default function NuevoTSSModal({ open, onClose, onCreated }) {
         </div>
       </div>
 
-      <div className="fg">
-        <label className="fl">LC / Subcontratista Visita *</label>
-        <select className="fc" value={lc} onChange={e => { setLc(e.target.value); setError('') }}>
-          <option value="">— Seleccionar LC —</option>
-          {subcs.map(s => (
-            <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
-          ))}
-        </select>
+      <div className="g2">
+        <div className="fg">
+          <label className="fl">Región *</label>
+          <select className="fc" value={region} onChange={e => setRegion(e.target.value)}>
+            {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="fg">
+          <label className="fl">LC / Subcontratista Visita *</label>
+          <select className="fc" value={lc} onChange={e => { setLc(e.target.value); setError('') }}>
+            <option value="">— Seleccionar LC —</option>
+            {subcs.map(s => (
+              <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--g2)', margin: '12px 0' }} />

@@ -157,7 +157,7 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
         )}
         {/* chips de filtros activos */}
         {filters.tipo    !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Tipo: {filters.tipo}</span>}
-        {filters.cat     !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Cat: {filters.cat}</span>}
+        {filters.region  !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Región: {filters.region}</span>}
         {filters.estado  !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Estado: {filters.estado}</span>}
         {filters.lc      !== ''      && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>LC: {filters.lc}</span>}
         {filters.cuadrilla !== ''    && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Cuadrilla: {filters.cuadrilla}</span>}
@@ -192,11 +192,12 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
 
           {sep}
 
-          {/* Cat */}
+          {/* Región */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {lbl('CATEGORÍA')}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {['TODOS','A','AA','AAA'].map(v => pill('cat', v))}
+            {lbl('REGIÓN')}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {pill('region', 'TODOS', 'Todas')}
+              {REGIONES.map(v => pill('region', v, v.split('–')[0].trim()))}
             </div>
           </div>
 
@@ -592,7 +593,8 @@ function Tab4({ filteredCalcs, porLC }) {
 }
 
 // ── Página principal ─────────────────────────────────────────────
-const INIT_FILTERS = { tipo: 'TODOS', lc: '', cuadrilla: '', fechaDesde: '', fechaHasta: '', cat: 'TODOS', estado: 'TODOS' }
+const INIT_FILTERS = { tipo: 'TODOS', lc: '', cuadrilla: '', fechaDesde: '', fechaHasta: '', region: 'TODOS', estado: 'TODOS' }
+const REGIONES = ['R1 – Costa','R2 – Noroccidente','R3 – Suroccidente','R4 – Centro','R5 – Oriente']
 
 export default function AnaliticaPage() {
   const sitios           = useAppStore(s => s.sitios)
@@ -621,9 +623,8 @@ export default function AnaliticaPage() {
         const sub = subcs.find(x => x.lc === s.lc)
         if ((sub?.tipoCuadrilla || '') !== filters.cuadrilla) return false
       }
-      if (filters.cat !== 'TODOS') {
-        const cat = s.catEfectiva || s.cat || 'A'
-        if (cat !== filters.cat) return false
+      if (filters.region !== 'TODOS') {
+        if ((s.ciudad || '') !== filters.region) return false
       }
       if (filters.estado !== 'TODOS' && s.estado !== filters.estado) return false
       if (filters.fechaDesde && s.fecha && s.fecha < filters.fechaDesde) return false

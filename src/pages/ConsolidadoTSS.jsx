@@ -230,7 +230,7 @@ export default function ConsolidadoTSS() {
                 <th>Sitio</th>
                 <th>Fecha</th>
                 <th>LC Visita</th>
-                <th>Ciudad</th>
+                <th>Región</th>
                 <th>Cat</th>
                 <th className="num">Cant. Sitios</th>
                 <ThNokia>Visitas</ThNokia>
@@ -273,7 +273,7 @@ export default function ConsolidadoTSS() {
                   <td style={{ fontSize: 10 }}>{r.lcVisita || '—'}</td>
                   <td>
                     <span className="badge bg-b" style={{ fontSize: 8 }}>
-                      {(s.ciudad || '').replace('Ciudad_', '') || 'Varios'}
+                      {s.ciudad || 'Varios'}
                     </span>
                   </td>
                   <td>
