@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CAT, ZONAS, cop } from '../lib/catalog'
 import { useAppStore } from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import CatalogItemModal from '../modals/CatalogItemModal'
 import SubcModal from '../modals/SubcModal'
 import { useConfirm } from '../components/ConfirmModal'
@@ -199,6 +200,8 @@ function ConfirmDelete({ onConfirm, onCancel }) {
 
 // ── Main page ─────────────────────────────────────────────────
 export default function CatalogoPage() {
+  const user                = useAuthStore(s => s.user)
+
   const isCoord = user?.role === 'coordinador' || user?.role === 'coord'
   const [seccion,   setSeccion]   = useState(isCoord ? 'SubC' : 'BASE')
   const [zonaIdx,   setZonaIdx]   = useState(0)
@@ -206,8 +209,6 @@ export default function CatalogoPage() {
   const [viewMode,  setViewMode]  = useState('zona')
   const [modal,     setModal]     = useState(null)   // {type, item, isNew}
   const [deleting,  setDeleting]  = useState(null)   // item to delete
-
-  const user                = useAppStore(s => s.user)
   const catalogTI           = useAppStore(s => s.catalogTI)
   const catalogCW           = useAppStore(s => s.catalogCW)
   const saveCatalogTIItem   = useAppStore(s => s.saveCatalogTIItem)

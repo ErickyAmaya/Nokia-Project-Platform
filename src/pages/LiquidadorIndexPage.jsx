@@ -1,19 +1,30 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 
 export default function LiquidadorIndexPage() {
   const sitios   = useAppStore(s => s.sitios)
+  const user     = useAuthStore(s => s.user)
   const navigate = useNavigate()
   const [selected, setSelected] = useState('')
+
+  const userRole = user?.role ?? ''
+
+  const filtered = useMemo(() => {
+    if (userRole === 'TSS') return sitios.filter(s => s.tipo === 'TSS')
+    if (userRole === 'CW')  return sitios.filter(s => s.tipo === 'TI' && s.tiene_cw)
+    if (userRole === 'TI')  return sitios.filter(s => s.tipo === 'TI')
+    return sitios
+  }, [sitios, userRole])
+
+  const sorted = [...filtered].sort((a, b) => (a.nombre || a.id).localeCompare(b.nombre || b.id))
 
   function handleChange(e) {
     const id = e.target.value
     setSelected(id)
     if (id) navigate(`/liquidador/${id}`)
   }
-
-  const sorted = [...sitios].sort((a, b) => (a.nombre || a.id).localeCompare(b.nombre || b.id))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: 20 }}>
