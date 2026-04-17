@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
+
+const LS_KEY = 'liquidador_last_id'
 
 export default function LiquidadorIndexPage() {
   const sitios   = useAppStore(s => s.sitios)
@@ -19,6 +21,15 @@ export default function LiquidadorIndexPage() {
   }, [sitios, userRole])
 
   const sorted = [...filtered].sort((a, b) => (a.nombre || a.id).localeCompare(b.nombre || b.id))
+
+  // Redirigir al último sitio visitado si existe y sigue siendo accesible
+  useEffect(() => {
+    if (filtered.length === 0) return
+    const lastId = localStorage.getItem(LS_KEY)
+    if (lastId && filtered.some(s => s.id === lastId)) {
+      navigate(`/liquidador/${lastId}`, { replace: true })
+    }
+  }, [filtered, navigate])
 
   function handleChange(e) {
     const id = e.target.value

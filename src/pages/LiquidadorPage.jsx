@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment } from 'react'
+import { useMemo, useState, useEffect, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
@@ -136,11 +136,9 @@ export default function LiquidadorPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [modalAct,    setModalAct]    = useState(false)
-  const [modalGasto,  setModalGasto]  = useState(false)
-  const [gastoEdit,   setGastoEdit]   = useState(null)
-  const [siteSearch,  setSiteSearch]  = useState('')
-  const [showSearch,  setShowSearch]  = useState(false)
+  const [modalAct,   setModalAct]   = useState(false)
+  const [modalGasto, setModalGasto] = useState(false)
+  const [gastoEdit,  setGastoEdit]  = useState(null)
 
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
@@ -174,20 +172,20 @@ export default function LiquidadorPage() {
   const calc  = useMemo(() => sitio ? calcSitio(sitio, gastos, subcs, catalogTI, liquidaciones_cw) : null, [sitio, gastos, subcs, catalogTI, liquidaciones_cw])
   const gastosS = useMemo(() => gastos.filter(g => g.sitio === id), [gastos, id])
 
-  // Site search list filtered by role
-  const tiSitios = useMemo(() => {
-    if (userRole === 'TSS') return sitios.filter(s => s.tipo === 'TSS' && s.id !== id)
-    if (userRole === 'CW')  return sitios.filter(s => s.tipo === 'TI' && s.tiene_cw && s.id !== id)
-    if (userRole === 'TI')  return sitios.filter(s => s.tipo === 'TI' && s.id !== id)
-    return sitios.filter(s => s.id !== id)
+  // Guardar último sitio visitado
+  useEffect(() => { localStorage.setItem('liquidador_last_id', id) }, [id])
+
+  // Selector de sitios filtrado por rol (excluye el sitio actual)
+  const selectorSitios = useMemo(() => {
+    let list
+    if (userRole === 'TSS') list = sitios.filter(s => s.tipo === 'TSS')
+    else if (userRole === 'CW')  list = sitios.filter(s => s.tipo === 'TI' && s.tiene_cw)
+    else if (userRole === 'TI')  list = sitios.filter(s => s.tipo === 'TI')
+    else list = sitios
+    return list
+      .filter(s => s.id !== id)
+      .sort((a, b) => (a.nombre || a.id).localeCompare(b.nombre || b.id))
   }, [sitios, id, userRole])
-  const filteredSites = useMemo(() => {
-    if (!siteSearch.trim()) return tiSitios.slice(0, 12)
-    const q = siteSearch.toLowerCase()
-    return tiSitios.filter(s =>
-      s.nombre?.toLowerCase().includes(q) || s.id?.toLowerCase().includes(q)
-    ).slice(0, 12)
-  }, [tiSitios, siteSearch])
 
   const allCatalog = useMemo(() => [...CAT.BASE, ...CAT.ADJ, ...CAT.CR], [])
 
@@ -289,53 +287,21 @@ export default function LiquidadorPage() {
             <button className="btn bou btn-sm" onClick={() => navigate(-1)}>
               ← Volver
             </button>
-            {/* ── Site search ── */}
-            <div style={{ position: 'relative' }}>
-              <button
-                className="btn bou btn-sm"
-                onClick={() => { setShowSearch(v => !v); setSiteSearch('') }}
-                title="Buscar sitio"
-              >
-                🔍 Buscar sitio
-              </button>
-              {showSearch && (
-                <div style={{
-                  position: 'absolute', top: '110%', left: 0, zIndex: 200,
-                  background: '#fff', border: '1px solid #d1d5db', borderRadius: 8,
-                  boxShadow: '0 4px 20px rgba(0,0,0,.15)', width: 280, padding: 8,
-                }}>
-                  <input
-                    autoFocus
-                    placeholder="Nombre o ID del sitio…"
-                    value={siteSearch}
-                    onChange={e => setSiteSearch(e.target.value)}
-                    style={{
-                      width: '100%', padding: '6px 10px', fontSize: 12,
-                      border: '1px solid #d1d5db', borderRadius: 6,
-                      boxSizing: 'border-box', marginBottom: 6,
-                    }}
-                  />
-                  {filteredSites.length === 0 && (
-                    <div style={{ fontSize: 11, color: '#9ca89c', padding: '4px 6px' }}>Sin resultados</div>
-                  )}
-                  {filteredSites.map(s => (
-                    <div
-                      key={s.id}
-                      onClick={() => { navigate(`/liquidador/${s.id}${isCWUser ? '?view=cw' : ''}`); setShowSearch(false) }}
-                      style={{
-                        padding: '6px 10px', fontSize: 11, cursor: 'pointer',
-                        borderRadius: 5, display: 'flex', justifyContent: 'space-between',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f0f7f0'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <span style={{ fontWeight: 600 }}>{s.nombre || s.id}</span>
-                      <span style={{ fontSize: 10, color: '#9ca89c' }}>{s.cat || ''}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* ── Site selector ── */}
+            <select
+              value=""
+              onChange={e => { if (e.target.value) navigate(`/liquidador/${e.target.value}${isCWUser ? '?view=cw' : ''}`) }}
+              style={{
+                padding: '4px 8px', fontSize: 11, fontFamily: "'Barlow', sans-serif",
+                border: '1px solid #d1d5db', borderRadius: 6, color: '#144E4A',
+                background: '#fff', cursor: 'pointer', maxWidth: 220,
+              }}
+            >
+              <option value="">— Ir a otro sitio —</option>
+              {selectorSitios.map(s => (
+                <option key={s.id} value={s.id}>{s.nombre || s.id} ({s.tipo})</option>
+              ))}
+            </select>
           </div>
         </div>
         {/* Site name + badges row */}
