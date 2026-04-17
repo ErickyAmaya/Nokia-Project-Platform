@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { calcSitio, hasSN } from '../lib/calcSitio'
 import { cop, pct, mcls, mfcls, MESES_FULL } from '../lib/catalog'
 import { buildTCOptions, matchTipoCuadrilla, buildTiposCuadrilla, sinExternas } from '../lib/cuadrilla'
@@ -112,7 +113,7 @@ export default function Dashboard() {
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
   const empresaConfig    = useAppStore(s => s.empresaConfig)
-  const user         = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const navigate     = useNavigate()
 
   const isAdmin  = user?.role === 'admin'

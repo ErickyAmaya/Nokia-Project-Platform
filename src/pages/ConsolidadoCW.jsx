@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { cop, pct, mcls } from '../lib/catalog'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
@@ -40,7 +41,7 @@ export default function ConsolidadoCW() {
   const navigate            = useNavigate()
   const sitios              = useAppStore(s => s.sitios)
   const liquidaciones_cw    = useAppStore(s => s.liquidaciones_cw)
-  const user                = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const updateSitioField    = useAppStore(s => s.updateSitioField)
   const quitarCW            = useAppStore(s => s.quitarCW)
   const { confirm, ConfirmModalUI } = useConfirm()

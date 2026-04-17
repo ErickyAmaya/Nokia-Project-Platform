@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { cop, pct, mcls, ZONAS } from '../lib/catalog'
 import { useConfirm } from './ConfirmModal'
 import { showToast } from './Toast'
@@ -593,7 +594,7 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   const addActividad    = useAppStore(s => s.addActividad)
   const deleteActividad = useAppStore(s => s.deleteActividad)
   const updateSitioField = useAppStore(s => s.updateSitioField)
-  const user            = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const isViewer = user?.role === 'viewer'

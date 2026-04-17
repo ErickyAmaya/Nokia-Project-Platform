@@ -1,6 +1,7 @@
 import { useMemo, useState, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, mcls, CAT } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
@@ -146,7 +147,7 @@ export default function LiquidadorPage() {
   const subcs            = useAppStore(s => s.subcs)
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
-  const user             = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const updateSitioAct   = useAppStore(s => s.updateSitioAct)
   const addActividad     = useAppStore(s => s.addActividad)
   const deleteActividad  = useAppStore(s => s.deleteActividad)

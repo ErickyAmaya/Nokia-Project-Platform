@@ -4,7 +4,8 @@ import {
   LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, ReferenceLine, Treemap,
 } from 'recharts'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, MESES } from '../lib/catalog'
 
@@ -602,7 +603,7 @@ export default function AnaliticaPage() {
   const subcs            = useAppStore(s => s.subcs)
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
-  const user             = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
 
   // Auto-apply tipo filter for role-based views
   const roleFilter = useMemo(() => {

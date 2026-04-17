@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { calcSitio, hasSN } from '../lib/calcSitio'
 import { getPrecio, cop } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
@@ -58,7 +59,7 @@ export default function ConsolidadoTI() {
   const subcs            = useAppStore(s => s.subcs)
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
-  const user             = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const eliminarSitio    = useAppStore(s => s.eliminarSitio)
 
   const isViewer = user?.role === 'viewer'

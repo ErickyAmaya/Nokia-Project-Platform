@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { cop } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
@@ -22,7 +23,7 @@ export default function GastosPage() {
 
   const sitios        = useAppStore(s => s.sitios)
   const gastos        = useAppStore(s => s.gastos)
-  const user          = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
   const eliminarGasto = useAppStore(s => s.eliminarGasto)
 
   const { confirm, ConfirmModalUI } = useConfirm()

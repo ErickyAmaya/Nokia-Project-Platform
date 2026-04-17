@@ -12,7 +12,8 @@ function IconEdit({ size = 13 }) {
   )
 }
 import { v4 as uuidv4 } from 'uuid'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }  from '../store/useAppStore'
+import { useAuthStore } from '../store/authStore'
 import { cop, pct, mfcls } from '../lib/catalog'
 import { useConfirm } from './ConfirmModal'
 import { showToast } from './Toast'
@@ -258,7 +259,7 @@ export default function CWLiquidadorView({ sitio }) {
   const saveLiqCW        = useAppStore(s => s.saveLiqCW)
   const marcarFinalLiqCW = useAppStore(s => s.marcarFinalLiqCW)
   const subcs            = useAppStore(s => s.subcs)
-  const user             = useAppStore(s => s.user)
+  const user             = useAuthStore(s => s.user)
 
   const [modalAdd,    setModalAdd]    = useState(false)
   const [editItem,    setEditItem]    = useState(null)

@@ -44,7 +44,7 @@ function W(page) {
 }
 
 function RoleHome() {
-  const user = useAppStore(s => s.user)
+  const user = useAuthStore(s => s.user)
   const role = user?.role
   if (role === 'TI')  return <Navigate to="/ti"             replace />
   if (role === 'TSS') return <Navigate to="/tss"            replace />
