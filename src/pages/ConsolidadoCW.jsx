@@ -126,7 +126,7 @@ export default function ConsolidadoCW() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700, margin: 0 }}>
-            Consolidado — Obra Civil (CW)
+          Consolidado — CW ({stats.count})
           </h1>
           <button className="btn bou btn-sm" onClick={() => navigate('/dashboard')}>
             ← Dashboard
@@ -142,35 +142,6 @@ export default function ConsolidadoCW() {
               ＋ Agregar CW
             </button>
           )}
-        </div>
-      </div>
-
-      {/* ── Stats cards ────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
-        <div className="card" style={{ border: '1px solid #e0e4e0' }}>
-          <div className="card-b" style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#555f55', marginBottom: 6 }}>
-              Liquidaciones CW
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: '#144E4A', lineHeight: 1 }}>{stats.count}</div>
-            <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 4 }}>{stats.finales} finales</div>
-          </div>
-        </div>
-        <div className="card" style={{ border: '1px solid #c6e4c6' }}>
-          <div className="card-b" style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#144E4A', marginBottom: 6 }}>
-              Venta Nokia CW
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#144E4A' }}>{cop(stats.tN)}</div>
-          </div>
-        </div>
-        <div className="card" style={{ border: '1px solid #fde68a' }}>
-          <div className="card-b" style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#b45309', marginBottom: 6 }}>
-              Costo SubC CW
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#b45309' }}>{cop(stats.tS)}</div>
-          </div>
         </div>
       </div>
 

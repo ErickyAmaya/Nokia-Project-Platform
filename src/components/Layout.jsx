@@ -66,23 +66,6 @@ export default function Layout({ children }) {
 
   const role = user?.role || 'viewer'
 
-  // Label dinámico con conteo para usuarios TI/TSS/CW
-  function navLabel(item) {
-    if (role === 'TI' && item.id === 'ti') {
-      const n = sitios.filter(s => s.tipo === 'TI').length
-      return `Consolidado — Sitios TI (${n})`
-    }
-    if (role === 'TSS' && item.id === 'tss') {
-      const n = sitios.filter(s => s.tipo === 'TSS').length
-      return `Consolidado TSS (${n})`
-    }
-    if (role === 'CW' && item.id === 'cw-consolidado') {
-      const n = sitios.filter(s => s.tipo === 'TI' && s.tiene_cw).length
-      return `Consolidado — CW (${n})`
-    }
-    return item.label
-  }
-
   // Filtra nav items según el rol actual
   function canSee(item) {
     if (!item.roles) return true          // sin restricción
@@ -189,7 +172,7 @@ export default function Layout({ children }) {
               textDecoration: 'none', display: 'inline-block',
             })}
           >
-            {navLabel(item)}
+            {item.label}
           </NavLink>
         ))}
       </nav>
@@ -227,7 +210,7 @@ export default function Layout({ children }) {
             style={{ textDecoration: 'none' }}
           >
             <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-            {navLabel(item)}
+            {item.label}
           </NavLink>
         ))}
 

@@ -170,7 +170,7 @@ export default function ConsolidadoTSS() {
       {/* ── Header ─────────────────────────────────────────── */}
       <div className="fb mb14">
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700 }}>
-          Consolidado TSS
+          Consolidado TSS ({filtered.length})
         </h1>
         <div className="flex gap8" style={{ flexWrap: 'wrap' }}>
           <select className="fc" style={{ width: 175 }} value={filLCVis} onChange={e => setFilLCVis(e.target.value)}>

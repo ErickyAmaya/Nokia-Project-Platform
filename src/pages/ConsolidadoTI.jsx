@@ -147,7 +147,7 @@ export default function ConsolidadoTI() {
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="fb mb14">
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700 }}>
-          Consolidado — Sitios TI
+          Consolidado — Sitios TI ({filtered.length})
         </h1>
         <div className="flex gap8" style={{ flexWrap: 'wrap' }}>
           <input
