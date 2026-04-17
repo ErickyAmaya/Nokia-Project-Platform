@@ -262,12 +262,6 @@ export default function ConsolidadoCW() {
                       }
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <button
-                        className="btn-del"
-                        style={{ background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd', marginRight: 4 }}
-                        onClick={() => navigate(`/liquidador/${s.id}?view=cw`)}
-                        title="Abrir liquidador CW"
-                      >↗</button>
                       {!isViewer && liq?.estado !== 'final' && (
                         <button
                           className="btn-del"

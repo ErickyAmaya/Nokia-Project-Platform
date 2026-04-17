@@ -34,9 +34,10 @@ function PageLoader() {
 const R_TI      = ['admin', 'coordinador', 'TI',  'viewer']
 const R_TSS     = ['admin', 'coordinador', 'TSS', 'viewer']
 const R_CW      = ['admin', 'coordinador', 'CW',  'viewer']
-const R_ADMIN   = ['admin']
-const R_CATALOG = ['admin', 'coordinador']
-const R_MGMT    = ['admin', 'coordinador', 'viewer']
+const R_ADMIN    = ['admin']
+const R_CATALOG  = ['admin', 'coordinador']
+const R_MGMT     = ['admin', 'coordinador', 'viewer']
+const R_ANALITICA = ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW']
 
 function W(page) {
   return <Layout><Suspense fallback={<PageLoader />}>{page}</Suspense></Layout>
@@ -88,7 +89,7 @@ function AppRoutes() {
       } />
 
       <Route path="/analitica" element={
-        <ProtectedRoute allowedRoles={R_MGMT}>{W(<AnaliticaPage />)}</ProtectedRoute>
+        <ProtectedRoute allowedRoles={R_ANALITICA}>{W(<AnaliticaPage />)}</ProtectedRoute>
       } />
 
       <Route path="/catalogo" element={

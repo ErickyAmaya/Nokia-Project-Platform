@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer,
@@ -186,7 +186,7 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {lbl('TIPO')}
             <div style={{ display: 'flex', gap: 4 }}>
-              {['TODOS','TI','TSS'].map(v => pill('tipo', v))}
+              {['TODOS','TI','TSS','CW'].map(v => pill('tipo', v))}
             </div>
           </div>
 
@@ -602,12 +602,28 @@ export default function AnaliticaPage() {
   const subcs            = useAppStore(s => s.subcs)
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
+  const user             = useAppStore(s => s.user)
 
-  const [filters, setFilters] = useState(INIT_FILTERS)
+  // Auto-apply tipo filter for role-based views
+  const roleFilter = useMemo(() => {
+    if (user?.role === 'TI')  return 'TI'
+    if (user?.role === 'TSS') return 'TSS'
+    if (user?.role === 'CW')  return 'CW'
+    return 'TODOS'
+  }, [user?.role])
+
+  const [filters, setFilters] = useState(() => ({ ...INIT_FILTERS, tipo: roleFilter }))
   const [tab, setTab]         = useState(1)
 
+  // Keep filter in sync if role changes (login switch)
+  useEffect(() => {
+    if (roleFilter !== 'TODOS') setFilters(f => ({ ...f, tipo: roleFilter }))
+  }, [roleFilter])
+
   function setFilter(field, value) {
-    if (field === '__reset__') { setFilters(INIT_FILTERS); return }
+    if (field === '__reset__') { setFilters({ ...INIT_FILTERS, tipo: roleFilter }); return }
+    // Role-restricted users cannot change the tipo filter
+    if (field === 'tipo' && roleFilter !== 'TODOS') return
     setFilters(f => ({ ...f, [field]: value }))
   }
 
@@ -617,6 +633,7 @@ export default function AnaliticaPage() {
       if (filters.tipo !== 'TODOS') {
         if (filters.tipo === 'TSS' && s.tipo !== 'TSS') return false
         if (filters.tipo === 'TI'  && s.tipo === 'TSS') return false
+        if (filters.tipo === 'CW'  && !s.tiene_cw) return false
       }
       if (filters.lc && s.lc !== filters.lc) return false
       if (filters.cuadrilla) {

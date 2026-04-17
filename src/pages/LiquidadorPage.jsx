@@ -188,10 +188,11 @@ export default function LiquidadorPage() {
     )
   }
 
-  const isFinal = sitio.estado === 'final'
-  const isTSS   = sitio.tipo === 'TSS'
-  const liqCW   = liquidaciones_cw.find(l => l.sitio_id === id)
-  const view    = searchParams.get('view') || 'ti'
+  const isFinal  = sitio.estado === 'final'
+  const isTSS    = sitio.tipo === 'TSS'
+  const isCWUser = user?.role === 'CW'
+  const liqCW    = liquidaciones_cw.find(l => l.sitio_id === id)
+  const view     = searchParams.get('view') || (isCWUser ? 'cw' : 'ti')
 
   // CW values — always from the CW liquidador
   const liqCWItems = liqCW?.items || []
@@ -455,8 +456,8 @@ export default function LiquidadorPage() {
         </div>
       )}
 
-      {/* ── Tab bar (only for TI sites with CW) ─────────── */}
-      {!isTSS && sitio.tiene_cw && (
+      {/* ── Tab bar (only for TI sites with CW, and not pure CW users) ─────────── */}
+      {!isTSS && sitio.tiene_cw && !isCWUser && (
         <div style={{
           display: 'flex', gap: 2, marginBottom: 14,
           background: '#fff', borderRadius: 8, padding: 4,
@@ -493,7 +494,7 @@ export default function LiquidadorPage() {
       {isTSS && <TSSLiquidadorView sitio={sitio} calc={calc} />}
 
       {/* ── Dual column: Nokia (left) | SubC (right) ─────── */}
-      {!isTSS && view !== 'cw' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+      {!isTSS && view !== 'cw' && !isCWUser && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
 
         {/* ══════════════ LEFT — NOKIA ══════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

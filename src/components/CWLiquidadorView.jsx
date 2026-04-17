@@ -256,7 +256,6 @@ export default function CWLiquidadorView({ sitio }) {
   const catalogCW        = useAppStore(s => s.catalogCW)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
   const saveLiqCW        = useAppStore(s => s.saveLiqCW)
-  const deleteLiqCW      = useAppStore(s => s.deleteLiqCW)
   const marcarFinalLiqCW = useAppStore(s => s.marcarFinalLiqCW)
   const subcs            = useAppStore(s => s.subcs)
   const user             = useAppStore(s => s.user)
@@ -362,13 +361,6 @@ export default function CWLiquidadorView({ sitio }) {
     showToast('↩ Liquidación CW reabierta')
   }
 
-  async function handleEliminarLiq() {
-    if (!liq) return
-    const ok = await confirm('Eliminar Liquidación CW', `¿Eliminar toda la liquidación CW de ${sitio.nombre}?`)
-    if (!ok) return
-    await deleteLiqCW(liq.id)
-    showToast('Liquidación CW eliminada')
-  }
 
   if (!liq) {
     return <div style={{ padding: 32, textAlign: 'center', color: '#9ca89c' }}>Inicializando liquidación CW…</div>
@@ -608,16 +600,6 @@ export default function CWLiquidadorView({ sitio }) {
           </div>
         </div>
 
-        {canWrite && (
-          <div className="card">
-            <div className="card-h"><h2>Acciones</h2></div>
-            <div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button className="btn" style={{ background: '#fff0f0', color: '#c0392b', border: '1px solid #fca5a5' }} onClick={handleEliminarLiq}>
-                🗑 Eliminar Liquidación CW
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <AddItemModal
