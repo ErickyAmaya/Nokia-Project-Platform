@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore'
 import { cop, pct, mcls } from '../lib/catalog'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmModal'
 
 function calcLiq(liq) {
   let totNokia = 0, totSubc = 0
@@ -41,6 +42,8 @@ export default function ConsolidadoCW() {
   const liquidaciones_cw    = useAppStore(s => s.liquidaciones_cw)
   const user                = useAppStore(s => s.user)
   const updateSitioField    = useAppStore(s => s.updateSitioField)
+  const quitarCW            = useAppStore(s => s.quitarCW)
+  const { confirm, ConfirmModalUI } = useConfirm()
 
   // TI sites WITHOUT CW (candidates for Agregar CW)
   const tiSinCW = useMemo(() =>
@@ -48,6 +51,20 @@ export default function ConsolidadoCW() {
       .sort((a, b) => a.nombre.localeCompare(b.nombre)),
     [sitios]
   )
+
+  async function handleQuitarCW(s) {
+    const ok = await confirm(
+      'Quitar CW',
+      `¿Quitar la liquidación CW de "${s.nombre}"? Se eliminará toda la liquidación CW y el sitio quedará sin CW.`
+    )
+    if (!ok) return
+    try {
+      await quitarCW(s.id)
+      showToast(`CW eliminada de ${s.nombre}`)
+    } catch (e) {
+      showToast('Error: ' + (e.message || ''), 'err')
+    }
+  }
 
   async function handleAgregarCW() {
     if (!cwSitioId) return
@@ -242,13 +259,20 @@ export default function ConsolidadoCW() {
                         : <span style={{ color: '#ccc', fontSize: 10 }}>0.0%</span>
                       }
                     </td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       <button
                         className="btn-del"
-                        style={{ fontSize: 11, fontWeight: 700 }}
+                        style={{ background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd', marginRight: 4 }}
                         onClick={() => navigate(`/liquidador/${s.id}?view=cw`)}
                         title="Abrir liquidador CW"
-                      >×</button>
+                      >↗</button>
+                      {!isViewer && liq?.estado !== 'final' && (
+                        <button
+                          className="btn-del"
+                          onClick={() => handleQuitarCW(s)}
+                          title="Quitar CW"
+                        >✕</button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -274,6 +298,7 @@ export default function ConsolidadoCW() {
       </div>
 
       {/* ── Modal Agregar CW ──────────────────────────────────── */}
+      <ConfirmModalUI />
       <Modal
         open={modalCW}
         onClose={() => { setModalCW(false); setCwSitioId(''); setCwTipo('individual') }}

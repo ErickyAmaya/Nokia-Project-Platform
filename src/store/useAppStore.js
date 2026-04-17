@@ -516,6 +516,25 @@ export const useAppStore = create((set, get) => ({
     set(s => ({ liquidaciones_cw: s.liquidaciones_cw.filter(l => l.id !== liqId) }))
   },
 
+  quitarCW: async (sitioId) => {
+    const { liquidaciones_cw } = get()
+    const liq = liquidaciones_cw.find(l => l.sitio_id === sitioId)
+    if (liq) {
+      await supabase.from('liquidaciones_cw').delete().eq('id', liq.id)
+    }
+    const { error } = await supabase.from('sitios').update({
+      tiene_cw: false, cw_conjunto: false, cw_nokia: 0, cw_costo: 0,
+    }).eq('id', sitioId)
+    if (error) throw error
+    set(s => ({
+      liquidaciones_cw: s.liquidaciones_cw.filter(l => l.sitio_id !== sitioId),
+      sitios: s.sitios.map(x => x.id === sitioId
+        ? { ...x, tiene_cw: false, cw_conjunto: false, cw_nokia: 0, cw_costo: 0 }
+        : x
+      ),
+    }))
+  },
+
   marcarFinalLiqCW: async (id, estado) => {
     const liq = get().liquidaciones_cw.find(l => l.id === id)
     if (!liq) return
