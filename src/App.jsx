@@ -14,6 +14,7 @@ import ConsolidadoCW    from './pages/ConsolidadoCW'
 import GastosPage       from './pages/GastosPage'
 import LiquidadorPage   from './pages/LiquidadorPage'
 import LiquidadorIndexPage from './pages/LiquidadorIndexPage'
+import ModuloHomePage      from './pages/ModuloHomePage'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -67,8 +68,14 @@ function W(page) {
 }
 
 function RoleHome() {
-  const user = useAuthStore(s => s.user)
-  const role = user?.role
+  const user   = useAuthStore(s => s.user)
+  const role   = user?.role
+  const modulo = user?.modulo
+
+  // Admin/coordinador con acceso a todos los módulos → selector de módulos
+  if (modulo === 'all') return <Navigate to="/modulos" replace />
+
+  // Resto: redirigir según rol dentro de Billing
   if (role === 'TI')  return <Navigate to="/ti"             replace />
   if (role === 'TSS') return <Navigate to="/tss"            replace />
   if (role === 'CW')  return <Navigate to="/cw-consolidado" replace />
@@ -82,6 +89,12 @@ function AppRoutes() {
 
       <Route path="/" element={
         <ProtectedRoute><Layout><RoleHome /></Layout></ProtectedRoute>
+      } />
+
+      <Route path="/modulos" element={
+        <ProtectedRoute allowedRoles={['admin','coordinador']}>
+          <Layout><ModuloHomePage /></Layout>
+        </ProtectedRoute>
       } />
 
       <Route path="/dashboard" element={

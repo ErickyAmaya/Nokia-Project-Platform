@@ -76,17 +76,18 @@ export const useAuthStore = create((set, get) => ({
 
     const { data: roleData } = await client
       .from('user_roles')
-      .select('role, nombre')
+      .select('role, nombre, modulo')
       .eq('user_id', data.user.id)
       .single()
 
     const role   = normalizeRole(roleData?.role)
     const nombre = roleData?.nombre || email
+    const modulo = roleData?.modulo || 'billing'
 
     // Persistir dominio para restaurar sesión al recargar
     localStorage.setItem(LS_DOMAIN_KEY, domain)
 
-    const user = { id: data.user.id, email, nombre, role }
+    const user = { id: data.user.id, email, nombre, role, modulo }
     set({ session: data.session, user, empresa })
     return nombre
   },
@@ -117,17 +118,18 @@ export const useAuthStore = create((set, get) => ({
 
       const { data: roleData } = await client
         .from('user_roles')
-        .select('role, nombre')
+        .select('role, nombre, modulo')
         .eq('user_id', session.user.id)
         .single()
 
       const role   = normalizeRole(roleData?.role)
       const nombre = roleData?.nombre || session.user.email
+      const modulo = roleData?.modulo || 'billing'
 
       set({
         session,
         empresa,
-        user: { id: session.user.id, email: session.user.email, nombre, role },
+        user: { id: session.user.id, email: session.user.email, nombre, role, modulo },
       })
     } catch (e) {
       console.warn('[authStore] initSession error:', e)
