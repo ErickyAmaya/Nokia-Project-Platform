@@ -164,14 +164,20 @@ export default function LiquidadorPage() {
   const isViewer = user?.role === 'viewer'
   const isAdmin  = user?.role === 'admin'
   const isCoord  = user?.role === 'coord'
+  const isTIUser  = user?.role === 'TI'
+  const isTSSUser = user?.role === 'TSS'
 
   const sitio = sitios.find(s => s.id === id)
   const calc  = useMemo(() => sitio ? calcSitio(sitio, gastos, subcs, catalogTI, liquidaciones_cw) : null, [sitio, gastos, subcs, catalogTI, liquidaciones_cw])
   const gastosS = useMemo(() => gastos.filter(g => g.sitio === id), [gastos, id])
 
-  // Site search list (TI sites only, excluding current)
-  const tiSitios = useMemo(() =>
-    sitios.filter(s => s.tipo === 'TI' && s.id !== id), [sitios, id])
+  // Site search list filtered by role
+  const tiSitios = useMemo(() => {
+    if (isTSSUser) return sitios.filter(s => s.tipo === 'TSS' && s.id !== id)
+    if (isCWUser)  return sitios.filter(s => s.tipo === 'TI' && s.tiene_cw && s.id !== id)
+    if (isTIUser)  return sitios.filter(s => s.tipo === 'TI' && s.id !== id)
+    return sitios.filter(s => s.id !== id)
+  }, [sitios, id, isTSSUser, isCWUser, isTIUser])
   const filteredSites = useMemo(() => {
     if (!siteSearch.trim()) return tiSitios.slice(0, 12)
     const q = siteSearch.toLowerCase()
@@ -312,7 +318,7 @@ export default function LiquidadorPage() {
                   {filteredSites.map(s => (
                     <div
                       key={s.id}
-                      onClick={() => { navigate(`/liquidador/${s.id}`); setShowSearch(false) }}
+                      onClick={() => { navigate(`/liquidador/${s.id}${isCWUser ? '?view=cw' : ''}`); setShowSearch(false) }}
                       style={{
                         padding: '6px 10px', fontSize: 11, cursor: 'pointer',
                         borderRadius: 5, display: 'flex', justifyContent: 'space-between',
@@ -456,8 +462,8 @@ export default function LiquidadorPage() {
         </div>
       )}
 
-      {/* ── Tab bar (only for TI sites with CW, and not pure CW users) ─────────── */}
-      {!isTSS && sitio.tiene_cw && !isCWUser && (
+      {/* ── Tab bar (only for admin/coord on TI sites with CW) ─────────── */}
+      {!isTSS && sitio.tiene_cw && !isCWUser && !isTIUser && !isTSSUser && (
         <div style={{
           display: 'flex', gap: 2, marginBottom: 14,
           background: '#fff', borderRadius: 8, padding: 4,
@@ -491,10 +497,10 @@ export default function LiquidadorPage() {
       )}
 
       {/* ── TSS Liquidador view ───────────────────────── */}
-      {isTSS && <TSSLiquidadorView sitio={sitio} calc={calc} />}
+      {isTSS && !isTIUser && <TSSLiquidadorView sitio={sitio} calc={calc} />}
 
       {/* ── Dual column: Nokia (left) | SubC (right) ─────── */}
-      {!isTSS && view !== 'cw' && !isCWUser && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+      {!isTSS && view !== 'cw' && !isCWUser && !isTSSUser && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
 
         {/* ══════════════ LEFT — NOKIA ══════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

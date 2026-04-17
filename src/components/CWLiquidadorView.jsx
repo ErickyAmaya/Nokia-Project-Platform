@@ -385,13 +385,6 @@ export default function CWLiquidadorView({ sitio }) {
               ? <span className="badge" style={{ background: '#1a7a1a', color: '#fff', fontSize: 9 }}>✓ FINAL</span>
               : <span className="badge" style={{ background: '#d68910', color: '#fff', fontSize: 9 }}>⏳ PRE</span>
             }
-            {canWrite && (
-              <button
-                className="btn btn-sm"
-                style={{ background: '#fff0f0', color: '#c0392b', border: '1px solid #fca5a5', fontSize: 9 }}
-                onClick={handleEliminarLiq}
-              >🗑</button>
-            )}
           </div>
         </div>
         <div className="card-b">

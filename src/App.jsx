@@ -43,13 +43,22 @@ function W(page) {
   return <Layout><Suspense fallback={<PageLoader />}>{page}</Suspense></Layout>
 }
 
+function RoleHome() {
+  const user = useAppStore(s => s.user)
+  const role = user?.role
+  if (role === 'TI')  return <Navigate to="/ti"             replace />
+  if (role === 'TSS') return <Navigate to="/tss"            replace />
+  if (role === 'CW')  return <Navigate to="/cw-consolidado" replace />
+  return <Navigate to="/dashboard" replace />
+}
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/" element={
-        <ProtectedRoute><Layout><Navigate to="/dashboard" replace /></Layout></ProtectedRoute>
+        <ProtectedRoute><Layout><RoleHome /></Layout></ProtectedRoute>
       } />
 
       <Route path="/dashboard" element={
