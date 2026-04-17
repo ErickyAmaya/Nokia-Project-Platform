@@ -161,11 +161,12 @@ export default function LiquidadorPage() {
 
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const isViewer = user?.role === 'viewer'
-  const isAdmin  = user?.role === 'admin'
-  const isCoord  = user?.role === 'coord'
+  const isViewer  = user?.role === 'viewer'
+  const isAdmin   = user?.role === 'admin'
+  const isCoord   = user?.role === 'coord'
   const isTIUser  = user?.role === 'TI'
   const isTSSUser = user?.role === 'TSS'
+  const isCWUser  = user?.role === 'CW'
 
   const sitio = sitios.find(s => s.id === id)
   const calc  = useMemo(() => sitio ? calcSitio(sitio, gastos, subcs, catalogTI, liquidaciones_cw) : null, [sitio, gastos, subcs, catalogTI, liquidaciones_cw])
@@ -196,7 +197,6 @@ export default function LiquidadorPage() {
 
   const isFinal  = sitio.estado === 'final'
   const isTSS    = sitio.tipo === 'TSS'
-  const isCWUser = user?.role === 'CW'
   const liqCW    = liquidaciones_cw.find(l => l.sitio_id === id)
   const view     = searchParams.get('view') || (isCWUser ? 'cw' : 'ti')
 
