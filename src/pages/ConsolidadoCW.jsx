@@ -45,6 +45,8 @@ export default function ConsolidadoCW() {
   const quitarCW            = useAppStore(s => s.quitarCW)
   const { confirm, ConfirmModalUI } = useConfirm()
 
+  const isViewer = user?.role === 'viewer'
+
   // TI sites WITHOUT CW (candidates for Agregar CW)
   const tiSinCW = useMemo(() =>
     sitios.filter(s => s.tipo === 'TI' && !s.tiene_cw)
