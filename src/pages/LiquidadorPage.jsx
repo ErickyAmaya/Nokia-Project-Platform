@@ -162,12 +162,13 @@ export default function LiquidadorPage() {
 
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const isViewer  = user?.role === 'viewer'
-  const isAdmin   = user?.role === 'admin'
-  const isCoord   = user?.role === 'coord'
-  const isTIUser  = user?.role === 'TI'
-  const isTSSUser = user?.role === 'TSS'
-  const isCWUser  = user?.role === 'CW'
+  const userRole  = user?.role ?? ''
+  const isViewer  = userRole === 'viewer'
+  const isAdmin   = userRole === 'admin'
+  const isCoord   = userRole === 'coord'
+  const isTIUser  = userRole === 'TI'
+  const isTSSUser = userRole === 'TSS'
+  const isCWUser  = userRole === 'CW'
 
   const sitio = sitios.find(s => s.id === id)
   const calc  = useMemo(() => sitio ? calcSitio(sitio, gastos, subcs, catalogTI, liquidaciones_cw) : null, [sitio, gastos, subcs, catalogTI, liquidaciones_cw])
@@ -175,11 +176,11 @@ export default function LiquidadorPage() {
 
   // Site search list filtered by role
   const tiSitios = useMemo(() => {
-    if (isTSSUser) return sitios.filter(s => s.tipo === 'TSS' && s.id !== id)
-    if (isCWUser)  return sitios.filter(s => s.tipo === 'TI' && s.tiene_cw && s.id !== id)
-    if (isTIUser)  return sitios.filter(s => s.tipo === 'TI' && s.id !== id)
+    if (userRole === 'TSS') return sitios.filter(s => s.tipo === 'TSS' && s.id !== id)
+    if (userRole === 'CW')  return sitios.filter(s => s.tipo === 'TI' && s.tiene_cw && s.id !== id)
+    if (userRole === 'TI')  return sitios.filter(s => s.tipo === 'TI' && s.id !== id)
     return sitios.filter(s => s.id !== id)
-  }, [sitios, id, isTSSUser, isCWUser, isTIUser])
+  }, [sitios, id, userRole])
   const filteredSites = useMemo(() => {
     if (!siteSearch.trim()) return tiSitios.slice(0, 12)
     const q = siteSearch.toLowerCase()

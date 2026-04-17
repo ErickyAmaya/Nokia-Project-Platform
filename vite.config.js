@@ -17,6 +17,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Don't let SW cache Supabase API calls — always go to network
         navigateFallback: '/Nokia-Project-Platform/index.html',
+        navigateFallbackAllowlist: [/^\/Nokia-Project-Platform/],
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
