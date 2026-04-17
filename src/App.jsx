@@ -62,7 +62,7 @@ function AppRoutes() {
       } />
 
       <Route path="/dashboard" element={
-        <ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>
+        <ProtectedRoute allowedRoles={R_MGMT}><Layout><Dashboard /></Layout></ProtectedRoute>
       } />
 
       <Route path="/ti" element={
@@ -109,7 +109,7 @@ function AppRoutes() {
         <ProtectedRoute allowedRoles={R_ADMIN}>{W(<ConfigPage />)}</ProtectedRoute>
       } />
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<RoleHome />} />
     </Routes>
   )
 }
