@@ -189,6 +189,24 @@ export default function LiquidadorPage() {
     ).slice(0, 12)
   }, [tiSitios, siteSearch])
 
+  const allCatalog = useMemo(() => [...CAT.BASE, ...CAT.ADJ, ...CAT.CR], [])
+
+  const { actsRich, grouped } = useMemo(() => {
+    if (!calc) return { actsRich: [], grouped: {} }
+    const rich = calc.acts.map(act => ({
+      ...act,
+      def:    allCatalog.find(c => c.id === act.id) || null,
+      nombre: allCatalog.find(c => c.id === act.id)?.nombre || act.id,
+    }))
+    const groups = {}
+    rich.forEach((act, i) => {
+      const sec = act.sec || (act.tipo === 'ADJ' ? 'ADJ' : act.tipo === 'CR' ? 'CR' : 'MODERNIZACION')
+      if (!groups[sec]) groups[sec] = []
+      groups[sec].push({ act, i })
+    })
+    return { actsRich: rich, grouped: groups }
+  }, [calc, allCatalog])
+
   if (!sitio || !calc) {
     return (
       <div style={{ textAlign: 'center', padding: 60, color: '#9ca89c' }}>
@@ -214,23 +232,6 @@ export default function LiquidadorPage() {
   const catEfectiva = sitio.catEfectiva || ''
   const cat         = catEfectiva || lcCat
   const isUpgraded  = catEfectiva && CAT_ORDER.indexOf(catEfectiva) > CAT_ORDER.indexOf(lcCat)
-
-  const allCatalog = useMemo(() => [...CAT.BASE, ...CAT.ADJ, ...CAT.CR], [])
-
-  const { actsRich, grouped } = useMemo(() => {
-    const rich = calc.acts.map(act => ({
-      ...act,
-      def:    allCatalog.find(c => c.id === act.id) || null,
-      nombre: allCatalog.find(c => c.id === act.id)?.nombre || act.id,
-    }))
-    const groups = {}
-    rich.forEach((act, i) => {
-      const sec = act.sec || (act.tipo === 'ADJ' ? 'ADJ' : act.tipo === 'CR' ? 'CR' : 'MODERNIZACION')
-      if (!groups[sec]) groups[sec] = []
-      groups[sec].push({ act, i })
-    })
-    return { actsRich: rich, grouped: groups }
-  }, [calc.acts, allCatalog])
 
   const seccOrder = isTSS ? ['TSS'] : SECC_ORDER
 
