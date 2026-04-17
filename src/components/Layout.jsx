@@ -36,6 +36,7 @@ export default function Layout({ children }) {
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)          // hardcoded en empresas.js
   const empresaConfig = useAppStore(s => s.empresaConfig)     // dinámico desde Supabase config
+  const sitios        = useAppStore(s => s.sitios)
   const logout        = useAuthStore(s => s.logout)
   const logoutApp     = useAppStore(s => s.logout)
   const navigate      = useNavigate()
@@ -64,6 +65,23 @@ export default function Layout({ children }) {
   }, [empresa?.color])
 
   const role = user?.role || 'viewer'
+
+  // Label dinámico con conteo para usuarios TI/TSS/CW
+  function navLabel(item) {
+    if (role === 'TI' && item.id === 'ti') {
+      const n = sitios.filter(s => s.tipo === 'TI').length
+      return `Consolidado — Sitios TI (${n})`
+    }
+    if (role === 'TSS' && item.id === 'tss') {
+      const n = sitios.filter(s => s.tipo === 'TSS').length
+      return `Consolidado TSS (${n})`
+    }
+    if (role === 'CW' && item.id === 'cw-consolidado') {
+      const n = sitios.filter(s => s.tipo === 'TI' && s.tiene_cw).length
+      return `Consolidado — CW (${n})`
+    }
+    return item.label
+  }
 
   // Filtra nav items según el rol actual
   function canSee(item) {
@@ -171,7 +189,7 @@ export default function Layout({ children }) {
               textDecoration: 'none', display: 'inline-block',
             })}
           >
-            {item.label}
+            {navLabel(item)}
           </NavLink>
         ))}
       </nav>
@@ -209,7 +227,7 @@ export default function Layout({ children }) {
             style={{ textDecoration: 'none' }}
           >
             <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-            {item.label}
+            {navLabel(item)}
           </NavLink>
         ))}
 
