@@ -13,6 +13,8 @@ export default defineConfig({
       // Show update prompt automatically when new SW is ready
       injectRegister: 'auto',
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         // Pre-cache all assets from the build
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Don't let SW cache Supabase API calls — always go to network

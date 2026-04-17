@@ -199,7 +199,8 @@ function ConfirmDelete({ onConfirm, onCancel }) {
 
 // ── Main page ─────────────────────────────────────────────────
 export default function CatalogoPage() {
-  const [seccion,   setSeccion]   = useState('BASE')
+  const isCoord = user?.role === 'coordinador' || user?.role === 'coord'
+  const [seccion,   setSeccion]   = useState(isCoord ? 'SubC' : 'BASE')
   const [zonaIdx,   setZonaIdx]   = useState(0)
   const [search,    setSearch]    = useState('')
   const [viewMode,  setViewMode]  = useState('zona')
@@ -313,7 +314,7 @@ export default function CatalogoPage() {
 
       {/* ── Section tabs ────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-        {SECCIONES.map(s => {
+        {(isCoord ? ['SubC'] : SECCIONES).map(s => {
           const c = SECC_COLOR[s]
           const active = seccion === s
           return (

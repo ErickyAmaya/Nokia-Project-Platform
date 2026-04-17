@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, lazy, Suspense, Component } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useAppStore }  from './store/useAppStore'
@@ -28,6 +28,29 @@ function PageLoader() {
       Cargando…
     </div>
   )
+}
+
+class PageErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (this.state.err) {
+      return (
+        <div style={{ textAlign: 'center', padding: 60 }}>
+          <div style={{ fontSize: 13, color: '#c0392b', marginBottom: 16 }}>
+            Error al cargar la página. Intenta recargar.
+          </div>
+          <button
+            className="btn bp"
+            onClick={() => { this.setState({ err: null }); window.location.reload() }}
+          >
+            Recargar
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 // Roles por módulo
@@ -86,7 +109,7 @@ function AppRoutes() {
       } />
 
       <Route path="/liquidador/:id" element={
-        <ProtectedRoute><Layout><LiquidadorPage /></Layout></ProtectedRoute>
+        <ProtectedRoute><Layout><PageErrorBoundary><LiquidadorPage /></PageErrorBoundary></Layout></ProtectedRoute>
       } />
 
       <Route path="/gastos" element={
