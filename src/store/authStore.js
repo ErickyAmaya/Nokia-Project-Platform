@@ -18,7 +18,7 @@ function normalizeRole(raw) {
 }
 
 // ── Roles que pueden eliminar sitios ─────────────────────────────
-export const DELETE_ROLES = new Set(['admin', 'coordinador'])
+export const DELETE_ROLES = new Set(['admin', 'coordinador', 'TI', 'TSS', 'CW'])
 
 // ── Visibilidad de rutas por rol ──────────────────────────────────
 export const ROUTE_ROLES = {
