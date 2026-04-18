@@ -1,24 +1,35 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
 
-const COLORS = ['#144E4A','#7c3aed','#1d4ed8','#d68910','#c0392b','#22c55e']
+const C = {
+  green:  '#1a9c1a',
+  dark:   '#144E4A',
+  purple: '#7c3aed',
+  blue:   '#1d4ed8',
+  amber:  '#d68910',
+  red:    '#c0392b',
+  teal:   '#0d9488',
+}
+const PIE_COLORS  = [C.dark, C.purple, C.blue, C.amber, C.red, C.green]
+const STATUS_COLORS = [C.green, C.amber, C.red]
 
-function KpiCard({ label, value, sub, color = '#144E4A' }) {
+function KpiCard({ label, value, color = C.dark }) {
   return (
-    <div className="card" style={{ borderLeft: `4px solid ${color}` }}>
-      <div className="card-b" style={{ padding: '14px 16px' }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#555f55', marginBottom: 6 }}>
-          {label}
-        </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 28, color, lineHeight: 1 }}>
-          {value}
-        </div>
-        {sub && <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 4 }}>{sub}</div>}
-      </div>
+    <div style={{ background:'#fff', borderRadius:8, borderLeft:`4px solid ${color}`, padding:'12px 14px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
+      <div style={{ fontSize:8, fontWeight:700, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:5 }}>{label}</div>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:22, color, lineHeight:1 }}>{value}</div>
+    </div>
+  )
+}
+
+function SectionTitle({ children }) {
+  return (
+    <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:11, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:6, marginTop:4 }}>
+      {children}
     </div>
   )
 }
@@ -27,170 +38,411 @@ export default function MatDashboard() {
   const catalogo    = useMatStore(s => s.catalogo)
   const stock       = useMatStore(s => s.stock)
   const movimientos = useMatStore(s => s.movimientos)
+  const despachos   = useMatStore(s => s.despachos)
+  const bodegas     = useMatStore(s => s.bodegas)
   const getStock    = useMatStore(s => s.getStock)
 
-  const kpis = useMemo(() => {
-    let valor = 0, enStock = 0, bajoMin = 0, agotados = 0
-    let valTI = 0, valCW = 0
+  const [filCat,   setFilCat]   = useState('')  // '' | 'TI' | 'CW'
+  const [filSitio, setFilSitio] = useState('')  // nombre del sitio destino
 
-    catalogo.forEach(c => {
-      const s = getStock(c.id)
+  // Sitios destino únicos derivados de movimientos
+  const sitiosUnicos = useMemo(() => {
+    const set = new Set(movimientos.map(m => m.destino).filter(Boolean))
+    return [...set].sort()
+  }, [movimientos])
+
+  // Catálogo filtrado (sin proveedores)
+  const catFiltrado = useMemo(() =>
+    catalogo.filter(c => c.categoria !== 'PROVEEDORES' && (!filCat || c.categoria === filCat))
+  , [catalogo, filCat])
+
+  // KPIs
+  const kpis = useMemo(() => {
+    let valor = 0, enStock = 0, bajoMin = 0, agotados = 0, valTI = 0, valCW = 0
+
+    catFiltrado.forEach(c => {
+      const s   = getStock(c.id)
       const imp = s * (c.costo_unitario || 0)
       valor += imp
       if (c.categoria === 'TI') valTI += imp
       if (c.categoria === 'CW') valCW += imp
-      if (s === 0)              agotados++
+      if (s === 0)               agotados++
       else if (s < c.stock_minimo) bajoMin++
       else                         enStock++
     })
 
-    const entradas = movimientos.filter(m => m.tipo === 'Entrada').reduce((a, m) => a + (m.valor_total || 0), 0)
-    const salidas  = movimientos.filter(m => m.tipo === 'Salida').reduce((a, m) => a + (m.valor_total || 0), 0)
+    const movFil  = movimientos.filter(m => !filCat || catFiltrado.some(c => c.id === m.catalogo_id))
+    const movSit  = filSitio ? movFil.filter(m => m.destino === filSitio) : movFil
+    const entradas = movSit.filter(m => m.tipo === 'Entrada').reduce((a, m) => a + (m.valor_total || 0), 0)
+    const salidas  = movSit.filter(m => m.tipo === 'Salida').reduce((a, m) => a + (m.valor_total || 0), 0)
 
     return { valor, enStock, bajoMin, agotados, valTI, valCW, entradas, salidas }
-  }, [catalogo, stock, movimientos, getStock])
+  }, [catFiltrado, movimientos, filCat, filSitio, getStock])
 
-  // Datos gráfica por categoría
-  const pieData = useMemo(() => {
+  // Pie 1: valor por categoría
+  const pieValor = useMemo(() => {
     const map = {}
-    catalogo.forEach(c => {
+    catFiltrado.forEach(c => {
       const imp = getStock(c.id) * (c.costo_unitario || 0)
-      map[c.categoria] = (map[c.categoria] || 0) + imp
+      if (imp > 0) map[c.categoria] = (map[c.categoria] || 0) + imp
     })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).filter(d => d.value > 0)
-  }, [catalogo, stock, getStock])
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+  }, [catFiltrado, stock, getStock])
 
-  // Top 10 materiales por importe
-  const top10 = useMemo(() => {
-    return catalogo
-      .map(c => ({ nombre: c.nombre.length > 22 ? c.nombre.slice(0, 22) + '…' : c.nombre, importe: getStock(c.id) * (c.costo_unitario || 0) }))
+  // Pie 2: estado del inventario (# materiales)
+  const pieEstado = useMemo(() => {
+    let enStock = 0, bajoMin = 0, agotados = 0
+    catFiltrado.forEach(c => {
+      const s = getStock(c.id)
+      if (s === 0)               agotados++
+      else if (s < c.stock_minimo) bajoMin++
+      else                         enStock++
+    })
+    return [
+      { name: 'En Stock',     value: enStock  },
+      { name: 'Bajo Mínimo',  value: bajoMin  },
+      { name: 'Agotado',      value: agotados },
+    ].filter(d => d.value > 0)
+  }, [catFiltrado, stock, getStock])
+
+  // Top 10 materiales por importe (stock * precio)
+  const top10Importe = useMemo(() =>
+    catFiltrado
+      .map(c => ({ nombre: c.nombre.length > 28 ? c.nombre.slice(0,28)+'…' : c.nombre, importe: getStock(c.id) * (c.costo_unitario || 0) }))
       .filter(x => x.importe > 0)
       .sort((a, b) => b.importe - a.importe)
       .slice(0, 10)
-  }, [catalogo, stock, getStock])
+  , [catFiltrado, stock, getStock])
+
+  // Top 10 materiales más consumidos (salidas acumuladas)
+  const top10Consumo = useMemo(() => {
+    const map = {}
+    movimientos.filter(m => m.tipo === 'Salida').forEach(m => {
+      const c = catFiltrado.find(x => x.id === m.catalogo_id)
+      if (!c) return
+      const key = c.nombre.length > 28 ? c.nombre.slice(0,28)+'…' : c.nombre
+      map[key] = (map[key] || 0) + (m.cantidad || 0)
+    })
+    return Object.entries(map).map(([nombre, cant]) => ({ nombre, cant }))
+      .sort((a, b) => b.cant - a.cant).slice(0, 10)
+  }, [catFiltrado, movimientos])
+
+  // Entradas vs Salidas por mes
+  const monthlyChart = useMemo(() => {
+    const map = {}
+    movimientos
+      .filter(m => !filCat || catFiltrado.some(c => c.id === m.catalogo_id))
+      .forEach(m => {
+        if (!m.fecha) return
+        const mes = m.fecha.slice(0, 7)
+        if (!map[mes]) map[mes] = { mes, Entradas: 0, Salidas: 0 }
+        if (m.tipo === 'Entrada') map[mes].Entradas += m.valor_total || 0
+        else                      map[mes].Salidas  += m.valor_total || 0
+      })
+    return Object.values(map).sort((a, b) => a.mes.localeCompare(b.mes)).slice(-8)
+  }, [movimientos, catFiltrado, filCat])
+
+  // Valor despachado por sitio
+  const siteChart = useMemo(() => {
+    const map = {}
+    movimientos.filter(m => m.tipo === 'Salida' && m.destino).forEach(m => {
+      if (filSitio && m.destino !== filSitio) return
+      const key = m.destino.length > 22 ? m.destino.slice(0,22)+'…' : m.destino
+      map[key] = (map[key] || 0) + (m.valor_total || 0)
+    })
+    return Object.entries(map).map(([name, valor]) => ({ name, valor }))
+      .sort((a, b) => b.valor - a.valor).slice(0, 8)
+  }, [movimientos, filSitio])
+
+  // Top 10 más costosos por precio unitario
+  const top10Precio = useMemo(() =>
+    catFiltrado
+      .filter(c => c.costo_unitario > 0)
+      .map(c => ({ nombre: c.nombre.length > 28 ? c.nombre.slice(0,28)+'…' : c.nombre, precio: c.costo_unitario }))
+      .sort((a, b) => b.precio - a.precio)
+      .slice(0, 10)
+  , [catFiltrado])
 
   // Alertas
-  const alertas = useMemo(() => {
-    return catalogo
+  const alertas = useMemo(() =>
+    catFiltrado
       .map(c => ({ ...c, stockActual: getStock(c.id) }))
       .filter(c => c.stockActual < c.stock_minimo)
       .sort((a, b) => (a.stockActual / (a.stock_minimo || 1)) - (b.stockActual / (b.stock_minimo || 1)))
-  }, [catalogo, stock, getStock])
+  , [catFiltrado, stock, getStock])
 
-  // Últimos 10 movimientos
-  const ultimos = movimientos.slice(0, 10)
+  // Últimos movimientos (enriquecidos)
+  const ultimos = useMemo(() =>
+    movimientos.slice(0, 10).map(m => ({
+      ...m,
+      catNombre: catalogo.find(c => c.id === m.catalogo_id)?.nombre || '—',
+      bodNombre: bodegas.find(b => b.id === m.bodega_id)?.nombre || '—',
+    }))
+  , [movimientos, catalogo, bodegas])
+
+  const tooltipStyle = { fontSize: 11, fontFamily:"'Barlow',sans-serif" }
 
   return (
     <div>
-      <h1 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 700, marginBottom: 16, color: '#144E4A' }}>
-        Dashboard — Materiales
-      </h1>
-
-      {/* KPIs fila 1 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
-        <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}  color="#1d4ed8" />
-        <KpiCard label="En Stock"    value={kpis.enStock}  sub="materiales ≥ mínimo"  color="#1a7a1a" />
-        <KpiCard label="Bajo Mínimo" value={kpis.bajoMin}  sub="stock > 0 pero < mínimo" color="#d68910" />
-        <KpiCard label="Agotados"    value={kpis.agotados} sub="stock = 0"             color="#c0392b" />
+      {/* ── Barra de filtros ── */}
+      <div style={{ background:'#fff', border:'1.5px solid #e0e4e0', borderRadius:8, padding:'8px 14px', marginBottom:14, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+        <span style={{ fontSize:9, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:'#9ca89c' }}>Filtrar por</span>
+        <select className="fc" value={filSitio} onChange={e => setFilSitio(e.target.value)} style={{ maxWidth:200, fontSize:11 }}>
+          <option value="">Todos los sitios</option>
+          {sitiosUnicos.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="fc" value={filCat} onChange={e => setFilCat(e.target.value)} style={{ maxWidth:180, fontSize:11 }}>
+          <option value="">Todos los materiales</option>
+          <option value="TI">TI</option>
+          <option value="CW">CW</option>
+        </select>
+        {(filSitio || filCat) && (
+          <button onClick={() => { setFilSitio(''); setFilCat('') }}
+            style={{ fontSize:10, fontWeight:700, color:'#c0392b', background:'none', border:'none', cursor:'pointer', padding:'2px 6px' }}>
+            ✕ Limpiar
+          </button>
+        )}
       </div>
 
-      {/* KPIs fila 2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
-        <KpiCard label="Valor Inventario TI" value={matCop(kpis.valTI)} color="#144E4A" />
-        <KpiCard label="Valor Inventario CW" value={matCop(kpis.valCW)} color="#7c3aed" />
-        <KpiCard label="Total Entradas" value={matCop(kpis.entradas)} color="#1a7a1a" />
-        <KpiCard label="Total Salidas"  value={matCop(kpis.salidas)}  color="#c0392b" />
+      {/* ── KPIs fila 1 ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10 }}>
+        <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />
+        <KpiCard label="En Stock"               value={kpis.enStock}           color={C.green}  />
+        <KpiCard label="Bajo Mínimo"            value={kpis.bajoMin}           color={C.amber}  />
+        <KpiCard label="Agotados"               value={kpis.agotados}          color={C.red}    />
       </div>
 
-      {/* Gráficas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      {/* ── KPIs fila 2 ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:16 }}>
+        <KpiCard label="Valor Inventario TI"  value={matCop(kpis.valTI)}    color={C.dark}   />
+        <KpiCard label="Valor Inventario CW"  value={matCop(kpis.valCW)}    color={C.purple} />
+        <KpiCard label="Total Entradas"       value={matCop(kpis.entradas)} color={C.green}  />
+        <KpiCard label="Total Salidas"        value={matCop(kpis.salidas)}  color={C.red}    />
+      </div>
+
+      {/* ── Pie charts ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
         <div className="card">
-          <div className="card-h"><h2>Valor por Categoría</h2></div>
+          <div className="card-h"><h2>Valor Inventariado por Categoría</h2></div>
           <div className="card-b">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={v => matCop(v)} />
-              </PieChart>
-            </ResponsiveContainer>
+            {pieValor.length === 0
+              ? <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:12 }}>Sin datos</div>
+              : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={pieValor} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}
+                      label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
+                      labelLine={false}>
+                      {pieValor.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )
+            }
           </div>
         </div>
 
         <div className="card">
-          <div className="card-h"><h2>Top 10 por Importe</h2></div>
+          <div className="card-h"><h2>Estado del Inventario (# Materiales)</h2></div>
           <div className="card-b">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={top10} layout="vertical" margin={{ left: 8, right: 16 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="nombre" width={160} tick={{ fontSize: 9 }} />
-                <Tooltip formatter={v => matCop(v)} />
-                <Bar dataKey="importe" fill="#144E4A" radius={[0,3,3,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {pieEstado.length === 0
+              ? <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:12 }}>Sin datos</div>
+              : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie data={pieEstado} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      labelLine={false}>
+                      {pieEstado.map((_, i) => <Cell key={i} fill={STATUS_COLORS[i]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Legend iconSize={10} wrapperStyle={{ fontSize:10 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )
+            }
           </div>
         </div>
       </div>
 
-      {/* Alertas */}
+      {/* ── Top 10 por importe ── */}
+      <SectionTitle>Top 10 Materiales por Importe</SectionTitle>
+      <div className="card" style={{ marginBottom:12 }}>
+        <div className="card-b">
+          {top10Importe.length === 0
+            ? <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin datos</div>
+            : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={top10Importe} layout="vertical" margin={{ left:8, right:24, top:4, bottom:4 }}>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="nombre" width={200} tick={{ fontSize:9 }} />
+                  <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                  <Bar dataKey="importe" fill={C.dark} radius={[0,3,3,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
+        </div>
+      </div>
+
+      {/* ── Entradas vs Salidas por mes ── */}
+      <SectionTitle>Entradas vs Salidas por Mes</SectionTitle>
+      <div className="card" style={{ marginBottom:12 }}>
+        <div className="card-b">
+          {monthlyChart.length === 0
+            ? <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin movimientos registrados</div>
+            : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={monthlyChart} margin={{ left:8, right:16, top:4, bottom:4 }}>
+                  <XAxis dataKey="mes" tick={{ fontSize:9 }} />
+                  <YAxis hide />
+                  <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize:10 }} />
+                  <Bar dataKey="Entradas" fill={C.green}  radius={[3,3,0,0]} />
+                  <Bar dataKey="Salidas"  fill={C.red}    radius={[3,3,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
+        </div>
+      </div>
+
+      {/* ── Valor Despachado por Sitio + Top 10 consumo ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+        <div className="card">
+          <div className="card-h"><h2>Valor Despachado por Sitio</h2></div>
+          <div className="card-b">
+            {siteChart.length === 0
+              ? <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin despachos</div>
+              : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={siteChart} layout="vertical" margin={{ left:8, right:24 }}>
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize:9 }} />
+                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                    <Bar dataKey="valor" fill={C.teal} radius={[0,3,3,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            }
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-h"><h2>Top 10 más Consumidos (Salidas Acumuladas)</h2></div>
+          <div className="card-b">
+            {top10Consumo.length === 0
+              ? <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin salidas</div>
+              : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={top10Consumo} layout="vertical" margin={{ left:8, right:24 }}>
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="nombre" width={150} tick={{ fontSize:9 }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="cant" name="Unidades" fill={C.purple} radius={[0,3,3,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            }
+          </div>
+        </div>
+      </div>
+
+      {/* ── Top 10 más costosos por precio unitario ── */}
+      <SectionTitle>Top 10 Materiales más Costosos (Precio Unitario del Catálogo)</SectionTitle>
+      <div className="card" style={{ marginBottom:12 }}>
+        <div className="card-b">
+          {top10Precio.length === 0
+            ? <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin datos</div>
+            : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={top10Precio} layout="vertical" margin={{ left:8, right:24, top:4, bottom:4 }}>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="nombre" width={200} tick={{ fontSize:9 }} />
+                  <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                  <Bar dataKey="precio" name="Precio Unitario" fill={C.amber} radius={[0,3,3,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
+        </div>
+      </div>
+
+      {/* ── Alertas ── */}
       {alertas.length > 0 && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <div className="card-h" style={{ background: '#c0392b' }}>
-            <h2>Alertas — Bajo Mínimo &amp; Agotados ({alertas.length})</h2>
+        <div className="card" style={{ marginBottom:12 }}>
+          <div className="card-h" style={{ background:'#c0392b', borderRadius:'8px 8px 0 0' }}>
+            <h2 style={{ color:'#fff' }}>Alertas — Bajo Mínimo &amp; Agotados ({alertas.length})</h2>
           </div>
-          <div className="card-b" style={{ padding: 0, overflowX: 'auto' }}>
+          <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
             <table className="tbl">
               <thead><tr>
-                <th>Material</th><th>Código</th><th>Cat.</th>
+                <th>Material</th><th>Stock (Bodega)</th><th>CAT.</th>
                 <th className="num">Stock Actual</th><th className="num">Mínimo</th><th>Status</th>
               </tr></thead>
               <tbody>
-                {alertas.map(c => (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{c.nombre}</td>
-                    <td style={{ color: '#9ca89c' }}>{c.codigo}</td>
-                    <td><span className="badge" style={{ background: c.categoria==='TI'?'#f0fdf4':'#faf5ff', color: c.categoria==='TI'?'#166534':'#5b21b6' }}>{c.categoria}</span></td>
-                    <td className="num" style={{ fontWeight: 700, color: c.stockActual===0?'#c0392b':'#d68910' }}>{c.stockActual}</td>
-                    <td className="num">{c.stock_minimo}</td>
-                    <td>
-                      <span className="badge" style={{ background: c.stockActual===0?'#fde8e7':'#fef3cd', color: c.stockActual===0?'#c0392b':'#856404' }}>
-                        {c.stockActual===0?'Agotado':'Bajo Mínimo'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {alertas.map(c => {
+                  // Mostrar por bodega
+                  const stockRows = bodegas.map(b => ({ bod: b, s: getStock(c.id, b.id) })).filter(x => x.s < c.stock_minimo)
+                  return stockRows.length > 0 ? stockRows.map(({ bod, s }) => (
+                    <tr key={`${c.id}-${bod.id}`}>
+                      <td style={{ fontWeight:600, fontSize:11 }}>{c.nombre}</td>
+                      <td style={{ fontSize:11, color:'#9ca89c' }}>{bod.nombre}</td>
+                      <td><span className="badge" style={{ background:c.categoria==='TI'?'#f0fdf4':'#faf5ff', color:c.categoria==='TI'?'#166534':'#5b21b6' }}>{c.categoria}</span></td>
+                      <td className="num" style={{ fontWeight:700, color:s===0?C.red:C.amber }}>{s}</td>
+                      <td className="num" style={{ color:'#9ca89c' }}>{c.stock_minimo}</td>
+                      <td>
+                        <span className="badge" style={{ background:s===0?'#fde8e7':'#fef3cd', color:s===0?C.red:C.amber }}>
+                          {s===0?'Agotado':'Bajo Mínimo'}
+                        </span>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight:600, fontSize:11 }}>{c.nombre}</td>
+                      <td style={{ fontSize:11, color:'#9ca89c' }}>—</td>
+                      <td><span className="badge" style={{ background:c.categoria==='TI'?'#f0fdf4':'#faf5ff', color:c.categoria==='TI'?'#166534':'#5b21b6' }}>{c.categoria}</span></td>
+                      <td className="num" style={{ fontWeight:700, color:C.red }}>{c.stockActual}</td>
+                      <td className="num">{c.stock_minimo}</td>
+                      <td><span className="badge" style={{ background:'#fde8e7', color:C.red }}>Agotado</span></td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Últimos movimientos */}
+      {/* ── Últimos Movimientos ── */}
       <div className="card">
         <div className="card-h"><h2>Últimos Movimientos</h2></div>
-        <div className="card-b" style={{ padding: 0, overflowX: 'auto' }}>
+        <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
           <table className="tbl">
             <thead><tr>
               <th>Fecha</th><th>Doc</th><th>Material</th>
-              <th>Tipo</th><th className="num">Cantidad</th><th className="num">Valor</th>
+              <th>Tipo</th><th className="num">Cant.</th><th className="num">Valor</th>
+              <th>Origen + Destino</th><th>Bodega</th>
             </tr></thead>
             <tbody>
               {ultimos.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#9ca89c' }}>Sin movimientos</td></tr>
+                <tr><td colSpan={8} style={{ textAlign:'center', padding:24, color:'#9ca89c' }}>Sin movimientos</td></tr>
               )}
               {ultimos.map(m => {
-                const cat = useMatStore.getState().catalogo.find(c => c.id === m.catalogo_id)
+                const orDest = [m.origen, m.destino].filter(Boolean).join(' = ')
                 return (
                   <tr key={m.id}>
-                    <td style={{ color: '#9ca89c' }}>{m.fecha}</td>
-                    <td style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700 }}>{m.numero_doc}</td>
-                    <td style={{ fontWeight: 600 }}>{cat?.nombre || m.catalogo_id}</td>
+                    <td style={{ color:'#9ca89c', fontSize:10, whiteSpace:'nowrap' }}>{m.fecha}</td>
+                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{m.numero_doc}</td>
+                    <td style={{ fontWeight:600, fontSize:11 }}>{m.catNombre}</td>
                     <td>
-                      <span style={{ color: m.tipo==='Entrada'?'#1a7a1a':'#c0392b', fontWeight: 700 }}>{m.tipo}</span>
+                      <span style={{ color:m.tipo==='Entrada'?C.green:C.red, fontWeight:700, fontSize:10 }}>{m.tipo}</span>
                     </td>
-                    <td className="num">{m.cantidad}</td>
-                    <td className="num">{matCop(m.valor_total)}</td>
+                    <td className="num" style={{ fontWeight:700 }}>{m.cantidad}</td>
+                    <td className="num" style={{ color:C.dark, fontWeight:700, fontSize:11 }}>{matCop(m.valor_total)}</td>
+                    <td style={{ fontSize:10, color:'#9ca89c' }}>{orDest || '—'}</td>
+                    <td style={{ fontSize:10, color:'#555f55' }}>{m.bodNombre}</td>
                   </tr>
                 )
               })}
