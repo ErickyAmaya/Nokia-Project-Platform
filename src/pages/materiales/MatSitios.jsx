@@ -5,48 +5,82 @@ import { useNavigate }  from 'react-router-dom'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 
-function IconEdit({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-    </svg>
-  )
-}
-
 const TIPOS = ['Principal','Macro','Micro','DAS','IBS','Rooftop','Torre','Canastilla','Monopole']
 const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Caribe']
 
 export default function MatSitios() {
   const sitios      = useMatStore(s => s.sitios)
   const movimientos = useMatStore(s => s.movimientos)
-  const despachos   = useMatStore(s => s.despachos)
+  const catalogo    = useMatStore(s => s.catalogo)
   const saveSitio   = useMatStore(s => s.saveSitio)
   const deleteSitio = useMatStore(s => s.deleteSitio)
   const user        = useAuthStore(s => s.user)
   const navigate    = useNavigate()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [modal,    setModal]    = useState(false)
-  const [search,   setSearch]   = useState('')
-  const [filReg,   setFilReg]   = useState('')
+  const [modal,     setModal]    = useState(false)
+  const [search,    setSearch]   = useState('')
+  const [filReg,    setFilReg]   = useState('')
+  const [expanded,  setExpanded] = useState(null) // sitio id actualmente expandido
   const [form, setForm] = useState({ nombre:'', tipo_cw:'Principal', regional:'Sur-Occidente', comentarios:'', activo:true })
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
 
-  // Calcular movimientos y valor por sitio
-  const sitioStats = useMemo(() => {
-    const stats = {}
+  // Estadísticas y materiales por sitio derivados de movimientos
+  const sitioData = useMemo(() => {
+    const data = {}
     for (const s of sitios) {
-      // Contar movimientos donde destino=nombre o sitio_id=s.id
-      const movs = movimientos.filter(m =>
+      // Solo salidas hacia ese sitio
+      const salidas = movimientos.filter(m =>
+        m.tipo === 'Salida' && (
+          (m.destino && m.destino.toLowerCase() === s.nombre.toLowerCase()) ||
+          m.sitio_id === s.id
+        )
+      )
+      // Entradas también para valor total
+      const todasMovs = movimientos.filter(m =>
         (m.destino && m.destino.toLowerCase() === s.nombre.toLowerCase()) ||
         m.sitio_id === s.id
       )
-      const valor = movs.reduce((a, m) => a + (m.valor_total || 0), 0)
-      stats[s.id] = { count: movs.length, valor }
+      const valorTotal = todasMovs.reduce((a, m) => a + (m.valor_total || (m.cantidad * (m.valor_unitario || 0)) || 0), 0)
+
+      // Agrupar salidas por material
+      const byMaterial = {}
+      for (const m of salidas) {
+        const key = m.catalogo_id
+        if (!byMaterial[key]) {
+          const cat = catalogo.find(c => c.id === key)
+          byMaterial[key] = {
+            catalogo_id:   key,
+            nombre:        cat?.nombre   || '—',
+            codigo:        cat?.codigo   || '—',
+            unidad:        cat?.unidad   || '—',
+            precioUnitario: cat?.costo_unitario || m.valor_unitario || 0,
+            cantidad:      0,
+            total:         0,
+            fechaUltimo:   null,
+            fechaEnvio:    m.fecha || m.created_at,
+          }
+        }
+        byMaterial[key].cantidad  += m.cantidad
+        byMaterial[key].total     += m.cantidad * (byMaterial[key].precioUnitario)
+        const mFecha = m.created_at || m.fecha
+        if (!byMaterial[key].fechaUltimo || mFecha > byMaterial[key].fechaUltimo) {
+          byMaterial[key].fechaUltimo = mFecha
+        }
+        if (!byMaterial[key].fechaEnvio || mFecha < byMaterial[key].fechaEnvio) {
+          byMaterial[key].fechaEnvio = mFecha
+        }
+      }
+
+      data[s.id] = {
+        movCount:   todasMovs.length,
+        valorTotal,
+        materiales: Object.values(byMaterial).sort((a,b) => b.total - a.total),
+      }
     }
-    return stats
-  }, [sitios, movimientos])
+    return data
+  }, [sitios, movimientos, catalogo])
 
   const filtered = useMemo(() => {
     return sitios.filter(s => {
@@ -78,12 +112,17 @@ export default function MatSitios() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
+  function fmtFecha(f) {
+    if (!f) return '—'
+    return new Date(f).toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' })
+  }
+
   return (
     <div>
       <ConfirmModalUI />
 
       {/* Header */}
-      <div style={{ background:'#0a0a0a', borderRadius:'8px 8px 0 0', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:0 }}>
+      <div style={{ background:'#0a0a0a', borderRadius:'8px 8px 0 0', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, color:'#fff', letterSpacing:1, textTransform:'uppercase' }}>
           Sitios de Instalación
         </span>
@@ -105,7 +144,7 @@ export default function MatSitios() {
           </div>
 
           <div style={{ overflowX:'auto' }}>
-            <table className="tbl">
+            <table className="tbl" style={{ borderCollapse:'collapse' }}>
               <thead>
                 <tr style={{ background:'#0a0a0a' }}>
                   <th style={{ color:'#fff', width:36 }}>#</th>
@@ -113,8 +152,8 @@ export default function MatSitios() {
                   <th style={{ color:'#fff' }}>TIPO DE CIUDAD</th>
                   <th style={{ color:'#fff' }}>REGIONAL</th>
                   <th style={{ color:'#fff' }} className="num">MOVIMIENTOS</th>
-                  <th style={{ color:'#fff' }} className="num">VALOR MATERIALES</th>
-                  <th style={{ color:'#fff' }}>COMENTARIOS</th>
+                  <th style={{ color:'#fff' }} className="num">IMPORTE</th>
+                  <th style={{ color:'#fff' }}>STATUS</th>
                   <th style={{ color:'#fff' }}></th>
                 </tr>
               </thead>
@@ -123,9 +162,13 @@ export default function MatSitios() {
                   <tr><td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin sitios registrados</td></tr>
                 )}
                 {filtered.map((s, i) => {
-                  const stats = sitioStats[s.id] || { count:0, valor:0 }
-                  return (
-                    <tr key={s.id}>
+                  const sd = sitioData[s.id] || { movCount:0, valorTotal:0, materiales:[] }
+                  const isOpen = expanded === s.id
+                  const hasMovs = sd.movCount > 0
+
+                  return [
+                    // ── Fila principal del sitio ──
+                    <tr key={`row-${s.id}`} style={{ background: isOpen ? '#f0fdf4' : undefined }}>
                       <td style={{ color:'#9ca89c', fontSize:11 }}>{i + 1}</td>
                       <td style={{ fontWeight:700 }}>{s.nombre}</td>
                       <td>
@@ -134,23 +177,22 @@ export default function MatSitios() {
                         ) : '—'}
                       </td>
                       <td style={{ color:'#9ca89c', fontSize:11 }}>{s.regional}</td>
-                      <td className="num" style={{ fontWeight:700 }}>{stats.count}</td>
-                      <td className="num" style={{ fontWeight:700, color:'#144E4A' }}>{matCop(stats.valor)}</td>
-                      <td style={{ fontSize:10, color:'#9ca89c', maxWidth:140 }}>{s.comentarios || '—'}</td>
+                      <td className="num" style={{ fontWeight:700 }}>{sd.movCount}</td>
+                      <td className="num" style={{ fontWeight:700, color:'#144E4A' }}>{matCop(sd.valorTotal)}</td>
+                      <td>
+                        {hasMovs
+                          ? <span className="badge" style={{ background:'#d4edda', color:'#1a6130' }}>Activo</span>
+                          : <span className="badge" style={{ background:'#fde8e7', color:'#c0392b' }}>Sin movimientos</span>
+                        }
+                      </td>
                       <td style={{ whiteSpace:'nowrap' }}>
                         <div style={{ display:'flex', gap:4 }}>
                           <button
-                            onClick={() => navigate('/materiales/inventario')}
-                            style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>
-                            Ver materiales
+                            onClick={() => setExpanded(isOpen ? null : s.id)}
+                            style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'none',
+                              background: isOpen ? '#144E4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
+                            {isOpen ? '▲ Cerrar' : '▼ Ver Materiales'}
                           </button>
-                          {canEdit && (
-                            <button
-                              onClick={() => navigate('/materiales/despachos')}
-                              style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#1a9c1a', color:'#fff', cursor:'pointer' }}>
-                              + Despacho
-                            </button>
-                          )}
                           {canEdit && (
                             <button
                               onClick={() => openModal(s)}
@@ -167,8 +209,81 @@ export default function MatSitios() {
                           )}
                         </div>
                       </td>
-                    </tr>
-                  )
+                    </tr>,
+
+                    // ── Fila expandida con materiales ──
+                    isOpen && (
+                      <tr key={`exp-${s.id}`}>
+                        <td colSpan={8} style={{ padding:0, borderTop:'2px solid #1a9c1a' }}>
+                          <div style={{ background:'#f8fdf8' }}>
+                            {/* Sub-header */}
+                            <div style={{ background:'#0a0a0a', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                                Materiales: {s.nombre}
+                              </span>
+                              <span style={{ fontSize:10, color:'#9ca89c' }}>
+                                Materiales enviados a este sitio según historial de salidas
+                              </span>
+                            </div>
+
+                            {sd.materiales.length === 0 ? (
+                              <div style={{ textAlign:'center', padding:'20px 16px', color:'#9ca89c', fontSize:12 }}>
+                                No hay salidas registradas hacia este sitio
+                              </div>
+                            ) : (
+                              <div style={{ overflowX:'auto' }}>
+                                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                  <thead>
+                                    <tr style={{ background:'#1a9c1a' }}>
+                                      {['Nombre','CÓDIGO','UM','CANTIDAD','PRECIO UNITARIO','TOTAL','FECHA ÚLTIMO MOV.','FECHA ENVÍO'].map(h => (
+                                        <th key={h} style={{ padding:'6px 10px', color:'#fff', fontWeight:700, fontSize:10, textAlign: ['CANTIDAD','PRECIO UNITARIO','TOTAL'].includes(h) ? 'right' : 'left', whiteSpace:'nowrap' }}>
+                                          {h}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {sd.materiales.map((m, mi) => (
+                                      <tr key={m.catalogo_id} style={{ background: mi % 2 === 0 ? '#fff' : '#f8fdf8', borderBottom:'1px solid #e8f5e8' }}>
+                                        <td style={{ padding:'6px 10px', fontWeight:600, color:'#0a0a0a' }}>{m.nombre}</td>
+                                        <td style={{ padding:'6px 10px', color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{m.codigo}</td>
+                                        <td style={{ padding:'6px 10px', color:'#9ca89c' }}>{m.unidad}</td>
+                                        <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700 }}>{m.cantidad}</td>
+                                        <td style={{ padding:'6px 10px', textAlign:'right', color:'#555f55' }}>{matCop(m.precioUnitario)}</td>
+                                        <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, color:'#144E4A' }}>{matCop(m.total)}</td>
+                                        <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaUltimo)}</td>
+                                        <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaEnvio)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* Footer expandido */}
+                            <div style={{ padding:'8px 16px', background:'#e8f5e8', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <div style={{ fontSize:10, color:'#144E4A', fontWeight:700 }}>
+                                MATERIALES DIFERENTES: {sd.materiales.length}
+                                <span style={{ marginLeft:16 }}>
+                                  TOTAL UNIDADES: {sd.materiales.reduce((a,m) => a + m.cantidad, 0)}
+                                </span>
+                              </div>
+                              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                                <span style={{ fontSize:11, fontWeight:700, color:'#144E4A' }}>
+                                  Total: {matCop(sd.materiales.reduce((a,m) => a + m.total, 0))}
+                                </span>
+                                <button
+                                  onClick={() => navigate('/materiales/inventario')}
+                                  style={{ padding:'4px 12px', fontSize:10, fontWeight:700, borderRadius:4, border:'1.5px solid #1a9c1a', background:'#fff', color:'#1a9c1a', cursor:'pointer' }}>
+                                  Ir a Inventario
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  ]
                 })}
               </tbody>
             </table>

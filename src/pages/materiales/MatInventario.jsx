@@ -3,16 +3,7 @@ import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
-import { useConfirm } from '../../components/ConfirmModal'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
-
-function IconEdit({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-    </svg>
-  )
-}
 
 function statusInfo(stock, minimo) {
   if (stock === 0)    return { label:'Agotado',     bg:'#fde8e7', color:'#c0392b' }
@@ -40,19 +31,13 @@ export default function MatInventario() {
   const movimientos    = useMatStore(s => s.movimientos)
   const getStock       = useMatStore(s => s.getStock)
   const addMovimiento  = useMatStore(s => s.addMovimiento)
-  const saveCatItem    = useMatStore(s => s.saveCatItem)
-  const deleteCatItem  = useMatStore(s => s.deleteCatItem)
   const liquidadorSitios = useAppStore(s => s.sitios)
   const user           = useAuthStore(s => s.user)
-  const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,    setSearch]    = useState('')
   const [filCat,    setFilCat]    = useState('')
   const [filBodega, setFilBodega] = useState('')
   const [filStatus, setFilStatus] = useState('')
-  const [editModal, setEditModal] = useState(null)
-  const [editForm,  setEditForm]  = useState({})
-  // Quick entry/exit
   const [qm,     setQm]     = useState(null)  // { tipo, item, bodega, valorUnit }
   const [qmForm, setQmForm] = useState(QM_RESET)
 
@@ -60,7 +45,6 @@ export default function MatInventario() {
 
   const proveedores = useMemo(() => catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo), [catalogo])
 
-  // Filas: una por (material, bodega) — estructura plana como en el diseño de referencia
   const rows = useMemo(() => {
     const q = search.toLowerCase()
     const bodegasToShow = filBodega ? bodegas.filter(b => String(b.id) === filBodega) : bodegas
@@ -84,7 +68,6 @@ export default function MatInventario() {
 
   const totalImporte = rows.reduce((a, r) => a + r.importe, 0)
 
-  // ── Quick Movement modal ─────────────────────────────────────────
   function openQm(tipo, item, bodega) {
     setQm({ tipo, item, bodega, valorUnit: item.costo_unitario || 0 })
     setQmForm({ ...QM_RESET, numero_doc: nextMovNum(tipo, movimientos) })
@@ -115,31 +98,8 @@ export default function MatInventario() {
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  // ── Edit catalog modal ───────────────────────────────────────────
-  function openEdit(item) {
-    setEditForm({ ...item })
-    setEditModal(true)
-  }
-
-  async function handleEditSave() {
-    try {
-      await saveCatItem(editForm)
-      showToast('Material actualizado')
-      setEditModal(false)
-    } catch (e) { showToast('Error: ' + e.message, 'err') }
-  }
-
-  async function handleDelete(item) {
-    const ok = await confirm('Eliminar Material', `¿Eliminar "${item.nombre}"?`)
-    if (!ok) return
-    try { await deleteCatItem(item.id); showToast('Material eliminado') }
-    catch (e) { showToast('Error: ' + e.message, 'err') }
-  }
-
   return (
     <div>
-      <ConfirmModalUI />
-
       {/* ── Header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
         <h1 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:20, margin:0, letterSpacing:.5, textTransform:'uppercase' }}>
@@ -147,7 +107,7 @@ export default function MatInventario() {
         </h1>
         <div style={{ display:'flex', gap:6 }}>
           {canEdit && <button className="btn bp btn-sm" onClick={() => openQm('Entrada', { id:'', nombre:'', costo_unitario:0, stock_minimo:0 }, bodegas[0] || {})}>+ Entrada</button>}
-          {canEdit && <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }} onClick={() => openQm('Salida', { id:'', nombre:'', costo_unitario:0, stock_minimo:0 }, bodegas[0] || {})}>→ Despacho</button>}
+          {canEdit && <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }} onClick={() => openQm('Salida', { id:'', nombre:'', costo_unitario:0, stock_minimo:0 }, bodegas[0] || {})}>- Salida</button>}
         </div>
       </div>
 
@@ -198,7 +158,7 @@ export default function MatInventario() {
                 {rows.length === 0 && (
                   <tr><td colSpan={10} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                 )}
-                {rows.map((r, i) => (
+                {rows.map((r) => (
                   <tr key={`${r.id}-${r.bodega.id}`}>
                     <td style={{ fontWeight:600, maxWidth:200 }}>{r.nombre}</td>
                     <td style={{ fontSize:10, color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{r.codigo}</td>
@@ -216,19 +176,19 @@ export default function MatInventario() {
                       <span className="badge" style={{ background:r.st.bg, color:r.st.color }}>{r.st.label}</span>
                     </td>
                     {canEdit && (
-                      <td style={{ whiteSpace:'nowrap', display:'flex', gap:4, alignItems:'center' }}>
-                        <button
-                          onClick={() => openQm('Entrada', r, r.bodega)}
-                          style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#1a9c1a', color:'#fff', cursor:'pointer' }}>
-                          + Ent
-                        </button>
-                        <button
-                          onClick={() => openQm('Salida', r, r.bodega)}
-                          style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
-                          - Sal
-                        </button>
-                        <button className="btn-edit" onClick={() => openEdit(r)} title="Editar material"><IconEdit /></button>
-                        <button className="btn-del" onClick={() => handleDelete(r)} title="Eliminar material">✕</button>
+                      <td style={{ whiteSpace:'nowrap' }}>
+                        <div style={{ display:'flex', gap:4 }}>
+                          <button
+                            onClick={() => openQm('Entrada', r, r.bodega)}
+                            style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#1a9c1a', color:'#fff', cursor:'pointer' }}>
+                            + Ent
+                          </button>
+                          <button
+                            onClick={() => openQm('Salida', r, r.bodega)}
+                            style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
+                            - Sal
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -261,13 +221,11 @@ export default function MatInventario() {
               <button onClick={() => setQm(null)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-              {/* Info del material */}
               <div style={{ background:'#f8f8f8', borderRadius:6, padding:'8px 12px', fontSize:12 }}>
-                <div style={{ fontWeight:700, color:'#0a0a0a' }}>{qm.item.nombre || '— selecciona arriba —'}</div>
+                <div style={{ fontWeight:700, color:'#0a0a0a' }}>{qm.item.nombre || '— selecciona material —'}</div>
                 <div style={{ fontSize:10, color:'#9ca89c', marginTop:2 }}>Bodega: <strong>{qm.bodega.nombre}</strong> · Stock actual: <strong>{getStock(qm.item.id, qm.bodega.id)}</strong></div>
               </div>
 
-              {/* Material si no viene pre-llenado */}
               {!qm.item.id && (
                 <div>
                   <label className="fl">Material *</label>
@@ -283,7 +241,6 @@ export default function MatInventario() {
                 </div>
               )}
 
-              {/* Bodega si no viene pre-llenada */}
               {!qm.bodega.id && (
                 <div>
                   <label className="fl">Bodega *</label>
@@ -354,46 +311,6 @@ export default function MatInventario() {
                   onClick={handleQmSave}>
                   Guardar {qm.tipo}
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Edit catalog modal ── */}
-      {editModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:440, maxHeight:'90vh', overflowY:'auto' }}>
-            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #1a9c1a' }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
-                Editar Material
-              </span>
-              <button onClick={() => setEditModal(false)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
-            </div>
-            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-              {[
-                { label:'Nombre',         key:'nombre',         type:'text'   },
-                { label:'Código',         key:'codigo',         type:'text'   },
-                { label:'Unidad',         key:'unidad',         type:'text'   },
-                { label:'Costo Unitario', key:'costo_unitario', type:'number' },
-                { label:'Stock Mínimo',   key:'stock_minimo',   type:'number' },
-              ].map(f => (
-                <div key={f.key}>
-                  <label className="fl">{f.label}</label>
-                  <input type={f.type} className="fc" value={editForm[f.key] ?? ''}
-                    onChange={e => setEditForm(p => ({ ...p, [f.key]: f.type==='number' ? Number(e.target.value) : e.target.value }))} />
-                </div>
-              ))}
-              <div>
-                <label className="fl">Categoría</label>
-                <select className="fc" value={editForm.categoria || 'TI'} onChange={e => setEditForm(p => ({ ...p, categoria:e.target.value }))}>
-                  <option value="TI">TI</option>
-                  <option value="CW">CW</option>
-                </select>
-              </div>
-              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:8 }}>
-                <button className="btn bou" onClick={() => setEditModal(false)}>Cancelar</button>
-                <button className="btn bp" onClick={handleEditSave}>Guardar</button>
               </div>
             </div>
           </div>

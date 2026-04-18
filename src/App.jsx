@@ -19,7 +19,6 @@ import MatWrapper         from './pages/materiales/MatWrapper'
 import MatDashboard       from './pages/materiales/MatDashboard'
 import MatInventario      from './pages/materiales/MatInventario'
 import MatMovimientos     from './pages/materiales/MatMovimientos'
-import MatDespachos       from './pages/materiales/MatDespachos'
 import MatSitios          from './pages/materiales/MatSitios'
 import MatCatalogo        from './pages/materiales/MatCatalogo'
 import MatConfig          from './pages/materiales/MatConfig'
@@ -118,8 +117,7 @@ function AppRoutes() {
         <Route index              element={<MatDashboard />} />
         <Route path="inventario"  element={<MatInventario />} />
         <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatMovimientos /></ProtectedRoute>} />
-        <Route path="despachos"   element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatDespachos /></ProtectedRoute>} />
-        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
+<Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
         <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
         <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','logistica']}><MatConfig /></ProtectedRoute>} />
       </Route>

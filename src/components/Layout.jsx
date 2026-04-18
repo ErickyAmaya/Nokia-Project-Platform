@@ -24,7 +24,6 @@ const MAT_NAV = [
   { to: '/materiales',              label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
   { to: '/materiales/inventario',   label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
   { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
-  { to: '/materiales/despachos',    label: 'Despachos',   icon: '📤', id: 'mat-despachos',   roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/sitios',       label: 'Sitios',      icon: '📍', id: 'mat-sitios',      roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','logistica'] },
