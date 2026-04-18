@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
-import { useNavigate }  from 'react-router-dom'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
@@ -29,14 +28,11 @@ export default function MatMovimientos() {
   const catalogo         = useMatStore(s => s.catalogo)
   const bodegas          = useMatStore(s => s.bodegas)
   const movimientos      = useMatStore(s => s.movimientos)
-  const despachos        = useMatStore(s => s.despachos)
-  const bodegas_         = useMatStore(s => s.bodegas)
   const addMovimiento    = useMatStore(s => s.addMovimiento)
   const deleteMovimiento = useMatStore(s => s.deleteMovimiento)
   const liquidadorSitios = useAppStore(s => s.sitios)
   const user             = useAuthStore(s => s.user)
-  const navigate         = useNavigate()
-  const { confirm, ConfirmModalUI } = useConfirm()
+const { confirm, ConfirmModalUI } = useConfirm()
 
   const [form,    setForm]    = useState({ ...FORM_RESET, numero_doc: nextMovNum('Entrada', []) })
   const [saving,  setSaving]  = useState(false)
@@ -117,10 +113,8 @@ export default function MatMovimientos() {
     <div>
       <ConfirmModalUI />
 
-      {/* ── Top layout: form (left) + despachos (right) ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
-
-        {/* ── NUEVA ENTRADA form ── */}
+      {/* ── Entrada form ── */}
+      <div style={{ marginBottom:16 }}>
         <div className="card">
           <div className="card-h" style={{ background:'#144E4A', borderRadius:'8px 8px 0 0' }}>
             <h2 style={{ color:'#fff', margin:0 }}>Nueva Entrada</h2>
@@ -129,7 +123,7 @@ export default function MatMovimientos() {
 
             {/* Alert banner */}
             <div style={{ background:'#fff8e1', border:'1px solid #ffe082', borderRadius:6, padding:'7px 10px', fontSize:11, color:'#856404' }}>
-              Para <strong>Salidas</strong> usa el botón <strong>Nuevo Despacho</strong>. Este formulario registra <strong>Entradas</strong> de material a bodega.
+              Este formulario registra <strong>Entradas</strong> de material a bodega. Para <strong>Salidas</strong>, usa el botón <strong>- Sal</strong> desde el Inventario.
             </div>
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -219,55 +213,6 @@ export default function MatMovimientos() {
                 {saving ? 'Guardando…' : 'Guardar Movimiento'}
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* ── DESPACHOS panel (right) ── */}
-        <div className="card">
-          <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <h2>Despachos</h2>
-            <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
-              onClick={() => navigate('/materiales/despachos')}>
-              + Nuevo Despacho (Salida)
-            </button>
-          </div>
-          <div className="card-b" style={{ padding:'8px 0' }}>
-            {despachos.length === 0 ? (
-              <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin despachos</div>
-            ) : (
-              <table className="tbl">
-                <thead><tr>
-                  <th>Doc</th><th>Sitio</th><th>Fecha</th><th className="num">Items</th><th className="num">Total</th><th>Estado</th>
-                </tr></thead>
-                <tbody>
-                  {despachos.slice(0, 8).map(d => {
-                    const movs  = movimientos.filter(m => m.numero_doc === d.numero_doc)
-                    const total = movs.reduce((a, m) => a + (m.valor_total || 0), 0)
-                    return (
-                      <tr key={d.id}>
-                        <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{d.numero_doc}</td>
-                        <td style={{ fontSize:11 }}>{d.destino || '—'}</td>
-                        <td style={{ fontSize:10, color:'#9ca89c' }}>{d.fecha}</td>
-                        <td className="num" style={{ fontSize:11 }}>{movs.length}</td>
-                        <td className="num" style={{ fontWeight:700, fontSize:11 }}>{matCop(total)}</td>
-                        <td>
-                          <span className="badge" style={{ background:d.status==='finalizado'?'#d4edda':'#fef3cd', color:d.status==='finalizado'?'#1a6130':'#856404', fontSize:9 }}>
-                            {d.status==='finalizado'?'Finalizado':'Borrador'}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-            {despachos.length > 8 && (
-              <div style={{ textAlign:'center', padding:'8px 0' }}>
-                <button className="btn bou btn-sm" onClick={() => navigate('/materiales/despachos')}>
-                  Ver todos ({despachos.length}) →
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>

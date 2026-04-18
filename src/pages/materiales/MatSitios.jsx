@@ -121,17 +121,15 @@ export default function MatSitios() {
     <div>
       <ConfirmModalUI />
 
-      {/* Header */}
-      <div style={{ background:'#0a0a0a', borderRadius:'8px 8px 0 0', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, color:'#fff', letterSpacing:1, textTransform:'uppercase' }}>
-          Sitios de Instalación
-        </span>
-        {canEdit && (
-          <button className="btn bp btn-sm" onClick={() => openModal()}>+ Nuevo Sitio</button>
-        )}
-      </div>
-
-      <div className="card" style={{ borderRadius:'0 0 8px 8px' }}>
+      <div className="card">
+        <div className="card-h" style={{ background:'#0a0a0a', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ color:'#fff', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
+            Sitios de Instalación
+          </h2>
+          {canEdit && (
+            <button className="btn bp btn-sm" onClick={() => openModal()}>+ Nuevo Sitio</button>
+          )}
+        </div>
         <div className="card-b">
           {/* Filtros */}
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
