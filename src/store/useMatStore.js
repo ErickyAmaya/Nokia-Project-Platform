@@ -140,6 +140,7 @@ export const useMatStore = create((set, get) => ({
       ? await db().from('mat_sitios').insert(payload).select().single()
       : await db().from('mat_sitios').update(payload).eq('id', sitio.id).select().single()
     if (error) throw error
+    if (!data) throw new Error('mat_sitios no existe o no tiene permisos SELECT. Ejecuta supabase_mat_sitios.sql en Supabase.')
     set(s => ({
       sitios: isNew ? [...s.sitios, data] : s.sitios.map(x => x.id === data.id ? data : x),
     }))

@@ -147,9 +147,16 @@ export default function MatSitios() {
           </div>
 
           {sitiosError && (
-            <div style={{ background:'#fde8e7', border:'1px solid #f5c6cb', borderRadius:6, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#c0392b' }}>
-              <strong>Error al cargar sitios:</strong> {sitiosError}
-              <br /><span style={{ fontSize:10, color:'#555f55' }}>Revisa las políticas RLS en Supabase → tabla <code>mat_sitios</code></span>
+            <div style={{ background:'#fde8e7', border:'1.5px solid #f5c6cb', borderRadius:8, padding:'12px 16px', marginBottom:12 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:'#c0392b', marginBottom:6 }}>
+                ⚠ La tabla <code>mat_sitios</code> no existe en Supabase
+              </div>
+              <div style={{ fontSize:11, color:'#555f55', marginBottom:8 }}>
+                Error: <em>{sitiosError}</em>
+              </div>
+              <div style={{ fontSize:11, color:'#144E4A', fontWeight:600 }}>
+                Solución: ejecuta el archivo <code>supabase_mat_sitios.sql</code> en el Editor SQL de Supabase.
+              </div>
             </div>
           )}
 
