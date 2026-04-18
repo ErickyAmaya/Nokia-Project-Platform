@@ -17,6 +17,8 @@ export default function MatSitios() {
   const catalogo    = useMatStore(s => s.catalogo)
   const saveSitio   = useMatStore(s => s.saveSitio)
   const deleteSitio = useMatStore(s => s.deleteSitio)
+  const loadAll     = useMatStore(s => s.loadAll)
+  const loading     = useMatStore(s => s.loading)
   const user        = useAuthStore(s => s.user)
   const navigate    = useNavigate()
   const { confirm, ConfirmModalUI } = useConfirm()
@@ -136,6 +138,21 @@ export default function MatSitios() {
         </div>
 
         <div className="card-b">
+
+          {/* ── DIAGNÓSTICO TEMPORAL ── */}
+          <div style={{ background:'#f0f7f0', border:'1.5px solid #1a9c1a', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:11, display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+            <div>
+              <strong>Sitios en store:</strong> {sitios.length} &nbsp;|&nbsp;
+              <strong>Filtered:</strong> {filtered.length} &nbsp;|&nbsp;
+              <strong>Error:</strong> {sitiosError || 'ninguno'} &nbsp;|&nbsp;
+              <strong>Loading:</strong> {loading ? 'sí' : 'no'}
+            </div>
+            <button onClick={() => loadAll()}
+              style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#1a9c1a', color:'#fff', cursor:'pointer' }}>
+              Recargar datos
+            </button>
+          </div>
+
           {/* Filtros */}
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
             <input className="fc" placeholder="Buscar sitio…" value={search}
