@@ -35,6 +35,7 @@ export default function MatSitios() {
   const sitioData = useMemo(() => {
     const data = {}
     for (const s of sitios) {
+      const key = s.id ?? s.nombre   // fallback si no hay id
       const salidas = movimientos.filter(m =>
         m.tipo === 'Salida' && (
           (m.destino && m.destino.toLowerCase() === s.nombre.toLowerCase()) ||
@@ -75,7 +76,7 @@ export default function MatSitios() {
         if (!byMaterial[key].fechaEnvio  || mf < byMaterial[key].fechaEnvio)  byMaterial[key].fechaEnvio  = mf
       }
 
-      data[s.id] = {
+      data[key] = {
         movCount:   todasMovs.length,
         despCount,
         valorTotal,
@@ -109,7 +110,7 @@ export default function MatSitios() {
   async function handleDelete(s) {
     const ok = await confirm('Eliminar Sitio', `¿Eliminar "${s.nombre}"?`)
     if (!ok) return
-    try { await deleteSitio(s.id); showToast('Sitio eliminado') }
+    try { await deleteSitio(s.id, s.nombre); showToast('Sitio eliminado') }
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
@@ -200,12 +201,13 @@ export default function MatSitios() {
                   </tr>
                 )}
                 {filtered.map((s, i) => {
-                  const sd     = sitioData[s.id] || { movCount:0, despCount:0, valorTotal:0, materiales:[] }
-                  const isOpen = expanded === s.id
+                  const rowKey = s.id ?? s.nombre ?? i
+                  const sd     = sitioData[rowKey] || sitioData[s.nombre] || { movCount:0, despCount:0, valorTotal:0, materiales:[] }
+                  const isOpen = expanded === rowKey
                   const hasMovs = sd.movCount > 0
 
                   return (
-                    <React.Fragment key={s.id}>
+                    <React.Fragment key={rowKey}>
                       {/* ── Fila del sitio ── */}
                       <tr style={{ background: isOpen ? '#f0fdf4' : undefined, borderBottom: isOpen ? 'none' : undefined }}>
                         <td style={{ color:'#9ca89c', fontSize:11 }}>{i + 1}</td>
@@ -227,7 +229,7 @@ export default function MatSitios() {
                         <td style={{ whiteSpace:'nowrap' }}>
                           <div style={{ display:'flex', gap:4 }}>
                             <button
-                              onClick={() => setExpanded(isOpen ? null : s.id)}
+                              onClick={() => setExpanded(isOpen ? null : rowKey)}
                               style={{ padding:'3px 9px', fontSize:10, fontWeight:700, borderRadius:4, border:'none',
                                 background: isOpen ? '#144E4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
                               {isOpen ? '▲ Cerrar' : 'Ver Materiales'}

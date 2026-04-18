@@ -134,23 +134,36 @@ export const useMatStore = create((set, get) => ({
 
   // ── SITIOS ───────────────────────────────────────────────────────
   saveSitio: async (sitio) => {
-    const isNew = !sitio.id
+    const isNew = !sitio.id && !sitio._editing
     const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw, regional: sitio.regional, comentarios: sitio.comentarios, activo: sitio.activo ?? true }
-    const { data, error } = isNew
-      ? await db().from('mat_sitios').insert(payload).select().single()
-      : await db().from('mat_sitios').update(payload).eq('id', sitio.id).select().single()
+    let query
+    if (isNew) {
+      query = db().from('mat_sitios').insert(payload).select().single()
+    } else if (sitio.id) {
+      query = db().from('mat_sitios').update(payload).eq('id', sitio.id).select().single()
+    } else {
+      // tabla sin id — update por nombre original
+      query = db().from('mat_sitios').update(payload).eq('nombre', sitio._originalNombre || sitio.nombre).select().single()
+    }
+    const { data, error } = await query
     if (error) throw error
-    if (!data) throw new Error('mat_sitios no existe o no tiene permisos SELECT. Ejecuta supabase_mat_sitios.sql en Supabase.')
+    // Si la tabla no tiene id, data puede ser el objeto sin id field
+    const saved = data || payload
     set(s => ({
-      sitios: isNew ? [...s.sitios, data] : s.sitios.map(x => x.id === data.id ? data : x),
+      sitios: isNew
+        ? [...s.sitios, saved]
+        : s.sitios.map(x => (sitio.id ? x.id === sitio.id : x.nombre === (sitio._originalNombre || sitio.nombre)) ? saved : x),
     }))
-    return data
+    return saved
   },
 
-  deleteSitio: async (id) => {
-    const { error } = await db().from('mat_sitios').delete().eq('id', id)
+  deleteSitio: async (id, nombre) => {
+    const q = id
+      ? db().from('mat_sitios').delete().eq('id', id)
+      : db().from('mat_sitios').delete().eq('nombre', nombre)
+    const { error } = await q
     if (error) throw error
-    set(s => ({ sitios: s.sitios.filter(x => x.id !== id) }))
+    set(s => ({ sitios: s.sitios.filter(x => id ? x.id !== id : x.nombre !== nombre) }))
   },
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
