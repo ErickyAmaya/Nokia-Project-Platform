@@ -1,32 +1,55 @@
 import { useState, useMemo } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import SearchableSelect from '../../components/materiales/SearchableSelect'
+
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
+const FORM_RESET = {
+  fecha: new Date().toISOString().slice(0,10),
+  numero_doc: '', catalogo_id: '', bodega_id: '',
+  cantidad: 0, valor_unitario: 0, origen: '', destino: '', sitio_id: '', comentarios: '',
+}
 
 export default function MatMovimientos() {
-  const catalogo    = useMatStore(s => s.catalogo)
-  const bodegas     = useMatStore(s => s.bodegas)
-  const sitios      = useMatStore(s => s.sitios)
-  const movimientos = useMatStore(s => s.movimientos)
+  const catalogo         = useMatStore(s => s.catalogo)
+  const bodegas          = useMatStore(s => s.bodegas)
+  const movimientos      = useMatStore(s => s.movimientos)
   const addMovimiento    = useMatStore(s => s.addMovimiento)
   const deleteMovimiento = useMatStore(s => s.deleteMovimiento)
-  const user = useAuthStore(s => s.user)
+  const liquidadorSitios = useAppStore(s => s.sitios)
+  const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [modal,  setModal]  = useState(false)
-  const [tipo,   setTipo]   = useState('Entrada')
+  const [modal,   setModal]   = useState(false)
+  const [tipo,    setTipo]    = useState('Entrada')
   const [filTipo, setFilTipo] = useState('')
   const [filBod,  setFilBod]  = useState('')
   const [search,  setSearch]  = useState('')
-  const [form, setForm] = useState({
-    fecha: new Date().toISOString().slice(0,10),
-    numero_doc: '', catalogo_id: '', bodega_id: '',
-    cantidad: 0, valor_unitario: 0, origen: '', destino: '', sitio_id: '', comentarios: '',
-  })
+  const [form, setForm] = useState(FORM_RESET)
 
-  const canEdit  = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
+
+  // Opciones para SearchableSelect de material
+  const materialOptions = useMemo(() =>
+    catalogo.filter(c => c.activo && c.categoria !== 'PROVEEDORES')
+      .map(c => ({ value: c.id, label: c.nombre, sub: c.codigo }))
+  , [catalogo])
+
+  // Proveedores para ORIGEN en Entrada
+  const proveedores = useMemo(() =>
+    catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo)
+  , [catalogo])
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
@@ -41,12 +64,16 @@ export default function MatMovimientos() {
     })
   }, [movimientos, filTipo, filBod, search, catalogo])
 
-  function openModal(t) { setTipo(t); setModal(true) }
+  function openModal(t) {
+    setTipo(t)
+    setForm(FORM_RESET)
+    setModal(true)
+  }
 
   // Auto-completar valor_unitario desde catálogo
-  function handleCatChange(id) {
-    const cat = catalogo.find(c => c.id === Number(id))
-    setForm(p => ({ ...p, catalogo_id: id, valor_unitario: cat?.costo_unitario || 0 }))
+  function handleCatChange(val) {
+    const cat = catalogo.find(c => c.id === Number(val))
+    setForm(p => ({ ...p, catalogo_id: val, valor_unitario: cat?.costo_unitario || 0 }))
   }
 
   async function handleSave() {
@@ -66,7 +93,6 @@ export default function MatMovimientos() {
       })
       showToast(`${tipo} registrada`)
       setModal(false)
-      setForm({ fecha: new Date().toISOString().slice(0,10), numero_doc:'', catalogo_id:'', bodega_id:'', cantidad:0, valor_unitario:0, origen:'', destino:'', sitio_id:'', comentarios:'' })
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
@@ -76,6 +102,80 @@ export default function MatMovimientos() {
     if (!ok) return
     try { await deleteMovimiento(m.id); showToast('Movimiento eliminado') }
     catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  // ── Campos del modal según tipo ──────────────────────────────────────
+  function ModalEntrada() {
+    return (
+      <>
+        <div>
+          <label className="fl">Material *</label>
+          <SearchableSelect
+            options={materialOptions}
+            value={String(form.catalogo_id || '')}
+            onChange={handleCatChange}
+            placeholder="Buscar material…"
+          />
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div>
+            <label className="fl">ORIGEN</label>
+            <select className="fc" value={form.origen}
+              onChange={e => setForm(p => ({ ...p, origen: e.target.value }))}>
+              <option value="">— Proveedor —</option>
+              {proveedores.map(p => (
+                <option key={p.id} value={p.nombre}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="fl">BODEGA *</label>
+            <select className="fc" value={form.bodega_id}
+              onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
+              <option value="">— Seleccionar —</option>
+              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="fl">DESTINO</label>
+          <select className="fc" value={form.sitio_id}
+            onChange={e => {
+              const sitio = liquidadorSitios.find(s => String(s.id) === e.target.value)
+              setForm(p => ({ ...p, sitio_id: e.target.value, destino: sitio?.nombre || '' }))
+            }}>
+            <option value="">— Sitio Nokia —</option>
+            {(liquidadorSitios || []).map(s => (
+              <option key={s.id} value={s.id}>{s.nombre}</option>
+            ))}
+          </select>
+        </div>
+      </>
+    )
+  }
+
+  function ModalSalida() {
+    return (
+      <>
+        <div>
+          <label className="fl">Material *</label>
+          <SearchableSelect
+            options={materialOptions}
+            value={String(form.catalogo_id || '')}
+            onChange={handleCatChange}
+            placeholder="Buscar material…"
+          />
+        </div>
+        <div>
+          <label className="fl">BODEGA *</label>
+          <select className="fc" value={form.bodega_id}
+            onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
+            <option value="">— Seleccionar —</option>
+            {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+          </select>
+        </div>
+      </>
+    )
   }
 
   return (
@@ -154,6 +254,7 @@ export default function MatMovimientos() {
               <button onClick={() => setModal(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              {/* Campos comunes */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label className="fl">Fecha</label>
@@ -164,31 +265,11 @@ export default function MatMovimientos() {
                   <input type="text" className="fc" placeholder="FC-000-001" value={form.numero_doc} onChange={e => setForm(p => ({ ...p, numero_doc:e.target.value }))} />
                 </div>
               </div>
-              <div>
-                <label className="fl">Material *</label>
-                <select className="fc" value={form.catalogo_id} onChange={e => handleCatChange(e.target.value)}>
-                  <option value="">— Seleccionar —</option>
-                  {catalogo.filter(c => c.activo).map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre} ({c.codigo})</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label className="fl">Bodega *</label>
-                  <select className="fc" value={form.bodega_id} onChange={e => setForm(p => ({ ...p, bodega_id:e.target.value }))}>
-                    <option value="">— Seleccionar —</option>
-                    {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="fl">Sitio</label>
-                  <select className="fc" value={form.sitio_id} onChange={e => setForm(p => ({ ...p, sitio_id:e.target.value }))}>
-                    <option value="">— Opcional —</option>
-                    {sitios.filter(s => s.activo).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
+
+              {/* Campos por tipo */}
+              {tipo === 'Entrada' ? <ModalEntrada /> : <ModalSalida />}
+
+              {/* Cantidad + Valor Unitario */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label className="fl">Cantidad *</label>
@@ -196,14 +277,14 @@ export default function MatMovimientos() {
                 </div>
                 <div>
                   <label className="fl">Valor Unitario</label>
-                  <input type="number" min="0" className="fc" value={form.valor_unitario} onChange={e => setForm(p => ({ ...p, valor_unitario:e.target.value }))} />
+                  <input type="number" min="0" className="fc" value={form.valor_unitario}
+                    readOnly={tipo === 'Salida'}
+                    style={{ background: tipo === 'Salida' ? '#f5f5f5' : undefined }}
+                    onChange={tipo === 'Entrada' ? e => setForm(p => ({ ...p, valor_unitario:e.target.value })) : undefined}
+                  />
                 </div>
               </div>
-              <div>
-                <label className="fl">{tipo==='Entrada'?'Origen':'Destino'}</label>
-                <input type="text" className="fc" value={tipo==='Entrada'?form.origen:form.destino}
-                  onChange={e => setForm(p => tipo==='Entrada' ? { ...p, origen:e.target.value } : { ...p, destino:e.target.value })} />
-              </div>
+
               <div>
                 <label className="fl">Comentarios</label>
                 <input type="text" className="fc" value={form.comentarios} onChange={e => setForm(p => ({ ...p, comentarios:e.target.value }))} />

@@ -4,6 +4,20 @@ import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
+const CAT_COLORS = {
+  TI:          { bg:'#f0fdf4', color:'#166534' },
+  CW:          { bg:'#faf5ff', color:'#5b21b6' },
+  PROVEEDORES: { bg:'#fff7ed', color:'#9a3412' },
+}
+
 export default function MatCatalogo() {
   const catalogo       = useMatStore(s => s.catalogo)
   const saveCatItem    = useMatStore(s => s.saveCatItem)
@@ -28,7 +42,10 @@ export default function MatCatalogo() {
   }, [catalogo, search, filCat])
 
   function openModal(item = null) {
-    setForm(item ? { ...item } : { nombre:'', codigo:'', unidad:'Und.', categoria:'TI', costo_unitario:0, stock_minimo:0, activo:true })
+    setForm(item
+      ? { ...item }
+      : { nombre:'', codigo:'', unidad:'Und.', categoria:'TI', costo_unitario:0, stock_minimo:0, activo:true, descripcion:'', imagen_url:'' }
+    )
     setModal(true)
   }
 
@@ -60,7 +77,7 @@ export default function MatCatalogo() {
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
             <input className="fc" placeholder="Buscar nombre, código…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:160 }} />
-            {['','TI','CW'].map(v => (
+            {['','TI','CW','PROVEEDORES'].map(v => (
               <button key={v} onClick={() => setFilCat(v)}
                 style={{ padding:'4px 12px', fontSize:10, fontWeight:700, borderRadius:20,
                   border: filCat===v?'none':'1.5px solid #e0e4e0',
@@ -81,32 +98,35 @@ export default function MatCatalogo() {
                 {filtered.length === 0 && (
                   <tr><td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                 )}
-                {filtered.map(c => (
-                  <tr key={c.id}>
-                    <td style={{ fontWeight:600 }}>{c.nombre}</td>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{c.codigo}</td>
-                    <td style={{ color:'#9ca89c' }}>{c.unidad}</td>
-                    <td>
-                      <span className="badge" style={{ background:c.categoria==='TI'?'#f0fdf4':'#faf5ff', color:c.categoria==='TI'?'#166534':'#5b21b6' }}>
-                        {c.categoria}
-                      </span>
-                    </td>
-                    <td className="num" style={{ color:'#144E4A', fontWeight:600 }}>{matCop(c.costo_unitario)}</td>
-                    <td className="num">{c.stock_minimo}</td>
-                    <td>
-                      <span className="badge" style={{ background:c.activo?'#d4edda':'#f0f0f0', color:c.activo?'#1a6130':'#888' }}>
-                        {c.activo?'Activo':'Inactivo'}
-                      </span>
-                    </td>
-                    {canEdit && (
-                      <td style={{ whiteSpace:'nowrap' }}>
-                        <button className="btn-edit" onClick={() => openModal(c)}>✏</button>
-                        {' '}
-                        <button className="btn-del" onClick={() => handleDelete(c)}>✕</button>
+                {filtered.map(c => {
+                  const cc = CAT_COLORS[c.categoria] || CAT_COLORS.TI
+                  return (
+                    <tr key={c.id}>
+                      <td style={{ fontWeight:600 }}>{c.nombre}</td>
+                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{c.codigo}</td>
+                      <td style={{ color:'#9ca89c' }}>{c.unidad}</td>
+                      <td>
+                        <span className="badge" style={{ background:cc.bg, color:cc.color }}>
+                          {c.categoria}
+                        </span>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="num" style={{ color:'#144E4A', fontWeight:600 }}>{matCop(c.costo_unitario)}</td>
+                      <td className="num">{c.stock_minimo}</td>
+                      <td>
+                        <span className="badge" style={{ background:c.activo?'#d4edda':'#f0f0f0', color:c.activo?'#1a6130':'#888' }}>
+                          {c.activo?'Activo':'Inactivo'}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td style={{ whiteSpace:'nowrap' }}>
+                          <button className="btn-edit" onClick={() => openModal(c)}><IconEdit /></button>
+                          {' '}
+                          <button className="btn-del" onClick={() => handleDelete(c)}>✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -136,13 +156,35 @@ export default function MatCatalogo() {
                     onChange={e => setForm(p => ({ ...p, [f.key]: f.type==='number' ? Number(e.target.value) : e.target.value }))} />
                 </div>
               ))}
+
               <div>
                 <label className="fl">Categoría</label>
                 <select className="fc" value={form.categoria || 'TI'} onChange={e => setForm(p => ({ ...p, categoria:e.target.value }))}>
                   <option value="TI">TI</option>
                   <option value="CW">CW</option>
+                  <option value="PROVEEDORES">PROVEEDORES</option>
                 </select>
               </div>
+
+              <div>
+                <label className="fl">Descripción</label>
+                <textarea className="fc" rows={2} value={form.descripcion || ''}
+                  onChange={e => setForm(p => ({ ...p, descripcion:e.target.value }))}
+                  style={{ resize:'vertical', fontFamily:"'Barlow', sans-serif", fontSize:12 }} />
+              </div>
+
+              <div>
+                <label className="fl">URL de Imagen</label>
+                <input type="text" className="fc" placeholder="https://…" value={form.imagen_url || ''}
+                  onChange={e => setForm(p => ({ ...p, imagen_url:e.target.value }))} />
+                {form.imagen_url && (
+                  <img src={form.imagen_url} alt="preview"
+                    style={{ marginTop:6, maxHeight:80, borderRadius:4, border:'1px solid #e0e4e0', objectFit:'contain' }}
+                    onError={e => { e.target.style.display='none' }}
+                  />
+                )}
+              </div>
+
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <input type="checkbox" id="cat-activo" checked={form.activo !== false} onChange={e => setForm(p => ({ ...p, activo:e.target.checked }))} />
                 <label htmlFor="cat-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>

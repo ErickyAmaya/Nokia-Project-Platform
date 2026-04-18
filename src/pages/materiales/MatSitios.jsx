@@ -4,6 +4,14 @@ import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
 const TIPOS = ['Macro','Micro','DAS','IBS','Rooftop','Torre','Canastilla','Monopole']
 
 export default function MatSitios() {
@@ -75,7 +83,7 @@ export default function MatSitios() {
                     <td><span className="badge" style={{ background:s.activo?'#d4edda':'#f0f0f0', color:s.activo?'#1a6130':'#888' }}>{s.activo?'Activo':'Inactivo'}</span></td>
                     {canEdit && (
                       <td style={{ whiteSpace:'nowrap' }}>
-                        <button className="btn-edit" onClick={() => openModal(s)}>✏</button>
+                        <button className="btn-edit" onClick={() => openModal(s)}><IconEdit /></button>
                         {' '}
                         <button className="btn-del" onClick={() => handleDelete(s)}>✕</button>
                       </td>
