@@ -137,19 +137,6 @@ export default function MatMovimientos() {
             </select>
           </div>
         </div>
-        <div>
-          <label className="fl">DESTINO</label>
-          <select className="fc" value={form.sitio_id}
-            onChange={e => {
-              const sitio = liquidadorSitios.find(s => String(s.id) === e.target.value)
-              setForm(p => ({ ...p, sitio_id: e.target.value, destino: sitio?.nombre || '' }))
-            }}>
-            <option value="">— Sitio Nokia —</option>
-            {(liquidadorSitios || []).map(s => (
-              <option key={s.id} value={s.id}>{s.nombre}</option>
-            ))}
-          </select>
-        </div>
       </>
     )
   }
@@ -166,13 +153,28 @@ export default function MatMovimientos() {
             placeholder="Buscar material…"
           />
         </div>
-        <div>
-          <label className="fl">BODEGA *</label>
-          <select className="fc" value={form.bodega_id}
-            onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
-            <option value="">— Seleccionar —</option>
-            {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-          </select>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div>
+            <label className="fl">BODEGA *</label>
+            <select className="fc" value={form.bodega_id}
+              onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
+              <option value="">— Seleccionar —</option>
+              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="fl">DESTINO</label>
+            <select className="fc" value={form.sitio_id}
+              onChange={e => {
+                const sitio = liquidadorSitios.find(s => String(s.id) === e.target.value)
+                setForm(p => ({ ...p, sitio_id: e.target.value, destino: sitio?.nombre || '' }))
+              }}>
+              <option value="">— Sitio Nokia —</option>
+              {(liquidadorSitios || []).map(s => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </>
     )
