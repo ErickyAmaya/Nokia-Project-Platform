@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import SearchableSelect from '../../components/materiales/SearchableSelect'
 
 // Genera número de documento correlativo
 function nextDocNum(despachos) {
@@ -15,15 +17,15 @@ function nextDocNum(despachos) {
 }
 
 function DespachoWizard({ onClose }) {
-  const catalogo       = useMatStore(s => s.catalogo)
-  const bodegas        = useMatStore(s => s.bodegas)
-  const sitios         = useMatStore(s => s.sitios)
-  const despachos      = useMatStore(s => s.despachos)
-  const getStock       = useMatStore(s => s.getStock)
-  const saveDespacho   = useMatStore(s => s.saveDespacho)
-  const addMovimiento  = useMatStore(s => s.addMovimiento)
+  const catalogo          = useMatStore(s => s.catalogo)
+  const bodegas           = useMatStore(s => s.bodegas)
+  const despachos         = useMatStore(s => s.despachos)
+  const getStock          = useMatStore(s => s.getStock)
+  const saveDespacho      = useMatStore(s => s.saveDespacho)
+  const addMovimiento     = useMatStore(s => s.addMovimiento)
   const finalizarDespacho = useMatStore(s => s.finalizarDespacho)
-  const user           = useAuthStore(s => s.user)
+  const liquidadorSitios  = useAppStore(s => s.sitios)
+  const user              = useAuthStore(s => s.user)
 
   const [step, setStep]   = useState(1)
   const [meta, setMeta]   = useState({
@@ -33,25 +35,63 @@ function DespachoWizard({ onClose }) {
     fecha: new Date().toISOString().slice(0,10),
     comentarios: '',
   })
-  const [items, setItems] = useState([])   // { catalogo_id, cant_solicitada, cant_despachada, valor_unitario }
-  const [saving, setSaving] = useState(false)
-  const [catSel, setCatSel] = useState('')
+  const [items, setItems]         = useState([])
+  const [saving, setSaving]       = useState(false)
+  const [catSel, setCatSel]       = useState('')
+  const [stockWarn, setStockWarn] = useState(false)
 
-  const catActiva = useMemo(() => catalogo.filter(c => c.activo), [catalogo])
+  // Solo materiales activos (no proveedores)
+  const catActiva = useMemo(() =>
+    catalogo.filter(c => c.activo && c.categoria !== 'PROVEEDORES')
+  , [catalogo])
+
+  // Opciones para SearchableSelect
+  const materialOptions = useMemo(() =>
+    catActiva.map(c => {
+      const stk = getStock(c.id, Number(meta.bodega_id))
+      return { value: c.id, label: c.nombre, sub: `${c.codigo} — Stock: ${stk}` }
+    })
+  , [catActiva, meta.bodega_id, getStock])
+
+  function handleCatSel(val) {
+    setCatSel(val)
+    if (val) {
+      const stk = getStock(Number(val), Number(meta.bodega_id))
+      setStockWarn(stk === 0)
+    } else {
+      setStockWarn(false)
+    }
+  }
 
   function addItem() {
     if (!catSel) return
     const cat = catalogo.find(c => c.id === Number(catSel))
     if (!cat) return
+    const stk = getStock(cat.id, Number(meta.bodega_id))
+    if (stk === 0) { showToast('Sin existencias en esta bodega', 'err'); return }
     if (items.find(i => i.catalogo_id === cat.id)) { showToast('Material ya agregado', 'err'); return }
     setItems(p => [...p, { catalogo_id: cat.id, cant_solicitada: 0, cant_despachada: 0, valor_unitario: cat.costo_unitario || 0 }])
-    setCatSel('')
+    setCatSel(''); setStockWarn(false)
   }
 
   function removeItem(id) { setItems(p => p.filter(i => i.catalogo_id !== id)) }
 
   function updateItem(id, key, val) {
     setItems(p => p.map(i => i.catalogo_id === id ? { ...i, [key]: Number(val) } : i))
+  }
+
+  function handleNextToStep3() {
+    // Validar que ningún cant_despachada supere el stock
+    const overStock = items.filter(i => {
+      const stk = getStock(i.catalogo_id, Number(meta.bodega_id))
+      return Number(i.cant_despachada) > stk
+    })
+    if (overStock.length > 0) {
+      const names = overStock.map(i => catalogo.find(c => c.id === i.catalogo_id)?.nombre).join(', ')
+      showToast(`Cantidad supera el stock: ${names}`, 'err')
+      return
+    }
+    setStep(3)
   }
 
   const totalVal = items.reduce((a, i) => a + (i.cant_despachada * i.valor_unitario), 0)
@@ -61,9 +101,8 @@ function DespachoWizard({ onClose }) {
     if (items.length === 0) { showToast('Agrega al menos un material', 'err'); return }
     setSaving(true)
     try {
-      // 1. Crear despacho
+      const sitioNombre = (liquidadorSitios || []).find(s => String(s.id) === String(meta.sitio_id))?.nombre || ''
       const desp = await saveDespacho({ ...meta, created_by: user?.nombre || user?.email })
-      // 2. Insertar movimientos de salida
       for (const item of items) {
         if ((item.cant_despachada || 0) <= 0) continue
         await addMovimiento({
@@ -77,17 +116,18 @@ function DespachoWizard({ onClose }) {
           valor_unitario: item.valor_unitario,
           cant_solicitada:  item.cant_solicitada,
           cant_despachada:  item.cant_despachada,
-          destino:        sitios.find(s => s.id === Number(meta.sitio_id))?.nombre || '',
+          destino:        sitioNombre,
           created_by:     user?.nombre || user?.email,
         })
       }
-      // 3. Marcar como finalizado
       await finalizarDespacho(desp.id)
       showToast(`Despacho ${desp.numero_doc} finalizado`)
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
   }
+
+  const sitioNombre = (liquidadorSitios || []).find(s => String(s.id) === String(meta.sitio_id))?.nombre
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -101,7 +141,7 @@ function DespachoWizard({ onClose }) {
         </div>
 
         {/* Steps indicator */}
-        <div style={{ display:'flex', borderBottom:'2px solid #e0e4e0', marginBottom:0 }}>
+        <div style={{ display:'flex', borderBottom:'2px solid #e0e4e0' }}>
           {['Datos del despacho','Materiales','Confirmar'].map((s,i) => (
             <div key={i} style={{ flex:1, textAlign:'center', padding:'8px 4px', fontSize:10, fontWeight:700,
               letterSpacing:.5, textTransform:'uppercase', cursor: i+1 < step ? 'pointer' : 'default',
@@ -118,7 +158,7 @@ function DespachoWizard({ onClose }) {
         </div>
 
         <div style={{ padding:20 }}>
-          {/* Step 1: Datos */}
+          {/* ── Step 1: Datos ── */}
           {step === 1 && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
@@ -143,11 +183,13 @@ function DespachoWizard({ onClose }) {
                   </select>
                 </div>
                 <div>
-                  <label className="fl">Sitio destino</label>
+                  <label className="fl">Sitio Destino</label>
                   <select className="fc" value={meta.sitio_id}
                     onChange={e => setMeta(p => ({ ...p, sitio_id:e.target.value }))}>
                     <option value="">— Opcional —</option>
-                    {sitios.filter(s => s.activo).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    {(liquidadorSitios || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -162,19 +204,35 @@ function DespachoWizard({ onClose }) {
             </div>
           )}
 
-          {/* Step 2: Materiales */}
+          {/* ── Step 2: Materiales ── */}
           {step === 2 && (
             <div>
-              <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-                <select className="fc" value={catSel} onChange={e => setCatSel(e.target.value)} style={{ flex:1 }}>
-                  <option value="">— Seleccionar material —</option>
-                  {catActiva.map(c => {
-                    const stk = getStock(c.id, Number(meta.bodega_id))
-                    return <option key={c.id} value={c.id}>{c.nombre} ({c.codigo}) — Stock: {stk}</option>
-                  })}
-                </select>
-                <button className="btn bp btn-sm" onClick={addItem}>+ Agregar</button>
+              {/* Selector */}
+              <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                <div style={{ flex:1 }}>
+                  <SearchableSelect
+                    options={materialOptions}
+                    value={String(catSel || '')}
+                    onChange={handleCatSel}
+                    placeholder="Buscar material…"
+                  />
+                </div>
+                <button className="btn bp btn-sm"
+                  onClick={addItem}
+                  disabled={!catSel || stockWarn}
+                  style={{ opacity: (!catSel || stockWarn) ? .45 : 1 }}>
+                  + Agregar
+                </button>
               </div>
+
+              {/* Aviso sin stock */}
+              {stockWarn && (
+                <div style={{ background:'#fde8e7', border:'1px solid #f5c6c6', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#c0392b', marginBottom:8, fontWeight:600 }}>
+                  Sin existencias en esta bodega — no se puede agregar
+                </div>
+              )}
+
+              <div style={{ marginBottom:12 }} />
 
               {items.length === 0 && (
                 <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>
@@ -185,6 +243,7 @@ function DespachoWizard({ onClose }) {
               {items.map(item => {
                 const cat = catalogo.find(c => c.id === item.catalogo_id)
                 const stk = getStock(item.catalogo_id, Number(meta.bodega_id))
+                const overStock = Number(item.cant_despachada) > stk
                 return (
                   <div key={item.catalogo_id} style={{ display:'grid', gridTemplateColumns:'1fr 80px 100px 100px 32px', gap:8, alignItems:'center', padding:'8px 0', borderBottom:'1px solid #f0f2f0' }}>
                     <div>
@@ -197,8 +256,10 @@ function DespachoWizard({ onClose }) {
                         value={item.cant_solicitada} onChange={e => updateItem(item.catalogo_id,'cant_solicitada',e.target.value)} />
                     </div>
                     <div>
-                      <label style={{ fontSize:9, color:'#9ca89c', display:'block', marginBottom:2 }}>Despachado</label>
-                      <input type="number" min="0" max={stk} style={{ width:'100%', border:'1.5px solid #e0e4e0', borderRadius:4, padding:'4px 6px', fontSize:11, textAlign:'right' }}
+                      <label style={{ fontSize:9, color: overStock ? '#c0392b' : '#9ca89c', display:'block', marginBottom:2 }}>
+                        Despachado {overStock ? '⚠ supera stock' : ''}
+                      </label>
+                      <input type="number" min="0" style={{ width:'100%', border:`1.5px solid ${overStock ? '#c0392b' : '#e0e4e0'}`, borderRadius:4, padding:'4px 6px', fontSize:11, textAlign:'right', background: overStock ? '#fff5f5' : undefined }}
                         value={item.cant_despachada} onChange={e => updateItem(item.catalogo_id,'cant_despachada',e.target.value)} />
                     </div>
                     <div>
@@ -220,12 +281,12 @@ function DespachoWizard({ onClose }) {
 
               <div style={{ display:'flex', gap:8, justifyContent:'space-between', marginTop:16 }}>
                 <button className="btn bou" onClick={() => setStep(1)}>← Volver</button>
-                <button className="btn bp" onClick={() => setStep(3)} disabled={items.length === 0}>Siguiente →</button>
+                <button className="btn bp" onClick={handleNextToStep3} disabled={items.length === 0}>Siguiente →</button>
               </div>
             </div>
           )}
 
-          {/* Step 3: Confirmar */}
+          {/* ── Step 3: Confirmar ── */}
           {step === 3 && (
             <div>
               <div className="card" style={{ marginBottom:12 }}>
@@ -234,8 +295,8 @@ function DespachoWizard({ onClose }) {
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:12 }}>
                     <div><span style={{ color:'#9ca89c' }}>Documento:</span> <strong>{meta.numero_doc}</strong></div>
                     <div><span style={{ color:'#9ca89c' }}>Fecha:</span> <strong>{meta.fecha}</strong></div>
-                    <div><span style={{ color:'#9ca89c' }}>Bodega:</span> <strong>{bodegas.find(b => b.id===Number(meta.bodega_id))?.nombre}</strong></div>
-                    <div><span style={{ color:'#9ca89c' }}>Sitio:</span> <strong>{sitios.find(s => s.id===Number(meta.sitio_id))?.nombre || '—'}</strong></div>
+                    <div><span style={{ color:'#9ca89c' }}>Bodega:</span> <strong>{bodegas.find(b => String(b.id)===String(meta.bodega_id))?.nombre}</strong></div>
+                    <div><span style={{ color:'#9ca89c' }}>Sitio:</span> <strong>{sitioNombre || '—'}</strong></div>
                   </div>
                 </div>
               </div>
@@ -281,9 +342,9 @@ function DespachoWizard({ onClose }) {
 export default function MatDespachos() {
   const despachos      = useMatStore(s => s.despachos)
   const bodegas        = useMatStore(s => s.bodegas)
-  const sitios         = useMatStore(s => s.sitios)
   const movimientos    = useMatStore(s => s.movimientos)
   const deleteDespacho = useMatStore(s => s.deleteDespacho)
+  const liquidadorSitios = useAppStore(s => s.sitios)
   const user           = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -298,7 +359,7 @@ export default function MatDespachos() {
     if (filStat && d.status !== filStat) return false
     if (search) {
       const q = search.toLowerCase()
-      const sit = sitios.find(s => s.id === d.sitio_id)
+      const sit = (liquidadorSitios || []).find(s => s.id === d.sitio_id)
       if (!`${d.numero_doc} ${sit?.nombre || ''}`.toLowerCase().includes(q)) return false
     }
     return true
@@ -313,7 +374,7 @@ export default function MatDespachos() {
 
   return (
     <div>
-      {ConfirmModalUI}
+      <ConfirmModalUI />
       {wizard && <DespachoWizard onClose={() => setWizard(false)} />}
 
       <div className="card">
@@ -347,7 +408,7 @@ export default function MatDespachos() {
                   const movs  = movimientos.filter(m => m.numero_doc === d.numero_doc)
                   const total = movs.reduce((a, m) => a + (m.valor_total || 0), 0)
                   const bod   = bodegas.find(b => b.id === d.bodega_id)
-                  const sit   = sitios.find(s => s.id === d.sitio_id)
+                  const sit   = (liquidadorSitios || []).find(s => s.id === d.sitio_id)
                   return (
                     <tr key={d.id}>
                       <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700 }}>{d.numero_doc}</td>

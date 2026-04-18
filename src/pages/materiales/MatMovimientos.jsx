@@ -182,7 +182,7 @@ export default function MatMovimientos() {
 
   return (
     <div>
-      {ConfirmModalUI}
+      <ConfirmModalUI />
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Movimientos ({rows.length})</h2>

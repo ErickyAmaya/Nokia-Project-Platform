@@ -40,6 +40,7 @@ export default function MatInventario() {
     const q = search.toLowerCase()
     return catalogo
       .filter(c => {
+        if (c.categoria === 'PROVEEDORES') return false
         if (filCat && c.categoria !== filCat) return false
         if (filStatus) {
           const s = getStock(c.id, filBodega ? Number(filBodega) : undefined)
@@ -81,7 +82,7 @@ export default function MatInventario() {
 
   return (
     <div>
-      {ConfirmModalUI}
+      <ConfirmModalUI />
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Inventario de Materiales ({rows.length})</h2>

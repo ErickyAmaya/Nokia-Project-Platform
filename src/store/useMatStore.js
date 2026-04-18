@@ -72,12 +72,12 @@ export const useMatStore = create((set, get) => ({
         ? [...s.catalogo, data]
         : s.catalogo.map(c => c.id === data.id ? data : c),
     }))
-    // Si es nuevo, crear fila de stock en cada bodega
+    // Si es nuevo, crear fila de stock en cada bodega (en paralelo)
     if (isNew) {
       const bodegas = get().bodegas
-      for (const b of bodegas) {
-        await db().from('mat_stock').upsert({ catalogo_id: data.id, bodega_id: b.id, stock_actual: 0 })
-      }
+      await Promise.all(bodegas.map(b =>
+        db().from('mat_stock').upsert({ catalogo_id: data.id, bodega_id: b.id, stock_actual: 0 })
+      ))
       const { data: stk } = await db().from('mat_stock').select('*')
       if (stk) set({ stock: stk })
     }
@@ -101,12 +101,12 @@ export const useMatStore = create((set, get) => ({
     set(s => ({
       bodegas: isNew ? [...s.bodegas, data] : s.bodegas.map(b => b.id === data.id ? data : b),
     }))
-    // Si es nueva bodega, crear filas de stock para todos los materiales
+    // Si es nueva bodega, crear filas de stock para todos los materiales (en paralelo)
     if (isNew) {
       const cat = get().catalogo
-      for (const c of cat) {
-        await db().from('mat_stock').upsert({ catalogo_id: c.id, bodega_id: data.id, stock_actual: 0 })
-      }
+      await Promise.all(cat.map(c =>
+        db().from('mat_stock').upsert({ catalogo_id: c.id, bodega_id: data.id, stock_actual: 0 })
+      ))
       const { data: stk } = await db().from('mat_stock').select('*')
       if (stk) set({ stock: stk })
     }

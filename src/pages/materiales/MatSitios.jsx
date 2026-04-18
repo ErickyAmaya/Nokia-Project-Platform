@@ -55,7 +55,7 @@ export default function MatSitios() {
 
   return (
     <div>
-      {ConfirmModalUI}
+      <ConfirmModalUI />
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Sitios de Obra ({filtered.length})</h2>

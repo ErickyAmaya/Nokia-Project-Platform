@@ -109,7 +109,7 @@ export default function MatCatalogo() {
 
   return (
     <div>
-      {ConfirmModalUI}
+      <ConfirmModalUI />
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Catálogo de Materiales ({filtered.length})</h2>
