@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useNavigate }  from 'react-router-dom'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import DespachoModal from '../../components/materiales/DespachoModal'
 
 const TIPOS = ['Principal','Macro','Micro','DAS','IBS','Rooftop','Torre','Canastilla','Monopole']
 const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Caribe']
@@ -18,10 +19,11 @@ export default function MatSitios() {
   const navigate    = useNavigate()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [modal,     setModal]    = useState(false)
-  const [search,    setSearch]   = useState('')
-  const [filReg,    setFilReg]   = useState('')
-  const [expanded,  setExpanded] = useState(null) // sitio id actualmente expandido
+  const [modal,          setModal]         = useState(false)
+  const [search,         setSearch]        = useState('')
+  const [filReg,         setFilReg]        = useState('')
+  const [expanded,       setExpanded]      = useState(null)
+  const [despachoDestino, setDespachoDestino] = useState(null) // nombre sitio para abrir modal despacho
   const [form, setForm] = useState({ nombre:'', tipo_cw:'Principal', regional:'Sur-Occidente', comentarios:'', activo:true })
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
@@ -121,9 +123,13 @@ export default function MatSitios() {
     <div>
       <ConfirmModalUI />
 
+      {despachoDestino !== null && (
+        <DespachoModal defaultDestino={despachoDestino} onClose={() => setDespachoDestino(null)} />
+      )}
+
       <div className="card">
         <div className="card-h" style={{ background:'#0a0a0a', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#fff', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
+          <h2 style={{ color:'#1a9c1a', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
             Sitios de Instalación
           </h2>
           {canEdit && (
@@ -184,13 +190,20 @@ export default function MatSitios() {
                         }
                       </td>
                       <td style={{ whiteSpace:'nowrap' }}>
-                        <div style={{ display:'flex', gap:4 }}>
+                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                           <button
                             onClick={() => setExpanded(isOpen ? null : s.id)}
                             style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'none',
                               background: isOpen ? '#144E4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
                             {isOpen ? '▲ Cerrar' : '▼ Ver Materiales'}
                           </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => setDespachoDestino(s.nombre)}
+                              style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
+                              + Despacho
+                            </button>
+                          )}
                           {canEdit && (
                             <button
                               onClick={() => openModal(s)}
@@ -201,7 +214,7 @@ export default function MatSitios() {
                           {canEdit && (
                             <button
                               onClick={() => handleDelete(s)}
-                              style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
+                              style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'none', background:'#922b21', color:'#fff', cursor:'pointer' }}>
                               Eliminar
                             </button>
                           )}
