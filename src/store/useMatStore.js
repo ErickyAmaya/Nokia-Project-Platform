@@ -167,10 +167,14 @@ export const useMatStore = create((set, get) => ({
   saveDespacho: async (despacho) => {
     const isNew = !despacho.id
     const payload = {
-      numero_doc: despacho.numero_doc, sitio_id: despacho.sitio_id,
-      bodega_id: despacho.bodega_id, fecha: despacho.fecha,
-      status: despacho.status || 'borrador',
-      comentarios: despacho.comentarios, created_by: despacho.created_by,
+      numero_doc:  despacho.numero_doc,
+      sitio_id:    null,                     // col integer — no usar con sitios Liquidador
+      destino:     despacho.destino || null, // nombre del sitio Nokia como texto
+      bodega_id:   despacho.bodega_id,
+      fecha:       despacho.fecha,
+      status:      despacho.status || 'borrador',
+      comentarios: despacho.comentarios,
+      created_by:  despacho.created_by,
     }
     const { data, error } = isNew
       ? await db().from('despachos').insert(payload).select().single()

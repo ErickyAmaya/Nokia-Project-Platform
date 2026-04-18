@@ -31,7 +31,8 @@ function DespachoWizard({ onClose }) {
   const [meta, setMeta]   = useState({
     numero_doc: nextDocNum(despachos),
     bodega_id: bodegas[0]?.id || '',
-    sitio_id: '',
+    sitio_id: '',   // solo para el select UI
+    destino: '',    // nombre del sitio Nokia (guardado en DB)
     fecha: new Date().toISOString().slice(0,10),
     comentarios: '',
   })
@@ -101,7 +102,6 @@ function DespachoWizard({ onClose }) {
     if (items.length === 0) { showToast('Agrega al menos un material', 'err'); return }
     setSaving(true)
     try {
-      const sitioNombre = (liquidadorSitios || []).find(s => String(s.id) === String(meta.sitio_id))?.nombre || ''
       const desp = await saveDespacho({ ...meta, created_by: user?.nombre || user?.email })
       for (const item of items) {
         if ((item.cant_despachada || 0) <= 0) continue
@@ -116,7 +116,7 @@ function DespachoWizard({ onClose }) {
           valor_unitario: item.valor_unitario,
           cant_solicitada:  item.cant_solicitada,
           cant_despachada:  item.cant_despachada,
-          destino:        sitioNombre,
+          destino:        meta.destino,
           created_by:     user?.nombre || user?.email,
         })
       }
@@ -127,7 +127,7 @@ function DespachoWizard({ onClose }) {
     finally { setSaving(false) }
   }
 
-  const sitioNombre = (liquidadorSitios || []).find(s => String(s.id) === String(meta.sitio_id))?.nombre
+  const sitioNombre = meta.destino
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -185,7 +185,10 @@ function DespachoWizard({ onClose }) {
                 <div>
                   <label className="fl">Sitio Destino</label>
                   <select className="fc" value={meta.sitio_id}
-                    onChange={e => setMeta(p => ({ ...p, sitio_id:e.target.value }))}>
+                    onChange={e => {
+                      const sitio = (liquidadorSitios || []).find(s => String(s.id) === e.target.value)
+                      setMeta(p => ({ ...p, sitio_id: e.target.value, destino: sitio?.nombre || '' }))
+                    }}>
                     <option value="">— Opcional —</option>
                     {(liquidadorSitios || []).map(s => (
                       <option key={s.id} value={s.id}>{s.nombre}</option>
@@ -359,8 +362,7 @@ export default function MatDespachos() {
     if (filStat && d.status !== filStat) return false
     if (search) {
       const q = search.toLowerCase()
-      const sit = (liquidadorSitios || []).find(s => s.id === d.sitio_id)
-      if (!`${d.numero_doc} ${sit?.nombre || ''}`.toLowerCase().includes(q)) return false
+      if (!`${d.numero_doc} ${d.destino || ''}`.toLowerCase().includes(q)) return false
     }
     return true
   })
@@ -408,13 +410,12 @@ export default function MatDespachos() {
                   const movs  = movimientos.filter(m => m.numero_doc === d.numero_doc)
                   const total = movs.reduce((a, m) => a + (m.valor_total || 0), 0)
                   const bod   = bodegas.find(b => b.id === d.bodega_id)
-                  const sit   = (liquidadorSitios || []).find(s => s.id === d.sitio_id)
                   return (
                     <tr key={d.id}>
                       <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700 }}>{d.numero_doc}</td>
                       <td style={{ color:'#9ca89c', whiteSpace:'nowrap' }}>{d.fecha}</td>
                       <td style={{ color:'#9ca89c' }}>{bod?.nombre || '—'}</td>
-                      <td style={{ fontWeight:600 }}>{sit?.nombre || '—'}</td>
+                      <td style={{ fontWeight:600 }}>{d.destino || '—'}</td>
                       <td className="num">{movs.length}</td>
                       <td className="num" style={{ fontWeight:700, color:'#144E4A' }}>{matCop(total)}</td>
                       <td>

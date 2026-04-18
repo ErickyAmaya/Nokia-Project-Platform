@@ -14,6 +14,18 @@ function IconEdit({ size = 13 }) {
   )
 }
 
+function nextMovNum(tipo, movimientos) {
+  const year   = new Date().getFullYear()
+  const prefix = tipo === 'Entrada' ? 'IN' : 'OUT'
+  const re     = new RegExp(`^${prefix}-${year}-(\\d+)$`)
+  const nums   = movimientos
+    .filter(m => m.tipo === tipo)
+    .map(m => { const match = m.numero_doc?.match(re); return match ? parseInt(match[1]) : 0 })
+    .filter(Boolean)
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1
+  return `${prefix}-${year}-${String(next).padStart(3,'0')}`
+}
+
 const FORM_RESET = {
   fecha: new Date().toISOString().slice(0,10),
   numero_doc: '', catalogo_id: '', bodega_id: '',
@@ -66,7 +78,7 @@ export default function MatMovimientos() {
 
   function openModal(t) {
     setTipo(t)
-    setForm(FORM_RESET)
+    setForm({ ...FORM_RESET, numero_doc: nextMovNum(t, movimientos) })
     setModal(true)
   }
 
@@ -263,8 +275,9 @@ export default function MatMovimientos() {
                   <input type="date" className="fc" value={form.fecha} onChange={e => setForm(p => ({ ...p, fecha:e.target.value }))} />
                 </div>
                 <div>
-                  <label className="fl">Nº Documento *</label>
-                  <input type="text" className="fc" placeholder="FC-000-001" value={form.numero_doc} onChange={e => setForm(p => ({ ...p, numero_doc:e.target.value }))} />
+                  <label className="fl">Nº Documento</label>
+                  <input type="text" className="fc" value={form.numero_doc} readOnly
+                    style={{ background:'#f5f5f5', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:.5 }} />
                 </div>
               </div>
 
