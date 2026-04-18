@@ -117,7 +117,7 @@ function AppRoutes() {
         <Route index              element={<MatDashboard />} />
         <Route path="inventario"  element={<MatInventario />} />
         <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatMovimientos /></ProtectedRoute>} />
-<Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
+        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
         <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
         <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','logistica']}><MatConfig /></ProtectedRoute>} />
       </Route>
