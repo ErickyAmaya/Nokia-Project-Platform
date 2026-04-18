@@ -2,17 +2,10 @@ import { useState, useMemo } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
+import { useNavigate }  from 'react-router-dom'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
-
-function IconEdit({ size = 13 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-    </svg>
-  )
-}
 
 function nextMovNum(tipo, movimientos) {
   const year   = new Date().getFullYear()
@@ -29,83 +22,85 @@ function nextMovNum(tipo, movimientos) {
 const FORM_RESET = {
   fecha: new Date().toISOString().slice(0,10),
   numero_doc: '', catalogo_id: '', bodega_id: '',
-  cantidad: 0, valor_unitario: 0, origen: '', destino: '', sitio_id: '', comentarios: '',
+  cantidad: 1, valor_unitario: 0, origen: '', destino: '', sitio_id: '', comentarios: '', editPrice: false,
 }
 
 export default function MatMovimientos() {
   const catalogo         = useMatStore(s => s.catalogo)
   const bodegas          = useMatStore(s => s.bodegas)
   const movimientos      = useMatStore(s => s.movimientos)
+  const despachos        = useMatStore(s => s.despachos)
+  const bodegas_         = useMatStore(s => s.bodegas)
   const addMovimiento    = useMatStore(s => s.addMovimiento)
   const deleteMovimiento = useMatStore(s => s.deleteMovimiento)
   const liquidadorSitios = useAppStore(s => s.sitios)
   const user             = useAuthStore(s => s.user)
+  const navigate         = useNavigate()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [modal,   setModal]   = useState(false)
-  const [tipo,    setTipo]    = useState('Entrada')
+  const [form,    setForm]    = useState({ ...FORM_RESET, numero_doc: nextMovNum('Entrada', []) })
+  const [saving,  setSaving]  = useState(false)
   const [filTipo, setFilTipo] = useState('')
   const [filBod,  setFilBod]  = useState('')
   const [search,  setSearch]  = useState('')
-  const [form, setForm] = useState(FORM_RESET)
+  const [filDate, setFilDate] = useState('')
 
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
 
-  // Opciones para SearchableSelect de material
   const materialOptions = useMemo(() =>
     catalogo.filter(c => c.activo && c.categoria !== 'PROVEEDORES')
       .map(c => ({ value: c.id, label: c.nombre, sub: c.codigo }))
   , [catalogo])
 
-  // Proveedores para ORIGEN en Entrada
-  const proveedores = useMemo(() =>
-    catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo)
-  , [catalogo])
+  const proveedores = useMemo(() => catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo), [catalogo])
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
     return movimientos.filter(m => {
       if (filTipo && m.tipo !== filTipo) return false
       if (filBod  && m.bodega_id !== Number(filBod)) return false
+      if (filDate && !m.fecha?.startsWith(filDate)) return false
       if (q) {
         const cat = catalogo.find(c => c.id === m.catalogo_id)
         if (!`${m.numero_doc} ${cat?.nombre || ''} ${cat?.codigo || ''}`.toLowerCase().includes(q)) return false
       }
       return true
     })
-  }, [movimientos, filTipo, filBod, search, catalogo])
+  }, [movimientos, filTipo, filBod, search, filDate, catalogo])
 
-  function openModal(t) {
-    setTipo(t)
-    setForm({ ...FORM_RESET, numero_doc: nextMovNum(t, movimientos) })
-    setModal(true)
-  }
+  const totalEntradas = movimientos.filter(m => m.tipo === 'Entrada').reduce((a, m) => a + (m.valor_total || 0), 0)
+  const totalSalidas  = movimientos.filter(m => m.tipo === 'Salida').reduce((a, m) => a + (m.valor_total || 0), 0)
 
-  // Auto-completar valor_unitario desde catálogo
   function handleCatChange(val) {
     const cat = catalogo.find(c => c.id === Number(val))
     setForm(p => ({ ...p, catalogo_id: val, valor_unitario: cat?.costo_unitario || 0 }))
   }
 
+  function handleReset() {
+    setForm({ ...FORM_RESET, numero_doc: nextMovNum('Entrada', movimientos) })
+  }
+
   async function handleSave() {
-    if (!form.catalogo_id || !form.bodega_id || !form.numero_doc || form.cantidad <= 0) {
-      showToast('Completa todos los campos requeridos', 'err'); return
+    if (!form.catalogo_id || !form.bodega_id || form.cantidad <= 0) {
+      showToast('Completa material, bodega y cantidad', 'err'); return
     }
+    setSaving(true)
     try {
       await addMovimiento({
         ...form,
-        tipo,
+        tipo:           'Entrada',
         catalogo_id:    Number(form.catalogo_id),
         bodega_id:      Number(form.bodega_id),
-        sitio_id:       form.sitio_id ? Number(form.sitio_id) : null,
+        sitio_id:       null,
         cantidad:       Number(form.cantidad),
         valor_unitario: Number(form.valor_unitario),
         created_by:     user?.nombre || user?.email,
       })
-      showToast(`${tipo} registrada`)
-      setModal(false)
+      showToast('Entrada registrada')
+      setForm({ ...FORM_RESET, numero_doc: nextMovNum('Entrada', [...movimientos, {}]) })
     } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
   }
 
   async function handleDelete(m) {
@@ -116,100 +111,184 @@ export default function MatMovimientos() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  // ── Campos del modal según tipo ──────────────────────────────────────
-  function ModalEntrada() {
-    return (
-      <>
-        <div>
-          <label className="fl">Material *</label>
-          <SearchableSelect
-            options={materialOptions}
-            value={String(form.catalogo_id || '')}
-            onChange={handleCatChange}
-            placeholder="Buscar material…"
-          />
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-          <div>
-            <label className="fl">ORIGEN</label>
-            <select className="fc" value={form.origen}
-              onChange={e => setForm(p => ({ ...p, origen: e.target.value }))}>
-              <option value="">— Proveedor —</option>
-              {proveedores.map(p => (
-                <option key={p.id} value={p.nombre}>{p.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="fl">BODEGA *</label>
-            <select className="fc" value={form.bodega_id}
-              onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
-              <option value="">— Seleccionar —</option>
-              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-            </select>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  function ModalSalida() {
-    return (
-      <>
-        <div>
-          <label className="fl">Material *</label>
-          <SearchableSelect
-            options={materialOptions}
-            value={String(form.catalogo_id || '')}
-            onChange={handleCatChange}
-            placeholder="Buscar material…"
-          />
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-          <div>
-            <label className="fl">BODEGA *</label>
-            <select className="fc" value={form.bodega_id}
-              onChange={e => setForm(p => ({ ...p, bodega_id: e.target.value }))}>
-              <option value="">— Seleccionar —</option>
-              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="fl">DESTINO</label>
-            <select className="fc" value={form.sitio_id}
-              onChange={e => {
-                const sitio = liquidadorSitios.find(s => String(s.id) === e.target.value)
-                setForm(p => ({ ...p, sitio_id: e.target.value, destino: sitio?.nombre || '' }))
-              }}>
-              <option value="">— Sitio Nokia —</option>
-              {(liquidadorSitios || []).map(s => (
-                <option key={s.id} value={s.id}>{s.nombre}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </>
-    )
-  }
+  const lbl = { display:'block', fontSize:9, fontWeight:700, letterSpacing:.8, textTransform:'uppercase', color:'#555f55', marginBottom:3 }
 
   return (
     <div>
       <ConfirmModalUI />
+
+      {/* ── Top layout: form (left) + despachos (right) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16, alignItems:'start' }}>
+
+        {/* ── NUEVA ENTRADA form ── */}
+        <div className="card">
+          <div className="card-h" style={{ background:'#144E4A', borderRadius:'8px 8px 0 0' }}>
+            <h2 style={{ color:'#fff', margin:0 }}>Nueva Entrada</h2>
+          </div>
+          <div className="card-b" style={{ display:'flex', flexDirection:'column', gap:10 }}>
+
+            {/* Alert banner */}
+            <div style={{ background:'#fff8e1', border:'1px solid #ffe082', borderRadius:6, padding:'7px 10px', fontSize:11, color:'#856404' }}>
+              Para <strong>Salidas</strong> usa el botón <strong>Nuevo Despacho</strong>. Este formulario registra <strong>Entradas</strong> de material a bodega.
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label style={lbl}>Nº Documento</label>
+                <input type="text" className="fc" value={form.numero_doc} readOnly
+                  style={{ background:'#f5f5f5', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:.5 }} />
+              </div>
+              <div>
+                <label style={lbl}>Fecha</label>
+                <input type="date" className="fc" value={form.fecha}
+                  onChange={e => setForm(p => ({ ...p, fecha:e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>Material *</label>
+              <SearchableSelect
+                options={materialOptions}
+                value={String(form.catalogo_id || '')}
+                onChange={handleCatChange}
+                placeholder="Escribir nombre o código del material…"
+              />
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label style={lbl}>Bodega *</label>
+                <select className="fc" value={form.bodega_id}
+                  onChange={e => setForm(p => ({ ...p, bodega_id:e.target.value }))}>
+                  <option value="">— Bodega —</option>
+                  {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Cantidad</label>
+                <input type="number" min="1" className="fc" value={form.cantidad}
+                  onChange={e => setForm(p => ({ ...p, cantidad:e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>Precio Unitario (COP) — Del Catálogo</label>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input type="number" className="fc" value={form.valor_unitario}
+                  readOnly={!form.editPrice}
+                  style={{ background: form.editPrice ? '#fff' : '#f5f5f5', flex:1 }}
+                  onChange={e => setForm(p => ({ ...p, valor_unitario:e.target.value }))} />
+                <button
+                  onClick={() => setForm(p => ({ ...p, editPrice:!p.editPrice }))}
+                  style={{ padding:'5px 10px', fontSize:10, fontWeight:700, borderRadius:5, border:'1.5px solid #e0e4e0', background: form.editPrice ? '#1a9c1a' : '#fff', color: form.editPrice ? '#fff' : '#555f55', cursor:'pointer', whiteSpace:'nowrap' }}>
+                  {form.editPrice ? '✓ Precio editado' : 'Editar precio'}
+                </button>
+              </div>
+              {!form.editPrice && (
+                <div style={{ fontSize:9, color:'#9ca89c', marginTop:3 }}>
+                  Precio tomado del catálogo. Solo editar si hay precio especial en este movimiento.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div>
+                <label style={lbl}>Origen</label>
+                <select className="fc" value={form.origen}
+                  onChange={e => setForm(p => ({ ...p, origen:e.target.value }))}>
+                  <option value="">Proveedor / Compra</option>
+                  {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Destino</label>
+                <input type="text" className="fc" value={form.destino} placeholder="Ej. Bodega Cali"
+                  onChange={e => setForm(p => ({ ...p, destino:e.target.value }))} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>Comentarios</label>
+              <input type="text" className="fc" placeholder="Opcional" value={form.comentarios}
+                onChange={e => setForm(p => ({ ...p, comentarios:e.target.value }))} />
+            </div>
+
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+              <button className="btn bou" onClick={handleReset}>Limpiar</button>
+              <button className="btn bp" onClick={handleSave} disabled={saving}>
+                {saving ? 'Guardando…' : 'Guardar Movimiento'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── DESPACHOS panel (right) ── */}
+        <div className="card">
+          <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <h2>Despachos</h2>
+            <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
+              onClick={() => navigate('/materiales/despachos')}>
+              + Nuevo Despacho (Salida)
+            </button>
+          </div>
+          <div className="card-b" style={{ padding:'8px 0' }}>
+            {despachos.length === 0 ? (
+              <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin despachos</div>
+            ) : (
+              <table className="tbl">
+                <thead><tr>
+                  <th>Doc</th><th>Sitio</th><th>Fecha</th><th className="num">Items</th><th className="num">Total</th><th>Estado</th>
+                </tr></thead>
+                <tbody>
+                  {despachos.slice(0, 8).map(d => {
+                    const movs  = movimientos.filter(m => m.numero_doc === d.numero_doc)
+                    const total = movs.reduce((a, m) => a + (m.valor_total || 0), 0)
+                    return (
+                      <tr key={d.id}>
+                        <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{d.numero_doc}</td>
+                        <td style={{ fontSize:11 }}>{d.destino || '—'}</td>
+                        <td style={{ fontSize:10, color:'#9ca89c' }}>{d.fecha}</td>
+                        <td className="num" style={{ fontSize:11 }}>{movs.length}</td>
+                        <td className="num" style={{ fontWeight:700, fontSize:11 }}>{matCop(total)}</td>
+                        <td>
+                          <span className="badge" style={{ background:d.status==='finalizado'?'#d4edda':'#fef3cd', color:d.status==='finalizado'?'#1a6130':'#856404', fontSize:9 }}>
+                            {d.status==='finalizado'?'Finalizado':'Borrador'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+            {despachos.length > 8 && (
+              <div style={{ textAlign:'center', padding:'8px 0' }}>
+                <button className="btn bou btn-sm" onClick={() => navigate('/materiales/despachos')}>
+                  Ver todos ({despachos.length}) →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── HISTORIAL DE MOVIMIENTOS ── */}
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2>Movimientos ({rows.length})</h2>
-          {canEdit && (
-            <div style={{ display:'flex', gap:6 }}>
-              <button className="btn bp btn-sm"   onClick={() => openModal('Entrada')}>+ Entrada</button>
-              <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }} onClick={() => openModal('Salida')}>+ Salida</button>
-            </div>
-          )}
+          <h2>Historial de Movimientos ({rows.length})</h2>
+          <div style={{ display:'flex', gap:8, fontSize:11 }}>
+            <span style={{ color:'#1a7a1a', fontWeight:700 }}>Entradas: {matCop(totalEntradas)}</span>
+            <span style={{ color:'#c0392b', fontWeight:700 }}>Salidas: {matCop(totalSalidas)}</span>
+          </div>
         </div>
         <div className="card-b">
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-            <input className="fc" placeholder="Buscar doc, material…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:160 }} />
-            <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:130 }}>
-              <option value="">Todos los tipos</option>
+            <input className="fc" placeholder="Buscar doc, material…" value={search}
+              onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:140 }} />
+            <input type="date" className="fc" value={filDate}
+              onChange={e => setFilDate(e.target.value)} style={{ maxWidth:150 }} />
+            <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:120 }}>
+              <option value="">Todos</option>
               <option value="Entrada">Entradas</option>
               <option value="Salida">Salidas</option>
             </select>
@@ -222,31 +301,33 @@ export default function MatMovimientos() {
           <div style={{ overflowX:'auto' }}>
             <table className="tbl">
               <thead><tr>
-                <th>Fecha</th><th>Doc</th><th>Material</th><th>Bodega</th>
-                <th>Tipo</th><th className="num">Cantidad</th>
-                <th className="num">V. Unit.</th><th className="num">Total</th>
-                <th>Origen/Destino</th>{canDelete && <th></th>}
+                <th>Fecha</th><th>Doc</th><th>Material</th><th>Tipo</th>
+                <th className="num">Cant.</th><th className="num">Valor</th>
+                <th>Origen + Destino</th>{canDelete && <th></th>}
               </tr></thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={10} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin movimientos</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign:'center', padding:24, color:'#9ca89c' }}>Sin movimientos</td></tr>
                 )}
                 {rows.map(m => {
                   const cat = catalogo.find(c => c.id === m.catalogo_id)
                   const bod = bodegas.find(b => b.id === m.bodega_id)
+                  const orDest = [m.origen, m.destino].filter(Boolean).join(' = ')
                   return (
                     <tr key={m.id}>
-                      <td style={{ color:'#9ca89c', whiteSpace:'nowrap' }}>{m.fecha}</td>
-                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700 }}>{m.numero_doc}</td>
-                      <td style={{ fontWeight:600 }}>{cat?.nombre || '—'}</td>
-                      <td style={{ color:'#9ca89c' }}>{bod?.nombre || '—'}</td>
-                      <td><span style={{ color:m.tipo==='Entrada'?'#1a7a1a':'#c0392b', fontWeight:700 }}>{m.tipo}</span></td>
-                      <td className="num">{m.cantidad}</td>
-                      <td className="num" style={{ color:'#9ca89c' }}>{matCop(m.valor_unitario)}</td>
-                      <td className="num" style={{ fontWeight:700 }}>{matCop(m.valor_total)}</td>
-                      <td style={{ fontSize:10, color:'#9ca89c' }}>{m.origen || m.destino || '—'}</td>
+                      <td style={{ color:'#9ca89c', whiteSpace:'nowrap', fontSize:11 }}>{m.fecha}</td>
+                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{m.numero_doc}</td>
+                      <td style={{ fontWeight:600, fontSize:11 }}>{cat?.nombre || '—'}</td>
+                      <td>
+                        <span style={{ color: m.tipo==='Entrada'?'#1a7a1a':'#c0392b', fontWeight:700, fontSize:10 }}>{m.tipo}</span>
+                      </td>
+                      <td className="num" style={{ fontWeight:700 }}>{m.cantidad}</td>
+                      <td className="num" style={{ color:'#144E4A', fontWeight:700, fontSize:11 }}>{matCop(m.valor_total)}</td>
+                      <td style={{ fontSize:10, color:'#9ca89c' }}>{orDest || (bod?.nombre || '—')}</td>
                       {canDelete && (
-                        <td><button className="btn-del" onClick={() => handleDelete(m)}>✕</button></td>
+                        <td>
+                          <button className="btn-del" onClick={() => handleDelete(m)}>✕</button>
+                        </td>
                       )}
                     </tr>
                   )
@@ -256,62 +337,6 @@ export default function MatMovimientos() {
           </div>
         </div>
       </div>
-
-      {/* Modal */}
-      {modal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:500, maxHeight:'90vh', overflowY:'auto' }}>
-            <div style={{ background: tipo==='Entrada'?'#144E4A':'#c0392b', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`3px solid ${tipo==='Entrada'?'#1a9c1a':'#922b21'}` }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
-                Registrar {tipo}
-              </span>
-              <button onClick={() => setModal(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
-            </div>
-            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-              {/* Campos comunes */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label className="fl">Fecha</label>
-                  <input type="date" className="fc" value={form.fecha} onChange={e => setForm(p => ({ ...p, fecha:e.target.value }))} />
-                </div>
-                <div>
-                  <label className="fl">Nº Documento</label>
-                  <input type="text" className="fc" value={form.numero_doc} readOnly
-                    style={{ background:'#f5f5f5', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, letterSpacing:.5 }} />
-                </div>
-              </div>
-
-              {/* Campos por tipo */}
-              {tipo === 'Entrada' ? <ModalEntrada /> : <ModalSalida />}
-
-              {/* Cantidad + Valor Unitario */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label className="fl">Cantidad *</label>
-                  <input type="number" min="0" className="fc" value={form.cantidad} onChange={e => setForm(p => ({ ...p, cantidad:e.target.value }))} />
-                </div>
-                <div>
-                  <label className="fl">Valor Unitario</label>
-                  <input type="number" min="0" className="fc" value={form.valor_unitario}
-                    readOnly={tipo === 'Salida'}
-                    style={{ background: tipo === 'Salida' ? '#f5f5f5' : undefined }}
-                    onChange={tipo === 'Entrada' ? e => setForm(p => ({ ...p, valor_unitario:e.target.value })) : undefined}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="fl">Comentarios</label>
-                <input type="text" className="fc" value={form.comentarios} onChange={e => setForm(p => ({ ...p, comentarios:e.target.value }))} />
-              </div>
-              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:8 }}>
-                <button className="btn bou" onClick={() => setModal(false)}>Cancelar</button>
-                <button className="btn bp" onClick={handleSave}>Guardar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
