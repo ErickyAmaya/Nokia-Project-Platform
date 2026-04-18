@@ -15,6 +15,14 @@ import GastosPage       from './pages/GastosPage'
 import LiquidadorPage   from './pages/LiquidadorPage'
 import LiquidadorIndexPage from './pages/LiquidadorIndexPage'
 import ModuloHomePage      from './pages/ModuloHomePage'
+import MatWrapper         from './pages/materiales/MatWrapper'
+import MatDashboard       from './pages/materiales/MatDashboard'
+import MatInventario      from './pages/materiales/MatInventario'
+import MatMovimientos     from './pages/materiales/MatMovimientos'
+import MatDespachos       from './pages/materiales/MatDespachos'
+import MatSitios          from './pages/materiales/MatSitios'
+import MatCatalogo        from './pages/materiales/MatCatalogo'
+import MatConfig          from './pages/materiales/MatConfig'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -55,6 +63,8 @@ class PageErrorBoundary extends Component {
 }
 
 // Roles por módulo
+const R_MAT     = ['admin', 'coordinador', 'logistica', 'viewer']
+const R_MAT_ED  = ['admin', 'coordinador', 'logistica']
 const R_TI      = ['admin', 'coordinador', 'TI',  'viewer']
 const R_TSS     = ['admin', 'coordinador', 'TSS', 'viewer']
 const R_CW      = ['admin', 'coordinador', 'CW',  'viewer']
@@ -72,10 +82,12 @@ function RoleHome() {
   const role   = user?.role
   const modulo = user?.modulo
 
-  // Admin/coordinador con acceso a todos los módulos → selector de módulos
-  if (modulo === 'all') return <Navigate to="/modulos" replace />
+  // Multi-módulo → selector de módulos
+  if (modulo === 'all')        return <Navigate to="/modulos"    replace />
+  // Módulo materiales directo
+  if (modulo === 'materiales') return <Navigate to="/materiales" replace />
 
-  // Resto: redirigir según rol dentro de Billing
+  // Billing: redirigir según rol
   if (role === 'TI')  return <Navigate to="/ti"             replace />
   if (role === 'TSS') return <Navigate to="/tss"            replace />
   if (role === 'CW')  return <Navigate to="/cw-consolidado" replace />
@@ -96,6 +108,21 @@ function AppRoutes() {
           <Layout><ModuloHomePage /></Layout>
         </ProtectedRoute>
       } />
+
+      {/* ── Módulo Materiales ───────────────────────────────── */}
+      <Route path="/materiales" element={
+        <ProtectedRoute allowedRoles={R_MAT}>
+          <Layout><MatWrapper /></Layout>
+        </ProtectedRoute>
+      }>
+        <Route index              element={<MatDashboard />} />
+        <Route path="inventario"  element={<MatInventario />} />
+        <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatMovimientos /></ProtectedRoute>} />
+        <Route path="despachos"   element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatDespachos /></ProtectedRoute>} />
+        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
+        <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
+        <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','logistica']}><MatConfig /></ProtectedRoute>} />
+      </Route>
 
       <Route path="/dashboard" element={
         <ProtectedRoute allowedRoles={R_MGMT}><Layout><Dashboard /></Layout></ProtectedRoute>

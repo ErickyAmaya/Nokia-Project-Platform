@@ -10,6 +10,7 @@ const LS_DOMAIN_KEY = 'npp_empresa_domain'
 const ROLE_ALIASES = {
   coord:    'coordinador',
   operador: 'coordinador', // operador legacy → coordinador
+  almacen:  'logistica',   // alias legacy por si acaso
 }
 
 function normalizeRole(raw) {

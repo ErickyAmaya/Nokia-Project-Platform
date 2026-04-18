@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
 
-// ── Definición de nav ─────────────────────────────────────────────
+// ── Nav Liquidador (Billing) ──────────────────────────────────────
 const ALL_NAV = [
   { to: '/dashboard',      label: 'Dashboard',  icon: '📊', id: 'dashboard',      roles: ['admin','coordinador','viewer'] },
   { to: '/ti',             label: 'TI',         icon: '📡', id: 'ti',             roles: ['admin','coordinador','TI','viewer'] },
@@ -17,6 +17,17 @@ const ALL_NAV = [
 const ADMIN_NAV = [
   { to: '/catalogo', label: 'Catálogo', icon: '📋', id: 'catalogo', roles: ['admin','coordinador'] },
   { to: '/config',   label: 'Config',   icon: '⚙',  id: 'config',   roles: ['admin'] },
+]
+
+// ── Nav Materiales ────────────────────────────────────────────────
+const MAT_NAV = [
+  { to: '/materiales',              label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
+  { to: '/materiales/inventario',   label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
+  { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/despachos',    label: 'Despachos',   icon: '📤', id: 'mat-despachos',   roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/sitios',       label: 'Sitios',      icon: '📍', id: 'mat-sitios',      roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','logistica'] },
 ]
 
 // Badge de rol
@@ -34,12 +45,15 @@ export default function Layout({ children }) {
   const [rtStatus,   setRtStatus]   = useState(window.__rtStatus || 'connecting')
 
   const user          = useAuthStore(s => s.user)
-  const empresaBase   = useAuthStore(s => s.empresa)          // hardcoded en empresas.js
-  const empresaConfig = useAppStore(s => s.empresaConfig)     // dinámico desde Supabase config
+  const empresaBase   = useAuthStore(s => s.empresa)
+  const empresaConfig = useAppStore(s => s.empresaConfig)
   const sitios        = useAppStore(s => s.sitios)
   const logout        = useAuthStore(s => s.logout)
   const logoutApp     = useAppStore(s => s.logout)
   const navigate      = useNavigate()
+  const location      = useLocation()
+
+  const inMateriales = location.pathname.startsWith('/materiales')
 
   // Fusión: los valores dinámicos (ConfigPage) tienen prioridad sobre los estáticos
   const empresa = {
@@ -66,15 +80,18 @@ export default function Layout({ children }) {
 
   const role = user?.role || 'viewer'
 
-  // Filtra nav items según el rol actual
   function canSee(item) {
-    if (!item.roles) return true          // sin restricción
+    if (!item.roles) return true
     return item.roles.includes(role)
   }
 
-  const navItems   = ALL_NAV.filter(canSee)
-  const adminItems = ADMIN_NAV.filter(canSee)
-  const allVisible = [...navItems, ...adminItems]
+  // Nav según módulo activo
+  const allVisible = inMateriales
+    ? MAT_NAV.filter(canSee)
+    : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+
+  // Botón cambiar módulo (solo admin/coord y solo cuando hay varios módulos)
+  const canSwitchModule = user?.modulo === 'all'
 
   const badge = BADGE[role] || BADGE.viewer
 
@@ -132,6 +149,19 @@ export default function Layout({ children }) {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {canSwitchModule && (
+            <button
+              onClick={() => navigate('/modulos')}
+              style={{
+                background: 'none', border: '1px solid #e0e4e0', borderRadius: 6,
+                fontSize: 10, fontWeight: 700, color: '#555f55', cursor: 'pointer',
+                padding: '3px 8px', letterSpacing: .4,
+              }}
+              title="Cambiar módulo"
+            >
+              ⊞ Módulos
+            </button>
+          )}
           <span
             title={rtStatus === 'connected' ? 'Tiempo real: conectado' : rtStatus === 'error' ? 'Error de conexión' : 'Conectando…'}
             style={{

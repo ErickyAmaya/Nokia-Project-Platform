@@ -20,7 +20,7 @@ const MODULOS = [
     icon:        '📦',
     color:       '#1d4ed8',
     border:      '#3b82f6',
-    ruta:        null,   // próximamente
+    ruta:        '/materiales',
   },
   {
     id:          'rollout',
