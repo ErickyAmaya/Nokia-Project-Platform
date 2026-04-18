@@ -17,6 +17,7 @@ export const useMatStore = create((set, get) => ({
   stock:        [],   // { catalogo_id, bodega_id, stock_actual }
   bodegas:      [],
   sitios:       [],
+  sitiosError:  null,
   movimientos:  [],
   despachos:    [],
   loading:      false,
@@ -34,6 +35,13 @@ export const useMatStore = create((set, get) => ({
         db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
         db().from('despachos').select('*').order('created_at', { ascending: false }),
       ])
+      // Log any per-query errors so they're visible in the console
+      if (cat.error) console.error('[mat] catalogo:', cat.error.message)
+      if (stk.error) console.error('[mat] stock:',    stk.error.message)
+      if (bod.error) console.error('[mat] bodegas:',  bod.error.message)
+      if (sit.error) console.error('[mat] sitios:',   sit.error.message)
+      if (mov.error) console.error('[mat] movimientos:', mov.error.message)
+      if (dep.error) console.error('[mat] despachos:', dep.error.message)
       set({
         catalogo:    cat.data  || [],
         stock:       stk.data  || [],
@@ -41,6 +49,7 @@ export const useMatStore = create((set, get) => ({
         sitios:      sit.data  || [],
         movimientos: mov.data  || [],
         despachos:   dep.data  || [],
+        sitiosError: sit.error?.message || null,
         loading: false,
       })
     } catch (e) {

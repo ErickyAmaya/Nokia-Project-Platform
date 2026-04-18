@@ -11,6 +11,7 @@ const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Cari
 
 export default function MatSitios() {
   const sitios      = useMatStore(s => s.sitios)
+  const sitiosError = useMatStore(s => s.sitiosError)
   const movimientos = useMatStore(s => s.movimientos)
   const despachos   = useMatStore(s => s.despachos)
   const catalogo    = useMatStore(s => s.catalogo)
@@ -144,6 +145,13 @@ export default function MatSitios() {
               {REGIONALES.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+
+          {sitiosError && (
+            <div style={{ background:'#fde8e7', border:'1px solid #f5c6cb', borderRadius:6, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#c0392b' }}>
+              <strong>Error al cargar sitios:</strong> {sitiosError}
+              <br /><span style={{ fontSize:10, color:'#555f55' }}>Revisa las políticas RLS en Supabase → tabla <code>mat_sitios</code></span>
+            </div>
+          )}
 
           <div style={{ overflowX:'auto' }}>
             <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
