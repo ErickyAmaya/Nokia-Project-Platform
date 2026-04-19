@@ -16,15 +16,29 @@ function nextDocNum(despachos) {
 const STEPS = ['Datos del Despacho', 'Agregar Materiales', 'Confirmar y Guardar']
 
 export default function DespachoModal({ onClose, defaultDestino = '' }) {
-  const catalogo      = useMatStore(s => s.catalogo)
-  const bodegas       = useMatStore(s => s.bodegas)
-  const despachos     = useMatStore(s => s.despachos)
-  const movimientos   = useMatStore(s => s.movimientos)
-  const getStock      = useMatStore(s => s.getStock)
-  const saveDespacho  = useMatStore(s => s.saveDespacho)
-  const addMovimiento = useMatStore(s => s.addMovimiento)
-  const liquidadorSitios = useAppStore(s => s.sitios)
-  const user          = useAuthStore(s => s.user)
+  const catalogo         = useMatStore(s => s.catalogo)
+  const bodegas          = useMatStore(s => s.bodegas)
+  const despachos        = useMatStore(s => s.despachos)
+  const movimientos      = useMatStore(s => s.movimientos)
+  const matSitios        = useMatStore(s => s.sitios)
+  const saveSitio        = useMatStore(s => s.saveSitio)
+  const getStock         = useMatStore(s => s.getStock)
+  const saveDespacho     = useMatStore(s => s.saveDespacho)
+  const addMovimiento    = useMatStore(s => s.addMovimiento)
+  const liquidadorSitios = useAppStore(s => s.sitios) || []
+  const user             = useAuthStore(s => s.user)
+
+  // Lista fusionada: mat_sitios primero, luego sitios del Liquidador que no estén ya
+  const sitiosOptions = useMemo(() => {
+    const matNombres = new Set(matSitios.map(s => s.nombre?.toLowerCase()))
+    const liqExtra   = liquidadorSitios
+      .filter(s => s.nombre && !matNombres.has(s.nombre.toLowerCase()))
+      .map(s => ({ nombre: s.nombre, fuente: 'liquidador' }))
+    return [
+      ...matSitios.filter(s => s.activo !== false).map(s => ({ nombre: s.nombre, fuente: 'mat' })),
+      ...liqExtra,
+    ]
+  }, [matSitios, liquidadorSitios])
 
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -35,7 +49,6 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
     fecha:       new Date().toISOString().slice(0, 10),
     bodega_id:   bodegas[0]?.id || '',
     destino:     defaultDestino,
-    sitio_id:    '',
     comentarios: '',
   })
 
@@ -101,6 +114,18 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
     if (items.length === 0) { showToast('Agrega al menos un material', 'err'); return }
     setSaving(true)
     try {
+      // Si el destino viene del Liquidador y no existe en mat_sitios, crearlo automáticamente
+      const yaEnMat = matSitios.some(s => s.nombre?.toLowerCase() === meta.destino?.toLowerCase())
+      if (!yaEnMat && meta.destino) {
+        const liqSitio = liquidadorSitios.find(s => s.nombre?.toLowerCase() === meta.destino?.toLowerCase())
+        await saveSitio({
+          nombre:      meta.destino,
+          tipo_cw:     liqSitio?.tipo || '',
+          regional:    liqSitio?.regional || 'Sur-Occidente',
+          comentarios: '',
+          activo:      true,
+        })
+      }
       await saveDespacho({
         numero_doc:  meta.numero_doc,
         fecha:       meta.fecha,
@@ -113,16 +138,18 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
       })
       for (const item of items) {
         await addMovimiento({
-          numero_doc:     meta.numero_doc,
-          fecha:          meta.fecha,
-          tipo:           'Salida',
-          catalogo_id:    item.catalogo_id,
-          bodega_id:      Number(meta.bodega_id),
-          cantidad:       item.cant_despachada,
-          valor_unitario: item.valor_unitario,
-          destino:        meta.destino,
-          sitio_id:       null,
-          created_by:     user?.nombre || user?.email,
+          numero_doc:      meta.numero_doc,
+          fecha:           meta.fecha,
+          tipo:            'Salida',
+          catalogo_id:     item.catalogo_id,
+          bodega_id:       Number(meta.bodega_id),
+          cantidad:        item.cant_despachada,
+          cant_despachada: item.cant_despachada,
+          valor_unitario:  item.valor_unitario,
+          valor_total:     item.cant_despachada * item.valor_unitario,
+          destino:         meta.destino,
+          sitio_id:        null,
+          created_by:      user?.nombre || user?.email,
         })
       }
       showToast('Despacho creado correctamente')
@@ -184,20 +211,31 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
               </div>
               <div>
                 <label className="fl">Sitio Destino *</label>
-                <select className="fc" value={meta.sitio_id}
-                  onChange={e => {
-                    const s = (liquidadorSitios || []).find(x => String(x.id) === e.target.value)
-                    setMeta(p => ({ ...p, sitio_id: e.target.value, destino: s?.nombre || '' }))
-                  }}>
-                  <option value="">— Seleccionar sitio —</option>
-                  {(liquidadorSitios || []).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                </select>
+                {defaultDestino ? (
+                  <div style={{ background:'#f0fdf4', border:'1.5px solid #a3e6a3', borderRadius:6, padding:'8px 12px', fontSize:13, color:'#144E4A', fontWeight:700 }}>
+                    {meta.destino}
+                  </div>
+                ) : (
+                  <select className="fc" value={meta.destino}
+                    onChange={e => setMeta(p => ({ ...p, destino: e.target.value }))}>
+                    <option value="">— Seleccionar sitio —</option>
+                    {sitiosOptions.length > 0 && (
+                      <optgroup label="Sitios registrados">
+                        {sitiosOptions.filter(s => s.fuente === 'mat').map(s => (
+                          <option key={s.nombre} value={s.nombre}>{s.nombre}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {sitiosOptions.some(s => s.fuente === 'liquidador') && (
+                      <optgroup label="Sitios Nokia (Liquidador)">
+                        {sitiosOptions.filter(s => s.fuente === 'liquidador').map(s => (
+                          <option key={s.nombre} value={s.nombre}>{s.nombre}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                )}
               </div>
-              {meta.destino && (
-                <div style={{ background:'#f0fdf4', border:'1px solid #a3e6a3', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#144E4A', fontWeight:600 }}>
-                  Destino: {meta.destino}
-                </div>
-              )}
               <div>
                 <label className="fl">Comentarios</label>
                 <input type="text" className="fc" value={meta.comentarios} placeholder="Opcional"
