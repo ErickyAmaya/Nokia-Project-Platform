@@ -146,7 +146,6 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
           cantidad:        item.cant_despachada,
           cant_despachada: item.cant_despachada,
           valor_unitario:  item.valor_unitario,
-          valor_total:     item.cant_despachada * item.valor_unitario,
           destino:         meta.destino,
           sitio_id:        null,
           created_by:      user?.nombre || user?.email,
