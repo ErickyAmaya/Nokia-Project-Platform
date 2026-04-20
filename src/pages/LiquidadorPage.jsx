@@ -158,7 +158,6 @@ export default function LiquidadorPage() {
   const reabrirSitio       = useAppStore(s => s.reabrirSitio)
   const eliminarGasto      = useAppStore(s => s.eliminarGasto)
   const marcarFinalLiqCW   = useAppStore(s => s.marcarFinalLiqCW)
-  const eliminarGasto      = useAppStore(s => s.eliminarGasto)
 
   const { confirm, ConfirmModalUI } = useConfirm()
 
