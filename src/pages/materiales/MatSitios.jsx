@@ -61,9 +61,10 @@ export default function MatSitios() {
           const cat = catalogo.find(c => c.id === mk)
           byMaterial[mk] = {
             catalogo_id:    mk,
-            nombre:         cat?.nombre   || '—',
-            codigo:         cat?.codigo   || '—',
-            unidad:         cat?.unidad   || '—',
+            nombre:         cat?.nombre    || '—',
+            codigo:         cat?.codigo    || '—',
+            unidad:         cat?.unidad    || '—',
+            categoria:      cat?.categoria || '—',
             precioUnitario: cat?.costo_unitario || m.valor_unitario || 0,
             cantidad:       0,
             total:          0,
@@ -222,36 +223,82 @@ export default function MatSitios() {
                                 <div style={{ textAlign:'center', padding:'20px 16px', color:'#9ca89c', fontSize:12 }}>
                                   No hay salidas registradas hacia este sitio
                                 </div>
-                              ) : (
-                                <div style={{ overflowX:'auto' }}>
-                                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                    <thead>
-                                      <tr style={{ background:'#144E4A' }}>
-                                        {['Nombre','CÓDIGO','UM','CANTIDAD','PRECIO UNITARIO','TOTAL','FECHA ÚLTIMO MOV.','FECHA ENVÍO'].map(h => (
-                                          <th key={h} style={{ padding:'6px 10px', color:'#CDFBF2', fontWeight:700, fontSize:10,
-                                            textAlign: ['CANTIDAD','PRECIO UNITARIO','TOTAL'].includes(h) ? 'right' : 'left', whiteSpace:'nowrap' }}>
-                                            {h}
-                                          </th>
-                                        ))}
+                              ) : (() => {
+                                const matTI  = sd.materiales.filter(m => m.categoria === 'TI')
+                                const matCW  = sd.materiales.filter(m => m.categoria === 'CW')
+                                const matOth = sd.materiales.filter(m => m.categoria !== 'TI' && m.categoria !== 'CW')
+                                const COLS   = ['NOMBRE','CÓDIGO','UM','CANTIDAD','PRECIO UNITARIO','TOTAL','FECHA ÚLTIMO MOV.','FECHA ENVÍO']
+                                const NUM    = ['CANTIDAD','PRECIO UNITARIO','TOTAL']
+
+                                function MatRow({ m, idx }) {
+                                  return (
+                                    <tr style={{ background: idx % 2 === 0 ? '#fff' : '#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                      <td style={{ padding:'6px 10px', fontWeight:600 }}>{m.nombre}</td>
+                                      <td style={{ padding:'6px 10px', color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{m.codigo}</td>
+                                      <td style={{ padding:'6px 10px', color:'#9ca89c' }}>{m.unidad}</td>
+                                      <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700 }}>{m.cantidad}</td>
+                                      <td style={{ padding:'6px 10px', textAlign:'right', color:'#555f55' }}>{matCop(m.precioUnitario)}</td>
+                                      <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, color:'#144E4A' }}>{matCop(m.total)}</td>
+                                      <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaUltimo)}</td>
+                                      <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaEnvio)}</td>
+                                    </tr>
+                                  )
+                                }
+
+                                function SectionBlock({ label, items, accentBg, accentColor }) {
+                                  if (items.length === 0) return null
+                                  const secTotal = items.reduce((a, m) => a + m.total, 0)
+                                  const secUnits = items.reduce((a, m) => a + m.cantidad, 0)
+                                  return (
+                                    <>
+                                      {/* Sección header */}
+                                      <tr>
+                                        <td colSpan={8} style={{ padding:'5px 10px', background: accentBg, color: accentColor,
+                                          fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:11,
+                                          letterSpacing:1, textTransform:'uppercase', borderTop:'2px solid ' + accentColor }}>
+                                          {label}
+                                        </td>
                                       </tr>
-                                    </thead>
-                                    <tbody>
-                                      {sd.materiales.map((m, mi) => (
-                                        <tr key={m.catalogo_id} style={{ background: mi % 2 === 0 ? '#fff' : '#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
-                                          <td style={{ padding:'6px 10px', fontWeight:600 }}>{m.nombre}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{m.codigo}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c' }}>{m.unidad}</td>
-                                          <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700 }}>{m.cantidad}</td>
-                                          <td style={{ padding:'6px 10px', textAlign:'right', color:'#555f55' }}>{matCop(m.precioUnitario)}</td>
-                                          <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, color:'#144E4A' }}>{matCop(m.total)}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaUltimo)}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaEnvio)}</td>
+                                      {items.map((m, idx) => <MatRow key={m.catalogo_id} m={m} idx={idx} />)}
+                                      {/* Subtotal */}
+                                      <tr style={{ background: accentBg }}>
+                                        <td colSpan={3} style={{ padding:'5px 10px', fontSize:10, fontWeight:700, color: accentColor }}>
+                                          Total {label} · {secUnits} uds.
+                                        </td>
+                                        <td />
+                                        <td />
+                                        <td style={{ padding:'5px 10px', textAlign:'right', fontWeight:800, fontSize:12, color: accentColor }}>
+                                          {matCop(secTotal)}
+                                        </td>
+                                        <td colSpan={2} />
+                                      </tr>
+                                    </>
+                                  )
+                                }
+
+                                return (
+                                  <div style={{ overflowX:'auto' }}>
+                                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                      <thead>
+                                        <tr style={{ background:'#f0f7f0' }}>
+                                          {COLS.map(h => (
+                                            <th key={h} style={{ padding:'6px 10px', color:'#144E4A', fontWeight:700, fontSize:10,
+                                              textAlign: NUM.includes(h) ? 'right' : 'left', whiteSpace:'nowrap',
+                                              borderBottom:'2px solid #c8e6c8' }}>
+                                              {h}
+                                            </th>
+                                          ))}
                                         </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
+                                      </thead>
+                                      <tbody>
+                                        <SectionBlock label="TI" items={matTI}  accentBg="#f0fdf4" accentColor="#166534" />
+                                        <SectionBlock label="CW" items={matCW}  accentBg="#eff6ff" accentColor="#1e40af" />
+                                        <SectionBlock label="Otros" items={matOth} accentBg="#fafafa" accentColor="#555f55" />
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )
+                              })()}
 
                               <div style={{ padding:'8px 16px', background:'#e8f5e8', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                                 <div style={{ fontSize:10, color:'#144E4A', fontWeight:700 }}>
@@ -261,7 +308,13 @@ export default function MatSitios() {
                                   </span>
                                 </div>
                                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                                  <span style={{ fontSize:11, fontWeight:700, color:'#144E4A' }}>
+                                  <span style={{ fontSize:11, fontWeight:700, color:'#166534' }}>
+                                    Total TI: {matCop(sd.materiales.filter(m => m.categoria === 'TI').reduce((a, m) => a + m.total, 0))}
+                                  </span>
+                                  <span style={{ fontSize:11, fontWeight:700, color:'#1e40af' }}>
+                                    Total CW: {matCop(sd.materiales.filter(m => m.categoria === 'CW').reduce((a, m) => a + m.total, 0))}
+                                  </span>
+                                  <span style={{ fontSize:11, fontWeight:800, color:'#144E4A' }}>
                                     Total: {matCop(sd.materiales.reduce((a, m) => a + m.total, 0))}
                                   </span>
                                   <button
