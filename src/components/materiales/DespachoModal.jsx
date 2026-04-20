@@ -28,17 +28,13 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
   const liquidadorSitios = useAppStore(s => s.sitios ?? [])
   const user             = useAuthStore(s => s.user)
 
-  // Lista fusionada: mat_sitios primero, luego sitios del Liquidador que no estén ya
-  const sitiosOptions = useMemo(() => {
-    const matNombres = new Set(matSitios.map(s => s.nombre?.toLowerCase()))
-    const liqExtra   = liquidadorSitios
-      .filter(s => s.nombre && !matNombres.has(s.nombre.toLowerCase()))
-      .map(s => ({ nombre: s.nombre, fuente: 'liquidador' }))
-    return [
-      ...matSitios.filter(s => s.activo !== false).map(s => ({ nombre: s.nombre, fuente: 'mat' })),
-      ...liqExtra,
-    ]
-  }, [matSitios, liquidadorSitios])
+  // Solo sitios del Liquidador (los mat_sitios se crean automáticamente al despachar)
+  const sitiosOptions = useMemo(() =>
+    liquidadorSitios
+      .filter(s => s.nombre)
+      .map(s => ({ value: s.nombre, label: s.nombre }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  , [liquidadorSitios])
 
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -215,24 +211,12 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
                     {meta.destino}
                   </div>
                 ) : (
-                  <select className="fc" value={meta.destino}
-                    onChange={e => setMeta(p => ({ ...p, destino: e.target.value }))}>
-                    <option value="">— Seleccionar sitio —</option>
-                    {sitiosOptions.length > 0 && (
-                      <optgroup label="Sitios registrados">
-                        {sitiosOptions.filter(s => s.fuente === 'mat').map(s => (
-                          <option key={s.nombre} value={s.nombre}>{s.nombre}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {sitiosOptions.some(s => s.fuente === 'liquidador') && (
-                      <optgroup label="Sitios Nokia (Liquidador)">
-                        {sitiosOptions.filter(s => s.fuente === 'liquidador').map(s => (
-                          <option key={s.nombre} value={s.nombre}>{s.nombre}</option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+                  <SearchableSelect
+                    options={sitiosOptions}
+                    value={meta.destino}
+                    onChange={val => setMeta(p => ({ ...p, destino: val }))}
+                    placeholder="Buscar sitio Nokia…"
+                  />
                 )}
               </div>
               <div>
