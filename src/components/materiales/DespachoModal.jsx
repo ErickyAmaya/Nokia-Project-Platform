@@ -25,7 +25,7 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
   const getStock         = useMatStore(s => s.getStock)
   const saveDespacho     = useMatStore(s => s.saveDespacho)
   const addMovimiento    = useMatStore(s => s.addMovimiento)
-  const liquidadorSitios = useAppStore(s => s.sitios) || []
+  const liquidadorSitios = useAppStore(s => s.sitios ?? [])
   const user             = useAuthStore(s => s.user)
 
   // Lista fusionada: mat_sitios primero, luego sitios del Liquidador que no estén ya

@@ -135,26 +135,31 @@ export const useMatStore = create((set, get) => ({
   // ── SITIOS ───────────────────────────────────────────────────────
   saveSitio: async (sitio) => {
     const isNew = !sitio.id && !sitio._editing
-    const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw, regional: sitio.regional, comentarios: sitio.comentarios, activo: sitio.activo ?? true }
-    let query
+    const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw || null, regional: sitio.regional, comentarios: sitio.comentarios || null, activo: sitio.activo ?? true }
+
     if (isNew) {
-      query = db().from('mat_sitios').insert(payload).select().single()
+      const { error } = await db().from('mat_sitios').insert(payload)
+      if (error) throw error
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('nombre', payload.nombre).single()
+      const saved = newRow || payload
+      set(s => ({ sitios: [...s.sitios, saved] }))
+      return saved
     } else if (sitio.id) {
-      query = db().from('mat_sitios').update(payload).eq('id', sitio.id).select().single()
+      const { error } = await db().from('mat_sitios').update(payload).eq('id', sitio.id)
+      if (error) throw error
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('id', sitio.id).single()
+      const saved = newRow || { ...sitio, ...payload }
+      set(s => ({ sitios: s.sitios.map(x => x.id === sitio.id ? saved : x) }))
+      return saved
     } else {
-      // tabla sin id — update por nombre original
-      query = db().from('mat_sitios').update(payload).eq('nombre', sitio._originalNombre || sitio.nombre).select().single()
+      const originalNombre = sitio._originalNombre || sitio.nombre
+      const { error } = await db().from('mat_sitios').update(payload).eq('nombre', originalNombre)
+      if (error) throw error
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('nombre', payload.nombre).single()
+      const saved = newRow || { ...sitio, ...payload }
+      set(s => ({ sitios: s.sitios.map(x => x.nombre === originalNombre ? saved : x) }))
+      return saved
     }
-    const { data, error } = await query
-    if (error) throw error
-    // Si la tabla no tiene id, data puede ser el objeto sin id field
-    const saved = data || payload
-    set(s => ({
-      sitios: isNew
-        ? [...s.sitios, saved]
-        : s.sitios.map(x => (sitio.id ? x.id === sitio.id : x.nombre === (sitio._originalNombre || sitio.nombre)) ? saved : x),
-    }))
-    return saved
   },
 
   deleteSitio: async (id, nombre) => {
