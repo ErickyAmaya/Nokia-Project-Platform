@@ -172,6 +172,14 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 .al-i { background: #d0e4f7; color: #1a5276; border-left: 3px solid var(--b); }
 .al-e { background: #fde8e7; color: #c0392b; border-left: 3px solid var(--r); }
 
+/* ── Row flash (alerta de stock) ─────────────────────────────── */
+@keyframes rowFlash {
+  0%, 100% { background-color: transparent; }
+  20%, 60%  { background-color: #fef082; }
+  40%, 80%  { background-color: #f59e0b33; }
+}
+.row-flash td { animation: rowFlash 0.7s ease-in-out 4; }
+
 /* ── Misc ────────────────────────────────────────────────────── */
 .fb { display: flex; justify-content: space-between; align-items: center; }
 .flex { display: flex; } .gap8 { gap: 8px; } .gap12 { gap: 12px; }

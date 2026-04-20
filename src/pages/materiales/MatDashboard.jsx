@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -42,8 +43,30 @@ export default function MatDashboard() {
   const bodegas     = useMatStore(s => s.bodegas)
   const getStock    = useMatStore(s => s.getStock)
 
+  const location   = useLocation()
+  const navigate   = useNavigate()
+  const alertasRef = useRef(null)
+  const [flashId, setFlashId] = useState(null)
+
   const [filCat,   setFilCat]   = useState('')  // '' | 'TI' | 'CW'
   const [filSitio, setFilSitio] = useState('')  // nombre del sitio destino
+
+  // Highlight desde alerta de stock
+  useEffect(() => {
+    const hid = location.state?.highlightCatalogId
+    if (!hid) return
+    // limpiar state para que no re-flashee en hot-reload / back-nav
+    navigate(location.pathname, { replace: true, state: {} })
+    setFlashId(hid)
+    // scroll a la tabla de alertas
+    setTimeout(() => {
+      const el = document.getElementById(`alert-row-${hid}`) || alertasRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 80)
+    // quitar flash tras 2.8 s (4 pulsos × 0.7 s)
+    const t = setTimeout(() => setFlashId(null), 2800)
+    return () => clearTimeout(t)
+  }, [location.state])
 
   // Sitios destino únicos derivados de movimientos
   const sitiosUnicos = useMemo(() => {
@@ -371,7 +394,7 @@ export default function MatDashboard() {
 
       {/* ── Alertas ── */}
       {alertas.length > 0 && (
-        <div className="card" style={{ marginBottom:12 }}>
+        <div ref={alertasRef} className="card" style={{ marginBottom:12 }}>
           <div className="card-h" style={{ background:'#c0392b', borderRadius:'8px 8px 0 0' }}>
             <h2 style={{ color:'#fff' }}>Alertas — Bajo Mínimo &amp; Agotados ({alertas.length})</h2>
           </div>
@@ -383,10 +406,13 @@ export default function MatDashboard() {
               </tr></thead>
               <tbody>
                 {alertas.map(c => {
+                  const isFlash = flashId === c.id
                   // Mostrar por bodega
                   const stockRows = bodegas.map(b => ({ bod: b, s: getStock(c.id, b.id) })).filter(x => x.s < c.stock_minimo)
-                  return stockRows.length > 0 ? stockRows.map(({ bod, s }) => (
-                    <tr key={`${c.id}-${bod.id}`}>
+                  return stockRows.length > 0 ? stockRows.map(({ bod, s }, ri) => (
+                    <tr key={`${c.id}-${bod.id}`}
+                      id={ri === 0 ? `alert-row-${c.id}` : undefined}
+                      className={isFlash ? 'row-flash' : ''}>
                       <td style={{ fontWeight:600, fontSize:11 }}>{c.nombre}</td>
                       <td style={{ fontSize:11, color:'#9ca89c' }}>{bod.nombre}</td>
                       <td><span className="badge" style={{ background:c.categoria==='TI'?'#f0fdf4':'#faf5ff', color:c.categoria==='TI'?'#166534':'#5b21b6' }}>{c.categoria}</span></td>
@@ -399,7 +425,9 @@ export default function MatDashboard() {
                       </td>
                     </tr>
                   )) : (
-                    <tr key={c.id}>
+                    <tr key={c.id}
+                      id={`alert-row-${c.id}`}
+                      className={isFlash ? 'row-flash' : ''}>
                       <td style={{ fontWeight:600, fontSize:11 }}>{c.nombre}</td>
                       <td style={{ fontSize:11, color:'#9ca89c' }}>—</td>
                       <td><span className="badge" style={{ background:c.categoria==='TI'?'#f0fdf4':'#faf5ff', color:c.categoria==='TI'?'#166534':'#5b21b6' }}>{c.categoria}</span></td>

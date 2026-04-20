@@ -70,10 +70,11 @@ export default function StockAlerts() {
       const cat = catalogo.find(c => c.id === s.catalogo_id)
       if (!cat || cat.categoria === 'PROVEEDORES') continue
       curr[`${s.catalogo_id}-${s.bodega_id}`] = {
-        level:  getLevel(s.stock_actual, cat.stock_minimo ?? 0),
-        nombre: cat.nombre,
-        stock:  s.stock_actual,
-        minimo: cat.stock_minimo ?? 0,
+        level:       getLevel(s.stock_actual, cat.stock_minimo ?? 0),
+        nombre:      cat.nombre,
+        stock:       s.stock_actual,
+        minimo:      cat.stock_minimo ?? 0,
+        catalogo_id: s.catalogo_id,
       }
     }
 
@@ -111,7 +112,7 @@ export default function StockAlerts() {
           alert={a}
           onDismiss={() => setAlerts(p => p.filter(x => x.id !== a.id))}
           onNav={() => {
-            navigate('/materiales')
+            navigate('/materiales', { state: { highlightCatalogId: a.catalogo_id } })
             setAlerts(p => p.filter(x => x.id !== a.id))
           }}
         />
