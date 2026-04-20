@@ -39,7 +39,7 @@ function BadgePill({ value }) {
 }
 
 const MAT_FORM_DEFAULT  = { nombre:'', codigo:'', unidad:'Und.', categoria:'TI', costo_unitario:0, stock_minimo:0, activo:true, descripcion:'', imagen_url:'' }
-const PROV_FORM_DEFAULT = { nombre:'', codigo:'', categoria:'PROVEEDORES', direccion:'', contacto:'', email:'', telefono:'', badge:'', activo:true, costo_unitario:0, stock_minimo:0, unidad:'' }
+const PROV_FORM_DEFAULT = { nombre:'', codigo:'', categoria:'PROVEEDORES', direccion:'', contacto:'', email:'', telefono:'', badge:'', activo:true }
 
 export default function MatCatalogo() {
   const catalogo       = useMatStore(s => s.catalogo)
@@ -48,11 +48,12 @@ export default function MatCatalogo() {
   const user           = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [search,  setSearch]  = useState('')
-  const [filCat,  setFilCat]  = useState('')
-  const [modal,   setModal]   = useState(false)   // modal materiales
-  const [provMod, setProvMod] = useState(false)   // modal proveedores
-  const [form,    setForm]    = useState({})
+  const [search,   setSearch]   = useState('')
+  const [filCat,   setFilCat]   = useState('')
+  const [modal,    setModal]    = useState(false)   // modal materiales
+  const [provMod,  setProvMod]  = useState(false)   // modal proveedores
+  const [matForm,  setMatForm]  = useState({})      // form exclusivo materiales
+  const [provForm, setProvForm] = useState({})      // form exclusivo proveedores
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
   const isProveedoresTab = filCat === 'PROVEEDORES'
@@ -60,19 +61,21 @@ export default function MatCatalogo() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return catalogo.filter(c => {
+      // En vista materiales (Todos/TI/CW) nunca mostrar proveedores
+      if (!isProveedoresTab && c.categoria === 'PROVEEDORES') return false
       if (filCat && c.categoria !== filCat) return false
       if (q && !`${c.nombre} ${c.codigo} ${c.unidad || ''} ${c.contacto || ''}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [catalogo, search, filCat])
+  }, [catalogo, search, filCat, isProveedoresTab])
 
   function openMatModal(item = null) {
-    setForm(item ? { ...item } : { ...MAT_FORM_DEFAULT })
+    setMatForm(item ? { ...item } : { ...MAT_FORM_DEFAULT })
     setModal(true)
   }
 
   function openProvModal(item = null) {
-    setForm(item ? { ...item } : { ...PROV_FORM_DEFAULT })
+    setProvForm(item ? { ...item } : { ...PROV_FORM_DEFAULT })
     setProvMod(true)
   }
 
@@ -82,19 +85,19 @@ export default function MatCatalogo() {
   }
 
   async function handleSave() {
-    if (!form.nombre || !form.codigo) { showToast('Nombre y código son requeridos', 'err'); return }
+    if (!matForm.nombre || !matForm.codigo) { showToast('Nombre y código son requeridos', 'err'); return }
     try {
-      await saveCatItem(form)
-      showToast(form.id ? 'Material actualizado' : 'Material creado')
+      await saveCatItem(matForm)
+      showToast(matForm.id ? 'Material actualizado' : 'Material creado')
       setModal(false)
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
   async function handleProvSave() {
-    if (!form.nombre) { showToast('El nombre es requerido', 'err'); return }
+    if (!provForm.nombre) { showToast('El nombre es requerido', 'err'); return }
     try {
-      await saveCatItem({ ...form, categoria: 'PROVEEDORES', codigo: form.codigo || form.nombre.slice(0,8).toUpperCase().replace(/ /g,'_') })
-      showToast(form.id ? 'Proveedor actualizado' : 'Proveedor creado')
+      await saveCatItem({ ...provForm, categoria: 'PROVEEDORES', codigo: provForm.codigo || provForm.nombre.slice(0,8).toUpperCase().replace(/ /g,'_') })
+      showToast(provForm.id ? 'Proveedor actualizado' : 'Proveedor creado')
       setProvMod(false)
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
@@ -227,7 +230,7 @@ export default function MatCatalogo() {
           <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #1a9c1a' }}>
               <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
-                {form.id ? 'Editar Material' : 'Nuevo Material'}
+                {matForm.id ? 'Editar Material' : 'Nuevo Material'}
               </span>
               <button onClick={() => setModal(false)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
@@ -241,36 +244,36 @@ export default function MatCatalogo() {
               ].map(f => (
                 <div key={f.key}>
                   <label className="fl">{f.label}</label>
-                  <input type={f.type} className="fc" value={form[f.key] ?? ''}
-                    onChange={e => setForm(p => ({ ...p, [f.key]: f.type==='number' ? Number(e.target.value) : e.target.value }))} />
+                  <input type={f.type} className="fc" value={matForm[f.key] ?? ''}
+                    onChange={e => setMatForm(p => ({ ...p, [f.key]: f.type==='number' ? Number(e.target.value) : e.target.value }))} />
                 </div>
               ))}
               <div>
                 <label className="fl">Categoría</label>
-                <select className="fc" value={form.categoria || 'TI'} onChange={e => setForm(p => ({ ...p, categoria:e.target.value }))}>
+                <select className="fc" value={matForm.categoria || 'TI'} onChange={e => setMatForm(p => ({ ...p, categoria:e.target.value }))}>
                   <option value="TI">TI</option>
                   <option value="CW">CW</option>
                 </select>
               </div>
               <div>
                 <label className="fl">Descripción</label>
-                <textarea className="fc" rows={2} value={form.descripcion || ''}
-                  onChange={e => setForm(p => ({ ...p, descripcion:e.target.value }))}
+                <textarea className="fc" rows={2} value={matForm.descripcion || ''}
+                  onChange={e => setMatForm(p => ({ ...p, descripcion:e.target.value }))}
                   style={{ resize:'vertical', fontFamily:"'Barlow', sans-serif", fontSize:12 }} />
               </div>
               <div>
                 <label className="fl">URL de Imagen</label>
-                <input type="text" className="fc" placeholder="https://…" value={form.imagen_url || ''}
-                  onChange={e => setForm(p => ({ ...p, imagen_url:e.target.value }))} />
-                {form.imagen_url && (
-                  <img src={form.imagen_url} alt="preview"
+                <input type="text" className="fc" placeholder="https://…" value={matForm.imagen_url || ''}
+                  onChange={e => setMatForm(p => ({ ...p, imagen_url:e.target.value }))} />
+                {matForm.imagen_url && (
+                  <img src={matForm.imagen_url} alt="preview"
                     style={{ marginTop:6, maxHeight:80, borderRadius:4, border:'1px solid #e0e4e0', objectFit:'contain' }}
                     onError={e => { e.target.style.display='none' }}
                   />
                 )}
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input type="checkbox" id="cat-activo" checked={form.activo !== false} onChange={e => setForm(p => ({ ...p, activo:e.target.checked }))} />
+                <input type="checkbox" id="cat-activo" checked={matForm.activo !== false} onChange={e => setMatForm(p => ({ ...p, activo:e.target.checked }))} />
                 <label htmlFor="cat-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>
               </div>
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:8 }}>
@@ -288,22 +291,22 @@ export default function MatCatalogo() {
           <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ background:'#9a3412', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #fb923c' }}>
               <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
-                {form.id ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+                {provForm.id ? 'Editar Proveedor' : 'Nuevo Proveedor'}
               </span>
               <button onClick={() => setProvMod(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
               {[
-                { label:'Nombre *',           key:'nombre',   type:'text' },
+                { label:'Nombre *',           key:'nombre',    type:'text' },
                 { label:'Dirección',          key:'direccion', type:'text' },
                 { label:'Persona de Contacto', key:'contacto', type:'text' },
-                { label:'Correo Electrónico', key:'email',    type:'text' },
-                { label:'Teléfono',           key:'telefono', type:'text' },
+                { label:'Correo Electrónico', key:'email',     type:'text' },
+                { label:'Teléfono',           key:'telefono',  type:'text' },
               ].map(f => (
                 <div key={f.key}>
                   <label className="fl">{f.label}</label>
-                  <input type={f.type} className="fc" value={form[f.key] || ''}
-                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
+                  <input type={f.type} className="fc" value={provForm[f.key] || ''}
+                    onChange={e => setProvForm(p => ({ ...p, [f.key]: e.target.value }))} />
                 </div>
               ))}
 
@@ -313,13 +316,13 @@ export default function MatCatalogo() {
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:4 }}>
                   {BADGES.map(b => (
                     <div key={b.value}
-                      onClick={() => setForm(p => ({ ...p, badge: p.badge === b.value ? '' : b.value }))}
+                      onClick={() => setProvForm(p => ({ ...p, badge: p.badge === b.value ? '' : b.value }))}
                       style={{
                         padding:'6px 14px', borderRadius:20, fontSize:10, fontWeight:700,
                         letterSpacing:.5, textTransform:'uppercase', cursor:'pointer',
-                        background: form.badge === b.value ? b.bg : '#f5f5f5',
-                        color: form.badge === b.value ? b.color : '#9ca89c',
-                        border: `1.5px solid ${form.badge === b.value ? b.border : '#e0e4e0'}`,
+                        background: provForm.badge === b.value ? b.bg : '#f5f5f5',
+                        color: provForm.badge === b.value ? b.color : '#9ca89c',
+                        border: `1.5px solid ${provForm.badge === b.value ? b.border : '#e0e4e0'}`,
                         transition:'all .15s',
                       }}
                     >
@@ -330,7 +333,7 @@ export default function MatCatalogo() {
               </div>
 
               <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
-                <input type="checkbox" id="prov-activo" checked={form.activo !== false} onChange={e => setForm(p => ({ ...p, activo:e.target.checked }))} />
+                <input type="checkbox" id="prov-activo" checked={provForm.activo !== false} onChange={e => setProvForm(p => ({ ...p, activo:e.target.checked }))} />
                 <label htmlFor="prov-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>
               </div>
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:8 }}>
