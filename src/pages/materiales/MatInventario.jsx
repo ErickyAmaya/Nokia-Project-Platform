@@ -33,7 +33,7 @@ function nextMovNum(tipo, movimientos) {
 const ENT_RESET = {
   fecha: new Date().toISOString().slice(0,10),
   numero_doc: '', catalogo_id: '', bodega_id: '',
-  cantidad: 1, valor_unitario: 0, origen: '', editPrice: false,
+  cantidad: 1, valor_unitario: 0, origen: '', proveedor_id: '', editPrice: false,
 }
 const SAL_RESET = {
   fecha: new Date().toISOString().slice(0,10),
@@ -137,6 +137,7 @@ export default function MatInventario() {
         cantidad:       Number(entForm.cantidad),
         valor_unitario: Number(entForm.valor_unitario),
         origen:         entForm.origen,
+        proveedor_id:   entForm.proveedor_id ? Number(entForm.proveedor_id) : null,
         destino:        '',
         sitio_id:       null,
         created_by:     user?.nombre || user?.email,
@@ -357,10 +358,13 @@ export default function MatInventario() {
 
               <div>
                 <label className="fl">Origen (Proveedor)</label>
-                <select className="fc" value={entForm.origen}
-                  onChange={e => setEntForm(p => ({ ...p, origen:e.target.value }))}>
+                <select className="fc" value={entForm.proveedor_id}
+                  onChange={e => {
+                    const prov = proveedores.find(p => String(p.id) === e.target.value)
+                    setEntForm(p => ({ ...p, proveedor_id: e.target.value, origen: prov?.nombre || '' }))
+                  }}>
                   <option value="">— Proveedor / Compra —</option>
-                  {proveedores.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                  {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
               </div>
 
