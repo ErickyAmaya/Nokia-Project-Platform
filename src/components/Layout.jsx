@@ -36,7 +36,8 @@ const BADGE = {
   TI:          { label: '📡 TI',     cls: 'ub-op'    },
   TSS:         { label: '📡 TSS',    cls: 'ub-op'    },
   CW:          { label: '🔧 CW',     cls: 'ub-op'    },
-  viewer:      { label: '👁 Viewer', cls: 'ub-viewer' },
+  viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
+  logistica:   { label: '📦 Logística', cls: 'ub-op'     },
 }
 
 export default function Layout({ children }) {
@@ -187,6 +188,7 @@ export default function Layout({ children }) {
       }}>
         {allVisible.map(item => (
           <NavLink
+            end
             key={item.id}
             to={item.to}
             style={({ isActive }) => ({

@@ -238,6 +238,17 @@ export const useMatStore = create((set, get) => ({
     }))
   },
 
+  // ── Corrección directa de stock (sin movimiento) ─────────────────
+  correccionStock: async (catalogo_id, bodega_id, stockNuevo) => {
+    const { error } = await db().from('mat_stock')
+      .update({ stock_actual: stockNuevo })
+      .eq('catalogo_id', catalogo_id)
+      .eq('bodega_id', bodega_id)
+    if (error) throw error
+    const { data: stk } = await db().from('mat_stock').select('*')
+    if (stk) set({ stock: stk })
+  },
+
   // ── Ajuste manual de stock (RPC) ─────────────────────────────────
   ajustarStock: async (catalogo_id, bodega_id, delta) => {
     const { error } = await db().rpc('ajustar_stock', { p_cat: catalogo_id, p_bod: bodega_id, p_delta: delta })

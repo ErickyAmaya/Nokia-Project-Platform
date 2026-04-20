@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useMatStore } from '../../store/useMatStore'
+import StockAlerts from '../../components/materiales/StockAlerts'
 
 export default function MatWrapper() {
   const loadAll = useMatStore(s => s.loadAll)
@@ -18,5 +19,10 @@ export default function MatWrapper() {
     )
   }
 
-  return <Outlet />
+  return (
+    <>
+      <StockAlerts />
+      <Outlet />
+    </>
+  )
 }

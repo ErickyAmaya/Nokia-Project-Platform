@@ -84,10 +84,10 @@ body {
 .bd  { background: var(--r);  color: #fff; } .bd:hover  { background: #a93226; }
 .bo  { background: var(--o);  color: #fff; } .bo:hover  { background: #b7770d; }
 .bk  { background: var(--k);  color: #fff; } .bk:hover  { background: var(--g4); }
-.bou { background: transparent; border: 1.5px solid var(--g); color: var(--g); } .bou:hover { background: var(--gf); }
+.bou { background: transparent; border: 1.5px solid var(--go); color: var(--go); } .bou:hover { background: var(--gf); }
 .btn-sm  { padding: 4px 9px; font-size: 10px; }
 .btn-lg  { padding: 10px 20px; font-size: 13px; }
-.btn-del { background: #fde; color: var(--r); border: none; border-radius: 4px; padding: 2px 7px; font-size: 10px; cursor: pointer; font-weight: 700; }
+.btn-del { background: #fde; color: var(--r); border: none; border-radius: 100px; padding: 2px 8px; font-size: 10px; cursor: pointer; font-weight: 700; }
 
 /* ── Form controls ───────────────────────────────────────────── */
 .fg { margin-bottom: 12px; }

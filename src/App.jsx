@@ -87,9 +87,10 @@ function RoleHome() {
   if (modulo === 'materiales') return <Navigate to="/materiales" replace />
 
   // Billing: redirigir según rol
-  if (role === 'TI')  return <Navigate to="/ti"             replace />
-  if (role === 'TSS') return <Navigate to="/tss"            replace />
-  if (role === 'CW')  return <Navigate to="/cw-consolidado" replace />
+  if (role === 'TI')        return <Navigate to="/ti"             replace />
+  if (role === 'TSS')       return <Navigate to="/tss"            replace />
+  if (role === 'CW')        return <Navigate to="/cw-consolidado" replace />
+  if (role === 'logistica') return <Navigate to="/materiales"     replace />
   return <Navigate to="/dashboard" replace />
 }
 

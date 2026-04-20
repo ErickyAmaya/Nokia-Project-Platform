@@ -217,9 +217,9 @@ export default function MatSitios() {
                                 <div style={{ overflowX:'auto' }}>
                                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                     <thead>
-                                      <tr style={{ background:'#1a9c1a' }}>
+                                      <tr style={{ background:'#144E4A' }}>
                                         {['Nombre','CÓDIGO','UM','CANTIDAD','PRECIO UNITARIO','TOTAL','FECHA ÚLTIMO MOV.','FECHA ENVÍO'].map(h => (
-                                          <th key={h} style={{ padding:'6px 10px', color:'#fff', fontWeight:700, fontSize:10,
+                                          <th key={h} style={{ padding:'6px 10px', color:'#CDFBF2', fontWeight:700, fontSize:10,
                                             textAlign: ['CANTIDAD','PRECIO UNITARIO','TOTAL'].includes(h) ? 'right' : 'left', whiteSpace:'nowrap' }}>
                                             {h}
                                           </th>
