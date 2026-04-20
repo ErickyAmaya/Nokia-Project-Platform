@@ -145,7 +145,7 @@ export default function Layout({ children }) {
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          Liquidador Nokia 2026
+          {inMateriales ? 'Gestión de Inventarios y Materiales' : 'Liquidador de Actividades'}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

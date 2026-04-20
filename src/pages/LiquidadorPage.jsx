@@ -158,6 +158,7 @@ export default function LiquidadorPage() {
   const reabrirSitio       = useAppStore(s => s.reabrirSitio)
   const eliminarGasto      = useAppStore(s => s.eliminarGasto)
   const marcarFinalLiqCW   = useAppStore(s => s.marcarFinalLiqCW)
+  const eliminarGasto      = useAppStore(s => s.eliminarGasto)
 
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -213,6 +214,22 @@ export default function LiquidadorPage() {
     : 0
   const efectUtilidad = calc ? calc.totalVenta - efectTotalCosto : 0
   const efectMargen   = calc && calc.totalVenta > 0 ? efectUtilidad / calc.totalVenta : 0
+
+  // Cuando se detecta un despacho automático, eliminar gastos manuales de materiales
+  useEffect(() => {
+    if (!hasDespacho || !sitio) return
+    const matGastos = gastos
+      .filter(g => g.sitio === sitio.id && (g.tipo === 'Materiales TI' || g.tipo === 'Materiales CW'))
+    matGastos.forEach(g => eliminarGasto(g.id).catch(() => {}))
+  }, [hasDespacho, sitio?.id])
+
+  // Tipos de gasto bloqueados por valores automáticos
+  const blockedGastoTipos = useMemo(() => {
+    const b = []
+    if (hasDespacho && matTI_auto > 0) b.push('Materiales TI')
+    if (hasDespacho && matCW_auto > 0) b.push('Materiales CW')
+    return b
+  }, [hasDespacho, matTI_auto, matCW_auto])
 
   // Guardar último sitio visitado
   useEffect(() => { localStorage.setItem('liquidador_last_id', id) }, [id])
@@ -865,8 +882,8 @@ export default function LiquidadorPage() {
                 { label: 'SubC TI+ADJ',   value: calc.subcTI + calc.subcADJ, hide: false },
                 { label: 'SubC CR',        value: calc.subcCR,    hide: calc.subcCR === 0 },
                 { label: 'SubC CW',        value: calc.subcCW,    hide: !sitio.tiene_cw },
-                { label: 'Materiales TI',  value: efectMatTI,     hide: !hasDespacho && efectMatTI === 0, auto: hasDespacho },
-                { label: 'Materiales CW',  value: efectMatCW,     hide: !hasDespacho && efectMatCW === 0, auto: hasDespacho },
+                { label: 'Materiales TI',  value: efectMatTI,     hide: efectMatTI === 0, auto: hasDespacho && matTI_auto > 0 },
+                { label: 'Materiales CW',  value: efectMatCW,     hide: efectMatCW === 0, auto: hasDespacho && matCW_auto > 0 },
                 { label: 'Logística',      value: calc.logist,    hide: calc.logist === 0 },
                 { label: 'Adicionales',    value: calc.adicion,   hide: calc.adicion === 0 },
                 { label: 'Backoffice',     value: calc.backoffice, hide: !isAdmin || calc.backoffice === 0 },
@@ -958,6 +975,7 @@ export default function LiquidadorPage() {
         onClose={() => { setModalGasto(false); setGastoEdit(null) }}
         defaultSitio={sitio.id}
         gasto={gastoEdit}
+        blockedTipos={blockedGastoTipos}
       />
       <ConfirmModalUI />
     </>

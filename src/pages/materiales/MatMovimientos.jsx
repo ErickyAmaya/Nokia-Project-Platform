@@ -3,6 +3,7 @@ import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import { useNavigate } from 'react-router-dom'
 import DespachoModal from '../../components/materiales/DespachoModal'
 
 export default function MatMovimientos() {
@@ -14,6 +15,7 @@ export default function MatMovimientos() {
   const deleteDespacho   = useMatStore(s => s.deleteDespacho)
   const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
+  const navigate = useNavigate()
 
   const [despachoOpen, setDespachoOpen]   = useState(false)
   const [filTipo,      setFilTipo]        = useState('')
@@ -93,8 +95,8 @@ export default function MatMovimientos() {
                     <tr key={d.id}>
                       <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{d.numero_doc}</td>
                       <td style={{ fontSize:11 }}>{d.destino || '—'}</td>
-                      <td style={{ fontSize:10, color:'#9ca89c' }}>{bod?.nombre || '—'}</td>
-                      <td style={{ fontSize:10, color:'#9ca89c' }}>{d.fecha}</td>
+                      <td style={{ fontSize:10, color:'#0a0a0a' }}>{bod?.nombre || '—'}</td>
+                      <td style={{ fontSize:10, color:'#0a0a0a' }}>{d.fecha}</td>
                       <td className="num" style={{ fontSize:11 }}>{movs.length}</td>
                       <td className="num" style={{ fontWeight:700, fontSize:11 }}>{matCop(total)}</td>
                       <td>
@@ -157,12 +159,11 @@ export default function MatMovimientos() {
                   <tr><td colSpan={8} style={{ textAlign:'center', padding:24, color:'#9ca89c' }}>Sin movimientos</td></tr>
                 )}
                 {rows.map(m => {
-                  const cat   = catalogo.find(c => c.id === m.catalogo_id)
-                  const bod   = bodegas.find(b => b.id === m.bodega_id)
-                  const orDest = [m.origen, m.destino].filter(Boolean).join(' → ')
+                  const cat = catalogo.find(c => c.id === m.catalogo_id)
+                  const bod = bodegas.find(b => b.id === m.bodega_id)
                   return (
                     <tr key={m.id}>
-                      <td style={{ color:'#9ca89c', whiteSpace:'nowrap', fontSize:11 }}>{m.fecha}</td>
+                      <td style={{ color:'#0a0a0a', whiteSpace:'nowrap', fontSize:11 }}>{m.fecha}</td>
                       <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{m.numero_doc}</td>
                       <td style={{ fontWeight:600, fontSize:11 }}>{cat?.nombre || '—'}</td>
                       <td>
@@ -170,7 +171,16 @@ export default function MatMovimientos() {
                       </td>
                       <td className="num" style={{ fontWeight:700 }}>{m.cantidad}</td>
                       <td className="num" style={{ color:'#144E4A', fontWeight:700, fontSize:11 }}>{matCop(m.valor_total)}</td>
-                      <td style={{ fontSize:10, color:'#9ca89c' }}>{orDest || (bod?.nombre || '—')}</td>
+                      <td style={{ fontSize:10 }}>
+                        {m.origen && <span style={{ color:'#9ca89c' }}>{m.origen} → </span>}
+                        {m.destino
+                          ? <span
+                              style={{ color:'#1d4ed8', fontWeight:600, cursor:'pointer', textDecoration:'underline' }}
+                              onClick={() => navigate('/materiales/sitios', { state: { search: m.destino } })}
+                            >{m.destino}</span>
+                          : <span style={{ color:'#9ca89c' }}>{bod?.nombre || '—'}</span>
+                        }
+                      </td>
                       {canDelete && (
                         <td>
                           <button className="btn-del" onClick={() => handleDelete(m)}>✕</button>

@@ -163,12 +163,29 @@ export const useMatStore = create((set, get) => ({
   },
 
   deleteSitio: async (id, nombre) => {
+    // Resolver nombre para limpiar movimientos/despachos relacionados
+    const resolvedNombre = nombre || get().sitios.find(s => s.id === id)?.nombre || ''
+    if (resolvedNombre) {
+      await db().from('mat_movimientos').delete().eq('destino', resolvedNombre)
+      await db().from('despachos').delete().eq('destino', resolvedNombre)
+    }
     const q = id
       ? db().from('mat_sitios').delete().eq('id', id)
-      : db().from('mat_sitios').delete().eq('nombre', nombre)
+      : db().from('mat_sitios').delete().eq('nombre', resolvedNombre)
     const { error } = await q
     if (error) throw error
-    set(s => ({ sitios: s.sitios.filter(x => id ? x.id !== id : x.nombre !== nombre) }))
+    // Recargar stock (los movimientos eliminados actualizan el inventario)
+    const [{ data: stk }, { data: movData }, { data: depData }] = await Promise.all([
+      db().from('mat_stock').select('*'),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
+      db().from('despachos').select('*').order('created_at', { ascending: false }),
+    ])
+    set(s => ({
+      sitios:      s.sitios.filter(x => id ? x.id !== id : x.nombre !== resolvedNombre),
+      movimientos: movData || [],
+      despachos:   depData || [],
+      stock:       stk    || [],
+    }))
   },
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────

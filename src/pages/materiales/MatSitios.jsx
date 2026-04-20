@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { useNavigate }  from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
 import DespachoModal from '../../components/materiales/DespachoModal'
@@ -16,9 +16,18 @@ export default function MatSitios() {
   const deleteSitio = useMatStore(s => s.deleteSitio)
   const user        = useAuthStore(s => s.user)
   const navigate    = useNavigate()
+  const location    = useLocation()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [search,          setSearch]         = useState('')
+  const [search,          setSearch]         = useState(location.state?.search || '')
+
+  // Auto-expandir el sitio si viene desde un link directo
+  useEffect(() => {
+    const s = location.state?.search
+    if (!s) return
+    const match = sitios.find(x => x.nombre?.toLowerCase() === s.toLowerCase())
+    if (match) setExpanded(match.id ?? match.nombre)
+  }, [location.state?.search, sitios])
   const [filReg,          setFilReg]         = useState('')
   const [expanded,        setExpanded]       = useState(null)
   const [despachoDestino, setDespachoDestino]= useState(null)

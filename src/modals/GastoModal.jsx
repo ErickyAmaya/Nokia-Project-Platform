@@ -7,7 +7,7 @@ const TIPOS = ['Logistica', 'Adicionales', 'Materiales TI', 'Materiales CW']
 
 const EMPTY = { sitio: '', tipo: 'Logistica', desc: '', valor: '', sub_sitio: '' }
 
-export default function GastoModal({ open, onClose, gasto = null, defaultSitio = '' }) {
+export default function GastoModal({ open, onClose, gasto = null, defaultSitio = '', blockedTipos = [] }) {
   const [form,   setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
@@ -47,6 +47,10 @@ export default function GastoModal({ open, onClose, gasto = null, defaultSitio =
 
   async function handleSubmit() {
     if (!form.sitio)  { setError('Selecciona un sitio'); return }
+    if (blockedTipos.includes(form.tipo)) {
+      setError(`"${form.tipo}" se gestiona automáticamente desde Gestión de Materiales. Registra un despacho allí.`)
+      return
+    }
     if (!form.desc.trim()) { setError('La descripción es requerida'); return }
     const valor = parseFloat(form.valor) || 0
     if (valor <= 0) { setError('El valor debe ser mayor a 0'); return }
@@ -110,8 +114,17 @@ export default function GastoModal({ open, onClose, gasto = null, defaultSitio =
         <div className="fg">
           <label className="fl">Tipo</label>
           <select className="fc" value={form.tipo} onChange={e => upd('tipo', e.target.value)}>
-            {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+            {TIPOS.map(t => (
+              <option key={t} value={t} disabled={blockedTipos.includes(t)}>
+                {t}{blockedTipos.includes(t) ? ' — automático (Gestión Mat.)' : ''}
+              </option>
+            ))}
           </select>
+          {blockedTipos.includes(form.tipo) && (
+            <div style={{ fontSize: 10, color: '#0369a1', marginTop: 4, background: '#e0f2fe', borderRadius: 4, padding: '4px 8px' }}>
+              ↗ Este tipo se toma automáticamente de Gestión de Materiales
+            </div>
+          )}
         </div>
 
         <div className="fg">
