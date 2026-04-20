@@ -126,15 +126,15 @@ export default function MatSitios() {
           <div style={{ overflowX:'auto' }}>
             <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
               <thead>
-                <tr style={{ background:'#0a0a0a' }}>
-                  <th style={{ color:'#fff', width:36 }}>#</th>
-                  <th style={{ color:'#fff' }}>SITIO</th>
-                  <th style={{ color:'#fff' }}>TIPO DE CIUDAD</th>
-                  <th style={{ color:'#fff' }}>REGIONAL</th>
-                  <th style={{ color:'#fff', textAlign:'right' }}>MOVIMIENTOS</th>
-                  <th style={{ color:'#fff', textAlign:'right' }}>IMPORTE</th>
-                  <th style={{ color:'#fff' }}>STATUS</th>
-                  <th style={{ color:'#fff' }}></th>
+                <tr>
+                  <th style={{ width:36 }}>#</th>
+                  <th>SITIO</th>
+                  <th>TIPO DE CIUDAD</th>
+                  <th>REGIONAL</th>
+                  <th style={{ textAlign:'right' }}>MOVIMIENTOS</th>
+                  <th style={{ textAlign:'right' }}>IMPORTE</th>
+                  <th>STATUS</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>

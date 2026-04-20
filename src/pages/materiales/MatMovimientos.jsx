@@ -11,7 +11,7 @@ export default function MatMovimientos() {
   const movimientos      = useMatStore(s => s.movimientos)
   const despachos        = useMatStore(s => s.despachos)
   const deleteMovimiento = useMatStore(s => s.deleteMovimiento)
-  const saveDespacho     = useMatStore(s => s.saveDespacho)
+  const deleteDespacho   = useMatStore(s => s.deleteDespacho)
   const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -21,10 +21,6 @@ export default function MatMovimientos() {
   const [search,       setSearch]         = useState('')
   const [filDate,      setFilDate]        = useState('')
 
-  // ── Edit despacho ──
-  const [editDesp,     setEditDesp]       = useState(null)
-  const [editDespForm, setEditDespForm]   = useState({})
-  const [savingDesp,   setSavingDesp]     = useState(false)
 
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canAdmin  = ['admin','coordinador'].includes(user?.role)
@@ -55,19 +51,11 @@ export default function MatMovimientos() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  function openEditDesp(d) {
-    setEditDesp(d)
-    setEditDespForm({ fecha: d.fecha || '', destino: d.destino || '', comentarios: d.comentarios || '', status: d.status || 'borrador' })
-  }
-
-  async function handleSaveDesp() {
-    setSavingDesp(true)
-    try {
-      await saveDespacho({ ...editDesp, ...editDespForm })
-      showToast('Despacho actualizado')
-      setEditDesp(null)
-    } catch (e) { showToast('Error: ' + e.message, 'err') }
-    finally { setSavingDesp(false) }
+  async function handleDeleteDesp(d) {
+    const ok = await confirm('Eliminar Despacho', `¿Eliminar el despacho "${d.numero_doc}" y todos sus movimientos?`)
+    if (!ok) return
+    try { await deleteDespacho(d.id); showToast('Despacho eliminado') }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
   return (
@@ -93,7 +81,7 @@ export default function MatMovimientos() {
               <thead><tr>
                 <th>DOC</th><th>SITIO</th><th>BODEGA</th><th>FECHA</th>
                 <th className="num">ÍTEMS</th><th className="num">TOTAL</th>
-                <th>ESTADO</th>{canAdmin && <th></th>}
+                <th>ESTADO</th><th></th>
               </tr></thead>
               <tbody>
                 {despachos.slice(0, 15).map(d => {
@@ -115,16 +103,11 @@ export default function MatMovimientos() {
                           {d.status==='finalizado' ? 'Finalizado' : 'Borrador'}
                         </span>
                       </td>
-                      {canAdmin && (
-                        <td>
-                          <button
-                            title="Editar despacho"
-                            onClick={() => openEditDesp(d)}
-                            style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
-                            ✏
-                          </button>
-                        </td>
-                      )}
+                      <td>
+                        {canAdmin && (
+                          <button className="btn-del" onClick={() => handleDeleteDesp(d)}>✕</button>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
@@ -200,61 +183,6 @@ export default function MatMovimientos() {
         </div>
       </div>
 
-      {/* ── Modal: Editar Despacho ── */}
-      {editDesp && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:420 }}>
-            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #c0392b', borderRadius:'16px 16px 0 0' }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
-                Editar Despacho · {editDesp.numero_doc}
-              </span>
-              <button onClick={() => setEditDesp(null)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
-            </div>
-            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-
-              <div style={{ background:'#f5f5f5', borderRadius:6, padding:'7px 10px', fontSize:11, color:'#555f55' }}>
-                Bodega: <strong>{bodegas.find(b => b.id === editDesp.bodega_id)?.nombre || '—'}</strong>
-                <span style={{ marginLeft:12 }}>Doc: <strong>{editDesp.numero_doc}</strong></span>
-              </div>
-
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label className="fl">Fecha</label>
-                  <input type="date" className="fc" value={editDespForm.fecha}
-                    onChange={e => setEditDespForm(p => ({ ...p, fecha: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="fl">Estado</label>
-                  <select className="fc" value={editDespForm.status}
-                    onChange={e => setEditDespForm(p => ({ ...p, status: e.target.value }))}>
-                    <option value="borrador">Borrador</option>
-                    <option value="finalizado">Finalizado</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="fl">Sitio Destino</label>
-                <input type="text" className="fc" value={editDespForm.destino}
-                  onChange={e => setEditDespForm(p => ({ ...p, destino: e.target.value }))} />
-              </div>
-
-              <div>
-                <label className="fl">Comentarios</label>
-                <input type="text" className="fc" value={editDespForm.comentarios} placeholder="Opcional"
-                  onChange={e => setEditDespForm(p => ({ ...p, comentarios: e.target.value }))} />
-              </div>
-
-              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
-                <button className="btn bou" onClick={() => setEditDesp(null)}>Cancelar</button>
-                <button className="btn bp" onClick={handleSaveDesp} disabled={savingDesp}>
-                  {savingDesp ? 'Guardando…' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

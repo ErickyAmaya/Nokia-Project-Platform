@@ -10,26 +10,27 @@ function statusInfo(stock, minimo) {
   return                     { label:'En Stock',    bg:'#d4edda', color:'#1a6130' }
 }
 
-function nextMovNum(movimientos) {
-  const year = new Date().getFullYear()
-  const re   = new RegExp(`^IN-${year}-(\\d+)$`)
-  const nums = movimientos
-    .filter(m => m.tipo === 'Entrada')
+function nextMovNum(tipo, movimientos) {
+  const year   = new Date().getFullYear()
+  const prefix = tipo === 'Entrada' ? 'IN' : 'OUT'
+  const re     = new RegExp(`^${prefix}-${year}-(\\d+)$`)
+  const nums   = movimientos
+    .filter(m => m.tipo === tipo)
     .map(m => { const match = m.numero_doc?.match(re); return match ? parseInt(match[1]) : 0 })
     .filter(Boolean)
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1
-  return `IN-${year}-${String(next).padStart(3,'0')}`
+  return `${prefix}-${year}-${String(next).padStart(3,'0')}`
 }
 
 const ENT_RESET = {
-  fecha:          new Date().toISOString().slice(0,10),
-  numero_doc:     '',
-  catalogo_id:    '',
-  bodega_id:      '',
-  cantidad:       1,
-  valor_unitario: 0,
-  origen:         '',
-  editPrice:      false,
+  fecha: new Date().toISOString().slice(0,10),
+  numero_doc: '', catalogo_id: '', bodega_id: '',
+  cantidad: 1, valor_unitario: 0, origen: '', editPrice: false,
+}
+const SAL_RESET = {
+  fecha: new Date().toISOString().slice(0,10),
+  numero_doc: '', catalogo_id: '', bodega_id: '',
+  cantidad: 1, valor_unitario: 0, destino: '',
 }
 
 export default function MatInventario() {
@@ -49,10 +50,15 @@ export default function MatInventario() {
   // ── Entry modal ──
   const [entModal, setEntModal] = useState(false)
   const [entForm,  setEntForm]  = useState(ENT_RESET)
-  const [saving,   setSaving]   = useState(false)
+
+  // ── Salida modal ──
+  const [salModal, setSalModal] = useState(false)
+  const [salForm,  setSalForm]  = useState(SAL_RESET)
+
+  const [saving, setSaving] = useState(false)
 
   // ── Correction modal ──
-  const [corrModal, setCorrModal] = useState(null)   // { item, bodega, stockActual }
+  const [corrModal, setCorrModal] = useState(null)
   const [corrQty,   setCorrQty]   = useState('')
 
   const canEdit    = ['admin','coordinador','logistica'].includes(user?.role)
@@ -83,9 +89,28 @@ export default function MatInventario() {
 
   const totalImporte = rows.reduce((a, r) => a + r.importe, 0)
 
-  function openEntry() {
-    setEntForm({ ...ENT_RESET, numero_doc: nextMovNum(movimientos) })
+  function openEntry(item, bodega) {
+    setEntForm({
+      ...ENT_RESET,
+      numero_doc:     nextMovNum('Entrada', movimientos),
+      catalogo_id:    item?.id || '',
+      bodega_id:      bodega?.id || '',
+      valor_unitario: item?.costo_unitario || 0,
+    })
     setEntModal(true)
+  }
+
+  function openSal(item, bodega) {
+    const stk = item?.id ? getStock(item.id, bodega?.id) : 0
+    setSalForm({
+      ...SAL_RESET,
+      numero_doc:     nextMovNum('Salida', movimientos),
+      catalogo_id:    item?.id || '',
+      bodega_id:      bodega?.id || '',
+      valor_unitario: item?.costo_unitario || 0,
+      _stockDisp:     stk,
+    })
+    setSalModal(true)
   }
 
   async function handleEntSave() {
@@ -113,6 +138,35 @@ export default function MatInventario() {
     finally { setSaving(false) }
   }
 
+  async function handleSalSave() {
+    if (!salForm.catalogo_id) { showToast('Selecciona un material', 'err'); return }
+    if (!salForm.bodega_id)   { showToast('Selecciona una bodega', 'err'); return }
+    if (salForm.cantidad <= 0){ showToast('Cantidad inválida', 'err'); return }
+    const stk = getStock(Number(salForm.catalogo_id), Number(salForm.bodega_id))
+    if (Number(salForm.cantidad) > stk) {
+      showToast(`Stock insuficiente (disponible: ${stk})`, 'err'); return
+    }
+    setSaving(true)
+    try {
+      await addMovimiento({
+        numero_doc:     salForm.numero_doc,
+        fecha:          salForm.fecha,
+        catalogo_id:    Number(salForm.catalogo_id),
+        bodega_id:      Number(salForm.bodega_id),
+        tipo:           'Salida',
+        cantidad:       Number(salForm.cantidad),
+        valor_unitario: Number(salForm.valor_unitario),
+        origen:         '',
+        destino:        salForm.destino,
+        sitio_id:       null,
+        created_by:     user?.nombre || user?.email,
+      })
+      showToast('Salida registrada')
+      setSalModal(false)
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
   async function handleCorrSave() {
     if (corrQty === '' || isNaN(Number(corrQty)) || Number(corrQty) < 0) {
       showToast('Cantidad inválida', 'err'); return
@@ -124,13 +178,7 @@ export default function MatInventario() {
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  const BT = (label, onClick, bg, extra = {}) => (
-    <button onClick={onClick} style={{
-      padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:20, border:'none',
-      background:bg, color:'#fff', cursor:'pointer', whiteSpace:'nowrap', ...extra }}>
-      {label}
-    </button>
-  )
+  const showActions = canEdit || canCorrect
 
   return (
     <div>
@@ -140,7 +188,10 @@ export default function MatInventario() {
           Inventario de Materiales
         </h1>
         {canEdit && (
-          <button className="btn bp btn-sm" onClick={openEntry}>+ Nueva Entrada</button>
+          <div style={{ display:'flex', gap:6 }}>
+            <button className="btn bp btn-sm" onClick={() => openEntry()}>+ Entrada</button>
+            <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }} onClick={() => openSal()}>- Salida</button>
+          </div>
         )}
       </div>
 
@@ -181,7 +232,7 @@ export default function MatInventario() {
                   <th className="num">PRECIO</th>
                   <th className="num">IMPORTE</th>
                   <th>STATUS</th>
-                  {canCorrect && <th></th>}
+                  {showActions && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -205,14 +256,25 @@ export default function MatInventario() {
                     <td>
                       <span className="badge" style={{ background:r.st.bg, color:r.st.color }}>{r.st.label}</span>
                     </td>
-                    {canCorrect && (
-                      <td>
-                        <button
-                          title="Corregir stock"
-                          onClick={() => { setCorrModal({ item:r, bodega:r.bodega, stockActual:r.stockActual }); setCorrQty(String(r.stockActual)) }}
-                          style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
-                          ✏
-                        </button>
+                    {showActions && (
+                      <td style={{ whiteSpace:'nowrap' }}>
+                        <div style={{ display:'flex', gap:4 }}>
+                          {canEdit && (
+                            <button
+                              onClick={() => openSal(r, r.bodega)}
+                              style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:20, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
+                              - Sal
+                            </button>
+                          )}
+                          {canCorrect && (
+                            <button
+                              title="Corregir stock"
+                              onClick={() => { setCorrModal({ item:r, bodega:r.bodega, stockActual:r.stockActual }); setCorrQty(String(r.stockActual)) }}
+                              style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
+                              ✏
+                            </button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -245,7 +307,6 @@ export default function MatInventario() {
               <button onClick={() => setEntModal(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label className="fl">Nº Documento</label>
@@ -316,6 +377,96 @@ export default function MatInventario() {
         </div>
       )}
 
+      {/* ── Modal: Registrar Salida ── */}
+      {salModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:440 }}>
+            <div style={{ background:'#c0392b', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #922b21', borderRadius:'16px 16px 0 0' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
+                Registrar Salida
+              </span>
+              <button onClick={() => setSalModal(false)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'#fff5f5', border:'1px solid #f5c6cb', borderRadius:8, padding:'7px 10px', fontSize:11, color:'#c0392b' }}>
+                Para salidas a <strong>sitios Nokia</strong>, usa la función <strong>Despacho</strong> en la página Movimientos.
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label className="fl">Nº Documento</label>
+                  <input type="text" className="fc" value={salForm.numero_doc} readOnly
+                    style={{ background:'#f5f5f5', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700 }} />
+                </div>
+                <div>
+                  <label className="fl">Fecha</label>
+                  <input type="date" className="fc" value={salForm.fecha}
+                    onChange={e => setSalForm(p => ({ ...p, fecha:e.target.value }))} />
+                </div>
+              </div>
+
+              <div>
+                <label className="fl">Material *</label>
+                <SearchableSelect
+                  options={catalogo.filter(c => c.activo && c.categoria !== 'PROVEEDORES').map(c => ({ value: c.id, label: c.nombre, sub: c.codigo }))}
+                  value={String(salForm.catalogo_id || '')}
+                  onChange={val => {
+                    const cat = catalogo.find(c => c.id === Number(val))
+                    const stk = salForm.bodega_id ? getStock(Number(val), Number(salForm.bodega_id)) : 0
+                    setSalForm(p => ({ ...p, catalogo_id: val, valor_unitario: cat?.costo_unitario || 0, _stockDisp: stk }))
+                  }}
+                  placeholder="Buscar material…"
+                />
+              </div>
+
+              <div>
+                <label className="fl">Bodega *</label>
+                <select className="fc" value={salForm.bodega_id}
+                  onChange={e => {
+                    const stk = salForm.catalogo_id ? getStock(Number(salForm.catalogo_id), Number(e.target.value)) : 0
+                    setSalForm(p => ({ ...p, bodega_id: e.target.value, _stockDisp: stk }))
+                  }}>
+                  <option value="">— Seleccionar bodega —</option>
+                  {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+                </select>
+                {salForm.catalogo_id && salForm.bodega_id && (
+                  <div style={{ fontSize:10, color:'#555f55', marginTop:4 }}>
+                    Stock disponible: <strong style={{ color: (salForm._stockDisp||0) === 0 ? '#c0392b' : '#144E4A' }}>{salForm._stockDisp || 0}</strong>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label className="fl">Cantidad *</label>
+                  <input type="number" min="1" className="fc" value={salForm.cantidad}
+                    onChange={e => setSalForm(p => ({ ...p, cantidad:e.target.value }))} />
+                </div>
+                <div>
+                  <label className="fl">Precio Unitario</label>
+                  <input type="number" className="fc" value={salForm.valor_unitario} readOnly
+                    style={{ background:'#f5f5f5' }} />
+                </div>
+              </div>
+
+              <div>
+                <label className="fl">Destino</label>
+                <input type="text" className="fc" value={salForm.destino} placeholder="Ej. Bodega Cali, Devolución…"
+                  onChange={e => setSalForm(p => ({ ...p, destino:e.target.value }))} />
+              </div>
+
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+                <button className="btn bou" onClick={() => setSalModal(false)}>Cancelar</button>
+                <button className="btn" style={{ background:'#c0392b', color:'#fff', borderRadius:20, fontWeight:700, fontSize:12, padding:'6px 18px', cursor:'pointer' }}
+                  onClick={handleSalSave} disabled={saving}>
+                  {saving ? 'Guardando…' : 'Registrar Salida'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal: Corrección de Stock ── */}
       {corrModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -327,11 +478,9 @@ export default function MatInventario() {
               <button onClick={() => setCorrModal(null)} style={{ background:'none', border:'none', color:'rgba(255,255,255,.6)', fontSize:20, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
-
               <div style={{ background:'#fff8e1', border:'1px solid #ffe082', borderRadius:8, padding:'9px 12px', fontSize:11, color:'#856404' }}>
-                Esta corrección ajusta el stock directamente sin generar un movimiento. Solo úsala para corregir errores de conteo.
+                Ajusta el stock directamente sin generar movimiento. Solo para corregir errores de conteo.
               </div>
-
               <div style={{ background:'#f8f8f8', borderRadius:8, padding:'10px 12px' }}>
                 <div style={{ fontWeight:700, fontSize:13, color:'#0a0a0a' }}>{corrModal.item.nombre}</div>
                 <div style={{ fontSize:10, color:'#9ca89c', marginTop:3 }}>
@@ -341,31 +490,21 @@ export default function MatInventario() {
                   Stock actual: <strong style={{ fontSize:16, color: corrModal.stockActual === 0 ? '#c0392b' : '#144E4A' }}>{corrModal.stockActual}</strong>
                 </div>
               </div>
-
               <div>
                 <label className="fl">Nuevo Stock *</label>
-                <input
-                  type="number" min="0" className="fc"
-                  value={corrQty}
+                <input type="number" min="0" className="fc" value={corrQty}
                   onChange={e => setCorrQty(e.target.value)}
-                  style={{ fontSize:18, fontWeight:700, textAlign:'center' }}
-                  autoFocus
-                />
+                  style={{ fontSize:18, fontWeight:700, textAlign:'center' }} autoFocus />
               </div>
-
               {corrQty !== '' && !isNaN(Number(corrQty)) && (
                 <div style={{ fontSize:11, color: Number(corrQty) === corrModal.stockActual ? '#9ca89c' : '#144E4A', fontWeight:600, textAlign:'center' }}>
-                  {Number(corrQty) === corrModal.stockActual
-                    ? 'Sin cambios'
+                  {Number(corrQty) === corrModal.stockActual ? 'Sin cambios'
                     : `Cambio: ${Number(corrQty) > corrModal.stockActual ? '+' : ''}${Number(corrQty) - corrModal.stockActual} unidades`}
                 </div>
               )}
-
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
                 <button className="btn bou" onClick={() => setCorrModal(null)}>Cancelar</button>
-                <button
-                  className="btn"
-                  style={{ background:'#d68910', color:'#fff', borderRadius:20, fontWeight:700, fontSize:12, cursor:'pointer', padding:'6px 18px' }}
+                <button className="btn" style={{ background:'#d68910', color:'#fff', borderRadius:20, fontWeight:700, fontSize:12, cursor:'pointer', padding:'6px 18px' }}
                   onClick={handleCorrSave}>
                   Guardar Corrección
                 </button>
