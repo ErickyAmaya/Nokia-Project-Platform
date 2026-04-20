@@ -37,7 +37,7 @@ body {
   background: #fff;
   border-radius: var(--rad);
   box-shadow: var(--sh);
-  overflow: clip; /* clip = visual clipping like hidden, but allows position:sticky in children */
+  overflow: hidden;
   margin-bottom: 14px;
 }
 .card-h {
@@ -49,9 +49,6 @@ body {
   justify-content: space-between;
   border-left: 4px solid var(--g);
   border-bottom: 1px solid var(--g2);
-  position: sticky;
-  top: 86px;
-  z-index: 9;
 }
 .card-h h2 {
   font-family: 'Barlow Condensed', sans-serif;
@@ -122,9 +119,22 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   letter-spacing: .7px; text-transform: uppercase; font-size: 9px;
   padding: 7px 8px; text-align: left; white-space: nowrap;
   border-bottom: 2px solid #c8e6c8;
+}
+
+/* ── Tabla con scroll interno + encabezados fijos ─────────────────── */
+/* El contenedor scrollea internamente; la card-h y los filtros quedan  */
+/* siempre visibles arriba; los th se fijan al tope del contenedor.    */
+.tbl-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
+  min-height: 160px;
+}
+.tbl-scroll .tbl th {
   position: sticky;
-  top: 120px;
+  top: 0;
   z-index: 4;
+  box-shadow: 0 1px 0 #c8e6c8;   /* borde visible al hacer scroll */
 }
 .tbl td { padding: 6px 8px; border-bottom: 1px solid var(--g2); vertical-align: middle; }
 .tbl tr:hover td { background: var(--g1); }

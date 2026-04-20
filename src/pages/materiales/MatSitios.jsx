@@ -123,7 +123,7 @@ export default function MatSitios() {
             </select>
           </div>
 
-          <div style={{ overflowX:'auto' }}>
+          <div className="tbl-scroll">
             <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
               <thead>
                 <tr>

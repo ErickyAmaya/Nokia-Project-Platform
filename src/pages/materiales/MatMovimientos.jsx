@@ -77,6 +77,7 @@ export default function MatMovimientos() {
           {despachos.length === 0 ? (
             <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin despachos</div>
           ) : (
+            <div className="tbl-scroll" style={{ maxHeight: 'calc(40vh - 60px)' }}>
             <table className="tbl">
               <thead><tr>
                 <th>DOC</th><th>SITIO</th><th>BODEGA</th><th>FECHA</th>
@@ -113,6 +114,7 @@ export default function MatMovimientos() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -143,7 +145,7 @@ export default function MatMovimientos() {
             </select>
           </div>
 
-          <div style={{ overflowX:'auto' }}>
+          <div className="tbl-scroll">
             <table className="tbl">
               <thead><tr>
                 <th>Fecha</th><th>Doc</th><th>Material</th><th>Tipo</th>

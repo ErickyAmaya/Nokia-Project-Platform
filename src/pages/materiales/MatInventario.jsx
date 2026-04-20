@@ -178,7 +178,7 @@ export default function MatInventario() {
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  const showActions = canEdit || canCorrect
+  const showActions = canCorrect
 
   return (
     <div>
@@ -219,7 +219,7 @@ export default function MatInventario() {
             </select>
           </div>
 
-          <div style={{ overflowX:'auto' }}>
+          <div className="tbl-scroll">
             <table className="tbl">
               <thead>
                 <tr>
@@ -257,24 +257,13 @@ export default function MatInventario() {
                       <span className="badge" style={{ background:r.st.bg, color:r.st.color }}>{r.st.label}</span>
                     </td>
                     {showActions && (
-                      <td style={{ whiteSpace:'nowrap' }}>
-                        <div style={{ display:'flex', gap:4 }}>
-                          {canEdit && (
-                            <button
-                              onClick={() => openSal(r, r.bodega)}
-                              style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:20, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
-                              - Sal
-                            </button>
-                          )}
-                          {canCorrect && (
-                            <button
-                              title="Corregir stock"
-                              onClick={() => { setCorrModal({ item:r, bodega:r.bodega, stockActual:r.stockActual }); setCorrQty(String(r.stockActual)) }}
-                              style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
-                              ✏
-                            </button>
-                          )}
-                        </div>
+                      <td>
+                        <button
+                          title="Corregir stock"
+                          onClick={() => { setCorrModal({ item:r, bodega:r.bodega, stockActual:r.stockActual }); setCorrQty(String(r.stockActual)) }}
+                          style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
+                          ✏
+                        </button>
                       </td>
                     )}
                   </tr>
