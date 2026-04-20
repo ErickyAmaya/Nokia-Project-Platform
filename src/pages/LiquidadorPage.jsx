@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
+import { useMatStore }  from '../store/useMatStore'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, mcls, CAT } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
@@ -160,6 +161,19 @@ export default function LiquidadorPage() {
 
   const { confirm, ConfirmModalUI } = useConfirm()
 
+  // ── Gestión de Materiales ─────────────────────────────────────
+  const matMovimientos = useMatStore(s => s.movimientos)
+  const matCatalogo    = useMatStore(s => s.catalogo)
+  const matDespachos   = useMatStore(s => s.despachos)
+  const matLoadAll     = useMatStore(s => s.loadAll)
+  const matLoading     = useMatStore(s => s.loading)
+
+  useEffect(() => {
+    if (!matLoading && matMovimientos.length === 0 && matCatalogo.length === 0) {
+      matLoadAll()
+    }
+  }, [])
+
   const userRole  = user?.role ?? ''
   const isViewer  = userRole === 'viewer'
   const isAdmin   = userRole === 'admin'
@@ -171,6 +185,34 @@ export default function LiquidadorPage() {
   const sitio = sitios.find(s => s.id === id)
   const calc  = useMemo(() => sitio ? calcSitio(sitio, gastos, subcs, catalogTI, liquidaciones_cw) : null, [sitio, gastos, subcs, catalogTI, liquidaciones_cw])
   const gastosS = useMemo(() => gastos.filter(g => g.sitio === id), [gastos, id])
+
+  // ── Valores automáticos de materiales desde Gestión Mat. ──────
+  const matAutoData = useMemo(() => {
+    if (!sitio) return { hasDespacho: false, matTI_auto: 0, matCW_auto: 0 }
+    const nombre = sitio.nombre?.toLowerCase() || ''
+    const despachosSitio = matDespachos.filter(d => d.destino?.toLowerCase() === nombre)
+    if (despachosSitio.length === 0) return { hasDespacho: false, matTI_auto: 0, matCW_auto: 0 }
+    let matTI_auto = 0, matCW_auto = 0
+    for (const m of matMovimientos) {
+      if (m.tipo !== 'Salida') continue
+      if (m.destino?.toLowerCase() !== nombre) continue
+      const cat = matCatalogo.find(c => c.id === m.catalogo_id)
+      if (!cat) continue
+      const val = m.valor_total || m.cantidad * (m.valor_unitario || cat.costo_unitario || 0)
+      if (cat.categoria === 'TI') matTI_auto += val
+      if (cat.categoria === 'CW') matCW_auto += val
+    }
+    return { hasDespacho: true, matTI_auto, matCW_auto }
+  }, [sitio, matDespachos, matMovimientos, matCatalogo])
+
+  const { hasDespacho, matTI_auto, matCW_auto } = matAutoData
+  const efectMatTI      = hasDespacho ? matTI_auto  : (calc?.matTI  || 0)
+  const efectMatCW      = hasDespacho ? matCW_auto  : (calc?.matCW  || 0)
+  const efectTotalCosto = calc
+    ? calc.totalCosto - (calc.matTI || 0) - (calc.matCW || 0) + efectMatTI + efectMatCW
+    : 0
+  const efectUtilidad = calc ? calc.totalVenta - efectTotalCosto : 0
+  const efectMargen   = calc && calc.totalVenta > 0 ? efectUtilidad / calc.totalVenta : 0
 
   // Guardar último sitio visitado
   useEffect(() => { localStorage.setItem('liquidador_last_id', id) }, [id])
@@ -235,7 +277,7 @@ export default function LiquidadorPage() {
 
   const totalNokiaActs = actsRich.reduce((s, a) => s + a.totalNokia, 0)
   const totalSubcActs  = actsRich.reduce((s, a) => s + (a.subcExcluded ? 0 : a.totalSubc), 0)
-  const marginColor    = calc.margen >= .3 ? '#1a7a1a' : calc.margen >= .2 ? '#FFC000' : '#c0392b'
+  const marginColor    = efectMargen >= .3 ? '#1a7a1a' : efectMargen >= .2 ? '#FFC000' : '#c0392b'
 
   function handleCantChange(actIdx, val) { updateSitioAct(sitio.id, actIdx, val) }
   function handleDelete(actIdx)          { deleteActividad(sitio.id, actIdx) }
@@ -655,22 +697,22 @@ export default function LiquidadorPage() {
               </div>
               <div className="fb" style={{ marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: '#b45309' }}>Total Costo</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(calc.totalCosto)}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(efectTotalCosto)}</span>
               </div>
               <div className="fb" style={{ borderTop: '1px solid #e0e4e0', paddingTop: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 800 }}>UTILIDAD</span>
-                <span style={{ fontSize: 20, fontWeight: 800, color: calc.utilidad >= 0 ? '#1a7a1a' : '#c0392b' }}>
-                  {cop(calc.utilidad)}
+                <span style={{ fontSize: 20, fontWeight: 800, color: efectUtilidad >= 0 ? '#1a7a1a' : '#c0392b' }}>
+                  {cop(efectUtilidad)}
                 </span>
               </div>
               <div className="fb" style={{ marginBottom: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 700 }}>% MARGEN</span>
-                <span className={`badge ${mcls(calc.margen)}`} style={{ fontSize: 13, padding: '2px 10px' }}>
-                  {pct(calc.margen)}
+                <span className={`badge ${mcls(efectMargen)}`} style={{ fontSize: 13, padding: '2px 10px' }}>
+                  {pct(efectMargen)}
                 </span>
               </div>
               <div className="mbar">
-                <div className="mfill" style={{ width: `${Math.min(calc.margen * 100, 100)}%`, background: marginColor }} />
+                <div className="mfill" style={{ width: `${Math.min(efectMargen * 100, 100)}%`, background: marginColor }} />
               </div>
             </div>
           </div>
@@ -820,23 +862,30 @@ export default function LiquidadorPage() {
             </div>
             <div className="card-b" style={{ padding: '10px 14px' }}>
               {[
-                { label: 'SubC TI+ADJ',   value: calc.subcTI + calc.subcADJ },
+                { label: 'SubC TI+ADJ',   value: calc.subcTI + calc.subcADJ, hide: false },
                 { label: 'SubC CR',        value: calc.subcCR,    hide: calc.subcCR === 0 },
                 { label: 'SubC CW',        value: calc.subcCW,    hide: !sitio.tiene_cw },
-                { label: 'Materiales TI',  value: calc.matTI,     hide: calc.matTI === 0 },
-                { label: 'Materiales CW',  value: calc.matCW,     hide: calc.matCW === 0 },
+                { label: 'Materiales TI',  value: efectMatTI,     hide: !hasDespacho && efectMatTI === 0, auto: hasDespacho },
+                { label: 'Materiales CW',  value: efectMatCW,     hide: !hasDespacho && efectMatCW === 0, auto: hasDespacho },
                 { label: 'Logística',      value: calc.logist,    hide: calc.logist === 0 },
                 { label: 'Adicionales',    value: calc.adicion,   hide: calc.adicion === 0 },
                 { label: 'Backoffice',     value: calc.backoffice, hide: !isAdmin || calc.backoffice === 0 },
               ].filter(r => !r.hide).map(r => (
                 <div key={r.label} className="fb" style={{ marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: '#555f55' }}>{r.label}</span>
+                  <span style={{ fontSize: 11, color: '#555f55', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {r.label}
+                    {r.auto && (
+                      <span style={{ fontSize: 8, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '1px 4px', letterSpacing: .3 }}>
+                        ↗ Gestión Mat.
+                      </span>
+                    )}
+                  </span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(r.value)}</span>
                 </div>
               ))}
               <div className="fb" style={{ borderTop: '2px solid #FFC000', paddingTop: 6, marginTop: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 800 }}>TOTAL COSTO</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: '#b45309' }}>{cop(calc.totalCosto)}</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#b45309' }}>{cop(efectTotalCosto)}</span>
               </div>
             </div>
           </div>
