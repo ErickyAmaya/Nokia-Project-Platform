@@ -4,6 +4,14 @@ import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
 
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
 function statusInfo(stock, minimo) {
   if (stock === 0)    return { label:'Agotado',     bg:'#fde8e7', color:'#c0392b' }
   if (stock < minimo) return { label:'Bajo Mínimo', bg:'#fef3cd', color:'#856404' }
@@ -37,6 +45,7 @@ export default function MatInventario() {
   const catalogo        = useMatStore(s => s.catalogo)
   const bodegas         = useMatStore(s => s.bodegas)
   const movimientos     = useMatStore(s => s.movimientos)
+  const stock           = useMatStore(s => s.stock)
   const getStock        = useMatStore(s => s.getStock)
   const addMovimiento   = useMatStore(s => s.addMovimiento)
   const correccionStock = useMatStore(s => s.correccionStock)
@@ -85,7 +94,7 @@ export default function MatInventario() {
         return { ...c, bodega: b, stockActual: stock, st, importe: stock * (c.costo_unitario || 0) }
       }))
       .filter(Boolean)
-  }, [catalogo, bodegas, search, filCat, filBodega, filStatus, getStock])
+  }, [catalogo, bodegas, stock, search, filCat, filBodega, filStatus, getStock])
 
   const totalImporte = rows.reduce((a, r) => a + r.importe, 0)
 
@@ -262,7 +271,7 @@ export default function MatInventario() {
                           title="Corregir stock"
                           onClick={() => { setCorrModal({ item:r, bodega:r.bodega, stockActual:r.stockActual }); setCorrQty(String(r.stockActual)) }}
                           style={{ background:'none', border:'1.5px solid #e0e4e0', borderRadius:20, padding:'2px 8px', fontSize:12, cursor:'pointer', color:'#555f55' }}>
-                          ✏
+                          <IconEdit size={13} />
                         </button>
                       </td>
                     )}
