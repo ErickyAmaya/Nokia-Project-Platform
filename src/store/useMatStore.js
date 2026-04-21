@@ -71,6 +71,13 @@ export const useMatStore = create((set, get) => ({
       nombre: item.nombre, codigo: item.codigo, unidad: item.unidad,
       categoria: item.categoria, costo_unitario: item.costo_unitario,
       stock_minimo: item.stock_minimo, activo: item.activo ?? true,
+      descripcion: item.descripcion || null,
+      imagen_url:  item.imagen_url  || null,
+      direccion:   item.direccion   || null,
+      contacto:    item.contacto    || null,
+      email:       item.email       || null,
+      telefono:    item.telefono    || null,
+      badge:       item.badge       || null,
     }
     const { data, error } = isNew
       ? await db().from('mat_catalogo').insert(payload).select().single()
