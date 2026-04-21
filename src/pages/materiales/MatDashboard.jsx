@@ -296,6 +296,108 @@ export default function MatDashboard() {
         <KpiCard label="Total Salidas"        value={matCop(kpis.salidas)}  color={C.red}    />
       </div>
 
+      {/* ── Analytics de Proveedores ── */}
+      <SectionTitle>Analytics de Proveedores</SectionTitle>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+
+        {/* Resumen por proveedor */}
+        <div className="card">
+          <div className="card-h" style={{ borderBottom:'2px solid #fed7aa' }}>
+            <h2 style={{ color:'#9a3412' }}>Resumen por Proveedor</h2>
+          </div>
+          <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
+            {provResumen.length === 0 ? (
+              <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:11 }}>
+                <div style={{ fontSize:24, marginBottom:8 }}>📦</div>
+                Registra entradas con proveedor para ver analytics
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead><tr>
+                  <th>Proveedor</th>
+                  <th className="num">Compras</th>
+                  <th className="num">Materiales</th>
+                  <th className="num">Gasto Total</th>
+                  <th>Última Compra</th>
+                </tr></thead>
+                <tbody>
+                  {provResumen.map((p, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight:700, fontSize:11 }}>
+                        {p.nombre}
+                        {i === 0 && provResumen.length > 1 && (
+                          <span style={{ marginLeft:5, fontSize:8, fontWeight:700, background:'#dcfce7', color:'#166534', border:'1px solid #bbf7d0', borderRadius:10, padding:'1px 6px', verticalAlign:'middle' }}>
+                            PRINCIPAL
+                          </span>
+                        )}
+                      </td>
+                      <td className="num" style={{ fontSize:11 }}>{p.compras}</td>
+                      <td className="num" style={{ fontSize:11 }}>{p.materiales}</td>
+                      <td className="num" style={{ fontWeight:700, color:C.dark, fontSize:11 }}>{matCop(p.gastoTotal)}</td>
+                      <td style={{ fontSize:10, color:'#555f55' }}>{p.ultimaCompra}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* ¿A quién comprarle? */}
+        <div className="card">
+          <div className="card-h" style={{ borderBottom:'2px solid #bbf7d0' }}>
+            <h2 style={{ color:'#166534' }}>¿A quién comprarle?</h2>
+          </div>
+          <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
+            {aQuienComprar.length === 0 ? (
+              <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:11 }}>
+                <div style={{ fontSize:24, marginBottom:8 }}>🏷️</div>
+                Registra el mismo material con al menos 2 proveedores distintos para ver sugerencias
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead><tr>
+                  <th>Proveedor</th>
+                  <th>Mejores precios en…</th>
+                  <th className="num">Materiales</th>
+                </tr></thead>
+                <tbody>
+                  {aQuienComprar.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight:700, fontSize:11, whiteSpace:'nowrap' }}>
+                        {i === 0 && (
+                          <span style={{ display:'block', fontSize:8, fontWeight:700, color:C.green, letterSpacing:.8, textTransform:'uppercase', marginBottom:2 }}>
+                            ★ Recomendado
+                          </span>
+                        )}
+                        {row.proveedor}
+                      </td>
+                      <td style={{ fontSize:10 }}>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          {row.materiales.map((m, j) => (
+                            <span key={j} style={{
+                              background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0',
+                              borderRadius:10, padding:'2px 8px', fontSize:9, fontWeight:600,
+                              whiteSpace:'nowrap',
+                            }}>
+                              {m.mat}
+                              <span style={{ color:'#9ca89c', marginLeft:4 }}>{matCop(m.precio)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="num" style={{ fontWeight:700, fontSize:13, color:C.dark }}>
+                        {row.materiales.length}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ── Pie charts ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
         <div className="card">
@@ -495,108 +597,6 @@ export default function MatDashboard() {
           </div>
         </div>
       )}
-
-      {/* ── Analytics de Proveedores ── */}
-      <SectionTitle>Analytics de Proveedores</SectionTitle>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
-
-        {/* Resumen por proveedor */}
-        <div className="card">
-          <div className="card-h" style={{ borderBottom:'2px solid #fed7aa' }}>
-            <h2 style={{ color:'#9a3412' }}>Resumen por Proveedor</h2>
-          </div>
-          <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
-            {provResumen.length === 0 ? (
-              <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:11 }}>
-                <div style={{ fontSize:24, marginBottom:8 }}>📦</div>
-                Registra entradas con proveedor para ver analytics
-              </div>
-            ) : (
-              <table className="tbl">
-                <thead><tr>
-                  <th>Proveedor</th>
-                  <th className="num">Compras</th>
-                  <th className="num">Materiales</th>
-                  <th className="num">Gasto Total</th>
-                  <th>Última Compra</th>
-                </tr></thead>
-                <tbody>
-                  {provResumen.map((p, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight:700, fontSize:11 }}>
-                        {p.nombre}
-                        {i === 0 && provResumen.length > 1 && (
-                          <span style={{ marginLeft:5, fontSize:8, fontWeight:700, background:'#dcfce7', color:'#166534', border:'1px solid #bbf7d0', borderRadius:10, padding:'1px 6px', verticalAlign:'middle' }}>
-                            PRINCIPAL
-                          </span>
-                        )}
-                      </td>
-                      <td className="num" style={{ fontSize:11 }}>{p.compras}</td>
-                      <td className="num" style={{ fontSize:11 }}>{p.materiales}</td>
-                      <td className="num" style={{ fontWeight:700, color:C.dark, fontSize:11 }}>{matCop(p.gastoTotal)}</td>
-                      <td style={{ fontSize:10, color:'#555f55' }}>{p.ultimaCompra}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        {/* ¿A quién comprarle? */}
-        <div className="card">
-          <div className="card-h" style={{ borderBottom:'2px solid #bbf7d0' }}>
-            <h2 style={{ color:'#166534' }}>¿A quién comprarle?</h2>
-          </div>
-          <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
-            {aQuienComprar.length === 0 ? (
-              <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:11 }}>
-                <div style={{ fontSize:24, marginBottom:8 }}>🏷️</div>
-                Registra el mismo material con al menos 2 proveedores distintos para ver sugerencias
-              </div>
-            ) : (
-              <table className="tbl">
-                <thead><tr>
-                  <th>Proveedor</th>
-                  <th>Mejores precios en…</th>
-                  <th className="num">Materiales</th>
-                </tr></thead>
-                <tbody>
-                  {aQuienComprar.map((row, i) => (
-                    <tr key={i}>
-                      <td style={{ fontWeight:700, fontSize:11, whiteSpace:'nowrap' }}>
-                        {i === 0 && (
-                          <span style={{ display:'block', fontSize:8, fontWeight:700, color:C.green, letterSpacing:.8, textTransform:'uppercase', marginBottom:2 }}>
-                            ★ Recomendado
-                          </span>
-                        )}
-                        {row.proveedor}
-                      </td>
-                      <td style={{ fontSize:10 }}>
-                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                          {row.materiales.map((m, j) => (
-                            <span key={j} style={{
-                              background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0',
-                              borderRadius:10, padding:'2px 8px', fontSize:9, fontWeight:600,
-                              whiteSpace:'nowrap',
-                            }}>
-                              {m.mat}
-                              <span style={{ color:'#9ca89c', marginLeft:4 }}>{matCop(m.precio)}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="num" style={{ fontWeight:700, fontSize:13, color:C.dark }}>
-                        {row.materiales.length}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* ── Últimos Movimientos ── */}
       <div className="card">
