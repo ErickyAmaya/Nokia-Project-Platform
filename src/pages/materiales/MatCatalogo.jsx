@@ -72,9 +72,10 @@ export default function MatCatalogo() {
     if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2 MB', 'err'); return }
     setUploading(true)
     try {
-      const ext  = file.name.split('.').pop()
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+      const ext     = file.name.split('.').pop()
+      const codigo  = (matForm.codigo || 'material').replace(/[^a-zA-Z0-9_-]/g, '_')
+      const path    = `${codigo}.${ext}`
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
       setMatForm(p => ({ ...p, imagen_url: data.publicUrl }))
