@@ -1,8 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import { supabase } from '../../lib/supabase'
+
+const BUCKET = 'material-images'
 
 function IconEdit({ size = 13 }) {
   return (
@@ -57,6 +60,31 @@ export default function MatCatalogo() {
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
   const isProveedoresTab = filCat === 'PROVEEDORES'
+
+  const fileInputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleImageUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { showToast('Solo se permiten imágenes', 'err'); return }
+    if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2 MB', 'err'); return }
+    setUploading(true)
+    try {
+      const ext  = file.name.split('.').pop()
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      setMatForm(p => ({ ...p, imagen_url: data.publicUrl }))
+      showToast('Imagen subida')
+    } catch (e) {
+      showToast('Error subiendo imagen: ' + e.message, 'err')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -262,12 +290,23 @@ export default function MatCatalogo() {
                   style={{ resize:'vertical', fontFamily:"'Barlow', sans-serif", fontSize:12 }} />
               </div>
               <div>
-                <label className="fl">URL de Imagen</label>
-                <input type="text" className="fc" placeholder="https://…" value={matForm.imagen_url || ''}
-                  onChange={e => setMatForm(p => ({ ...p, imagen_url:e.target.value }))} />
+                <label className="fl">Imagen</label>
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImageUpload} />
+                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                  <button type="button" className="btn bou btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                    style={{ fontSize:11 }}>
+                    {uploading ? 'Subiendo…' : '📁 Seleccionar archivo'}
+                  </button>
+                  {matForm.imagen_url && (
+                    <button type="button" onClick={() => setMatForm(p => ({ ...p, imagen_url:'' }))}
+                      style={{ background:'none', border:'none', color:'#c0392b', fontSize:11, cursor:'pointer', fontWeight:700 }}>
+                      ✕ Quitar
+                    </button>
+                  )}
+                </div>
                 {matForm.imagen_url && (
                   <img src={matForm.imagen_url} alt="preview"
-                    style={{ marginTop:6, maxHeight:80, borderRadius:4, border:'1px solid #e0e4e0', objectFit:'contain' }}
+                    style={{ marginTop:8, maxHeight:100, borderRadius:6, border:'1px solid #e0e4e0', objectFit:'contain', display:'block' }}
                     onError={e => { e.target.style.display='none' }}
                   />
                 )}
