@@ -210,31 +210,18 @@ export default function MatCatalogo() {
             /* ── Vista Materiales ── */
               <table className="tbl">
                 <thead><tr>
-                  <th style={{ width:44 }}></th>
                   <th>Nombre</th><th>Código</th><th>Unidad</th><th>Categoría</th>
                   <th className="num">Costo Unitario</th><th className="num">Stock Mínimo</th><th>Activo</th>
                   {canEdit && <th></th>}
                 </tr></thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                    <tr><td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                   )}
                   {filtered.map(c => {
                     const cc = CAT_COLORS[c.categoria] || CAT_COLORS.TI
                     return (
                       <tr key={c.id}>
-                        {/* Miniatura */}
-                        <td style={{ width:44, padding:'4px 6px' }}>
-                          {c.imagen_url
-                            ? <img src={c.imagen_url} alt={c.nombre}
-                                style={{ width:36, height:36, objectFit:'cover', borderRadius:6, border:'1px solid #e0e4e0', display:'block' }}
-                                onError={e => { e.target.style.display='none' }}
-                              />
-                            : <div style={{ width:36, height:36, borderRadius:6, background:'#f0f2f0', border:'1px solid #e0e4e0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#ccc' }}>
-                                📦
-                              </div>
-                          }
-                        </td>
                         {/* Nombre con tooltip imagen */}
                         <td style={{ fontWeight:600, position:'relative' }}
                           onMouseEnter={() => c.imagen_url && setHoverImg(c.id)}
