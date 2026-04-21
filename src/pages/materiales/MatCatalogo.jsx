@@ -63,6 +63,7 @@ export default function MatCatalogo() {
 
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [hoverImg,  setHoverImg]  = useState(null)
 
   async function handleImageUpload(e) {
     const file = e.target.files?.[0]
@@ -208,19 +209,47 @@ export default function MatCatalogo() {
             /* ── Vista Materiales ── */
               <table className="tbl">
                 <thead><tr>
+                  <th style={{ width:44 }}></th>
                   <th>Nombre</th><th>Código</th><th>Unidad</th><th>Categoría</th>
                   <th className="num">Costo Unitario</th><th className="num">Stock Mínimo</th><th>Activo</th>
                   {canEdit && <th></th>}
                 </tr></thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                    <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                   )}
                   {filtered.map(c => {
                     const cc = CAT_COLORS[c.categoria] || CAT_COLORS.TI
                     return (
                       <tr key={c.id}>
-                        <td style={{ fontWeight:600 }}>{c.nombre}</td>
+                        {/* Miniatura */}
+                        <td style={{ width:44, padding:'4px 6px' }}>
+                          {c.imagen_url
+                            ? <img src={c.imagen_url} alt={c.nombre}
+                                style={{ width:36, height:36, objectFit:'cover', borderRadius:6, border:'1px solid #e0e4e0', display:'block' }}
+                                onError={e => { e.target.style.display='none' }}
+                              />
+                            : <div style={{ width:36, height:36, borderRadius:6, background:'#f0f2f0', border:'1px solid #e0e4e0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, color:'#ccc' }}>
+                                📦
+                              </div>
+                          }
+                        </td>
+                        {/* Nombre con tooltip imagen */}
+                        <td style={{ fontWeight:600, position:'relative' }}
+                          onMouseEnter={() => c.imagen_url && setHoverImg(c.id)}
+                          onMouseLeave={() => setHoverImg(null)}
+                        >
+                          {c.nombre}
+                          {c.imagen_url && hoverImg === c.id && (
+                            <div className="img-tooltip">
+                              <img src={c.imagen_url} alt={c.nombre}
+                                style={{ maxWidth:200, maxHeight:200, objectFit:'contain', borderRadius:8, display:'block' }}
+                                onError={e => { e.target.style.display='none' }}
+                              />
+                              <div style={{ fontSize:10, color:'#555f55', marginTop:5, fontWeight:600 }}>{c.nombre}</div>
+                            </div>
+                          )}
+                        </td>
                         <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{c.codigo}</td>
                         <td style={{ color:'#9ca89c' }}>{c.unidad}</td>
                         <td>
