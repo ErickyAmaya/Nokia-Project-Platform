@@ -251,6 +251,23 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
                   onChange={handleCatSel}
                   placeholder="Buscar material…"
                 />
+                {selCat && (() => {
+                  const cat = catalogo.find(c => c.id === Number(selCat))
+                  if (!cat?.imagen_url) return null
+                  return (
+                    <div style={{ display:'flex', alignItems:'center', gap:10, background:'#f0fdf4', border:'1px solid #a3e6a3', borderRadius:7, padding:'8px 10px' }}>
+                      <img src={cat.imagen_url} alt={cat.nombre}
+                        style={{ width:56, height:56, objectFit:'contain', borderRadius:5, border:'1px solid #e0e4e0', background:'#fff', flexShrink:0 }}
+                        onError={e => { e.target.style.display='none' }}
+                      />
+                      <div>
+                        <div style={{ fontSize:9, fontWeight:700, color:'#1a6130', letterSpacing:.6, textTransform:'uppercase', marginBottom:2 }}>Verificar material</div>
+                        <div style={{ fontSize:12, fontWeight:700, color:'#0a0a0a' }}>{cat.nombre}</div>
+                        <div style={{ fontSize:10, color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{cat.codigo}</div>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {stockWarn && (
                   <div style={{ background:'#fde8e7', border:'1px solid #f5c6cb', borderRadius:5, padding:'5px 10px', fontSize:11, color:'#c0392b' }}>
                     ⚠ {stockWarn}
