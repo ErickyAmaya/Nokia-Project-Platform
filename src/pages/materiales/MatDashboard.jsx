@@ -223,29 +223,37 @@ export default function MatDashboard() {
     }).filter(Boolean).sort((a, b) => b.gastoTotal - a.gastoTotal)
   }, [catalogo, movimientos])
 
-  // Comparativa de precios por material (solo cuando hay ≥ 2 compras con precio)
-  const precioComparativo = useMemo(() => {
+  // ¿A quién comprarle? — por proveedor, materiales donde tiene el mejor precio promedio
+  const aQuienComprar = useMemo(() => {
     const entradas = movimientos.filter(m => m.tipo === 'Entrada' && (m.proveedor_id || m.origen) && m.valor_unitario > 0)
-    const matMap   = {}
+    // Acumular precio promedio por material+proveedor
+    const matMap = {}
     entradas.forEach(m => {
       const mat  = catalogo.find(c => c.id === m.catalogo_id)
       if (!mat || mat.categoria === 'PROVEEDORES') return
-      const prov = catalogo.find(c => c.id === m.proveedor_id)
+      const prov     = catalogo.find(c => c.id === m.proveedor_id)
       const provNombre = prov?.nombre || m.origen || '—'
       const pk = m.proveedor_id || m.origen
-      if (!matMap[mat.id]) matMap[mat.id] = { material: mat.nombre, provs: {} }
+      if (!matMap[mat.id]) matMap[mat.id] = { matNombre: mat.nombre, provs: {} }
       if (!matMap[mat.id].provs[pk]) matMap[mat.id].provs[pk] = { nombre: provNombre, precios: [] }
       matMap[mat.id].provs[pk].precios.push(m.valor_unitario)
     })
-    return Object.values(matMap)
-      .map(item => {
-        const provs = Object.values(item.provs)
-          .map(p => ({ nombre: p.nombre, avg: p.precios.reduce((a, b) => a + b, 0) / p.precios.length, compras: p.precios.length }))
-          .sort((a, b) => a.avg - b.avg)
-        return { material: item.material, provs }
-      })
-      .filter(item => item.provs.length >= 1)
-      .sort((a, b) => a.material.localeCompare(b.material))
+    // Por cada material, encontrar el proveedor con menor precio promedio
+    const ganadores = {} // provNombre → [matNombre, ...]
+    Object.values(matMap).forEach(({ matNombre, provs }) => {
+      const lista = Object.values(provs).map(p => ({
+        nombre: p.nombre,
+        avg:    p.precios.reduce((a, b) => a + b, 0) / p.precios.length,
+      })).sort((a, b) => a.avg - b.avg)
+      // Solo asignar "mejor" si hay al menos 2 proveedores para ese material
+      if (lista.length < 2) return
+      const mejor = lista[0].nombre
+      if (!ganadores[mejor]) ganadores[mejor] = []
+      ganadores[mejor].push({ mat: matNombre, precio: lista[0].avg, vsSegundo: lista[1].avg })
+    })
+    return Object.entries(ganadores)
+      .map(([proveedor, materiales]) => ({ proveedor, materiales: materiales.sort((a, b) => a.mat.localeCompare(b.mat)) }))
+      .sort((a, b) => b.materiales.length - a.materiales.length)
   }, [catalogo, movimientos])
 
   const tooltipStyle = { fontSize: 11, fontFamily:"'Barlow',sans-serif" }
@@ -535,49 +543,54 @@ export default function MatDashboard() {
           </div>
         </div>
 
-        {/* Comparativa de precios */}
+        {/* ¿A quién comprarle? */}
         <div className="card">
-          <div className="card-h" style={{ borderBottom:'2px solid #bfdbfe' }}>
-            <h2 style={{ color:'#1e40af' }}>Comparativa de Precios por Material</h2>
+          <div className="card-h" style={{ borderBottom:'2px solid #bbf7d0' }}>
+            <h2 style={{ color:'#166534' }}>¿A quién comprarle?</h2>
           </div>
           <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
-            {precioComparativo.length === 0 ? (
+            {aQuienComprar.length === 0 ? (
               <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:11 }}>
-                <div style={{ fontSize:24, marginBottom:8 }}>📊</div>
-                Necesitas entradas con valor unitario para comparar precios
+                <div style={{ fontSize:24, marginBottom:8 }}>🏷️</div>
+                Registra el mismo material con al menos 2 proveedores distintos para ver sugerencias
               </div>
             ) : (
               <table className="tbl">
                 <thead><tr>
-                  <th>Material</th>
                   <th>Proveedor</th>
-                  <th className="num">Precio Prom.</th>
-                  <th className="num">Compras</th>
+                  <th>Mejores precios en…</th>
+                  <th className="num">Materiales</th>
                 </tr></thead>
                 <tbody>
-                  {precioComparativo.map((item, i) =>
-                    item.provs.map((p, j) => (
-                      <tr key={`${i}-${j}`}>
-                        {j === 0 && (
-                          <td rowSpan={item.provs.length} style={{ fontWeight:700, fontSize:11, verticalAlign:'top', paddingTop:8, borderRight:'1px solid #f0f0f0' }}>
-                            {item.material}
-                          </td>
+                  {aQuienComprar.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight:700, fontSize:11, whiteSpace:'nowrap' }}>
+                        {i === 0 && (
+                          <span style={{ display:'block', fontSize:8, fontWeight:700, color:C.green, letterSpacing:.8, textTransform:'uppercase', marginBottom:2 }}>
+                            ★ Recomendado
+                          </span>
                         )}
-                        <td style={{ fontSize:11 }}>
-                          {p.nombre}
-                          {j === 0 && item.provs.length > 1 && (
-                            <span style={{ marginLeft:5, fontSize:8, fontWeight:700, background:'#dcfce7', color:'#166534', border:'1px solid #bbf7d0', borderRadius:10, padding:'1px 6px' }}>
-                              MEJOR PRECIO
+                        {row.proveedor}
+                      </td>
+                      <td style={{ fontSize:10 }}>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                          {row.materiales.map((m, j) => (
+                            <span key={j} style={{
+                              background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0',
+                              borderRadius:10, padding:'2px 8px', fontSize:9, fontWeight:600,
+                              whiteSpace:'nowrap',
+                            }}>
+                              {m.mat}
+                              <span style={{ color:'#9ca89c', marginLeft:4 }}>{matCop(m.precio)}</span>
                             </span>
-                          )}
-                        </td>
-                        <td className="num" style={{ fontWeight:700, color: j===0 ? C.green : '#555f55', fontSize:11 }}>
-                          {matCop(p.avg)}
-                        </td>
-                        <td className="num" style={{ fontSize:10, color:'#9ca89c' }}>{p.compras}</td>
-                      </tr>
-                    ))
-                  )}
+                          ))}
+                        </div>
+                      </td>
+                      <td className="num" style={{ fontWeight:700, fontSize:13, color:C.dark }}>
+                        {row.materiales.length}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
