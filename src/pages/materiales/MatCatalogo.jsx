@@ -65,6 +65,20 @@ export default function MatCatalogo() {
   const [uploading, setUploading] = useState(false)
   const [hoverImg,  setHoverImg]  = useState(null)
 
+  function pathFromUrl(url) {
+    // Extrae el path relativo dentro del bucket desde la URL pública
+    if (!url) return null
+    const marker = `/object/public/${BUCKET}/`
+    const idx = url.indexOf(marker)
+    return idx !== -1 ? decodeURIComponent(url.slice(idx + marker.length)) : null
+  }
+
+  async function deleteImageFromStorage(url) {
+    const path = pathFromUrl(url)
+    if (!path) return
+    await supabase.storage.from(BUCKET).remove([path])
+  }
+
   async function handleImageUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -72,9 +86,14 @@ export default function MatCatalogo() {
     if (file.size > 2 * 1024 * 1024) { showToast('La imagen no debe superar 2 MB', 'err'); return }
     setUploading(true)
     try {
+      // Si ya tiene imagen con extensión diferente, eliminar la anterior
+      const oldPath = pathFromUrl(matForm.imagen_url)
       const ext     = file.name.split('.').pop()
       const codigo  = (matForm.codigo || 'material').replace(/[^a-zA-Z0-9_-]/g, '_')
       const path    = `${codigo}.${ext}`
+      if (oldPath && oldPath !== path) {
+        await supabase.storage.from(BUCKET).remove([oldPath])
+      }
       const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
@@ -86,6 +105,11 @@ export default function MatCatalogo() {
       setUploading(false)
       e.target.value = ''
     }
+  }
+
+  async function handleQuitarImagen() {
+    await deleteImageFromStorage(matForm.imagen_url)
+    setMatForm(p => ({ ...p, imagen_url: '' }))
   }
 
   const filtered = useMemo(() => {
@@ -315,7 +339,7 @@ export default function MatCatalogo() {
                     {uploading ? 'Subiendo…' : '📁 Seleccionar archivo'}
                   </button>
                   {matForm.imagen_url && (
-                    <button type="button" onClick={() => setMatForm(p => ({ ...p, imagen_url:'' }))}
+                    <button type="button" onClick={handleQuitarImagen}
                       style={{ background:'none', border:'none', color:'#c0392b', fontSize:11, cursor:'pointer', fontWeight:700 }}>
                       ✕ Quitar
                     </button>
