@@ -212,6 +212,8 @@ export default function HwMovimientos() {
   const deleteHwMovimiento = useHwStore(s => s.deleteHwMovimiento)
   const loadAll            = useHwStore(s => s.loadAll)
   const bodegas            = useMatStore(s => s.bodegas)
+  const matSitios          = useMatStore(s => s.sitios)
+  const saveSitio          = useMatStore(s => s.saveSitio)
   const liquidadorSitios   = useAppStore(s => s.sitios ?? [])
   const user               = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
@@ -398,6 +400,11 @@ export default function HwMovimientos() {
           created_by:          user?.nombre || user?.email,
           notas:               form.notas || null,
         })
+        // Auto-crear sitio en mat_sitios si destino es sitio nuevo
+        if (modalTipo === 'SALIDA' && form.destino_tipo === 'sitio' && form.destino) {
+          const existe = matSitios.some(s => s.nombre?.toLowerCase() === form.destino.toLowerCase())
+          if (!existe) await saveSitio({ nombre: form.destino, regional: '', activo: true }).catch(() => {})
+        }
         showToast(`${form.cantidad} unidad(es) registrada(s) sin serial`)
         setModalTipo(null)
       } catch (e) { showToast('Error: ' + e.message, 'err') }
@@ -475,6 +482,11 @@ export default function HwMovimientos() {
           created_by:          user?.nombre || user?.email,
           notas:               form.notas || null,
         })
+      }
+      // Auto-crear sitio en mat_sitios si destino es sitio nuevo
+      if (modalTipo === 'SALIDA' && form.destino_tipo === 'sitio' && form.destino) {
+        const existe = matSitios.some(s => s.nombre?.toLowerCase() === form.destino.toLowerCase())
+        if (!existe) await saveSitio({ nombre: form.destino, regional: '', activo: true }).catch(() => {})
       }
       showToast(`${seriales.length} equipo(s) registrado(s)`)
       setModalTipo(null)
