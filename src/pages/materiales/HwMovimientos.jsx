@@ -187,6 +187,7 @@ function emptyForm(tipo, movimientos) {
     cantidad:          1,
     seriales:          [''],
     serialBodegas:     [bodegaPrincipal],   // bodega por cada slot de serial
+    sinSerial:         false,              // modo sin-serial: cantidad libre, sin hw_equipos
     origen:            bodegaPrincipal,
     origen_tipo:       tipo === 'ENTRADA' ? 'nokia'  : 'bodega',
     destino:           '',
@@ -207,6 +208,7 @@ export default function HwMovimientos() {
   const addHwMovimiento    = useHwStore(s => s.addHwMovimiento)
   const addHwEquipo        = useHwStore(s => s.addHwEquipo)
   const updateHwEquipo     = useHwStore(s => s.updateHwEquipo)
+  const deleteHwEquipo     = useHwStore(s => s.deleteHwEquipo)
   const deleteHwMovimiento = useHwStore(s => s.deleteHwMovimiento)
   const loadAll            = useHwStore(s => s.loadAll)
   const bodegas            = useMatStore(s => s.bodegas)
@@ -373,6 +375,36 @@ export default function HwMovimientos() {
     if (!form.origen)      { showToast('Indica el origen', 'err'); return }
     if (!form.destino)     { showToast('Indica el destino', 'err'); return }
 
+    // ── Modo sin serial: un solo movimiento con cantidad ──────────────
+    if (form.sinSerial) {
+      if (!form.cantidad || form.cantidad < 1) { showToast('Indica la cantidad', 'err'); return }
+      setSaving(true)
+      try {
+        await addHwMovimiento({
+          equipo_id:           null,
+          serial:              null,
+          catalogo_id:         Number(form.catalogo_id),
+          tipo:                modalTipo,
+          tipo_fuente:         'MANUAL',
+          so:                  form.so || null,
+          smp_id:              form.smp_id || null,
+          fecha:               form.fecha,
+          cantidad:            Number(form.cantidad),
+          origen:              form.origen,
+          origen_tipo:         form.origen_tipo,
+          destino:             form.destino,
+          destino_tipo:        form.destino_tipo,
+          log_inv_tipo_unidad: form.log_inv_tipo_unidad || null,
+          created_by:          user?.nombre || user?.email,
+          notas:               form.notas || null,
+        })
+        showToast(`${form.cantidad} unidad(es) registrada(s) sin serial`)
+        setModalTipo(null)
+      } catch (e) { showToast('Error: ' + e.message, 'err') }
+      finally { setSaving(false) }
+      return
+    }
+
     const seriales = form.seriales.map(s => s.trim()).filter(Boolean)
     if (seriales.length === 0) { showToast('Ingresa al menos un serial', 'err'); return }
 
@@ -434,7 +466,8 @@ export default function HwMovimientos() {
           so:                  form.so || null,
           smp_id:              form.smp_id || null,
           fecha:               form.fecha,
-          origen:              origenSerial,        // bodega correcta por serial
+          cantidad:            1,
+          origen:              origenSerial,
           origen_tipo:         form.origen_tipo,
           destino:             form.destino,
           destino_tipo:        form.destino_tipo,
@@ -450,14 +483,25 @@ export default function HwMovimientos() {
   }
 
   async function handleDelete(m) {
-    const ok = await confirm('Eliminar movimiento', `¿Eliminar movimiento del serial "${m.serial}"?`)
+    const label = m.serial ? `serial "${m.serial}"` : `${m.cantidad || 1} ud. sin serial`
+    const ok = await confirm('Eliminar movimiento', `¿Eliminar movimiento de ${label}?`)
     if (!ok) return
     try {
-      // Al eliminar una SALIDA: retornar el equipo a la bodega origen
-      if (m.tipo === 'SALIDA') {
+      if (m.tipo === 'SALIDA' && m.serial) {
+        // Retornar equipo a la bodega origen
+        const equipo = hwEquipos.find(e => e.serial === m.serial)
+        if (equipo) await updateHwEquipo(equipo.id, { estado: 'en_bodega', ubicacion_actual: m.origen })
+      }
+      if (m.tipo === 'ENTRADA' && m.serial) {
+        // Eliminar el registro del equipo (si no tiene otros movimientos)
         const equipo = hwEquipos.find(e => e.serial === m.serial)
         if (equipo) {
-          await updateHwEquipo(equipo.id, { estado: 'en_bodega', ubicacion_actual: m.origen })
+          const otrosMov = hwMovimientos.filter(mv => mv.serial === m.serial && mv.id !== m.id)
+          if (otrosMov.length === 0) {
+            await deleteHwEquipo(equipo.id)
+          } else {
+            showToast('El equipo tiene movimientos posteriores; solo se eliminó la entrada.', 'warn')
+          }
         }
       }
       await deleteHwMovimiento(m.id)
@@ -513,8 +557,8 @@ export default function HwMovimientos() {
         <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
           <table className="tbl">
             <thead><tr>
-              <th>Fecha</th><th>Tipo</th><th>Serial</th><th>Equipo</th>
-              <th>Origen</th><th>Destino</th><th>SO / Doc</th><th>SMP ID</th>
+              <th>Fecha</th><th>Tipo</th><th>Cant.</th><th>Serial</th><th>Equipo</th>
+              <th>Origen</th><th>Destino</th><th>SO / Doc</th>
               {canDelete && <th></th>}
             </tr></thead>
             <tbody>
@@ -529,7 +573,10 @@ export default function HwMovimientos() {
                     <td>
                       <span style={{ fontWeight:700, fontSize:10, color: m.tipo==='ENTRADA'?'#1a6130':'#c0392b' }}>{m.tipo}</span>
                     </td>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#144E4A' }}>{m.serial}</td>
+                    <td style={{ textAlign:'center', fontWeight:700, fontSize:12 }}>{m.cantidad ?? 1}</td>
+                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#144E4A' }}>
+                      {m.serial || <span style={{ color:'#9ca89c', fontSize:9 }}>sin serial</span>}
+                    </td>
                     <td style={{ fontSize:10, maxWidth:160 }}>{cat?.descripcion || '—'}</td>
                     <td style={{ fontSize:10 }}>
                       <span style={{ color:'#9ca89c', fontSize:9, textTransform:'uppercase', marginRight:3 }}>{m.origen_tipo}</span>
@@ -540,7 +587,6 @@ export default function HwMovimientos() {
                       {m.destino}
                     </td>
                     <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700 }}>{m.so || '—'}</td>
-                    <td style={{ fontSize:10, color:'#9ca89c' }}>{m.smp_id || '—'}</td>
                     {canDelete && (
                       <td><button className="btn-del" onClick={() => handleDelete(m)}>✕</button></td>
                     )}
@@ -642,6 +688,21 @@ export default function HwMovimientos() {
                 />
               </div>
 
+              {/* Toggle sin serial */}
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <input type="checkbox" id="sin-serial-chk" checked={!!form.sinSerial}
+                  onChange={e => setForm(p => ({
+                    ...p,
+                    sinSerial: e.target.checked,
+                    seriales:      [''],
+                    serialBodegas: [p.origen || ''],
+                    cantidad:      1,
+                  }))} />
+                <label htmlFor="sin-serial-chk" style={{ fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  Sin serial — solo registrar cantidad
+                </label>
+              </div>
+
               {/* Cantidad + Seriales individuales */}
               {(() => {
                 // Total de seriales disponibles en TODAS las bodegas (techo para la cantidad)
@@ -656,6 +717,24 @@ export default function HwMovimientos() {
                   const bod = e.ubicacion_actual || '(sin bodega)'
                   gruposBodega[bod] = (gruposBodega[bod] || 0) + 1
                 })
+
+                // Sin serial: solo mostrar campo cantidad sin restricciones de stock
+                if (form.sinSerial) {
+                  return (
+                    <div style={{ border:'1px solid #e0e4e0', borderRadius:6, padding:12 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <label className="fl" style={{ marginBottom:0 }}>Cantidad *</label>
+                        <input
+                          type="number" min={1} className="fc"
+                          value={form.cantidad}
+                          onChange={e => setForm(p => ({ ...p, cantidad: Math.max(1, Number(e.target.value) || 1) }))}
+                          style={{ width:100, textAlign:'center', fontWeight:700 }}
+                        />
+                        <span style={{ fontSize:10, color:'#9ca89c' }}>unidad(es) sin serial</span>
+                      </div>
+                    </div>
+                  )
+                }
 
                 return (
                   <div style={{ border:`1px solid ${modalTipo==='SALIDA' && form.catalogo_id && stockTotal===0 ? '#fca5a5' : '#e0e4e0'}`, borderRadius:6, padding:12 }}>
