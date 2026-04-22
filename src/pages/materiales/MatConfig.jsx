@@ -40,6 +40,7 @@ export default function MatConfig() {
 
   const [modal,    setModal]    = useState(false)
   const [form,     setForm]     = useState({ nombre:'', regional:'Sur-Occidente', ciudad:'', direccion:'' })
+  const [bodegaPrincipal, setBodegaPrincipalState] = useState(() => localStorage.getItem('hw_bodega_principal') || '')
   const [nokModal, setNokModal] = useState(false)
   const [nokForm,  setNokForm]  = useState({ nombre:'', ciudad:'', notas:'' })
   const [ssModal,  setSsModal]  = useState(false)
@@ -179,6 +180,9 @@ export default function MatConfig() {
                       📍 {b.nombre}
                       {b.regional && <span style={{ fontSize:10, color:'#9ca89c', marginLeft:6 }}>| {b.regional}</span>}
                       {b.ciudad   && <span style={{ fontSize:10, color:'#9ca89c', marginLeft:6 }}>| {b.ciudad}</span>}
+                      {b.nombre === bodegaPrincipal && (
+                        <span style={{ marginLeft:8, fontSize:9, fontWeight:700, background:'#fef9c3', color:'#854d0e', padding:'1px 6px', borderRadius:8, border:'1px solid #fde68a' }}>PRINCIPAL HW</span>
+                      )}
                     </div>
                     {b.direccion && <div style={{ fontSize:10, color:'#9ca89c', marginTop:2 }}>{b.direccion}</div>}
                   </div>
@@ -193,6 +197,15 @@ export default function MatConfig() {
                 </div>
               </div>
             ))}
+            {/* Bodega Principal HW */}
+            <div style={{ marginTop:4, paddingTop:10, borderTop:'1px solid #f0f2f0' }}>
+              <label className="fl" style={{ fontSize:10, marginBottom:4 }}>Bodega predeterminada para SALIDAS HW</label>
+              <select className="fc" value={bodegaPrincipal}
+                onChange={e => { setBodegaPrincipalState(e.target.value); localStorage.setItem('hw_bodega_principal', e.target.value) }}>
+                <option value="">— Sin definir —</option>
+                {bodegas.map(b => <option key={b.id} value={b.nombre}>{b.nombre}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
