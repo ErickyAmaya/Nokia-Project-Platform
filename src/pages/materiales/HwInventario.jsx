@@ -54,17 +54,27 @@ export default function HwInventario() {
     const q = search.toLowerCase()
     return hwCatalogo
       .map(cat => {
-        const equipos    = hwEquipos.filter(e => e.catalogo_id === cat.id)
-        if (equipos.length === 0) return null               // solo mostrar si hay registros
+        const equipos = hwEquipos.filter(e => e.catalogo_id === cat.id)
 
-        const enBodega   = equipos.filter(e => e.estado === 'en_bodega')
-        const enSitio    = equipos.filter(e => e.estado === 'en_sitio')
-        const stock      = enBodega.length
-        const total      = equipos.length
-        const bodegas    = [...new Set(enBodega.map(e => e.ubicacion_actual).filter(Boolean))]
-        const st         = statusInfo(stock)
+        // Movimientos sin serial para este tipo
+        const movsSinSerial   = hwMovimientos.filter(m => m.catalogo_id === cat.id && !m.serial)
+        const ssEntrada       = movsSinSerial.filter(m => m.tipo === 'ENTRADA').reduce((s, m) => s + (m.cantidad || 0), 0)
+        const ssSalida        = movsSinSerial.filter(m => m.tipo === 'SALIDA').reduce((s, m) => s + (m.cantidad || 0), 0)
+        const ssStock         = Math.max(0, ssEntrada - ssSalida)
+        const ssEnSitio       = movsSinSerial
+          .filter(m => m.tipo === 'SALIDA' && m.destino_tipo === 'sitio')
+          .reduce((s, m) => s + (m.cantidad || 0), 0)
 
-        return { cat, equipos, stock, enSitio: enSitio.length, total, bodegas, st }
+        if (equipos.length === 0 && movsSinSerial.length === 0) return null
+
+        const enBodega = equipos.filter(e => e.estado === 'en_bodega')
+        const enSitio  = equipos.filter(e => e.estado === 'en_sitio')
+        const stock    = enBodega.length + ssStock
+        const total    = equipos.length + ssEntrada
+        const bodegas  = [...new Set(enBodega.map(e => e.ubicacion_actual).filter(Boolean))]
+        const st       = statusInfo(stock)
+
+        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegas, st, movsSinSerial, ssStock }
       })
       .filter(r => {
         if (!r) return false
@@ -74,16 +84,20 @@ export default function HwInventario() {
         if (q && !`${r.cat.descripcion} ${r.cat.cod_material || ''}`.toLowerCase().includes(q)) return false
         return true
       })
-  }, [hwCatalogo, hwEquipos, search, filTipo, filStatus])
+  }, [hwCatalogo, hwEquipos, hwMovimientos, search, filTipo, filStatus])
 
   // ── KPIs ────────────────────────────────────────────────────────
-  const kpis = useMemo(() => ({
-    tipos:      rows.length,
-    totalUds:   hwEquipos.length,
-    enBodega:   hwEquipos.filter(e => e.estado === 'en_bodega').length,
-    enSitio:    hwEquipos.filter(e => e.estado === 'en_sitio').length,
-    agotados:   rows.filter(r => r.stock === 0).length,
-  }), [rows, hwEquipos])
+  const kpis = useMemo(() => {
+    const ssStockTotal = rows.reduce((s, r) => s + (r.ssStock || 0), 0)
+    const ssUdsTotal   = rows.reduce((s, r) => s + (r.movsSinSerial?.filter(m => m.tipo==='ENTRADA').reduce((a, m) => a + (m.cantidad||0), 0) || 0), 0)
+    return {
+      tipos:    rows.length,
+      totalUds: hwEquipos.length + ssUdsTotal,
+      enBodega: hwEquipos.filter(e => e.estado === 'en_bodega').length + ssStockTotal,
+      enSitio:  hwEquipos.filter(e => e.estado === 'en_sitio').length,
+      agotados: rows.filter(r => r.stock === 0).length,
+    }
+  }, [rows, hwEquipos])
 
   // ── Historial de un equipo ───────────────────────────────────────
   function historialDe(serial) {
@@ -187,10 +201,10 @@ export default function HwInventario() {
               <tbody>
                 {rows.length === 0 && (
                   <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>
-                    {hwEquipos.length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
+                    {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, total, bodegas, st }) => {
+                {rows.map(({ cat, equipos, stock, enSitio, total, bodegas, st, movsSinSerial, ssStock }) => {
                   const isOpen = expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
@@ -221,52 +235,92 @@ export default function HwInventario() {
                       </td>
                     </tr>,
 
-                    // ── Fila expandida: seriales ──
+                    // ── Fila expandida: seriales + sin-serial ──
                     isOpen && (
                       <tr key={`${cat.id}-exp`}>
                         <td colSpan={9} style={{ padding:0, borderTop:`2px solid #1a9c1a` }}>
                           <div style={{ background:'#f8fdf8' }}>
-                            <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
-                                Seriales registrados — {cat.descripcion}
-                              </span>
-                              <span style={{ fontSize:10, color:'#9ca89c' }}>{equipos.length} unidad(es)</span>
-                            </div>
-                            <div style={{ overflowX:'auto' }}>
-                              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                <thead>
-                                  <tr style={{ background:'#f0f7f0' }}>
-                                    {['SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
-                                      <th key={h} style={{ padding:'5px 10px', color:'#144E4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {equipos.map((e, idx) => {
-                                    const est = ESTADO_CFG[e.estado] || ESTADO_CFG.en_bodega
-                                    return (
-                                      <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
-                                        <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>{e.serial}</td>
-                                        <td style={{ padding:'6px 10px' }}>
-                                          <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
-                                        </td>
-                                        <td style={{ padding:'6px 10px', color:'#555f55' }}>{e.ubicacion_actual || '—'}</td>
-                                        <td style={{ padding:'6px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
-                                        <td style={{ padding:'6px 10px', color:'#9ca89c', fontSize:10 }}>{e.log_inv_tipo_unidad || '—'}</td>
-                                        {canEdit && (
-                                          <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}
-                                            onClick={ev => ev.stopPropagation()}>
-                                            <button className="btn-edit" onClick={() => openEdit(e)}
-                                              style={{ marginRight:4, fontSize:11, padding:'2px 7px' }}>✏</button>
-                                            <button className="btn-del" onClick={() => handleDelete(e)}>✕</button>
+
+                            {/* ── Seriales ── */}
+                            {equipos.length > 0 && (<>
+                              <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                                  Seriales — {cat.descripcion}
+                                </span>
+                                <span style={{ fontSize:10, color:'#9ca89c' }}>{equipos.length} unidad(es)</span>
+                              </div>
+                              <div style={{ overflowX:'auto' }}>
+                                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                  <thead>
+                                    <tr style={{ background:'#f0f7f0' }}>
+                                      {['SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                        <th key={h} style={{ padding:'5px 10px', color:'#144E4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {equipos.map((e, idx) => {
+                                      const est = ESTADO_CFG[e.estado] || ESTADO_CFG.en_bodega
+                                      return (
+                                        <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>{e.serial}</td>
+                                          <td style={{ padding:'6px 10px' }}>
+                                            <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
                                           </td>
-                                        )}
+                                          <td style={{ padding:'6px 10px', color:'#555f55' }}>{e.ubicacion_actual || '—'}</td>
+                                          <td style={{ padding:'6px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
+                                          <td style={{ padding:'6px 10px', color:'#9ca89c', fontSize:10 }}>{e.log_inv_tipo_unidad || '—'}</td>
+                                          {canEdit && (
+                                            <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}
+                                              onClick={ev => ev.stopPropagation()}>
+                                              <button className="btn-edit" onClick={() => openEdit(e)}
+                                                style={{ marginRight:4, fontSize:11, padding:'2px 7px' }}>✏</button>
+                                              <button className="btn-del" onClick={() => handleDelete(e)}>✕</button>
+                                            </td>
+                                          )}
+                                        </tr>
+                                      )
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>)}
+
+                            {/* ── Sin serial ── */}
+                            {movsSinSerial.length > 0 && (
+                              <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none' }}>
+                                <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                  <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#f59e0b', letterSpacing:1, textTransform:'uppercase' }}>
+                                    Sin Serial — {cat.descripcion}
+                                  </span>
+                                  <span style={{ fontSize:10, color:'#9ca89c' }}>Stock disponible: {ssStock}</span>
+                                </div>
+                                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                  <thead>
+                                    <tr style={{ background:'#fffbeb' }}>
+                                      {['TIPO','CANT.','FECHA','ORIGEN','DESTINO','SO'].map(h => (
+                                        <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #fde68a', whiteSpace:'nowrap' }}>{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {movsSinSerial.map((m, idx) => (
+                                      <tr key={m.id} style={{ background: idx%2===0?'#fff':'#fffbeb', borderBottom:'1px solid #fef3c7' }}>
+                                        <td style={{ padding:'6px 10px' }}>
+                                          <span style={{ fontWeight:700, fontSize:10, color: m.tipo==='ENTRADA'?'#1a6130':'#c0392b' }}>{m.tipo}</span>
+                                        </td>
+                                        <td style={{ padding:'6px 10px', fontWeight:800, fontSize:13, color:'#144E4A' }}>{m.cantidad}</td>
+                                        <td style={{ padding:'6px 10px', color:'#9ca89c', fontSize:10 }}>{m.fecha}</td>
+                                        <td style={{ padding:'6px 10px', fontSize:10 }}>{m.origen || '—'}</td>
+                                        <td style={{ padding:'6px 10px', fontSize:10, fontWeight:600 }}>{m.destino || '—'}</td>
+                                        <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{m.so || '—'}</td>
                                       </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
                           </div>
                         </td>
                       </tr>

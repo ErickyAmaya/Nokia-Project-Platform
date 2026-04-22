@@ -188,7 +188,7 @@ export default function MatSitios() {
                         <td>
                           {hasMovs
                             ? <span className="badge" style={{ background:'#d4edda', color:'#1a6130' }}>Activo</span>
-                            : <span className="badge" style={{ background:'#fde8e7', color:'#c0392b' }}>Sin movimientos</span>
+                            : <span className="badge" style={{ background:'#fde8e7', color:'#c0392b' }}>Sin Materiales</span>
                           }
                         </td>
                         <td style={{ whiteSpace:'nowrap' }}>
