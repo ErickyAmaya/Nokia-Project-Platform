@@ -1,10 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
 import DespachoModal from '../../components/materiales/DespachoModal'
+
+const HW_ESTADO_CFG = {
+  en_bodega:       { label:'En Bodega',      bg:'#d4edda', color:'#1a6130' },
+  en_sitio:        { label:'En Sitio',        bg:'#dbeafe', color:'#1e40af' },
+  en_transito:     { label:'En Tránsito',     bg:'#fef3cd', color:'#856404' },
+  retornado_nokia: { label:'Retornado Nokia', bg:'#f0f0f0', color:'#555f55' },
+  retornado_ss:    { label:'Retornado SS',    bg:'#f5f0ff', color:'#6b21a8' },
+}
 
 const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Caribe']
 
@@ -14,6 +23,8 @@ export default function MatSitios() {
   const despachos   = useMatStore(s => s.despachos)
   const catalogo    = useMatStore(s => s.catalogo)
   const deleteSitio = useMatStore(s => s.deleteSitio)
+  const hwEquipos   = useHwStore(s => s.hwEquipos)
+  const hwCatalogo  = useHwStore(s => s.hwCatalogo)
   const user        = useAuthStore(s => s.user)
   const navigate    = useNavigate()
   const location    = useLocation()
@@ -324,6 +335,69 @@ export default function MatSitios() {
                                   </button>
                                 </div>
                               </div>
+
+                              {/* ── HW Nokia en este sitio ── */}
+                              {(() => {
+                                const hwEnSitio = hwEquipos.filter(e =>
+                                  e.ubicacion_actual && e.ubicacion_actual.toLowerCase() === s.nombre.toLowerCase()
+                                )
+                                return (
+                                  <div>
+                                    <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'2px solid #1d4ed8' }}>
+                                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#60a5fa', letterSpacing:1, textTransform:'uppercase' }}>
+                                        HW Nokia en sitio ({hwEnSitio.length})
+                                      </span>
+                                      <button
+                                        onClick={() => navigate('/materiales/hw/inventario')}
+                                        style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'1.5px solid #1d4ed8', background:'transparent', color:'#60a5fa', cursor:'pointer' }}>
+                                        Ver Inventario HW
+                                      </button>
+                                    </div>
+                                    {hwEnSitio.length === 0 ? (
+                                      <div style={{ textAlign:'center', padding:'14px 16px', color:'#9ca89c', fontSize:11, background:'#f8f8ff' }}>
+                                        No hay equipos HW registrados en este sitio
+                                      </div>
+                                    ) : (
+                                      <div style={{ overflowX:'auto', background:'#f8f8ff' }}>
+                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                          <thead>
+                                            <tr style={{ background:'#eff6ff' }}>
+                                              {['SERIAL','DESCRIPCIÓN','TIPO','ESTADO','CONDICIÓN'].map(h => (
+                                                <th key={h} style={{ padding:'5px 10px', color:'#1e40af', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #bfdbfe', whiteSpace:'nowrap' }}>
+                                                  {h}
+                                                </th>
+                                              ))}
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {hwEnSitio.map((e, idx) => {
+                                              const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+                                              const est = HW_ESTADO_CFG[e.estado] || HW_ESTADO_CFG.en_bodega
+                                              return (
+                                                <tr key={e.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
+                                                  <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
+                                                  <td style={{ padding:'5px 10px' }}>
+                                                    {cat && (
+                                                      <span className="badge" style={{ background: cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>
+                                                        {cat.tipo_material}
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                  <td style={{ padding:'5px 10px' }}>
+                                                    <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
+                                                  </td>
+                                                  <td style={{ padding:'5px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
+                                                </tr>
+                                              )
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </td>
                         </tr>

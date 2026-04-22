@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -29,6 +29,12 @@ const MAT_NAV = [
   { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','logistica'] },
 ]
 
+const HW_NAV = [
+  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡' },
+  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁' },
+  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂' },
+]
+
 // Badge de rol
 const BADGE = {
   admin:       { label: '⚙ Admin',   cls: 'ub-admin' },
@@ -41,8 +47,12 @@ const BADGE = {
 }
 
 export default function Layout({ children }) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [rtStatus,   setRtStatus]   = useState(window.__rtStatus || 'connecting')
+  const [drawerOpen,  setDrawerOpen]  = useState(false)
+  const [hwDropdown,  setHwDropdown]  = useState(false)
+  const [hwDropPos,   setHwDropPos]   = useState({ top: 0, left: 0 })
+  const [rtStatus,    setRtStatus]    = useState(window.__rtStatus || 'connecting')
+  const hwDropRef = useRef(null)
+  const hwBtnRef  = useRef(null)
 
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)
@@ -68,6 +78,17 @@ export default function Layout({ children }) {
     function handler(e) { setRtStatus(e.detail) }
     window.addEventListener('rt-status', handler)
     return () => window.removeEventListener('rt-status', handler)
+  }, [])
+
+  // Cerrar dropdown HW al hacer clic fuera
+  useEffect(() => {
+    function handleClick(e) {
+      const inBtn   = hwBtnRef.current  && hwBtnRef.current.contains(e.target)
+      const inPanel = hwDropRef.current && hwDropRef.current.contains(e.target)
+      if (!inBtn && !inPanel) setHwDropdown(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
   // Aplica color primario de la empresa al CSS custom property
@@ -186,27 +207,88 @@ export default function Layout({ children }) {
         position: 'sticky', top: 50, zIndex: 199,
         boxShadow: '0 1px 3px rgba(0,0,0,.06)',
       }}>
-        {allVisible.map(item => (
-          <NavLink
-            end
-            key={item.id}
-            to={item.to}
-            style={({ isActive }) => ({
-              background: 'none', border: 'none',
-              color: isActive ? (empresa?.color || '#0d6e0d') : '#555f55',
-              fontFamily: "'Barlow', sans-serif",
-              fontSize: 11, fontWeight: 600, letterSpacing: .6,
-              textTransform: 'uppercase',
-              padding: '8px 12px', cursor: 'pointer',
-              borderBottom: isActive ? `2px solid ${empresa?.color || '#1a9c1a'}` : '2px solid transparent',
-              transition: 'all .15s', whiteSpace: 'nowrap',
-              textDecoration: 'none', display: 'inline-block',
-            })}
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        {allVisible.map((item, idx) => {
+          // Insertar el dropdown HW Nokia entre Catálogo y Config
+          const isConfig   = item.id === 'mat-config'
+          const hwTrigger  = inMateriales && isConfig
+          const hwActive   = location.pathname.startsWith('/materiales/hw')
+          return (
+            <React.Fragment key={item.id}>
+              {hwTrigger && (
+                <div ref={hwDropRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'stretch' }}>
+                  <button
+                    ref={hwBtnRef}
+                    onClick={() => {
+                      const rect = hwBtnRef.current?.getBoundingClientRect()
+                      if (rect) setHwDropPos({ top: rect.bottom, left: rect.left })
+                      setHwDropdown(p => !p)
+                    }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontFamily: "'Barlow', sans-serif", fontSize: 11, fontWeight: 600,
+                      letterSpacing: .6, textTransform: 'uppercase', padding: '8px 12px',
+                      color: hwActive ? (empresa?.color || '#0d6e0d') : '#555f55',
+                      borderBottom: hwActive ? `2px solid ${empresa?.color || '#1a9c1a'}` : '2px solid transparent',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    HW Nokia {hwDropdown ? '▴' : '▾'}
+                  </button>
+                </div>
+              )}
+              <NavLink
+                end
+                to={item.to}
+                style={({ isActive }) => ({
+                  background: 'none', border: 'none',
+                  color: isActive ? (empresa?.color || '#0d6e0d') : '#555f55',
+                  fontFamily: "'Barlow', sans-serif",
+                  fontSize: 11, fontWeight: 600, letterSpacing: .6,
+                  textTransform: 'uppercase',
+                  padding: '8px 12px', cursor: 'pointer',
+                  borderBottom: isActive ? `2px solid ${empresa?.color || '#1a9c1a'}` : '2px solid transparent',
+                  transition: 'all .15s', whiteSpace: 'nowrap',
+                  textDecoration: 'none', display: 'inline-block',
+                })}
+              >
+                {item.label}
+              </NavLink>
+            </React.Fragment>
+          )
+        })}
       </nav>
+
+      {/* Dropdown panel HW Nokia — fuera del nav para escapar overflow */}
+      {hwDropdown && (
+        <div
+          ref={hwDropRef}
+          style={{
+            position: 'fixed', top: hwDropPos.top, left: hwDropPos.left, zIndex: 400,
+            background: '#fff', borderRadius: 8, minWidth: 190,
+            boxShadow: '0 6px 24px rgba(0,0,0,.14)',
+            border: '1.5px solid #e0e4e0', overflow: 'hidden',
+          }}
+        >
+          {HW_NAV.map(item => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setHwDropdown(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px', textDecoration: 'none',
+                fontFamily: "'Barlow', sans-serif", fontSize: 11, fontWeight: 600,
+                letterSpacing: .4, color: isActive ? (empresa?.color || '#0d6e0d') : '#555f55',
+                background: isActive ? '#f0fdf4' : '#fff',
+                borderLeft: isActive ? `3px solid ${empresa?.color || '#1a9c1a'}` : '3px solid transparent',
+              })}
+            >
+              <span>{item.icon}</span> {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+
 
       {/* ── Mobile Nav Drawer ──────────────────────────────────── */}
       {drawerOpen && (
@@ -244,6 +326,25 @@ export default function Layout({ children }) {
             {item.label}
           </NavLink>
         ))}
+        {inMateriales && (
+          <>
+            <div style={{ padding: '8px 16px 4px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase' }}>
+              HW Nokia
+            </div>
+            {HW_NAV.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
+                onClick={() => setDrawerOpen(false)}
+                style={{ textDecoration: 'none', paddingLeft: 28 }}
+              >
+                <span style={{ fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </>
+        )}
 
         <div style={{
           marginTop: 'auto', padding: '14px 16px',

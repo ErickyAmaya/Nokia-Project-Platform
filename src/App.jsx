@@ -22,6 +22,9 @@ import MatMovimientos     from './pages/materiales/MatMovimientos'
 import MatSitios          from './pages/materiales/MatSitios'
 import MatCatalogo        from './pages/materiales/MatCatalogo'
 import MatConfig          from './pages/materiales/MatConfig'
+import HwInventario       from './pages/materiales/HwInventario'
+import HwMovimientos      from './pages/materiales/HwMovimientos'
+import HwCatalogo         from './pages/materiales/HwCatalogo'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -121,6 +124,9 @@ function AppRoutes() {
         <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
         <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
         <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','logistica']}><MatConfig /></ProtectedRoute>} />
+        <Route path="hw/inventario"  element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwInventario /></ProtectedRoute>} />
+        <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwMovimientos /></ProtectedRoute>} />
+        <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwCatalogo /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={
