@@ -347,7 +347,6 @@ export default function MatConfig() {
               </table>
             )}
           </div>
-        </div>
       </div>
 
       {/* Modal Bodega Ingetel */}
