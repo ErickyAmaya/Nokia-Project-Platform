@@ -218,27 +218,46 @@ export default function HwMovimientos() {
   const [filTipo,   setFilTipo]   = useState('')
   const [filDate,   setFilDate]   = useState('')
   const [form,      setForm]      = useState(null)
+  const prevOrigenRef = useRef(null)
 
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
 
+  // Resetear seriales cuando cambia la bodega origen (evita seriales de otra bodega)
+  useEffect(() => {
+    if (modalTipo !== 'SALIDA' || !form) return
+    const curr = form.origen
+    if (prevOrigenRef.current !== null && prevOrigenRef.current !== curr) {
+      setForm(p => p ? { ...p, seriales: Array(p.cantidad).fill('') } : p)
+    }
+    prevOrigenRef.current = curr
+  }, [form?.origen]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function openModal(tipo) {
     setForm(emptyForm(tipo, hwMovimientos))
     setModalTipo(tipo)
+  }
+
+  // Seriales disponibles filtrados por bodega origen (si aplica)
+  function getSerialDisp(catalogo_id, origen_tipo, origen) {
+    return hwEquipos.filter(e => {
+      if (e.catalogo_id !== Number(catalogo_id) || e.estado !== 'en_bodega') return false
+      if (origen_tipo === 'bodega' && origen) return e.ubicacion_actual === origen
+      return true
+    })
   }
 
   // Ajustar array de seriales cuando cambia la cantidad
   function setCantidad(n) {
     const raw = Number(n) || 1
     setForm(p => {
-      // En SALIDA, no permitir más que el stock disponible
       const enBodega = modalTipo === 'SALIDA' && p.catalogo_id
-        ? hwEquipos.filter(e => e.catalogo_id === Number(p.catalogo_id) && e.estado === 'en_bodega').length
+        ? getSerialDisp(p.catalogo_id, p.origen_tipo, p.origen).length
         : 50
       if (modalTipo === 'SALIDA' && raw > enBodega) {
-        showToast(`Máximo ${enBodega} unidad(es) disponible(s) en bodega`, 'err')
+        showToast(`Máximo ${enBodega} unidad(es) disponible(s) en la bodega seleccionada`, 'err')
       }
       const qty = Math.max(1, Math.min(enBodega || 1, raw))
       const arr = [...(p.seriales || [])]
@@ -271,15 +290,16 @@ export default function HwMovimientos() {
     const seriales = form.seriales.map(s => s.trim()).filter(Boolean)
     if (seriales.length === 0) { showToast('Ingresa al menos un serial', 'err'); return }
 
-    // Validación de stock para SALIDA
+    // Validación de stock para SALIDA (filtrado por bodega origen)
     if (modalTipo === 'SALIDA') {
-      const enBodega = hwEquipos.filter(e => e.catalogo_id === Number(form.catalogo_id) && e.estado === 'en_bodega')
+      const enBodega = getSerialDisp(form.catalogo_id, form.origen_tipo, form.origen)
       if (seriales.length > enBodega.length) {
-        showToast(`Stock insuficiente. Disponible en bodega: ${enBodega.length} unidad(es)`, 'err'); return
+        const bodegaLabel = form.origen_tipo === 'bodega' && form.origen ? ` en ${form.origen}` : ''
+        showToast(`Stock insuficiente${bodegaLabel}. Disponible: ${enBodega.length} unidad(es)`, 'err'); return
       }
       const serialesNoDisp = seriales.filter(s => !enBodega.some(e => e.serial === s))
       if (serialesNoDisp.length > 0) {
-        showToast(`Serial(es) no disponible(s) en bodega: ${serialesNoDisp.join(', ')}`, 'err'); return
+        showToast(`Serial(es) no disponible(s): ${serialesNoDisp.join(', ')}`, 'err'); return
       }
     }
 
@@ -466,9 +486,9 @@ export default function HwMovimientos() {
 
               {/* Cantidad + Seriales individuales */}
               {(() => {
-                // Seriales disponibles en bodega para el tipo seleccionado (solo SALIDA)
+                // Seriales disponibles para el tipo seleccionado, filtrados por bodega origen
                 const serialesDisp = modalTipo === 'SALIDA' && form.catalogo_id
-                  ? hwEquipos.filter(e => e.catalogo_id === Number(form.catalogo_id) && e.estado === 'en_bodega').map(e => e.serial)
+                  ? getSerialDisp(form.catalogo_id, form.origen_tipo, form.origen).map(e => e.serial)
                   : []
                 const stockDisp = serialesDisp.length
 
@@ -527,7 +547,6 @@ export default function HwMovimientos() {
                                 {opciones.map(ser => (
                                   <option key={ser} value={ser}>{ser}</option>
                                 ))}
-                                {s && !opciones.includes(s) && <option value={s}>{s}</option>}
                               </select>
                             ) : (
                               <input className="fc" placeholder={`Serial ${i + 1}`} value={s}
