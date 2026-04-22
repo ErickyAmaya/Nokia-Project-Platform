@@ -186,6 +186,7 @@ function emptyForm(tipo, movimientos) {
     catalogo_id:       '',
     cantidad:          1,
     seriales:          [''],
+    serialBodegas:     [bodegaPrincipal],   // bodega por cada slot de serial
     origen:            bodegaPrincipal,
     origen_tipo:       tipo === 'ENTRADA' ? 'nokia'  : 'bodega',
     destino:           '',
@@ -227,7 +228,7 @@ export default function HwMovimientos() {
 
   useEffect(() => { loadAll() }, [])
 
-  // Al cambiar bodega origen: resetear seriales y ajustar cantidad al nuevo stock disponible
+  // Al cambiar bodega origen: resetear seriales/serialBodegas y ajustar cantidad al nuevo stock
   useEffect(() => {
     if (modalTipo !== 'SALIDA' || !form) return
     const curr = form.origen
@@ -240,7 +241,12 @@ export default function HwMovimientos() {
           (p.origen_tipo !== 'bodega' || !curr || e.ubicacion_actual === curr)
         ).length
         const newQty = newStock > 0 ? Math.min(p.cantidad, newStock) : p.cantidad
-        return { ...p, cantidad: newQty, seriales: Array(newQty).fill('') }
+        return {
+          ...p,
+          cantidad: newQty,
+          seriales: Array(newQty).fill(''),
+          serialBodegas: Array(newQty).fill(curr || ''),
+        }
       })
     }
     prevOrigenRef.current = curr
@@ -264,12 +270,28 @@ export default function HwMovimientos() {
   function setCantidad(n) {
     const raw = Number(n) || 1
     setForm(p => {
-      const stockActual = modalTipo === 'SALIDA' && p.catalogo_id
-        ? getSerialDisp(p.catalogo_id, p.origen_tipo, p.origen).length
+      // Stock total en todas las bodegas (techo absoluto)
+      const stockTodo = modalTipo === 'SALIDA' && p.catalogo_id
+        ? hwEquipos.filter(e => e.catalogo_id === Number(p.catalogo_id) && e.estado === 'en_bodega').length
         : 50
 
-      // Si SALIDA con bodega seleccionada y cantidad supera stock: buscar alternativas
-      if (modalTipo === 'SALIDA' && p.catalogo_id && p.origen_tipo === 'bodega' && raw > stockActual) {
+      // Cap absoluto: no superar el total disponible
+      if (modalTipo === 'SALIDA' && p.catalogo_id && raw > stockTodo) {
+        showToast(`Máximo ${stockTodo} unidad(es) disponibles en total`, 'err')
+        const qty = Math.max(1, stockTodo || 1)
+        const bods = [...(p.serialBodegas || [])]
+        const arr  = [...(p.seriales || [])]
+        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
+        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
+      }
+
+      // Stock solo en la bodega seleccionada como origen
+      const stockActual = modalTipo === 'SALIDA' && p.catalogo_id && p.origen_tipo === 'bodega'
+        ? getSerialDisp(p.catalogo_id, p.origen_tipo, p.origen).length
+        : stockTodo
+
+      // Si supera el stock de la bodega actual → buscar alternativas
+      if (modalTipo === 'SALIDA' && p.catalogo_id && p.origen_tipo === 'bodega' && p.origen && raw > stockActual) {
         const alts = bodegas
           .map(b => b.nombre)
           .filter(bn => bn !== p.origen)
@@ -284,35 +306,49 @@ export default function HwMovimientos() {
           .filter(a => a.stock > 0)
 
         if (alts.length > 0) {
-          // Mostrar mini-modal de bodega alternativa, no modificar el form todavía
           setAltModal({ requestedQty: raw, currentBodega: p.origen, currentStock: stockActual, alternatives: alts })
-          return p
+          return p   // no modificar el form todavía
         }
 
-        // Sin alternativas: limitar al stock disponible
-        showToast(`Máximo ${stockActual} unidad(es) disponible(s) en ${p.origen || 'la bodega seleccionada'}`, 'err')
+        // Sin alternativas: cap en stock actual
+        showToast(`Máximo ${stockActual} unidad(es) en ${p.origen}`, 'err')
         const qty = Math.max(1, stockActual || 1)
-        const arr = [...(p.seriales || [])]
-        while (arr.length < qty) arr.push('')
-        return { ...p, cantidad: qty, seriales: arr.slice(0, qty) }
+        const bods = [...(p.serialBodegas || [])]
+        const arr  = [...(p.seriales || [])]
+        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
+        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
       }
 
-      const qty = Math.max(1, Math.min(stockActual || 50, raw))
-      const arr = [...(p.seriales || [])]
-      while (arr.length < qty) arr.push('')
-      return { ...p, cantidad: qty, seriales: arr.slice(0, qty) }
+      // Ajuste normal de cantidad
+      const qty = Math.max(1, Math.min(stockTodo || 50, raw))
+      const bods = [...(p.serialBodegas || [])]
+      const arr  = [...(p.seriales || [])]
+      while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
+      return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
     })
   }
 
-  function handleAltSwitch(altBodega, altStock) {
-    const newQty = Math.min(altModal.requestedQty, altStock)
-    setForm(p => ({ ...p, origen: altBodega, cantidad: newQty, seriales: Array(newQty).fill('') }))
+  // Confirmar alt-bodega: mantener slots de la bodega actual + agregar slots de la alternativa
+  function handleAltAdd(altBodega, altStock) {
+    const fromCurrent = altModal.currentStock
+    const fromAlt     = Math.min(altModal.requestedQty - fromCurrent, altStock)
+    setForm(p => ({
+      ...p,
+      cantidad:      fromCurrent + fromAlt,
+      seriales:      [...Array(fromCurrent).fill(''), ...Array(fromAlt).fill('')],
+      serialBodegas: [...Array(fromCurrent).fill(altModal.currentBodega), ...Array(fromAlt).fill(altBodega)],
+    }))
     setAltModal(null)
   }
 
   function handleAltKeepCurrent() {
     const qty = Math.max(1, altModal.currentStock)
-    setForm(p => ({ ...p, cantidad: qty, seriales: Array(qty).fill('') }))
+    setForm(p => ({
+      ...p,
+      cantidad:      qty,
+      seriales:      Array(qty).fill(''),
+      serialBodegas: Array(qty).fill(altModal.currentBodega || p.origen || ''),
+    }))
     setAltModal(null)
   }
 
@@ -340,22 +376,36 @@ export default function HwMovimientos() {
     const seriales = form.seriales.map(s => s.trim()).filter(Boolean)
     if (seriales.length === 0) { showToast('Ingresa al menos un serial', 'err'); return }
 
-    // Validación de stock para SALIDA (filtrado por bodega origen)
+    // Validación de stock para SALIDA — por bodega (soporta multi-bodega)
     if (modalTipo === 'SALIDA') {
-      const enBodega = getSerialDisp(form.catalogo_id, form.origen_tipo, form.origen)
-      if (seriales.length > enBodega.length) {
-        const bodegaLabel = form.origen_tipo === 'bodega' && form.origen ? ` en ${form.origen}` : ''
-        showToast(`Stock insuficiente${bodegaLabel}. Disponible: ${enBodega.length} unidad(es)`, 'err'); return
-      }
-      const serialesNoDisp = seriales.filter(s => !enBodega.some(e => e.serial === s))
-      if (serialesNoDisp.length > 0) {
-        showToast(`Serial(es) no disponible(s): ${serialesNoDisp.join(', ')}`, 'err'); return
+      const byBodega = {}
+      seriales.forEach((s, i) => {
+        const bod = form.serialBodegas?.[i] || form.origen
+        if (!byBodega[bod]) byBodega[bod] = []
+        byBodega[bod].push(s)
+      })
+      for (const [bod, sers] of Object.entries(byBodega)) {
+        const enBodega = hwEquipos.filter(e =>
+          e.catalogo_id === Number(form.catalogo_id) &&
+          e.estado === 'en_bodega' &&
+          e.ubicacion_actual === bod
+        )
+        if (sers.length > enBodega.length) {
+          showToast(`Stock insuficiente en ${bod}: ${enBodega.length} disponible(s)`, 'err'); return
+        }
+        const noDisp = sers.filter(s => !enBodega.some(e => e.serial === s))
+        if (noDisp.length > 0) {
+          showToast(`Serial(es) no disponible(s) en ${bod}: ${noDisp.join(', ')}`, 'err'); return
+        }
       }
     }
 
     setSaving(true)
     try {
-      for (const serial of seriales) {
+      for (let idx = 0; idx < seriales.length; idx++) {
+        const serial       = seriales[idx]
+        const origenSerial = form.serialBodegas?.[idx] || form.origen   // bodega por slot
+
         const nuevoEstado = modalTipo === 'ENTRADA'
           ? (form.destino_tipo === 'bodega' ? 'en_bodega' : form.destino_tipo === 'sitio' ? 'en_sitio' : 'en_transito')
           : (form.destino_tipo === 'nokia' ? 'retornado_nokia' : form.destino_tipo === 'ss' ? 'retornado_ss' : form.destino_tipo === 'sitio' ? 'en_sitio' : 'en_transito')
@@ -384,7 +434,7 @@ export default function HwMovimientos() {
           so:                  form.so || null,
           smp_id:              form.smp_id || null,
           fecha:               form.fecha,
-          origen:              form.origen,
+          origen:              origenSerial,        // bodega correcta por serial
           origen_tipo:         form.origen_tipo,
           destino:             form.destino,
           destino_tipo:        form.destino_tipo,
@@ -402,7 +452,17 @@ export default function HwMovimientos() {
   async function handleDelete(m) {
     const ok = await confirm('Eliminar movimiento', `¿Eliminar movimiento del serial "${m.serial}"?`)
     if (!ok) return
-    try { await deleteHwMovimiento(m.id); showToast('Movimiento eliminado') }
+    try {
+      // Al eliminar una SALIDA: retornar el equipo a la bodega origen
+      if (m.tipo === 'SALIDA') {
+        const equipo = hwEquipos.find(e => e.serial === m.serial)
+        if (equipo) {
+          await updateHwEquipo(equipo.id, { estado: 'en_bodega', ubicacion_actual: m.origen })
+        }
+      }
+      await deleteHwMovimiento(m.id)
+      showToast('Movimiento eliminado')
+    }
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
@@ -517,9 +577,9 @@ export default function HwMovimientos() {
                     <div style={{ fontSize:12, fontWeight:700, color:'#1e40af' }}>📦 {alt.bodega}</div>
                     <div style={{ fontSize:10, color:'#9ca89c' }}>{alt.stock} unidad(es) disponible(s)</div>
                   </div>
-                  <button onClick={() => handleAltSwitch(alt.bodega, alt.stock)}
+                  <button onClick={() => handleAltAdd(alt.bodega, alt.stock)}
                     style={{ background:'#1e40af', color:'#fff', border:'none', borderRadius:6, padding:'5px 12px', fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                    Sacar {Math.min(altModal.requestedQty, alt.stock)} de aquí
+                    Sacar {Math.min(altModal.requestedQty - altModal.currentStock, alt.stock)} de aquí
                   </button>
                 </div>
               ))}
@@ -584,54 +644,57 @@ export default function HwMovimientos() {
 
               {/* Cantidad + Seriales individuales */}
               {(() => {
-                // Seriales disponibles para el tipo seleccionado, filtrados por bodega origen
-                const serialesDisp = modalTipo === 'SALIDA' && form.catalogo_id
-                  ? getSerialDisp(form.catalogo_id, form.origen_tipo, form.origen).map(e => e.serial)
+                // Total de seriales disponibles en TODAS las bodegas (techo para la cantidad)
+                const todosDisp = modalTipo === 'SALIDA' && form.catalogo_id
+                  ? hwEquipos.filter(e => e.catalogo_id === Number(form.catalogo_id) && e.estado === 'en_bodega')
                   : []
-                const stockDisp = serialesDisp.length
+                const stockTotal = todosDisp.length
+
+                // Desglose por bodega para los badges informativos
+                const gruposBodega = {}
+                todosDisp.forEach(e => {
+                  const bod = e.ubicacion_actual || '(sin bodega)'
+                  gruposBodega[bod] = (gruposBodega[bod] || 0) + 1
+                })
 
                 return (
-                  <div style={{ border:`1px solid ${modalTipo==='SALIDA' && form.catalogo_id && stockDisp===0 ? '#fca5a5' : '#e0e4e0'}`, borderRadius:6, padding:12 }}>
+                  <div style={{ border:`1px solid ${modalTipo==='SALIDA' && form.catalogo_id && stockTotal===0 ? '#fca5a5' : '#e0e4e0'}`, borderRadius:6, padding:12 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:6 }}>
                       <label className="fl" style={{ marginBottom:0 }}>Cantidad de equipos *</label>
                       <input
-                        type="number" min={1} max={modalTipo==='SALIDA' ? stockDisp || 1 : 50} className="fc"
+                        type="number" min={1} max={modalTipo==='SALIDA' ? stockTotal || 1 : 50} className="fc"
                         value={form.cantidad}
                         onChange={e => setCantidad(e.target.value)}
                         style={{ width:80, textAlign:'center', fontWeight:700 }}
                       />
                       {modalTipo === 'SALIDA' && form.catalogo_id && (
-                        <span style={{ fontSize:10, fontWeight:700, color: stockDisp===0?'#c0392b':'#1a6130' }}>
-                          {stockDisp === 0 ? 'Sin stock disponible' : `${stockDisp} disponible(s) en bodega`}
+                        <span style={{ fontSize:10, fontWeight:700, color: stockTotal===0?'#c0392b':'#1a6130' }}>
+                          {stockTotal === 0 ? 'Sin stock disponible' : `${stockTotal} disponible(s) en total`}
                         </span>
                       )}
                     </div>
                     {/* Desglose por bodega */}
-                    {modalTipo === 'SALIDA' && form.catalogo_id && (() => {
-                      const grupos = {}
-                      serialesDisp.forEach(ser => {
-                        const eq = hwEquipos.find(e => e.serial === ser && e.estado === 'en_bodega')
-                        const bod = eq?.ubicacion_actual || '(sin bodega)'
-                        grupos[bod] = (grupos[bod] || 0) + 1
-                      })
-                      const entradas = Object.entries(grupos)
-                      if (entradas.length === 0) return null
-                      return (
-                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}>
-                          {entradas.map(([bod, cnt]) => (
-                            <span key={bod} style={{ fontSize:9, fontWeight:700, padding:'2px 8px', borderRadius:12,
-                              background:'#eff6ff', color:'#1e40af', border:'1px solid #bfdbfe' }}>
-                              {bod}: {cnt} ud.
-                            </span>
-                          ))}
-                        </div>
-                      )
-                    })()}
+                    {modalTipo === 'SALIDA' && form.catalogo_id && Object.keys(gruposBodega).length > 0 && (
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}>
+                        {Object.entries(gruposBodega).map(([bod, cnt]) => (
+                          <span key={bod} style={{ fontSize:9, fontWeight:700, padding:'2px 8px', borderRadius:12,
+                            background:'#eff6ff', color:'#1e40af', border:'1px solid #bfdbfe' }}>
+                            {bod}: {cnt} ud.
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                       {form.seriales.map((s, i) => {
-                        // SALIDA: dropdown con seriales disponibles (excluir los ya elegidos en otros campos)
-                        const elegidos = form.seriales.filter((x, j) => j !== i && x)
-                        const opciones = serialesDisp.filter(ser => !elegidos.includes(ser))
+                        const slotBodega = form.serialBodegas?.[i] || form.origen
+                        // Seriales disponibles en la bodega de este slot
+                        const elegidosEnSlot = form.seriales.filter((x, j) =>
+                          j !== i && x && (form.serialBodegas?.[j] || form.origen) === slotBodega
+                        )
+                        const opcionesSlot = todosDisp
+                          .filter(e => e.ubicacion_actual === slotBodega && !elegidosEnSlot.includes(e.serial))
+                          .map(e => e.serial)
+
                         return (
                           <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
                             <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:60, fontFamily:"'Barlow Condensed',sans-serif" }}>
@@ -640,16 +703,23 @@ export default function HwMovimientos() {
                             {modalTipo === 'SALIDA' && form.catalogo_id ? (
                               <select className="fc" value={s}
                                 onChange={e => setSerial(i, e.target.value)}
-                                style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600 }}>
+                                style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600, flex:1 }}>
                                 <option value="">— Seleccionar serial —</option>
-                                {opciones.map(ser => (
+                                {opcionesSlot.map(ser => (
                                   <option key={ser} value={ser}>{ser}</option>
                                 ))}
                               </select>
                             ) : (
                               <input className="fc" placeholder={`Serial ${i + 1}`} value={s}
                                 onChange={e => setSerial(i, e.target.value)}
-                                style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600 }} />
+                                style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, flex:1 }} />
+                            )}
+                            {/* Badge de bodega — solo en SALIDA cuando hay multi-bodega */}
+                            {modalTipo === 'SALIDA' && slotBodega && (
+                              <span style={{ fontSize:9, fontWeight:700, whiteSpace:'nowrap', padding:'2px 7px',
+                                borderRadius:10, background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0' }}>
+                                {slotBodega}
+                              </span>
                             )}
                           </div>
                         )
