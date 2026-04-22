@@ -286,40 +286,58 @@ export default function HwInventario() {
                               </div>
                             </>)}
 
-                            {/* ── Sin serial ── */}
-                            {movsSinSerial.length > 0 && (
-                              <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none' }}>
-                                <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                  <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#f59e0b', letterSpacing:1, textTransform:'uppercase' }}>
-                                    Sin Serial — {cat.descripcion}
-                                  </span>
-                                  <span style={{ fontSize:10, color:'#9ca89c' }}>Stock disponible: {ssStock}</span>
-                                </div>
-                                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                  <thead>
-                                    <tr style={{ background:'#fffbeb' }}>
-                                      {['TIPO','CANT.','FECHA','ORIGEN','DESTINO','SO'].map(h => (
-                                        <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #fde68a', whiteSpace:'nowrap' }}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {movsSinSerial.map((m, idx) => (
-                                      <tr key={m.id} style={{ background: idx%2===0?'#fff':'#fffbeb', borderBottom:'1px solid #fef3c7' }}>
-                                        <td style={{ padding:'6px 10px' }}>
-                                          <span style={{ fontWeight:700, fontSize:10, color: m.tipo==='ENTRADA'?'#1a6130':'#c0392b' }}>{m.tipo}</span>
-                                        </td>
-                                        <td style={{ padding:'6px 10px', fontWeight:800, fontSize:13, color:'#144E4A' }}>{m.cantidad}</td>
-                                        <td style={{ padding:'6px 10px', color:'#9ca89c', fontSize:10 }}>{m.fecha}</td>
-                                        <td style={{ padding:'6px 10px', fontSize:10 }}>{m.origen || '—'}</td>
-                                        <td style={{ padding:'6px 10px', fontSize:10, fontWeight:600 }}>{m.destino || '—'}</td>
-                                        <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{m.so || '—'}</td>
+                            {/* ── Sin serial: resumen en mismas columnas que seriales ── */}
+                            {movsSinSerial.length > 0 && (() => {
+                              // Una fila por ubicación destino (en_bodega + cada sitio)
+                              const filas = []
+                              if (ssStock > 0) {
+                                filas.push({ cant: ssStock, estado: 'en_bodega', ubicacion: '—' })
+                              }
+                              const bySite = {}
+                              movsSinSerial.filter(m => m.tipo === 'SALIDA').forEach(m => {
+                                const loc = m.destino || '—'
+                                bySite[loc] = (bySite[loc] || 0) + (m.cantidad || 0)
+                              })
+                              Object.entries(bySite).forEach(([loc, cnt]) => {
+                                filas.push({ cant: cnt, estado: 'en_sitio', ubicacion: loc })
+                              })
+                              if (filas.length === 0) return null
+                              return (
+                                <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
+                                  <div style={{ background:'#0a0a0a', padding:'4px 16px' }}>
+                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11, color:'#f59e0b', letterSpacing:.5, textTransform:'uppercase' }}>
+                                      Sin Serial
+                                    </span>
+                                  </div>
+                                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                    <thead>
+                                      <tr style={{ background:'#fffbeb' }}>
+                                        {['CANT.','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD', canEdit && ''].filter(Boolean).map(h => (
+                                          <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #fde68a', whiteSpace:'nowrap' }}>{h}</th>
+                                        ))}
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
+                                    </thead>
+                                    <tbody>
+                                      {filas.map((f, idx) => {
+                                        const est = ESTADO_CFG[f.estado] || ESTADO_CFG.en_bodega
+                                        return (
+                                          <tr key={idx} style={{ background: idx%2===0?'#fff':'#fffbeb', borderBottom:'1px solid #fef3c7' }}>
+                                            <td style={{ padding:'6px 10px', fontWeight:800, fontSize:13, color:'#144E4A' }}>{f.cant}</td>
+                                            <td style={{ padding:'6px 10px' }}>
+                                              <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
+                                            </td>
+                                            <td style={{ padding:'6px 10px', color:'#555f55' }}>{f.ubicacion}</td>
+                                            <td style={{ padding:'6px 10px', color:'#9ca89c' }}>—</td>
+                                            <td style={{ padding:'6px 10px', color:'#9ca89c' }}>—</td>
+                                            {canEdit && <td />}
+                                          </tr>
+                                        )
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )
+                            })()}
 
                           </div>
                         </td>
