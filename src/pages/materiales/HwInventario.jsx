@@ -34,6 +34,11 @@ function IconEdit({ size = 13 }) {
   )
 }
 
+function titleCase(str) {
+  if (!str) return str
+  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+}
+
 export default function HwInventario() {
   const hwEquipos      = useHwStore(s => s.hwEquipos)
   const hwCatalogo     = useHwStore(s => s.hwCatalogo)
@@ -86,7 +91,7 @@ export default function HwInventario() {
         // Solo bodegas con stock > 0, formateado como "Nombre(N)"
         const ssBodegaLabel = Object.entries(ssBodegaMap)
           .filter(([, n]) => n > 0)
-          .map(([bod, n]) => `${bod}(${n})`)
+          .map(([bod, n]) => `${titleCase(bod)}(${n})`)
           .join(' - ') || '—'
 
         if (equipos.length === 0 && movsSinSerial.length === 0) return null
@@ -101,7 +106,7 @@ export default function HwInventario() {
           if (e.ubicacion_actual) bodegaCount[e.ubicacion_actual] = (bodegaCount[e.ubicacion_actual] || 0) + 1
           else unnamedEnBodega++
         })
-        const bodegaParts = Object.entries(bodegaCount).map(([b, n]) => `${b}(${n})`)
+        const bodegaParts = Object.entries(bodegaCount).map(([b, n]) => `${titleCase(b)}(${n})`)
         if (unnamedEnBodega > 0) bodegaParts.push(`(${unnamedEnBodega})`)
         const bodegaLabel = bodegaParts.join(' - ') || '—'
         const st       = statusInfo(stock)
@@ -267,7 +272,10 @@ export default function HwInventario() {
                         <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
                       </td>
                       <td style={{ fontSize:11, color:'#555f55' }}>
-                        {bodegaLabel === '—' ? <span style={{ color:'#9ca89c' }}>—</span> : bodegaLabel}
+                        {(() => {
+                          const d = bodegaLabel !== '—' ? bodegaLabel : ssBodegaLabel
+                          return d === '—' ? <span style={{ color:'#9ca89c' }}>—</span> : d
+                        })()}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:800, fontSize:14, color: stock === 0 ? '#c0392b' : '#1a6130' }}>
                         {stock}
@@ -287,11 +295,11 @@ export default function HwInventario() {
 
                             {/* ── Seriales ── */}
                             {equipos.length > 0 && (<>
-                              <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                              <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#6ee7b7', letterSpacing:1, textTransform:'uppercase' }}>
                                   {cat.descripcion}
                                 </span>
-                                <span style={{ fontSize:10, color:'#9ca89c' }}>{equipos.length} unidad(es)</span>
+                                <span style={{ fontSize:10, color:'#a7f3d0' }}>{equipos.length} unidad(es)</span>
                               </div>
                               <div style={{ overflowX:'auto' }}>
                                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
@@ -339,11 +347,11 @@ export default function HwInventario() {
                               const st     = statusInfo(ssStock)
                               return (
                                 <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
-                                  <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                                  <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#6ee7b7', letterSpacing:1, textTransform:'uppercase' }}>
                                       {cat.descripcion}
                                     </span>
-                                    <span style={{ fontSize:10, color:'#9ca89c' }}>{ssEntrada} unidad(es)</span>
+                                    <span style={{ fontSize:10, color:'#a7f3d0' }}>{ssEntrada} unidad(es)</span>
                                   </div>
                                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                     <thead>

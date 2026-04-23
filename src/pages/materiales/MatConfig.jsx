@@ -160,7 +160,7 @@ export default function MatConfig() {
         </div>
       </div>
 
-      {/* ── Fila 1: Bodegas Ingetel + Bodegas Nokia ── */}
+      {/* ── Catálogo de configuración: 2 columnas, 2 filas en un solo grid ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, alignItems:'start', marginBottom:16 }}>
 
         <div className="card">
@@ -236,11 +236,6 @@ export default function MatConfig() {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* ── Fila 2: Service Suppliers + Tipos de Unidad ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, alignItems:'start', marginBottom:16 }}>
-
         <div className="card">
           <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <h2>Service Suppliers (SS)</h2>
@@ -324,42 +319,42 @@ export default function MatConfig() {
         </div>
       </div>
 
-      {/* ── Fila 4: Historial de Cambios (ancho completo) ── */}
+      {/* ── Historial de Cambios (ancho completo) ── */}
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Historial de Cambios</h2>
-            <span style={{ fontSize:10, color:'#9ca89c' }}>{historial.length} registros</span>
-          </div>
-          <div className="card-b" style={{ padding:0 }}>
-            {historial.length === 0 ? (
-              <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin registros</div>
-            ) : (
-              <table className="tbl">
-                <thead><tr>
-                  <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Referencia</th><th>Detalle</th>
-                </tr></thead>
-                <tbody>
-                  {historial.map((h, i) => {
-                    const ac = ACCION_COLORS[h.accion] || { bg:'#f8f8f8', color:'#555f55' }
-                    const fechaStr = h.fecha
-                      ? new Date(h.fecha).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
-                      : '—'
-                    return (
-                      <tr key={i}>
-                        <td style={{ fontSize:10, color:'#9ca89c', whiteSpace:'nowrap' }}>{fechaStr}</td>
-                        <td style={{ fontSize:10, color:'#9ca89c' }}>{h.usuario}</td>
-                        <td>
-                          <span className="badge" style={{ background:ac.bg, color:ac.color, fontSize:9 }}>{h.accion}</span>
-                        </td>
-                        <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{h.ref}</td>
-                        <td style={{ fontSize:10, color:'#9ca89c', maxWidth:160 }}>{h.detalle}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <span style={{ fontSize:10, color:'#9ca89c' }}>{historial.length} registros</span>
+        </div>
+        <div className="card-b" style={{ padding:0 }}>
+          {historial.length === 0 ? (
+            <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin registros</div>
+          ) : (
+            <table className="tbl">
+              <thead><tr>
+                <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Referencia</th><th>Detalle</th>
+              </tr></thead>
+              <tbody>
+                {historial.map((h, i) => {
+                  const ac = ACCION_COLORS[h.accion] || { bg:'#f8f8f8', color:'#555f55' }
+                  const fechaStr = h.fecha
+                    ? new Date(h.fecha).toLocaleString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+                    : '—'
+                  return (
+                    <tr key={i}>
+                      <td style={{ fontSize:10, color:'#9ca89c', whiteSpace:'nowrap' }}>{fechaStr}</td>
+                      <td style={{ fontSize:10, color:'#9ca89c' }}>{h.usuario}</td>
+                      <td>
+                        <span className="badge" style={{ background:ac.bg, color:ac.color, fontSize:9 }}>{h.accion}</span>
+                      </td>
+                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11 }}>{h.ref}</td>
+                      <td style={{ fontSize:10, color:'#9ca89c', maxWidth:160 }}>{h.detalle}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {/* Modal Bodega Ingetel */}
