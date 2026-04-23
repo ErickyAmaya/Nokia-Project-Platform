@@ -93,30 +93,31 @@ export default function HwDespachoModal({ onClose }) {
       .filter(a => a.stock > 0)
   }
 
-  // ── Agregar ítem (seriales vacíos, usuario los llena) ─────────────
-  function pushItem(cat, qty, bodega) {
+  // ── Helpers internos de items ─────────────────────────────────────
+  function mergeItem(prev, cat, qty, bodega) {
     const seriales = cat.aplica_serial !== false ? Array(qty).fill('') : []
-    setItems(prev => {
-      const idx = prev.findIndex(i => i.catalogo_id === Number(cat.id) && i.bodega === bodega)
-      if (idx >= 0) {
-        // Agregar slots al ítem existente
-        return prev.map((it, i) => i !== idx ? it : {
-          ...it,
-          cantidad: it.cantidad + qty,
-          seriales: cat.aplica_serial !== false ? [...it.seriales, ...seriales] : [],
-        })
-      }
-      return [...prev, {
-        catalogo_id:   Number(cat.id),
-        descripcion:   cat.descripcion,
-        cod_material:  cat.cod_material || '—',
-        tipo_material: cat.tipo_material,
-        aplica_serial: cat.aplica_serial,
-        cantidad:      qty,
-        seriales,
-        bodega,
-      }]
-    })
+    const idx = prev.findIndex(i => i.catalogo_id === Number(cat.id) && i.bodega === bodega)
+    if (idx >= 0) {
+      return prev.map((it, i) => i !== idx ? it : {
+        ...it,
+        cantidad: it.cantidad + qty,
+        seriales: cat.aplica_serial !== false ? [...it.seriales, ...seriales] : [],
+      })
+    }
+    return [...prev, {
+      catalogo_id:   Number(cat.id),
+      descripcion:   cat.descripcion,
+      cod_material:  cat.cod_material || '—',
+      tipo_material: cat.tipo_material,
+      aplica_serial: cat.aplica_serial,
+      cantidad:      qty,
+      seriales,
+      bodega,
+    }]
+  }
+
+  function pushItem(cat, qty, bodega) {
+    setItems(prev => mergeItem(prev, cat, qty, bodega))
     setSelCat('')
     setSelCant(1)
     setAltModal(null)
@@ -153,11 +154,24 @@ export default function HwDespachoModal({ onClose }) {
     }))
   }
 
-  function handleAltSwitch(altBodega) {
+  // Combinar: mainStock de bodega principal + resto de bodega alternativa
+  function handleAltAdd(altBodega) {
     const cat = hwCatalogo.find(c => Number(c.id) === altModal.catId)
-    if (cat) pushItem(cat, altModal.requestedQty, altBodega)
+    if (!cat) return
+    const fromMain = altModal.mainStock
+    const fromAlt  = Math.min(altModal.requestedQty - fromMain, getStock(altModal.catId, altModal.aplica_serial, altBodega))
+    setItems(prev => {
+      let next = prev
+      if (fromMain > 0) next = mergeItem(next, cat, fromMain, altModal.mainBodega)
+      if (fromAlt  > 0) next = mergeItem(next, cat, fromAlt,  altBodega)
+      return next
+    })
+    setSelCat('')
+    setSelCant(1)
+    setAltModal(null)
   }
 
+  // Solo tomar lo disponible en la bodega principal
   function handleAltKeep() {
     if (altModal.mainStock <= 0) { setAltModal(null); return }
     const cat = hwCatalogo.find(c => Number(c.id) === altModal.catId)
@@ -512,7 +526,7 @@ export default function HwDespachoModal({ onClose }) {
               borderRadius:'10px 10px 0 0', borderBottom:'3px solid #ea580c',
               display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:13 }}>
-                Stock insuficiente · {altModal.mainBodega}
+                Stock insuficiente · {altModal.mainBodega || 'Bodega actual'}
               </span>
               <button onClick={() => setAltModal(null)}
                 style={{ background:'none', border:'none', color:'#9ca89c', fontSize:18, cursor:'pointer' }}>×</button>
@@ -528,20 +542,23 @@ export default function HwDespachoModal({ onClose }) {
                   <div style={{ fontSize:10, fontWeight:700, letterSpacing:.5, textTransform:'uppercase', color:'#9ca89c', marginBottom:8 }}>
                     Disponible en otras bodegas
                   </div>
-                  {altModal.alternatives.map(alt => (
-                    <div key={alt.bodega} style={{ border:'1.5px solid #dbeafe', borderRadius:8,
-                      padding:'10px 14px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <div>
-                        <div style={{ fontSize:12, fontWeight:700, color:'#1e40af' }}>📦 {alt.bodega}</div>
-                        <div style={{ fontSize:10, color:'#9ca89c' }}>{alt.stock} unidad(es) disponible(s)</div>
+                  {altModal.alternatives.map(alt => {
+                    const fromAlt = Math.min(altModal.requestedQty - altModal.mainStock, alt.stock)
+                    return (
+                      <div key={alt.bodega} style={{ border:'1.5px solid #dbeafe', borderRadius:8,
+                        padding:'10px 14px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <div style={{ fontSize:12, fontWeight:700, color:'#1e40af' }}>📦 {alt.bodega}</div>
+                          <div style={{ fontSize:10, color:'#9ca89c' }}>{alt.stock} unidad(es) disponible(s)</div>
+                        </div>
+                        <button onClick={() => handleAltAdd(alt.bodega)}
+                          style={{ background:'#1e40af', color:'#fff', border:'none', borderRadius:6,
+                            padding:'5px 12px', fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                          Sacar {fromAlt} de aquí
+                        </button>
                       </div>
-                      <button onClick={() => handleAltSwitch(alt.bodega)}
-                        style={{ background:'#1e40af', color:'#fff', border:'none', borderRadius:6,
-                          padding:'5px 12px', fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                        Usar esta bodega
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </>
               )}
               <div style={{ display:'flex', gap:8, marginTop:12, justifyContent:'flex-end', flexWrap:'wrap' }}>
@@ -549,7 +566,7 @@ export default function HwDespachoModal({ onClose }) {
                   <button onClick={handleAltKeep}
                     style={{ padding:'6px 12px', fontSize:11, fontWeight:700, borderRadius:6,
                       border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>
-                    Solo {altModal.mainStock} de {altModal.mainBodega}
+                    Sacar solo {altModal.mainStock} de {altModal.mainBodega}
                   </button>
                 )}
                 <button onClick={() => setAltModal(null)}
