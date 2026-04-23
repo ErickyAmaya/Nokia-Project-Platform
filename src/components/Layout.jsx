@@ -26,7 +26,7 @@ const MAT_NAV = [
   { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/sitios',       label: 'Sitios',      icon: '📍', id: 'mat-sitios',      roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
-  { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','logistica'] },
+  { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','coordinador','logistica'] },
 ]
 
 const HW_NAV = [
