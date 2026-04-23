@@ -230,8 +230,9 @@ export default function HwMovimientos() {
   const [despachoOpen, setDespachoOpen] = useState(false) // { requestedQty, currentBodega, currentStock, alternatives }
   const prevOrigenRef = useRef(null)
 
-  const navigate  = useNavigate()
-  const location  = useLocation()
+  const navigate     = useNavigate()
+  const location     = useLocation()
+  const returnToRef  = useRef(null)
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
 
@@ -241,9 +242,9 @@ export default function HwMovimientos() {
   useEffect(() => {
     const tipo = location.state?.openModal
     if (tipo === 'ENTRADA' || tipo === 'SALIDA') {
+      returnToRef.current = location.state?.returnTo || null
       setForm(emptyForm(tipo, hwMovimientos))
       setModalTipo(tipo)
-      // Limpiar el state para que no se re-abra en navegaciones futuras
       window.history.replaceState({}, '')
     }
   }, [location.state?.openModal]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -440,6 +441,7 @@ export default function HwMovimientos() {
         }
         showToast(`${form.cantidad} unidad(es) registrada(s) sin serial`)
         setModalTipo(null)
+        if (returnToRef.current) { navigate(returnToRef.current); returnToRef.current = null }
       } catch (e) { showToast('Error: ' + e.message, 'err') }
       finally { setSaving(false) }
       return
@@ -523,6 +525,7 @@ export default function HwMovimientos() {
       }
       showToast(`${seriales.length} equipo(s) registrado(s)`)
       setModalTipo(null)
+      if (returnToRef.current) { navigate(returnToRef.current); returnToRef.current = null }
     } catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
   }
@@ -884,8 +887,8 @@ export default function HwMovimientos() {
 
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
                 <button className="btn bou" onClick={() => setModalTipo(null)}>Cancelar</button>
-                <button onClick={handleSave} disabled={saving}
-                  style={{ background: accentColor, color:'#fff', padding:'6px 22px', borderRadius:6, fontWeight:700, fontSize:12, cursor:'pointer', border:'none' }}>
+                <button className="btn" onClick={handleSave} disabled={saving}
+                  style={{ background: accentColor, color:'#fff', border:'none', opacity: saving ? .7 : 1 }}>
                   {saving ? 'Guardando…' : `Registrar ${modalTipo === 'ENTRADA' ? 'Entrada' : 'Salida'}`}
                 </button>
               </div>

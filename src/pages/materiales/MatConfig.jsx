@@ -160,8 +160,9 @@ export default function MatConfig() {
         </div>
       </div>
 
-      {/* ── Catálogo de configuración: 2 columnas, 2 filas en un solo grid ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, alignItems:'start', marginBottom:16 }}>
+      {/* ── Catálogo de configuración: columna izq. (3 cards) + columna der. (1 card) ── */}
+      <div style={{ display:'flex', gap:16, alignItems:'start', marginBottom:16 }}>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:16 }}>
 
         <div className="card">
           <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -263,7 +264,9 @@ export default function MatConfig() {
             ))}
           </div>
         </div>
+        </div>{/* fin columna izquierda */}
 
+        <div style={{ flex:1 }}>
         <div className="card">
           <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <h2>Tipos de Unidad (LOG_INV)</h2>
@@ -291,7 +294,8 @@ export default function MatConfig() {
             ))}
           </div>
         </div>
-      </div>
+        </div>{/* fin columna derecha */}
+      </div>{/* fin flex contenedor */}
 
       {/* ── Fila 3: Info de la App (stats horizontales) ── */}
       <div className="card" style={{ marginBottom:16 }}>

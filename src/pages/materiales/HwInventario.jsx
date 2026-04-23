@@ -204,11 +204,11 @@ export default function HwInventario() {
             {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
             {canEdit && <>
               <button className="btn bp btn-sm"
-                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'ENTRADA' } })}>
+                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'ENTRADA', returnTo: '/materiales/hw/inventario' } })}>
                 + Entrada
               </button>
               <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
-                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'SALIDA' } })}>
+                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'SALIDA', returnTo: '/materiales/hw/inventario' } })}>
                 + Salida
               </button>
             </>}
@@ -296,7 +296,7 @@ export default function HwInventario() {
                             {/* ── Seriales ── */}
                             {equipos.length > 0 && (<>
                               <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#6ee7b7', letterSpacing:1, textTransform:'uppercase' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
                                   {cat.descripcion}
                                 </span>
                                 <span style={{ fontSize:10, color:'#a7f3d0' }}>{equipos.length} unidad(es)</span>
@@ -348,7 +348,7 @@ export default function HwInventario() {
                               return (
                                 <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
                                   <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#6ee7b7', letterSpacing:1, textTransform:'uppercase' }}>
+                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
                                       {cat.descripcion}
                                     </span>
                                     <span style={{ fontSize:10, color:'#a7f3d0' }}>{ssEntrada} unidad(es)</span>

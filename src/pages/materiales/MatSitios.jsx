@@ -129,8 +129,8 @@ export default function MatSitios() {
       )}
 
       <div className="card">
-        <div className="card-h" style={{ background:'#0a0a0a', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#1a9c1a', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
+        <div className="card-h" style={{ background:'#144E4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ color:'#a7f3d0', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
             Sitios de Instalación
           </h2>
         </div>
@@ -222,11 +222,11 @@ export default function MatSitios() {
                         <tr>
                           <td colSpan={8} style={{ padding:0, borderTop:'2px solid #1a9c1a' }}>
                             <div style={{ background:'#f8fdf8' }}>
-                              <div style={{ background:'#0a0a0a', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                              <div style={{ background:'#144E4A', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
                                   Materiales: {s.nombre}
                                 </span>
-                                <span style={{ fontSize:10, color:'#9ca89c' }}>
+                                <span style={{ fontSize:10, color:'#a7f3d0', opacity:.7 }}>
                                   Materiales enviados a este sitio según historial de salidas
                                 </span>
                               </div>
@@ -360,8 +360,8 @@ export default function MatSitios() {
 
                                 return (
                                   <div>
-                                    <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'2px solid #1d4ed8' }}>
-                                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#60a5fa', letterSpacing:1, textTransform:'uppercase' }}>
+                                    <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'2px solid #1d4ed8' }}>
+                                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:400, fontSize:12, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
                                         HW Nokia en sitio ({totalHW} unid.)
                                       </span>
                                       <button
