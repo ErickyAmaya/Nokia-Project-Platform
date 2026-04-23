@@ -65,7 +65,7 @@ export default function HwDespachoModal({ onClose }) {
     return hwEquipos.filter(e =>
       Number(e.catalogo_id) === id &&
       e.estado === 'en_bodega' &&
-      e.ubicacion_actual === bodega
+      (!e.ubicacion_actual || e.ubicacion_actual === bodega)
     )
   }
 

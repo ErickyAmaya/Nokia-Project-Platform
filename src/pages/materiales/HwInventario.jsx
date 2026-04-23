@@ -96,11 +96,17 @@ export default function HwInventario() {
         const stock    = enBodega.length + ssStock
         const total    = equipos.length + ssEntrada
         const bodegaCount = {}
-        enBodega.forEach(e => { if (e.ubicacion_actual) bodegaCount[e.ubicacion_actual] = (bodegaCount[e.ubicacion_actual] || 0) + 1 })
-        const bodegas     = Object.entries(bodegaCount).map(([b, n]) => `${b}(${n})`)
+        let unnamedEnBodega = 0
+        enBodega.forEach(e => {
+          if (e.ubicacion_actual) bodegaCount[e.ubicacion_actual] = (bodegaCount[e.ubicacion_actual] || 0) + 1
+          else unnamedEnBodega++
+        })
+        const bodegaParts = Object.entries(bodegaCount).map(([b, n]) => `${b}(${n})`)
+        if (unnamedEnBodega > 0) bodegaParts.push(`(${unnamedEnBodega})`)
+        const bodegaLabel = bodegaParts.join(' - ') || '—'
         const st       = statusInfo(stock)
 
-        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }
+        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }
       })
       .filter(r => {
         if (!r) return false
@@ -242,7 +248,7 @@ export default function HwInventario() {
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }) => {
+                {rows.map(({ cat, equipos, stock, enSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }) => {
                   const isOpen = expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
@@ -261,7 +267,7 @@ export default function HwInventario() {
                         <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
                       </td>
                       <td style={{ fontSize:11, color:'#555f55' }}>
-                        {bodegas.length === 0 ? <span style={{ color:'#9ca89c' }}>—</span> : bodegas.join(' - ')}
+                        {bodegaLabel === '—' ? <span style={{ color:'#9ca89c' }}>—</span> : bodegaLabel}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:800, fontSize:14, color: stock === 0 ? '#c0392b' : '#1a6130' }}>
                         {stock}
