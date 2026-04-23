@@ -26,7 +26,7 @@ export default function HwCatalogo() {
   const [modal,   setModal]   = useState(false)
   const [form,    setForm]    = useState(FORM_DEFAULT)
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = ['admin','coordinador'].includes(user?.role)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()

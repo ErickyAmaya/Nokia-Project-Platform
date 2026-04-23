@@ -58,7 +58,7 @@ export default function MatCatalogo() {
   const [matForm,  setMatForm]  = useState({})      // form exclusivo materiales
   const [provForm, setProvForm] = useState({})      // form exclusivo proveedores
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = ['admin','coordinador'].includes(user?.role)
   const isProveedoresTab = filCat === 'PROVEEDORES'
 
   const fileInputRef = useRef(null)

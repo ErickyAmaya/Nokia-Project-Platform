@@ -5,6 +5,8 @@ import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwEntradaSalidaModal from '../../components/materiales/HwEntradaSalidaModal'
 
+const CAT_FORM_DEFAULT = { cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes', aplica_serial:false, notas:'', activo:true }
+
 const ESTADO_CFG = {
   en_bodega:       { label:'En Bodega',      bg:'#d4edda', color:'#1a6130' },
   en_sitio:        { label:'En Sitio',        bg:'#dbeafe', color:'#1e40af' },
@@ -40,27 +42,33 @@ function titleCase(str) {
 }
 
 export default function HwInventario() {
-  const hwEquipos      = useHwStore(s => s.hwEquipos)
-  const hwCatalogo     = useHwStore(s => s.hwCatalogo)
-  const hwMovimientos  = useHwStore(s => s.hwMovimientos)
-  const hwTipoUnidades = useHwStore(s => s.hwTipoUnidades)
-  const updateHwEquipo = useHwStore(s => s.updateHwEquipo)
-  const deleteHwEquipo = useHwStore(s => s.deleteHwEquipo)
-  const loadAll        = useHwStore(s => s.loadAll)
-  const loading        = useHwStore(s => s.loading)
-  const user           = useAuthStore(s => s.user)
+  const hwEquipos        = useHwStore(s => s.hwEquipos)
+  const hwCatalogo       = useHwStore(s => s.hwCatalogo)
+  const hwMovimientos    = useHwStore(s => s.hwMovimientos)
+  const hwTipoUnidades   = useHwStore(s => s.hwTipoUnidades)
+  const updateHwEquipo   = useHwStore(s => s.updateHwEquipo)
+  const deleteHwEquipo   = useHwStore(s => s.deleteHwEquipo)
+  const saveHwCatItem    = useHwStore(s => s.saveHwCatItem)
+  const deleteHwCatItem  = useHwStore(s => s.deleteHwCatItem)
+  const deleteHwMovimiento = useHwStore(s => s.deleteHwMovimiento)
+  const loadAll          = useHwStore(s => s.loadAll)
+  const loading          = useHwStore(s => s.loading)
+  const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,    setSearch]    = useState('')
   const [filTipo,   setFilTipo]   = useState('')
   const [filStatus, setFilStatus] = useState('')
-  const [expanded,  setExpanded]  = useState(null)   // catalogo_id expandido
+  const [expanded,  setExpanded]  = useState(null)
   const [editModal, setEditModal] = useState(null)
   const [editForm,  setEditForm]  = useState({})
   const [editSaving,setEditSaving]= useState(false)
   const [modalTipo, setModalTipo] = useState(null)   // 'ENTRADA' | 'SALIDA' | null
+  const [catModal,  setCatModal]  = useState(null)   // catalog item being edited (sin serial)
+  const [catForm,   setCatForm]   = useState({})
+  const [catSaving, setCatSaving] = useState(false)
 
-  const canEdit  = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = ['admin','coordinador'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
 
@@ -175,6 +183,37 @@ export default function HwInventario() {
     if (!ok) return
     try { await deleteHwEquipo(e.id); showToast('Equipo eliminado') }
     catch (err) { showToast('Error: ' + err.message, 'err') }
+  }
+
+  // ── Catálogo: editar item sin serial ─────────────────────────────
+  function openCatEdit(cat) {
+    setCatForm({ ...cat })
+    setCatModal(cat)
+  }
+
+  async function handleCatSave() {
+    if (!catForm.descripcion?.trim()) { showToast('La descripción es requerida', 'err'); return }
+    setCatSaving(true)
+    try {
+      await saveHwCatItem(catForm)
+      showToast('Actualizado')
+      setCatModal(null)
+    } catch (err) { showToast('Error: ' + err.message, 'err') }
+    finally { setCatSaving(false) }
+  }
+
+  async function handleDeleteCat(cat) {
+    const movs = hwMovimientos.filter(m => m.catalogo_id === cat.id)
+    const msg = movs.length > 0
+      ? `¿Eliminar "${cat.descripcion}"? Se eliminarán ${movs.length} movimiento(s) asociado(s).`
+      : `¿Eliminar "${cat.descripcion}"?`
+    const ok = await confirm('Eliminar del catálogo', msg)
+    if (!ok) return
+    try {
+      for (const m of movs) await deleteHwMovimiento(m.id)
+      await deleteHwCatItem(cat.id)
+      showToast('Eliminado')
+    } catch (err) { showToast('Error: ' + err.message, 'err') }
   }
 
   return (
@@ -359,7 +398,7 @@ export default function HwInventario() {
                                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                     <thead>
                                       <tr style={{ background:'#f0f7f0' }}>
-                                        {['CÓD. EQUIPO','DESCRIPCIÓN','TIPO','BODEGA','STOCK','EN SITIO','TOTAL','STATUS'].map(h => (
+                                        {['CÓD. EQUIPO','DESCRIPCIÓN','TIPO','BODEGA','STOCK','EN SITIO','TOTAL','STATUS', canEdit && ''].filter(Boolean).map(h => (
                                           <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign: ['STOCK','EN SITIO','TOTAL'].includes(h) ? 'center' : 'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                         ))}
                                       </tr>
@@ -378,6 +417,12 @@ export default function HwInventario() {
                                         <td style={{ padding:'6px 10px' }}>
                                           <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
                                         </td>
+                                        {canEdit && (
+                                          <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}>
+                                            <button className="btn-edit" onClick={() => openCatEdit(cat)} style={{ marginRight:4 }}><IconEdit /></button>
+                                            <button className="btn-del" onClick={() => handleDeleteCat(cat)}>✕</button>
+                                          </td>
+                                        )}
                                       </tr>
                                     </tbody>
                                   </table>
@@ -447,6 +492,59 @@ export default function HwInventario() {
                 <button className="btn bou" onClick={() => setEditModal(null)}>Cancelar</button>
                 <button className="btn bp" onClick={handleEditSave} disabled={editSaving}>
                   {editSaving ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar item sin serial (catálogo) */}
+      {catModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:600, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:460 }}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #264D4A', borderRadius:'12px 12px 0 0' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
+                Editar: {catModal.descripcion}
+              </span>
+              <button onClick={() => setCatModal(null)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              {[
+                { label:'Descripción *', key:'descripcion' },
+                { label:'Cód. Equipo',   key:'cod_material' },
+                { label:'ID Parte',      key:'id_parte' },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="fl">{f.label}</label>
+                  <input type="text" className="fc" value={catForm[f.key] || ''}
+                    onChange={e => setCatForm(p => ({ ...p, [f.key]: e.target.value }))} />
+                </div>
+              ))}
+              <div>
+                <label className="fl">Tipo Material</label>
+                <select className="fc" value={catForm.tipo_material}
+                  onChange={e => setCatForm(p => ({ ...p, tipo_material: e.target.value }))}>
+                  <option value="Partes">Partes</option>
+                  <option value="Grupos">Grupos</option>
+                  <option value="HWS">HWS</option>
+                </select>
+              </div>
+              <div>
+                <label className="fl">Notas</label>
+                <textarea className="fc" rows={2} value={catForm.notas || ''}
+                  onChange={e => setCatForm(p => ({ ...p, notas: e.target.value }))}
+                  style={{ resize:'vertical', fontSize:12 }} />
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <input type="checkbox" id="cat-activo" checked={catForm.activo !== false}
+                  onChange={e => setCatForm(p => ({ ...p, activo: e.target.checked }))} />
+                <label htmlFor="cat-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>
+              </div>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+                <button className="btn bou" onClick={() => setCatModal(null)}>Cancelar</button>
+                <button className="btn bp" onClick={handleCatSave} disabled={catSaving}>
+                  {catSaving ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             </div>

@@ -52,7 +52,7 @@ export default function MatConfig() {
   // Cargar datos HW al montar
   useState(() => { loadAll() })
 
-  const canEdit = ['admin','logistica'].includes(user?.role)
+  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
 
   // Historial derivado de movimientos + despachos
   const historial = useMemo(() => {
