@@ -725,32 +725,6 @@ export default function HwMovimientos() {
                 />
               </div>
 
-              {/* Toggle sin serial — solo visible si el catálogo aplica serial */}
-              {(() => {
-                const catItem = hwCatalogo.find(c => String(c.id) === String(form.catalogo_id))
-                if (catItem && catItem.aplica_serial === false) {
-                  return (
-                    <div style={{ fontSize:11, color:'#92400e', fontWeight:600, background:'#fef3cd', padding:'6px 10px', borderRadius:6 }}>
-                      Este ítem no aplica serial — se registrará solo por cantidad
-                    </div>
-                  )
-                }
-                return (
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <input type="checkbox" id="sin-serial-chk" checked={!!form.sinSerial}
-                      onChange={e => setForm(p => ({
-                        ...p,
-                        sinSerial: e.target.checked,
-                        seriales:      [''],
-                        serialBodegas: [p.origen || ''],
-                        cantidad:      1,
-                      }))} />
-                    <label htmlFor="sin-serial-chk" style={{ fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      Sin serial — solo registrar cantidad
-                    </label>
-                  </div>
-                )
-              })()}
 
               {/* Cantidad + Seriales individuales */}
               {(() => {
