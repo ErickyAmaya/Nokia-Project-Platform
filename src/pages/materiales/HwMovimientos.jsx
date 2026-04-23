@@ -6,6 +6,7 @@ import { useMatStore } from '../../store/useMatStore'
 import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import HwDespachoModal from '../../components/materiales/HwDespachoModal'
 
 const TIPO_LUGAR = [
   { value:'nokia',  label:'Nokia' },
@@ -219,13 +220,14 @@ export default function HwMovimientos() {
   const user               = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [modalTipo, setModalTipo] = useState(null)
-  const [saving,    setSaving]    = useState(false)
-  const [search,    setSearch]    = useState('')
-  const [filTipo,   setFilTipo]   = useState('')
-  const [filDate,   setFilDate]   = useState('')
-  const [form,      setForm]      = useState(null)
-  const [altModal,  setAltModal]  = useState(null) // { requestedQty, currentBodega, currentStock, alternatives }
+  const [modalTipo,    setModalTipo]    = useState(null)
+  const [saving,       setSaving]       = useState(false)
+  const [search,       setSearch]       = useState('')
+  const [filTipo,      setFilTipo]      = useState('')
+  const [filDate,      setFilDate]      = useState('')
+  const [form,         setForm]         = useState(null)
+  const [altModal,     setAltModal]     = useState(null)
+  const [despachoOpen, setDespachoOpen] = useState(false) // { requestedQty, currentBodega, currentStock, alternatives }
   const prevOrigenRef = useRef(null)
 
   const navigate  = useNavigate()
@@ -568,10 +570,16 @@ export default function HwMovimientos() {
   return (
     <div>
       <ConfirmModalUI />
+      {despachoOpen && <HwDespachoModal onClose={() => setDespachoOpen(false)} />}
 
       <div className="card" style={{ marginBottom:14 }}>
-        <div className="card-h">
+        <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Movimientos HW Nokia ({rows.length})</h2>
+          {canEdit && (
+            <button className="btn bp btn-sm" onClick={() => setDespachoOpen(true)}>
+              + Nuevo Despacho
+            </button>
+          )}
         </div>
         <div className="card-b">
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
