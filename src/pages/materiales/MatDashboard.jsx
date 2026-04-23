@@ -21,8 +21,8 @@ const STATUS_COLORS = [C.green, C.amber, C.red]
 function KpiCard({ label, value, color = C.dark }) {
   return (
     <div style={{ background:'#fff', borderRadius:8, borderLeft:`4px solid ${color}`, padding:'12px 14px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-      <div style={{ fontSize:8, fontWeight:700, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:5 }}>{label}</div>
-      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:22, color, lineHeight:1 }}>{value}</div>
+      <div style={{ fontSize:8, fontWeight:600, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:5 }}>{label}</div>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:22, color, lineHeight:1 }}>{value}</div>
     </div>
   )
 }

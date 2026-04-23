@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
+import HwEntradaSalidaModal from '../../components/materiales/HwEntradaSalidaModal'
 
 const ESTADO_CFG = {
   en_bodega:       { label:'En Bodega',      bg:'#d4edda', color:'#1a6130' },
@@ -58,8 +58,8 @@ export default function HwInventario() {
   const [editModal, setEditModal] = useState(null)
   const [editForm,  setEditForm]  = useState({})
   const [editSaving,setEditSaving]= useState(false)
+  const [modalTipo, setModalTipo] = useState(null)   // 'ENTRADA' | 'SALIDA' | null
 
-  const navigate = useNavigate()
   const canEdit  = ['admin','coordinador','logistica'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
@@ -180,6 +180,9 @@ export default function HwInventario() {
   return (
     <div>
       <ConfirmModalUI />
+      {modalTipo && (
+        <HwEntradaSalidaModal tipo={modalTipo} onClose={() => setModalTipo(null)} />
+      )}
 
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:14 }}>
@@ -203,12 +206,12 @@ export default function HwInventario() {
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
             {canEdit && <>
-              <button className="btn bp btn-sm"
-                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'ENTRADA', returnTo: '/materiales/hw/inventario' } })}>
+              <button className="btn btn-sm" style={{ background:'#D6F9F2', color:'#264D4A' }}
+                onClick={() => setModalTipo('ENTRADA')}>
                 + Entrada
               </button>
               <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
-                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'SALIDA', returnTo: '/materiales/hw/inventario' } })}>
+                onClick={() => setModalTipo('SALIDA')}>
                 + Salida
               </button>
             </>}
