@@ -245,7 +245,7 @@ export default function HwInventario() {
                             {equipos.length > 0 && (<>
                               <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                                 <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
-                                  Seriales — {cat.descripcion}
+                                  {cat.descripcion}
                                 </span>
                                 <span style={{ fontSize:10, color:'#9ca89c' }}>{equipos.length} unidad(es)</span>
                               </div>
@@ -253,7 +253,7 @@ export default function HwInventario() {
                                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                   <thead>
                                     <tr style={{ background:'#f0f7f0' }}>
-                                      {['SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                      {['CANT.','SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
                                         <th key={h} style={{ padding:'5px 10px', color:'#144E4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                       ))}
                                     </tr>
@@ -263,6 +263,7 @@ export default function HwInventario() {
                                       const est = ESTADO_CFG[e.estado] || ESTADO_CFG.en_bodega
                                       return (
                                         <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                          <td style={{ padding:'6px 10px', fontWeight:700, textAlign:'center', color:'#555f55' }}>1</td>
                                           <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>{e.serial}</td>
                                           <td style={{ padding:'6px 10px' }}>
                                             <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
@@ -286,9 +287,8 @@ export default function HwInventario() {
                               </div>
                             </>)}
 
-                            {/* ── Sin serial: resumen en mismas columnas que seriales ── */}
+                            {/* ── Sin serial: mismas columnas que seriales ── */}
                             {movsSinSerial.length > 0 && (() => {
-                              // Una fila por ubicación destino (en_bodega + cada sitio)
                               const filas = []
                               if (ssStock > 0) {
                                 filas.push({ cant: ssStock, estado: 'en_bodega', ubicacion: '—' })
@@ -304,16 +304,19 @@ export default function HwInventario() {
                               if (filas.length === 0) return null
                               return (
                                 <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
-                                  <div style={{ background:'#0a0a0a', padding:'4px 16px' }}>
-                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11, color:'#f59e0b', letterSpacing:.5, textTransform:'uppercase' }}>
-                                      Sin Serial
+                                  <div style={{ background:'#0a0a0a', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#1a9c1a', letterSpacing:1, textTransform:'uppercase' }}>
+                                      {cat.descripcion}
+                                    </span>
+                                    <span style={{ fontSize:10, color:'#9ca89c' }}>
+                                      {filas.reduce((s, f) => s + f.cant, 0)} unidad(es)
                                     </span>
                                   </div>
                                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                     <thead>
-                                      <tr style={{ background:'#fffbeb' }}>
-                                        {['CANT.','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD', canEdit && ''].filter(Boolean).map(h => (
-                                          <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #fde68a', whiteSpace:'nowrap' }}>{h}</th>
+                                      <tr style={{ background:'#f0f7f0' }}>
+                                        {['CANT.','SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD', canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                          <th key={h} style={{ padding:'5px 10px', color:'#144E4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                         ))}
                                       </tr>
                                     </thead>
@@ -321,8 +324,11 @@ export default function HwInventario() {
                                       {filas.map((f, idx) => {
                                         const est = ESTADO_CFG[f.estado] || ESTADO_CFG.en_bodega
                                         return (
-                                          <tr key={idx} style={{ background: idx%2===0?'#fff':'#fffbeb', borderBottom:'1px solid #fef3c7' }}>
-                                            <td style={{ padding:'6px 10px', fontWeight:800, fontSize:13, color:'#144E4A' }}>{f.cant}</td>
+                                          <tr key={idx} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                            <td style={{ padding:'6px 10px', fontWeight:800, fontSize:13, color:'#144E4A', textAlign:'center' }}>{f.cant}</td>
+                                            <td style={{ padding:'6px 10px' }}>
+                                              <span style={{ fontSize:9, fontStyle:'italic', color:'#9ca89c' }}>No Aplica</span>
+                                            </td>
                                             <td style={{ padding:'6px 10px' }}>
                                               <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
                                             </td>
