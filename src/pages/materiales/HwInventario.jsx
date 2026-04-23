@@ -93,7 +93,9 @@ export default function HwInventario() {
         const enSitio  = equipos.filter(e => e.estado === 'en_sitio')
         const stock    = enBodega.length + ssStock
         const total    = equipos.length + ssEntrada
-        const bodegas  = [...new Set(enBodega.map(e => e.ubicacion_actual).filter(Boolean))]
+        const bodegaCount = {}
+        enBodega.forEach(e => { if (e.ubicacion_actual) bodegaCount[e.ubicacion_actual] = (bodegaCount[e.ubicacion_actual] || 0) + 1 })
+        const bodegas     = Object.entries(bodegaCount).map(([b, n]) => `${b}(${n})`)
         const st       = statusInfo(stock)
 
         return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }
@@ -245,7 +247,7 @@ export default function HwInventario() {
                         <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
                       </td>
                       <td style={{ fontSize:11, color:'#555f55' }}>
-                        {bodegas.length === 0 ? <span style={{ color:'#9ca89c' }}>—</span> : bodegas.join(', ')}
+                        {bodegas.length === 0 ? <span style={{ color:'#9ca89c' }}>—</span> : bodegas.join(' - ')}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:800, fontSize:14, color: stock === 0 ? '#c0392b' : '#1a6130' }}>
                         {stock}
