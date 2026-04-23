@@ -70,8 +70,8 @@ export default function MatInventario() {
   const [corrModal, setCorrModal] = useState(null)
   const [corrQty,   setCorrQty]   = useState('')
 
-  const canEdit    = ['admin','coordinador','logistica'].includes(user?.role)
-  const canCorrect = ['admin','coordinador'].includes(user?.role)
+  const canEdit    = ['admin','logistica'].includes(user?.role)
+  const canCorrect = ['admin'].includes(user?.role)
 
   const proveedores = useMemo(() => catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo), [catalogo])
 

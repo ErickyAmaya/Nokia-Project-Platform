@@ -68,7 +68,7 @@ export default function HwInventario() {
   const [catForm,   setCatForm]   = useState({})
   const [catSaving, setCatSaving] = useState(false)
 
-  const canEdit = ['admin','coordinador'].includes(user?.role)
+  const canEdit = ['admin'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
 

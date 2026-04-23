@@ -233,8 +233,8 @@ export default function HwMovimientos() {
   const navigate     = useNavigate()
   const location     = useLocation()
   const returnToRef  = useRef(null)
-  const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
-  const canDelete = ['admin','coordinador'].includes(user?.role)
+  const canEdit   = ['admin','logistica'].includes(user?.role)
+  const canDelete = ['admin'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
 
