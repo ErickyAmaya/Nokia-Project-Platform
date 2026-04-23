@@ -196,21 +196,21 @@ export default function MatSitios() {
                           <div style={{ display:'flex', gap:4 }}>
                             <button
                               onClick={() => setExpanded(isOpen ? null : rowKey)}
-                              style={{ padding:'3px 9px', fontSize:10, fontWeight:700, borderRadius:4, border:'none',
+                              style={{ padding:'3px 9px', fontSize:10, fontWeight:700, borderRadius:20, border:'none',
                                 background: isOpen ? '#264D4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
                               {isOpen ? '▲ Cerrar' : 'Ver Materiales'}
                             </button>
                             {canEdit && (
                               <button
                                 onClick={() => setDespachoDestino(s.nombre)}
-                                style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
+                                style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:20, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
                                 + Despacho
                               </button>
                             )}
                             {canEdit && (
                               <button
                                 onClick={() => handleDelete(s)}
-                                style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'none', background:'#922b21', color:'#fff', cursor:'pointer' }}>
+                                style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:20, border:'none', background:'#922b21', color:'#fff', cursor:'pointer' }}>
                                 Eliminar
                               </button>
                             )}
@@ -331,7 +331,7 @@ export default function MatSitios() {
                                   </span>
                                   <button
                                     onClick={() => navigate('/materiales/inventario')}
-                                    style={{ padding:'4px 12px', fontSize:10, fontWeight:700, borderRadius:4, border:'1.5px solid #1a9c1a', background:'#fff', color:'#1a9c1a', cursor:'pointer' }}>
+                                    style={{ padding:'4px 12px', fontSize:10, fontWeight:700, borderRadius:20, border:'1.5px solid #1a9c1a', background:'#fff', color:'#1a9c1a', cursor:'pointer' }}>
                                     Ir a Inventario
                                   </button>
                                 </div>
@@ -366,7 +366,7 @@ export default function MatSitios() {
                                       </span>
                                       <button
                                         onClick={() => navigate('/materiales/hw/inventario')}
-                                        style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#F0F7FE', color:'#1E37A6', cursor:'pointer' }}>
+                                        style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:20, border:'none', background:'#F0F7FE', color:'#1E37A6', cursor:'pointer' }}>
                                         Ver Inventario HW
                                       </button>
                                     </div>
