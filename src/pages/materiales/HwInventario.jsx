@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -53,7 +54,8 @@ export default function HwInventario() {
   const [editForm,  setEditForm]  = useState({})
   const [editSaving,setEditSaving]= useState(false)
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const navigate = useNavigate()
+  const canEdit  = ['admin','coordinador','logistica'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
 
@@ -187,7 +189,19 @@ export default function HwInventario() {
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Inventario HW Nokia ({rows.length} tipos)</h2>
-          {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
+            {canEdit && <>
+              <button className="btn bp btn-sm"
+                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'ENTRADA' } })}>
+                + Entrada
+              </button>
+              <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
+                onClick={() => navigate('/materiales/hw/movimientos', { state: { openModal: 'SALIDA' } })}>
+                + Salida
+              </button>
+            </>}
+          </div>
         </div>
         <div className="card-b">
           {/* Filtros */}

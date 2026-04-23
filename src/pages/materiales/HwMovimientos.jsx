@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { useMatStore } from '../../store/useMatStore'
@@ -229,10 +229,22 @@ export default function HwMovimientos() {
   const prevOrigenRef = useRef(null)
 
   const navigate  = useNavigate()
+  const location  = useLocation()
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
+
+  // Auto-abrir modal si viene desde Inventario HW
+  useEffect(() => {
+    const tipo = location.state?.openModal
+    if (tipo === 'ENTRADA' || tipo === 'SALIDA') {
+      setForm(emptyForm(tipo, hwMovimientos))
+      setModalTipo(tipo)
+      // Limpiar el state para que no se re-abra en navegaciones futuras
+      window.history.replaceState({}, '')
+    }
+  }, [location.state?.openModal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Al cambiar bodega origen: resetear seriales/serialBodegas y ajustar cantidad al nuevo stock
   useEffect(() => {
@@ -558,16 +570,8 @@ export default function HwMovimientos() {
       <ConfirmModalUI />
 
       <div className="card" style={{ marginBottom:14 }}>
-        <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div className="card-h">
           <h2>Movimientos HW Nokia ({rows.length})</h2>
-          {canEdit && (
-            <div style={{ display:'flex', gap:8 }}>
-              <button style={{ background:'#1a6130', color:'#fff', fontSize:11, fontWeight:700, padding:'5px 14px', borderRadius:6, cursor:'pointer', border:'none' }}
-                onClick={() => openModal('ENTRADA')}>+ Entrada</button>
-              <button style={{ background:'#c0392b', color:'#fff', fontSize:11, fontWeight:700, padding:'5px 14px', borderRadius:6, cursor:'pointer', border:'none' }}
-                onClick={() => openModal('SALIDA')}>+ Salida</button>
-            </div>
-          )}
         </div>
         <div className="card-b">
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
