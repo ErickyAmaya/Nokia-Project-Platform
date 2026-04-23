@@ -73,6 +73,20 @@ export default function HwInventario() {
           .filter(m => m.tipo === 'SALIDA' && m.destino_tipo === 'sitio')
           .reduce((s, m) => s + (m.cantidad || 0), 0)
 
+        // Stock sin serial por bodega: ENTRADA destino_tipo=bodega menos SALIDA origen_tipo=bodega
+        const ssBodegaMap = {}
+        movsSinSerial.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino).forEach(m => {
+          ssBodegaMap[m.destino] = (ssBodegaMap[m.destino] || 0) + (m.cantidad || 0)
+        })
+        movsSinSerial.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen).forEach(m => {
+          ssBodegaMap[m.origen] = (ssBodegaMap[m.origen] || 0) - (m.cantidad || 0)
+        })
+        // Solo bodegas con stock > 0, formateado como "Nombre(N)"
+        const ssBodegaLabel = Object.entries(ssBodegaMap)
+          .filter(([, n]) => n > 0)
+          .map(([bod, n]) => `${bod}(${n})`)
+          .join(' - ') || '—'
+
         if (equipos.length === 0 && movsSinSerial.length === 0) return null
 
         const enBodega = equipos.filter(e => e.estado === 'en_bodega')
@@ -82,7 +96,7 @@ export default function HwInventario() {
         const bodegas  = [...new Set(enBodega.map(e => e.ubicacion_actual).filter(Boolean))]
         const st       = statusInfo(stock)
 
-        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada }
+        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }
       })
       .filter(r => {
         if (!r) return false
@@ -212,7 +226,7 @@ export default function HwInventario() {
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada }) => {
+                {rows.map(({ cat, equipos, stock, enSitio, total, bodegas, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }) => {
                   const isOpen = expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
@@ -324,7 +338,7 @@ export default function HwInventario() {
                                         <td style={{ padding:'6px 10px' }}>
                                           <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
                                         </td>
-                                        <td style={{ padding:'6px 10px', fontSize:11, color:'#555f55' }}>{bodegas.length ? bodegas.join(', ') : '—'}</td>
+                                        <td style={{ padding:'6px 10px', fontSize:11, color:'#555f55' }}>{ssBodegaLabel}</td>
                                         <td style={{ padding:'6px 10px', fontWeight:800, fontSize:14, color: ssStock===0?'#c0392b':'#1a6130', textAlign:'center' }}>{ssStock}</td>
                                         <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#1e40af', textAlign:'center' }}>{ssEnSitio}</td>
                                         <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#555f55', textAlign:'center' }}>{ssEntrada}</td>
