@@ -4,7 +4,15 @@ import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 
-const FORM_DEFAULT = { cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes', notas:'', activo:true }
+const FORM_DEFAULT = { cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes', aplica_serial:true, notas:'', activo:true }
+
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
 
 export default function HwCatalogo() {
   const hwCatalogo      = useHwStore(s => s.hwCatalogo)
@@ -73,11 +81,11 @@ export default function HwCatalogo() {
             <table className="tbl">
               <thead><tr>
                 <th>Descripción</th><th>Cód. Equipo</th><th>ID Parte</th>
-                <th>Tipo</th><th>Activo</th>{canEdit && <th></th>}
+                <th>Tipo</th><th>Serial</th><th>Activo</th>{canEdit && <th></th>}
               </tr></thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={6} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                 )}
                 {filtered.map(c => (
                   <tr key={c.id}>
@@ -90,14 +98,19 @@ export default function HwCatalogo() {
                       </span>
                     </td>
                     <td>
+                      <span className="badge" style={{ background: c.aplica_serial===false?'#fef3cd':'#e0f2fe', color: c.aplica_serial===false?'#92400e':'#0369a1', fontSize:9 }}>
+                        {c.aplica_serial === false ? 'No Aplica' : 'Aplica'}
+                      </span>
+                    </td>
+                    <td>
                       <span className="badge" style={{ background:c.activo?'#d4edda':'#f0f0f0', color:c.activo?'#1a6130':'#888' }}>
                         {c.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
                     {canEdit && (
                       <td style={{ whiteSpace:'nowrap' }}>
-                        <button className="btn-edit" onClick={() => openModal(c)} style={{ marginRight:4, fontSize:11, padding:'2px 8px' }}>✏</button>
-                        <button className="btn-del" onClick={() => handleDelete(c)}>✕</button>
+                        <button className="btn-edit" onClick={() => openModal(c)}><IconEdit /></button>
+                        <button className="btn-del" onClick={() => handleDelete(c)} style={{ marginLeft:4 }}>✕</button>
                       </td>
                     )}
                   </tr>
@@ -142,6 +155,20 @@ export default function HwCatalogo() {
                 <textarea className="fc" rows={2} value={form.notas || ''}
                   onChange={e => setForm(p => ({ ...p, notas: e.target.value }))}
                   style={{ resize:'vertical', fontSize:12 }} />
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'10px 12px', background:'#f8f8f8', borderRadius:6, border:'1px solid #e0e4e0' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <input type="checkbox" id="hw-cat-serial" checked={form.aplica_serial !== false}
+                    onChange={e => setForm(p => ({ ...p, aplica_serial: e.target.checked }))} />
+                  <label htmlFor="hw-cat-serial" style={{ fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    Aplica Serial
+                  </label>
+                </div>
+                <div style={{ fontSize:10, color:'#9ca89c', lineHeight:1.5 }}>
+                  {form.aplica_serial !== false
+                    ? 'Cada unidad se identifica con un número de serie individual.'
+                    : 'Este ítem no lleva serial — los movimientos se registrarán solo por cantidad.'}
+                </div>
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <input type="checkbox" id="hw-cat-activo" checked={form.activo !== false}

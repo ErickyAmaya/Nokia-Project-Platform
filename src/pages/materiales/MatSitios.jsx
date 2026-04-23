@@ -376,71 +376,54 @@ export default function MatSitios() {
                                         No hay equipos HW registrados en este sitio
                                       </div>
                                     ) : (
-                                      <div style={{ background:'#f8f8ff' }}>
-
-                                        {/* Seriales individuales */}
-                                        {hwEnSitio.length > 0 && (
-                                          <div style={{ overflowX:'auto' }}>
-                                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                              <thead>
-                                                <tr style={{ background:'#eff6ff' }}>
-                                                  {['SERIAL','DESCRIPCIÓN','TIPO','ESTADO','CONDICIÓN'].map(h => (
-                                                    <th key={h} style={{ padding:'5px 10px', color:'#1e40af', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #bfdbfe', whiteSpace:'nowrap' }}>{h}</th>
-                                                  ))}
+                                      <div style={{ background:'#f8f8ff', overflowX:'auto' }}>
+                                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                          <thead>
+                                            <tr style={{ background:'#eff6ff' }}>
+                                              {['SERIAL','CÓD. EQUIPO','DESCRIPCIÓN','TIPO','CANTIDAD','ESTADO','CONDICIÓN'].map(h => (
+                                                <th key={h} style={{ padding:'5px 10px', color:'#1e40af', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #bfdbfe', whiteSpace:'nowrap' }}>{h}</th>
+                                              ))}
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {/* Seriales individuales */}
+                                            {hwEnSitio.map((e, idx) => {
+                                              const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+                                              const est = HW_ESTADO_CFG[e.estado] || HW_ESTADO_CFG.en_bodega
+                                              return (
+                                                <tr key={e.id} style={{ background: (idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>{cat?.cod_material || '—'}</td>
+                                                  <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
+                                                  <td style={{ padding:'5px 10px' }}>
+                                                    {cat && <span className="badge" style={{ background: cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{cat.tipo_material}</span>}
+                                                  </td>
+                                                  <td style={{ padding:'5px 10px', fontWeight:700, textAlign:'center' }}>1</td>
+                                                  <td style={{ padding:'5px 10px' }}>
+                                                    <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
+                                                  </td>
+                                                  <td style={{ padding:'5px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
                                                 </tr>
-                                              </thead>
-                                              <tbody>
-                                                {hwEnSitio.map((e, idx) => {
-                                                  const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
-                                                  const est = HW_ESTADO_CFG[e.estado] || HW_ESTADO_CFG.en_bodega
-                                                  return (
-                                                    <tr key={e.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
-                                                      <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
-                                                      <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
-                                                      <td style={{ padding:'5px 10px' }}>
-                                                        {cat && <span className="badge" style={{ background: cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{cat.tipo_material}</span>}
-                                                      </td>
-                                                      <td style={{ padding:'5px 10px' }}>
-                                                        <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
-                                                      </td>
-                                                      <td style={{ padding:'5px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
-                                                    </tr>
-                                                  )
-                                                })}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        )}
-
-                                        {/* Sin serial */}
-                                        {ssItems.length > 0 && (
-                                          <div style={{ borderTop: hwEnSitio.length > 0 ? '1px solid #dbeafe' : 'none', overflowX:'auto' }}>
-                                            <div style={{ padding:'4px 10px', background:'#fef9c3', fontSize:9, fontWeight:700, color:'#92400e', letterSpacing:.5, textTransform:'uppercase' }}>
-                                              Sin serial
-                                            </div>
-                                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                              <thead>
-                                                <tr style={{ background:'#fffbeb' }}>
-                                                  {['DESCRIPCIÓN','TIPO','CANT.'].map(h => (
-                                                    <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #fde68a', whiteSpace:'nowrap' }}>{h}</th>
-                                                  ))}
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {ssItems.map((x, idx) => (
-                                                  <tr key={x.cat?.id ?? idx} style={{ background: idx%2===0?'#fff':'#fffbeb', borderBottom:'1px solid #fef3c7' }}>
-                                                    <td style={{ padding:'5px 10px', fontWeight:600 }}>{x.cat?.descripcion || '—'}</td>
-                                                    <td style={{ padding:'5px 10px' }}>
-                                                      {x.cat && <span className="badge" style={{ background:'#fef3cd', color:'#92400e', fontSize:9 }}>{x.cat.tipo_material}</span>}
-                                                    </td>
-                                                    <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#144E4A' }}>{x.cantidad}</td>
-                                                  </tr>
-                                                ))}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        )}
-
+                                              )
+                                            })}
+                                            {/* Sin serial — mismas columnas, SERIAL = "No Aplica" */}
+                                            {ssItems.map((x, idx) => (
+                                              <tr key={x.cat?.id ?? idx} style={{ background: (hwEnSitio.length + idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
+                                                <td style={{ padding:'5px 10px', fontSize:9, fontStyle:'italic', color:'#9ca89c' }}>No Aplica</td>
+                                                <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>{x.cat?.cod_material || '—'}</td>
+                                                <td style={{ padding:'5px 10px', fontWeight:600 }}>{x.cat?.descripcion || '—'}</td>
+                                                <td style={{ padding:'5px 10px' }}>
+                                                  {x.cat && <span className="badge" style={{ background: x.cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: x.cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{x.cat.tipo_material}</span>}
+                                                </td>
+                                                <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#144E4A', textAlign:'center' }}>{x.cantidad}</td>
+                                                <td style={{ padding:'5px 10px' }}>
+                                                  <span className="badge" style={{ background:'#dbeafe', color:'#1e40af', fontSize:9 }}>En Sitio</span>
+                                                </td>
+                                                <td style={{ padding:'5px 10px', color:'#9ca89c' }}>—</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
                                       </div>
                                     )}
                                   </div>

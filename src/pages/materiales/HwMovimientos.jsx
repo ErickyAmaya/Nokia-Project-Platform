@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { useMatStore } from '../../store/useMatStore'
@@ -227,6 +228,7 @@ export default function HwMovimientos() {
   const [altModal,  setAltModal]  = useState(null) // { requestedQty, currentBodega, currentStock, alternatives }
   const prevOrigenRef = useRef(null)
 
+  const navigate  = useNavigate()
   const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
   const canDelete = ['admin','coordinador'].includes(user?.role)
 
@@ -255,6 +257,23 @@ export default function HwMovimientos() {
     }
     prevOrigenRef.current = curr
   }, [form?.origen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Al cambiar tipo de equipo: auto-detectar si aplica serial
+  useEffect(() => {
+    if (!form || !form.catalogo_id) return
+    const cat = hwCatalogo.find(c => String(c.id) === String(form.catalogo_id))
+    if (!cat) return
+    const sinSer = cat.aplica_serial === false
+    if (form.sinSerial !== sinSer) {
+      setForm(p => p ? ({
+        ...p,
+        sinSerial:     sinSer,
+        seriales:      sinSer ? [] : [''],
+        serialBodegas: sinSer ? [] : [p.origen || ''],
+        cantidad:      sinSer ? (p.cantidad || 1) : 1,
+      }) : p)
+    }
+  }, [form?.catalogo_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function openModal(tipo) {
     setForm(emptyForm(tipo, hwMovimientos))
@@ -596,7 +615,13 @@ export default function HwMovimientos() {
                     </td>
                     <td style={{ fontSize:10, fontWeight:600 }}>
                       <span style={{ color:'#9ca89c', fontSize:9, textTransform:'uppercase', marginRight:3 }}>{m.destino_tipo}</span>
-                      {m.destino}
+                      {m.destino_tipo === 'sitio' && m.destino ? (
+                        <button
+                          onClick={() => navigate('/materiales/sitios', { state: { search: m.destino } })}
+                          style={{ background:'none', border:'none', padding:0, color:'#1e40af', fontWeight:700, fontSize:10, cursor:'pointer', textDecoration:'underline' }}>
+                          {m.destino}
+                        </button>
+                      ) : m.destino}
                     </td>
                     <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700 }}>{m.so || '—'}</td>
                     {canDelete && (
@@ -700,20 +725,32 @@ export default function HwMovimientos() {
                 />
               </div>
 
-              {/* Toggle sin serial */}
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input type="checkbox" id="sin-serial-chk" checked={!!form.sinSerial}
-                  onChange={e => setForm(p => ({
-                    ...p,
-                    sinSerial: e.target.checked,
-                    seriales:      [''],
-                    serialBodegas: [p.origen || ''],
-                    cantidad:      1,
-                  }))} />
-                <label htmlFor="sin-serial-chk" style={{ fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  Sin serial — solo registrar cantidad
-                </label>
-              </div>
+              {/* Toggle sin serial — solo visible si el catálogo aplica serial */}
+              {(() => {
+                const catItem = hwCatalogo.find(c => String(c.id) === String(form.catalogo_id))
+                if (catItem && catItem.aplica_serial === false) {
+                  return (
+                    <div style={{ fontSize:11, color:'#92400e', fontWeight:600, background:'#fef3cd', padding:'6px 10px', borderRadius:6 }}>
+                      Este ítem no aplica serial — se registrará solo por cantidad
+                    </div>
+                  )
+                }
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <input type="checkbox" id="sin-serial-chk" checked={!!form.sinSerial}
+                      onChange={e => setForm(p => ({
+                        ...p,
+                        sinSerial: e.target.checked,
+                        seriales:      [''],
+                        serialBodegas: [p.origen || ''],
+                        cantidad:      1,
+                      }))} />
+                    <label htmlFor="sin-serial-chk" style={{ fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      Sin serial — solo registrar cantidad
+                    </label>
+                  </div>
+                )
+              })()}
 
               {/* Cantidad + Seriales individuales */}
               {(() => {

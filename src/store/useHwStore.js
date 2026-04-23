@@ -51,6 +51,7 @@ export const useHwStore = create((set, get) => ({
       id_parte:      item.id_parte      || null,
       descripcion:   item.descripcion,
       tipo_material: item.tipo_material || 'Partes',
+      aplica_serial: item.aplica_serial ?? true,
       notas:         item.notas         || null,
       activo:        item.activo ?? true,
     }
