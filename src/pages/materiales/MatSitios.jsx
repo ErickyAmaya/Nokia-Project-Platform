@@ -130,7 +130,7 @@ export default function MatSitios() {
 
       <div className="card">
         <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#D6F9F2', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
+          <h2 style={{ color:'#FFFFFF', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
             Sitios de Instalación
           </h2>
         </div>
@@ -366,7 +366,7 @@ export default function MatSitios() {
                                       </span>
                                       <button
                                         onClick={() => navigate('/materiales/hw/inventario')}
-                                        style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'1.5px solid #1d4ed8', background:'transparent', color:'#60a5fa', cursor:'pointer' }}>
+                                        style={{ padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:4, border:'none', background:'#F0F7FE', color:'#1E37A6', cursor:'pointer' }}>
                                         Ver Inventario HW
                                       </button>
                                     </div>
