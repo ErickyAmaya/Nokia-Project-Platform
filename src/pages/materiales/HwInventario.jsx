@@ -191,15 +191,15 @@ export default function HwInventario() {
           { label:'Tipos Agotados',  value: kpis.agotados, color:'#c0392b' },
         ].map(k => (
           <div key={k.label} style={{ background:'#fff', borderRadius:8, borderLeft:`4px solid ${k.color}`, padding:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
-            <div style={{ fontSize:8, fontWeight:700, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:4 }}>{k.label}</div>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:24, color:k.color }}>{k.value}</div>
+            <div style={{ fontSize:8, fontWeight:600, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:4 }}>{k.label}</div>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:20, color:k.color }}>{k.value}</div>
           </div>
         ))}
       </div>
 
       <div className="card">
-        <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2>Inventario HW Nokia ({rows.length} tipos)</h2>
+        <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ color:'#D6F9F2' }}>Inventario HW Nokia ({rows.length} tipos)</h2>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
             {canEdit && <>
@@ -296,7 +296,7 @@ export default function HwInventario() {
                             {/* ── Seriales ── */}
                             {equipos.length > 0 && (<>
                               <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
                                   {cat.descripcion}
                                 </span>
                                 <span style={{ fontSize:10, color:'#D6F9F2' }}>{equipos.length} unidad(es)</span>
@@ -348,7 +348,7 @@ export default function HwInventario() {
                               return (
                                 <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
                                   <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
+                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
                                       {cat.descripcion}
                                     </span>
                                     <span style={{ fontSize:10, color:'#D6F9F2' }}>{ssEntrada} unidad(es)</span>
