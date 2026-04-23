@@ -129,8 +129,8 @@ export default function MatSitios() {
       )}
 
       <div className="card">
-        <div className="card-h" style={{ background:'#144E4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#a7f3d0', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
+        <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ color:'#D6F9F2', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
             Sitios de Instalación
           </h2>
         </div>
@@ -185,7 +185,7 @@ export default function MatSitios() {
                         </td>
                         <td style={{ color:'#9ca89c', fontSize:11 }}>{s.regional}</td>
                         <td style={{ textAlign:'right', fontWeight:700 }}>{sd.movCount}</td>
-                        <td style={{ textAlign:'right', fontWeight:700, color:'#144E4A' }}>{matCop(sd.valorTotal)}</td>
+                        <td style={{ textAlign:'right', fontWeight:700, color:'#264D4A' }}>{matCop(sd.valorTotal)}</td>
                         <td>
                           {hasMovs
                             ? <span className="badge" style={{ background:'#d4edda', color:'#1a6130' }}>Activo</span>
@@ -197,7 +197,7 @@ export default function MatSitios() {
                             <button
                               onClick={() => setExpanded(isOpen ? null : rowKey)}
                               style={{ padding:'3px 9px', fontSize:10, fontWeight:700, borderRadius:4, border:'none',
-                                background: isOpen ? '#144E4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
+                                background: isOpen ? '#264D4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
                               {isOpen ? '▲ Cerrar' : 'Ver Materiales'}
                             </button>
                             {canEdit && (
@@ -222,11 +222,11 @@ export default function MatSitios() {
                         <tr>
                           <td colSpan={8} style={{ padding:0, borderTop:'2px solid #1a9c1a' }}>
                             <div style={{ background:'#f8fdf8' }}>
-                              <div style={{ background:'#144E4A', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
+                              <div style={{ background:'#264D4A', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
                                   Materiales: {s.nombre}
                                 </span>
-                                <span style={{ fontSize:10, color:'#a7f3d0', opacity:.7 }}>
+                                <span style={{ fontSize:10, color:'#D6F9F2', opacity:.7 }}>
                                   Materiales enviados a este sitio según historial de salidas
                                 </span>
                               </div>
@@ -250,7 +250,7 @@ export default function MatSitios() {
                                       <td style={{ padding:'6px 10px', color:'#9ca89c' }}>{m.unidad}</td>
                                       <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700 }}>{m.cantidad}</td>
                                       <td style={{ padding:'6px 10px', textAlign:'right', color:'#555f55' }}>{matCop(m.precioUnitario)}</td>
-                                      <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, color:'#144E4A' }}>{matCop(m.total)}</td>
+                                      <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, color:'#264D4A' }}>{matCop(m.total)}</td>
                                       <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaUltimo)}</td>
                                       <td style={{ padding:'6px 10px', color:'#9ca89c', whiteSpace:'nowrap' }}>{fmtFecha(m.fechaEnvio)}</td>
                                     </tr>
@@ -294,7 +294,7 @@ export default function MatSitios() {
                                       <thead>
                                         <tr style={{ background:'#f0f7f0' }}>
                                           {COLS.map(h => (
-                                            <th key={h} style={{ padding:'6px 10px', color:'#144E4A', fontWeight:700, fontSize:10,
+                                            <th key={h} style={{ padding:'6px 10px', color:'#264D4A', fontWeight:700, fontSize:10,
                                               textAlign: NUM.includes(h) ? 'right' : 'left', whiteSpace:'nowrap',
                                               borderBottom:'2px solid #c8e6c8' }}>
                                               {h}
@@ -313,7 +313,7 @@ export default function MatSitios() {
                               })()}
 
                               <div style={{ padding:'8px 16px', background:'#e8f5e8', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <div style={{ fontSize:10, color:'#144E4A', fontWeight:700 }}>
+                                <div style={{ fontSize:10, color:'#264D4A', fontWeight:700 }}>
                                   DESPACHOS RECIBIDOS: {sd.despCount}
                                   <span style={{ marginLeft:16 }}>
                                     TOTAL UNIDADES: {sd.materiales.reduce((a, m) => a + m.cantidad, 0)}
@@ -326,7 +326,7 @@ export default function MatSitios() {
                                   <span style={{ fontSize:11, fontWeight:700, color:'#1e40af' }}>
                                     Total CW: {matCop(sd.materiales.filter(m => m.categoria === 'CW').reduce((a, m) => a + m.total, 0))}
                                   </span>
-                                  <span style={{ fontSize:11, fontWeight:800, color:'#144E4A' }}>
+                                  <span style={{ fontSize:11, fontWeight:800, color:'#264D4A' }}>
                                     Total: {matCop(sd.materiales.reduce((a, m) => a + m.total, 0))}
                                   </span>
                                   <button
@@ -360,8 +360,8 @@ export default function MatSitios() {
 
                                 return (
                                   <div>
-                                    <div style={{ background:'#144E4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'2px solid #1d4ed8' }}>
-                                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:400, fontSize:12, color:'#a7f3d0', letterSpacing:1, textTransform:'uppercase' }}>
+                                    <div style={{ background:'#234B72', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'2px solid #1d4ed8' }}>
+                                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:400, fontSize:12, color:'#EFF5FE', letterSpacing:1, textTransform:'uppercase' }}>
                                         HW Nokia en sitio ({totalHW} unid.)
                                       </span>
                                       <button
@@ -393,7 +393,7 @@ export default function MatSitios() {
                                               return (
                                                 <tr key={e.id} style={{ background: (idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
-                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>{cat?.cod_material || '—'}</td>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{cat?.cod_material || '—'}</td>
                                                   <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
                                                   <td style={{ padding:'5px 10px' }}>
                                                     {cat && <span className="badge" style={{ background: cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{cat.tipo_material}</span>}
@@ -410,12 +410,12 @@ export default function MatSitios() {
                                             {ssItems.map((x, idx) => (
                                               <tr key={x.cat?.id ?? idx} style={{ background: (hwEnSitio.length + idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
                                                 <td style={{ padding:'5px 10px', fontSize:9, fontStyle:'italic', color:'#9ca89c' }}>No Aplica</td>
-                                                <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>{x.cat?.cod_material || '—'}</td>
+                                                <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{x.cat?.cod_material || '—'}</td>
                                                 <td style={{ padding:'5px 10px', fontWeight:600 }}>{x.cat?.descripcion || '—'}</td>
                                                 <td style={{ padding:'5px 10px' }}>
                                                   {x.cat && <span className="badge" style={{ background: x.cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: x.cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{x.cat.tipo_material}</span>}
                                                 </td>
-                                                <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#144E4A', textAlign:'center' }}>{x.cantidad}</td>
+                                                <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#264D4A', textAlign:'center' }}>{x.cantidad}</td>
                                                 <td style={{ padding:'5px 10px' }}>
                                                   <span className="badge" style={{ background:'#dbeafe', color:'#1e40af', fontSize:9 }}>En Sitio</span>
                                                 </td>
