@@ -27,12 +27,11 @@ export default function HwDespachoModal({ onClose }) {
   const liquidadorSitios = useAppStore(s => s.sitios ?? [])
   const user            = useAuthStore(s => s.user)
 
-  const [step,    setStep]    = useState(1)
-  const [saving,  setSaving]  = useState(false)
+  const [step,     setStep]     = useState(1)
+  const [saving,   setSaving]   = useState(false)
   const [altModal, setAltModal] = useState(null)
-  // altModal: { catId, aplica_serial, requestedQty, mainBodega, mainStock, alternatives[] }
 
-  // ── Step 1 meta ───────────────────────────────────────────────────
+  // ── Step 1 ────────────────────────────────────────────────────────
   const [meta, setMeta] = useState({
     numero_doc: nextHwDsDoc(hwMovimientos),
     fecha:      new Date().toISOString().slice(0, 10),
@@ -43,13 +42,12 @@ export default function HwDespachoModal({ onClose }) {
   })
 
   // ── Step 2 items ──────────────────────────────────────────────────
-  // { catalogo_id, descripcion, cod_material, tipo_material, aplica_serial,
-  //   cantidad, seriales[], bodega }
+  // { catalogo_id:number, descripcion, cod_material, tipo_material,
+  //   aplica_serial, cantidad, seriales:string[], bodega }
   const [items,   setItems]   = useState([])
   const [selCat,  setSelCat]  = useState('')
   const [selCant, setSelCant] = useState(1)
 
-  // ── Opciones ──────────────────────────────────────────────────────
   const sitiosOptions = useMemo(() =>
     liquidadorSitios.filter(s => s.nombre)
       .map(s => ({ value: s.nombre, label: s.nombre }))
@@ -57,29 +55,34 @@ export default function HwDespachoModal({ onClose }) {
   , [liquidadorSitios])
 
   const catOptions = useMemo(() =>
-    hwCatalogo
-      .filter(c => c.activo !== false)
+    hwCatalogo.filter(c => c.activo !== false)
       .map(c => ({ value: String(c.id), label: c.descripcion, sub: c.cod_material || '' }))
   , [hwCatalogo])
 
-  // ── Stock helpers ─────────────────────────────────────────────────
+  // ── Stock helpers (coercion segura con Number) ────────────────────
   function getSerialDisp(catId, bodega) {
+    const id = Number(catId)
     return hwEquipos.filter(e =>
-      e.catalogo_id === catId && e.estado === 'en_bodega' && e.ubicacion_actual === bodega
+      Number(e.catalogo_id) === id &&
+      e.estado === 'en_bodega' &&
+      e.ubicacion_actual === bodega
     )
   }
 
   function getSinSerialStock(catId, bodega) {
-    const movs = hwMovimientos.filter(m => m.catalogo_id === catId && !m.serial)
-    const ent = movs.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino === bodega)
+    const id   = Number(catId)
+    const movs = hwMovimientos.filter(m => Number(m.catalogo_id) === id && !m.serial)
+    const ent  = movs.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino === bodega)
       .reduce((s, m) => s + (m.cantidad || 0), 0)
-    const sal = movs.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen === bodega)
+    const sal  = movs.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen === bodega)
       .reduce((s, m) => s + (m.cantidad || 0), 0)
     return Math.max(0, ent - sal)
   }
 
   function getStock(catId, apSerial, bodega) {
-    return apSerial === false ? getSinSerialStock(catId, bodega) : getSerialDisp(catId, bodega).length
+    return apSerial === false
+      ? getSinSerialStock(catId, bodega)
+      : getSerialDisp(catId, bodega).length
   }
 
   function getAlts(catId, apSerial, excludeBodega) {
@@ -90,23 +93,21 @@ export default function HwDespachoModal({ onClose }) {
       .filter(a => a.stock > 0)
   }
 
-  // ── Agregar ítem a la lista ───────────────────────────────────────
+  // ── Agregar ítem (seriales vacíos, usuario los llena) ─────────────
   function pushItem(cat, qty, bodega) {
-    let seriales = []
-    if (cat.aplica_serial !== false) {
-      seriales = getSerialDisp(cat.id, bodega).slice(0, qty).map(e => e.serial)
-    }
+    const seriales = cat.aplica_serial !== false ? Array(qty).fill('') : []
     setItems(prev => {
-      const idx = prev.findIndex(i => i.catalogo_id === cat.id && i.bodega === bodega)
+      const idx = prev.findIndex(i => i.catalogo_id === Number(cat.id) && i.bodega === bodega)
       if (idx >= 0) {
-        return prev.map((it, i) => i === idx ? {
+        // Agregar slots al ítem existente
+        return prev.map((it, i) => i !== idx ? it : {
           ...it,
           cantidad: it.cantidad + qty,
           seriales: cat.aplica_serial !== false ? [...it.seriales, ...seriales] : [],
-        } : it)
+        })
       }
       return [...prev, {
-        catalogo_id:   cat.id,
+        catalogo_id:   Number(cat.id),
         descripcion:   cat.descripcion,
         cod_material:  cat.cod_material || '—',
         tipo_material: cat.tipo_material,
@@ -123,9 +124,9 @@ export default function HwDespachoModal({ onClose }) {
 
   function handleAddItem() {
     const cat = hwCatalogo.find(c => String(c.id) === String(selCat))
-    if (!cat) { showToast('Selecciona un tipo de equipo', 'err'); return }
+    if (!cat)       { showToast('Selecciona un tipo de equipo', 'err'); return }
     const qty = Number(selCant)
-    if (qty < 1) { showToast('Cantidad inválida', 'err'); return }
+    if (qty < 1)    { showToast('Cantidad inválida', 'err'); return }
 
     const mainBodega = meta.bodega
     const mainStock  = getStock(cat.id, cat.aplica_serial, mainBodega)
@@ -142,15 +143,44 @@ export default function HwDespachoModal({ onClose }) {
     pushItem(cat, qty, mainBodega)
   }
 
+  // Cambiar serial en un slot concreto de un ítem
+  function setSerial(itemIdx, slotIdx, val) {
+    setItems(prev => prev.map((it, i) => {
+      if (i !== itemIdx) return it
+      const arr = [...it.seriales]
+      arr[slotIdx] = val
+      return { ...it, seriales: arr }
+    }))
+  }
+
   function handleAltSwitch(altBodega) {
-    const cat = hwCatalogo.find(c => c.id === altModal.catId)
+    const cat = hwCatalogo.find(c => Number(c.id) === altModal.catId)
     if (cat) pushItem(cat, altModal.requestedQty, altBodega)
   }
 
   function handleAltKeep() {
     if (altModal.mainStock <= 0) { setAltModal(null); return }
-    const cat = hwCatalogo.find(c => c.id === altModal.catId)
+    const cat = hwCatalogo.find(c => Number(c.id) === altModal.catId)
     if (cat) pushItem(cat, altModal.mainStock, altModal.mainBodega)
+  }
+
+  // ── Validación step 2 → 3 ─────────────────────────────────────────
+  function handleNextToStep3() {
+    for (const item of items) {
+      if (item.aplica_serial !== false) {
+        const missing = item.seriales.filter(s => !s.trim()).length
+        if (missing > 0) {
+          showToast(`"${item.descripcion}": faltan ${missing} serial(es) por seleccionar`, 'err')
+          return
+        }
+        const unique = new Set(item.seriales)
+        if (unique.size < item.seriales.length) {
+          showToast(`"${item.descripcion}": hay seriales duplicados`, 'err')
+          return
+        }
+      }
+    }
+    setStep(3)
   }
 
   // ── Guardar ───────────────────────────────────────────────────────
@@ -158,53 +188,37 @@ export default function HwDespachoModal({ onClose }) {
     if (items.length === 0) { showToast('Agrega al menos un equipo', 'err'); return }
     setSaving(true)
     try {
-      // Auto-crear sitio si no existe
       const existe = matSitios.some(s => s.nombre?.toLowerCase() === meta.destino.toLowerCase())
       if (!existe && meta.destino) {
         await saveSitio({ nombre: meta.destino, regional: '', activo: true }).catch(() => {})
       }
-
       for (const item of items) {
         if (item.aplica_serial === false) {
           await addHwMovimiento({
-            equipo_id:           null,
-            serial:              null,
-            catalogo_id:         item.catalogo_id,
-            tipo:                'SALIDA',
-            tipo_fuente:         'MANUAL',
-            so:                  meta.numero_doc,
-            smp_id:              meta.smp_id || null,
-            fecha:               meta.fecha,
-            cantidad:            item.cantidad,
-            origen:              item.bodega,
-            origen_tipo:         'bodega',
-            destino:             meta.destino,
-            destino_tipo:        'sitio',
-            created_by:          user?.nombre || user?.email,
-            notas:               meta.notas || null,
+            equipo_id: null, serial: null,
+            catalogo_id: item.catalogo_id,
+            tipo: 'SALIDA', tipo_fuente: 'MANUAL',
+            so: meta.numero_doc, smp_id: meta.smp_id || null,
+            fecha: meta.fecha, cantidad: item.cantidad,
+            origen: item.bodega, origen_tipo: 'bodega',
+            destino: meta.destino, destino_tipo: 'sitio',
+            created_by: user?.nombre || user?.email,
+            notas: meta.notas || null,
           })
         } else {
           for (const serial of item.seriales) {
             const equipo = hwEquipos.find(e => e.serial === serial)
-            if (equipo) {
-              await updateHwEquipo(equipo.id, { estado: 'en_sitio', ubicacion_actual: meta.destino })
-            }
+            if (equipo) await updateHwEquipo(equipo.id, { estado: 'en_sitio', ubicacion_actual: meta.destino })
             await addHwMovimiento({
-              equipo_id:           equipo?.id || null,
-              serial,
-              catalogo_id:         item.catalogo_id,
-              tipo:                'SALIDA',
-              tipo_fuente:         'MANUAL',
-              so:                  meta.numero_doc,
-              smp_id:              meta.smp_id || null,
-              fecha:               meta.fecha,
-              cantidad:            1,
-              origen:              item.bodega,
-              origen_tipo:         'bodega',
-              destino:             meta.destino,
-              destino_tipo:        'sitio',
-              created_by:          user?.nombre || user?.email,
-              notas:               meta.notas || null,
+              equipo_id: equipo?.id || null, serial,
+              catalogo_id: item.catalogo_id,
+              tipo: 'SALIDA', tipo_fuente: 'MANUAL',
+              so: meta.numero_doc, smp_id: meta.smp_id || null,
+              fecha: meta.fecha, cantidad: 1,
+              origen: item.bodega, origen_tipo: 'bodega',
+              destino: meta.destino, destino_tipo: 'sitio',
+              created_by: user?.nombre || user?.email,
+              notas: meta.notas || null,
             })
           }
         }
@@ -215,32 +229,43 @@ export default function HwDespachoModal({ onClose }) {
     finally { setSaving(false) }
   }
 
-  // ── Render ────────────────────────────────────────────────────────
-  const selectedCat = hwCatalogo.find(c => String(c.id) === String(selCat))
-  const stockInfoMain = selCat && meta.bodega
+  // Seriales disponibles excluyendo los ya seleccionados en el mismo ítem
+  function serialesDisp(itemIdx, slotIdx) {
+    const item      = items[itemIdx]
+    const elegidos  = item.seriales.filter((s, i) => i !== slotIdx && s)
+    return getSerialDisp(item.catalogo_id, item.bodega)
+      .map(e => e.serial)
+      .filter(s => !elegidos.includes(s))
+  }
+
+  const selectedCat    = hwCatalogo.find(c => String(c.id) === String(selCat))
+  const stockInfoMain  = selCat && meta.bodega
     ? getStock(Number(selCat), selectedCat?.aplica_serial, meta.bodega) : null
 
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <>
       <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:600,
         display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-        <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:580, maxHeight:'92vh', overflowY:'auto' }}>
+        <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:600,
+          maxHeight:'92vh', overflowY:'auto' }}>
 
           {/* Header */}
-          <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 18px', display:'flex',
-            justifyContent:'space-between', alignItems:'center',
-            borderBottom:'3px solid #1d4ed8', borderRadius:'12px 12px 0 0' }}>
+          <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 18px',
+            display:'flex', justifyContent:'space-between', alignItems:'center',
+            borderBottom:'3px solid #1d4ed8', borderRadius:'12px 12px 0 0',
+            position:'sticky', top:0, zIndex:10 }}>
             <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:16, letterSpacing:1 }}>
               NUEVO DESPACHO HW NOKIA
             </span>
             <button onClick={onClose} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:22, cursor:'pointer' }}>×</button>
           </div>
 
-          {/* Step indicator */}
+          {/* Steps */}
           <div style={{ display:'flex', borderBottom:'1px solid #e0e4e0' }}>
             {STEPS.map((s, i) => (
               <div key={i} style={{ flex:1, padding:'8px 4px', textAlign:'center', fontSize:10, fontWeight:700,
-                color:      step === i+1 ? '#1d4ed8' : step > i+1 ? '#1a9c1a' : '#9ca89c',
+                color:        step === i+1 ? '#1d4ed8' : step > i+1 ? '#1a9c1a' : '#9ca89c',
                 borderBottom: step === i+1 ? '2px solid #1d4ed8' : '2px solid transparent',
                 letterSpacing:.4 }}>
                 {step > i+1 ? '✓ ' : `${i+1}. `}{s.toUpperCase()}
@@ -265,13 +290,11 @@ export default function HwDespachoModal({ onClose }) {
                       onChange={e => setMeta(p => ({ ...p, fecha: e.target.value }))} />
                   </div>
                 </div>
-
                 <div>
                   <label className="fl">SMP ID / Work Order</label>
                   <input className="fc" placeholder="SMP-WO-… (opcional)" value={meta.smp_id}
                     onChange={e => setMeta(p => ({ ...p, smp_id: e.target.value }))} />
                 </div>
-
                 <div>
                   <label className="fl">Bodega Origen *</label>
                   <select className="fc" value={meta.bodega}
@@ -280,7 +303,6 @@ export default function HwDespachoModal({ onClose }) {
                     {bodegas.map(b => <option key={b.id} value={b.nombre}>{b.nombre}</option>)}
                   </select>
                 </div>
-
                 <div>
                   <label className="fl">Sitio Destino *</label>
                   <SearchableSelect
@@ -290,18 +312,16 @@ export default function HwDespachoModal({ onClose }) {
                     placeholder="Buscar sitio Nokia…"
                   />
                 </div>
-
                 <div>
                   <label className="fl">Notas</label>
                   <input className="fc" placeholder="Opcional" value={meta.notas}
                     onChange={e => setMeta(p => ({ ...p, notas: e.target.value }))} />
                 </div>
-
                 <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
                   <button className="btn bou" onClick={onClose}>Cancelar</button>
                   <button className="btn bp" onClick={() => {
-                    if (!meta.bodega)   { showToast('Selecciona una bodega', 'err'); return }
-                    if (!meta.destino)  { showToast('Selecciona un sitio destino', 'err'); return }
+                    if (!meta.bodega)  { showToast('Selecciona una bodega', 'err'); return }
+                    if (!meta.destino) { showToast('Selecciona un sitio destino', 'err'); return }
                     setStep(2)
                   }}>Siguiente →</button>
                 </div>
@@ -310,7 +330,7 @@ export default function HwDespachoModal({ onClose }) {
 
             {/* ── STEP 2 ── */}
             {step === 2 && (
-              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                 <div style={{ background:'#f5f5f5', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#555f55' }}>
                   Despacho <strong>{meta.numero_doc}</strong> · Bodega: <strong>{meta.bodega}</strong> → <strong>{meta.destino}</strong>
                 </div>
@@ -325,14 +345,16 @@ export default function HwDespachoModal({ onClose }) {
                     placeholder="Buscar equipo HW…"
                   />
                   {selCat && (
-                    <div style={{ fontSize:10, display:'flex', gap:16 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, fontSize:10 }}>
                       <span style={{ color:'#555f55' }}>
                         Stock en <strong>{meta.bodega}</strong>:{' '}
-                        <strong style={{ color: stockInfoMain === 0 ? '#c0392b' : '#1a6130' }}>{stockInfoMain ?? '—'}</strong>
-                        {selectedCat?.aplica_serial !== false ? ' serial(es)' : ' unidad(es)'}
+                        <strong style={{ color: stockInfoMain === 0 ? '#c0392b' : '#1a6130', fontSize:12 }}>
+                          {stockInfoMain ?? '—'}
+                        </strong>
+                        {' '}{selectedCat?.aplica_serial !== false ? 'serial(es)' : 'unidad(es)'}
                       </span>
                       {selectedCat?.aplica_serial === false && (
-                        <span style={{ color:'#92400e', background:'#fef3cd', padding:'1px 6px', borderRadius:4, fontSize:9, fontWeight:700 }}>
+                        <span style={{ background:'#fef3cd', color:'#92400e', padding:'1px 6px', borderRadius:4, fontSize:9, fontWeight:700 }}>
                           SIN SERIAL
                         </span>
                       )}
@@ -348,63 +370,73 @@ export default function HwDespachoModal({ onClose }) {
                   </div>
                 </div>
 
-                {/* Lista de equipos agregados */}
-                {items.length > 0 && (
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                    <thead>
-                      <tr style={{ background:'#0a0a0a' }}>
-                        {['Equipo','Tipo','Bodega','Cant.','Seriales',''].map(h => (
-                          <th key={h} style={{ padding:'5px 8px', color:'#fff', fontWeight:700, fontSize:10,
-                            textAlign: h === 'Cant.' ? 'center' : 'left' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom:'1px solid #e0e4e0' }}>
-                          <td style={{ padding:'5px 8px', fontWeight:600 }}>{item.descripcion}</td>
-                          <td style={{ padding:'5px 8px' }}>
-                            <span className="badge" style={{ fontSize:9,
-                              background: item.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4',
-                              color: item.tipo_material==='Grupos'?'#1e40af':'#166534' }}>
-                              {item.tipo_material}
-                            </span>
-                          </td>
-                          <td style={{ padding:'5px 8px', fontSize:10, color:'#555f55' }}>{item.bodega}</td>
-                          <td style={{ padding:'5px 8px', textAlign:'center', fontWeight:800, color:'#144E4A' }}>
-                            {item.cantidad}
-                          </td>
-                          <td style={{ padding:'5px 8px', fontSize:9, color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>
-                            {item.aplica_serial === false
-                              ? <span style={{ fontStyle:'italic' }}>Sin serial</span>
-                              : item.seriales.join(', ') || '—'}
-                          </td>
-                          <td style={{ padding:'5px 8px' }}>
-                            <button onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))}
-                              style={{ border:'none', background:'#fde8e7', color:'#c0392b',
-                                borderRadius:4, padding:'2px 7px', cursor:'pointer', fontWeight:700, fontSize:11 }}>✕</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ background:'#f0f7f0' }}>
-                        <td colSpan={3} style={{ padding:'5px 8px', fontSize:10, color:'#144E4A', fontWeight:700 }}>
-                          Total ({items.length} tipo{items.length !== 1 ? 's' : ''})
-                        </td>
-                        <td style={{ padding:'5px 8px', textAlign:'center', fontWeight:800, color:'#144E4A' }}>
-                          {items.reduce((s, i) => s + i.cantidad, 0)}
-                        </td>
-                        <td colSpan={2} />
-                      </tr>
-                    </tfoot>
-                  </table>
+                {/* Lista de ítems con selección de seriales */}
+                {items.map((item, itemIdx) => {
+                  const tipoBg = item.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4'
+                  const tipoCl = item.tipo_material==='Grupos'?'#1e40af':'#166534'
+                  return (
+                    <div key={itemIdx} style={{ border:'1.5px solid #e8f5e8', borderRadius:8, overflow:'hidden' }}>
+                      {/* Cabecera del ítem */}
+                      <div style={{ background:'#f0fdf4', padding:'7px 12px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                          <span style={{ fontWeight:700, fontSize:12 }}>{item.descripcion}</span>
+                          <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{item.tipo_material}</span>
+                          <span style={{ fontSize:10, color:'#555f55' }}>· {item.bodega} · {item.cantidad} ud.</span>
+                        </div>
+                        <button onClick={() => setItems(prev => prev.filter((_, i) => i !== itemIdx))}
+                          style={{ border:'none', background:'#fde8e7', color:'#c0392b',
+                            borderRadius:4, padding:'2px 8px', cursor:'pointer', fontWeight:700, fontSize:11 }}>✕</button>
+                      </div>
+
+                      {/* Slots de serial */}
+                      {item.aplica_serial !== false ? (
+                        <div style={{ padding:'8px 12px', display:'flex', flexDirection:'column', gap:5 }}>
+                          {item.seriales.map((s, slotIdx) => {
+                            const opciones = serialesDisp(itemIdx, slotIdx)
+                            return (
+                              <div key={slotIdx} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:56,
+                                  fontFamily:"'Barlow Condensed',sans-serif" }}>
+                                  Serial {slotIdx + 1}
+                                </span>
+                                <select className="fc"
+                                  value={s}
+                                  onChange={e => setSerial(itemIdx, slotIdx, e.target.value)}
+                                  style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600,
+                                    flex:1, borderColor: s ? '#1a9c1a' : '#f59e0b' }}>
+                                  <option value="">— Seleccionar serial —</option>
+                                  {opciones.map(ser => (
+                                    <option key={ser} value={ser}>{ser}</option>
+                                  ))}
+                                </select>
+                                {s && (
+                                  <span style={{ fontSize:9, color:'#1a6130', fontWeight:700 }}>✓</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                          <div style={{ fontSize:10, color: item.seriales.filter(s=>s).length === item.cantidad ? '#1a6130' : '#92400e', fontWeight:600, marginTop:2 }}>
+                            {item.seriales.filter(s=>s).length} de {item.cantidad} serial(es) seleccionado(s)
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding:'6px 12px', fontSize:10, color:'#92400e', fontStyle:'italic' }}>
+                          Sin serial — {item.cantidad} unidad(es)
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {items.length === 0 && (
+                  <div style={{ textAlign:'center', padding:20, color:'#9ca89c', fontSize:12, border:'1.5px dashed #e0e4e0', borderRadius:8 }}>
+                    Agrega equipos usando el formulario de arriba
+                  </div>
                 )}
 
-                <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginTop:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginTop:4 }}>
                   <button className="btn bou" onClick={() => setStep(1)}>← Atrás</button>
-                  <button className="btn bp" onClick={() => { if (!items.length) { showToast('Agrega al menos un equipo', 'err'); return } setStep(3) }}
-                    disabled={items.length === 0}>
+                  <button className="btn bp" onClick={handleNextToStep3} disabled={items.length === 0}>
                     Revisar →
                   </button>
                 </div>
@@ -421,7 +453,7 @@ export default function HwDespachoModal({ onClose }) {
                     { label:'Fecha',      value: meta.fecha },
                     { label:'Bodega',     value: meta.bodega },
                     { label:'Destino',    value: meta.destino },
-                    { label:'Equipos',    value: `${items.length} tipo(s)` },
+                    { label:'Tipos',      value: `${items.length} tipo(s)` },
                     { label:'Total uds.', value: items.reduce((s, i) => s + i.cantidad, 0) },
                   ].map(r => (
                     <div key={r.label}>
@@ -431,46 +463,35 @@ export default function HwDespachoModal({ onClose }) {
                   ))}
                 </div>
 
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                  <thead>
-                    <tr style={{ background:'#0a0a0a' }}>
-                      {['Equipo','Cód.','Bodega','Cant.','Seriales'].map(h => (
-                        <th key={h} style={{ padding:'5px 8px', color:'#fff', fontWeight:700, fontSize:10,
-                          textAlign: h === 'Cant.' ? 'center' : 'left' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom:'1px solid #e0e4e0', background: idx%2===0?'#fff':'#f8f9ff' }}>
-                        <td style={{ padding:'5px 8px', fontWeight:600 }}>{item.descripcion}</td>
-                        <td style={{ padding:'5px 8px', color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif" }}>{item.cod_material}</td>
-                        <td style={{ padding:'5px 8px', color:'#555f55', fontSize:10 }}>{item.bodega}</td>
-                        <td style={{ padding:'5px 8px', textAlign:'center', fontWeight:800, color:'#144E4A' }}>{item.cantidad}</td>
-                        <td style={{ padding:'5px 8px', fontSize:9, color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif", maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {item.aplica_serial === false ? <em>Sin serial</em> : item.seriales.join(', ') || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ background:'#eff6ff', fontWeight:700 }}>
-                      <td colSpan={3} style={{ padding:'5px 8px', color:'#1e40af', fontSize:10 }}>TOTAL UNIDADES</td>
-                      <td style={{ padding:'5px 8px', textAlign:'center', color:'#1e40af', fontWeight:800 }}>
-                        {items.reduce((s, i) => s + i.cantidad, 0)}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
+                {items.map((item, idx) => (
+                  <div key={idx} style={{ border:'1.5px solid #dbeafe', borderRadius:8, overflow:'hidden' }}>
+                    <div style={{ background:'#eff6ff', padding:'6px 12px', display:'flex', justifyContent:'space-between', fontSize:11 }}>
+                      <strong>{item.descripcion}</strong>
+                      <span style={{ color:'#555f55' }}>{item.bodega} · {item.cantidad} ud.</span>
+                    </div>
+                    {item.aplica_serial !== false ? (
+                      <div style={{ padding:'6px 12px', display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {item.seriales.map((s, i) => (
+                          <span key={i} style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11,
+                            background:'#f0fdf4', color:'#144E4A', padding:'2px 8px', borderRadius:4,
+                            border:'1px solid #c8e6c8' }}>{s}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding:'6px 12px', fontSize:10, color:'#92400e', fontStyle:'italic' }}>
+                        Sin serial · {item.cantidad} unidad(es)
+                      </div>
+                    )}
+                  </div>
+                ))}
 
                 <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginTop:8 }}>
                   <button className="btn bou" onClick={() => setStep(2)}>← Atrás</button>
                   <button
-                    className="btn"
-                    style={{ background:'#1d4ed8', color:'#fff', padding:'6px 20px', borderRadius:6, fontWeight:700, fontSize:12, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .7 : 1 }}
-                    onClick={handleSave}
-                    disabled={saving}>
+                    style={{ background:'#1d4ed8', color:'#fff', padding:'6px 20px', borderRadius:6,
+                      fontWeight:700, fontSize:12, border:'none', cursor: saving ? 'not-allowed' : 'pointer',
+                      opacity: saving ? .7 : 1 }}
+                    onClick={handleSave} disabled={saving}>
                     {saving ? 'Guardando…' : 'Confirmar Despacho'}
                   </button>
                 </div>
@@ -485,29 +506,31 @@ export default function HwDespachoModal({ onClose }) {
       {altModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:700,
           display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ background:'#fff', borderRadius:10, width:'100%', maxWidth:380, boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
-            <div style={{ background:'#0a0a0a', color:'#fff', padding:'10px 16px', borderRadius:'10px 10px 0 0',
-              borderBottom:'3px solid #ea580c', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:13, letterSpacing:.5 }}>
+          <div style={{ background:'#fff', borderRadius:10, width:'100%', maxWidth:380,
+            boxShadow:'0 20px 60px rgba(0,0,0,.3)' }}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'10px 16px',
+              borderRadius:'10px 10px 0 0', borderBottom:'3px solid #ea580c',
+              display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:13 }}>
                 Stock insuficiente · {altModal.mainBodega}
               </span>
-              <button onClick={() => setAltModal(null)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:18, cursor:'pointer' }}>×</button>
+              <button onClick={() => setAltModal(null)}
+                style={{ background:'none', border:'none', color:'#9ca89c', fontSize:18, cursor:'pointer' }}>×</button>
             </div>
             <div style={{ padding:16 }}>
               <p style={{ fontSize:12, color:'#555f55', marginBottom:12, lineHeight:1.6 }}>
                 En <b>{altModal.mainBodega}</b> solo hay{' '}
-                <b style={{ color:'#c0392b' }}>{altModal.mainStock}</b> unidad(es) disponible(s){' '}
-                de las <b>{altModal.requestedQty}</b> solicitadas.
+                <b style={{ color:'#c0392b' }}>{altModal.mainStock}</b> unidad(es) de las{' '}
+                <b>{altModal.requestedQty}</b> solicitadas.
               </p>
-
               {altModal.alternatives.length > 0 && (
                 <>
                   <div style={{ fontSize:10, fontWeight:700, letterSpacing:.5, textTransform:'uppercase', color:'#9ca89c', marginBottom:8 }}>
                     Disponible en otras bodegas
                   </div>
                   {altModal.alternatives.map(alt => (
-                    <div key={alt.bodega} style={{ border:'1.5px solid #dbeafe', borderRadius:8, padding:'10px 14px', marginBottom:8,
-                      display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div key={alt.bodega} style={{ border:'1.5px solid #dbeafe', borderRadius:8,
+                      padding:'10px 14px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <div>
                         <div style={{ fontSize:12, fontWeight:700, color:'#1e40af' }}>📦 {alt.bodega}</div>
                         <div style={{ fontSize:10, color:'#9ca89c' }}>{alt.stock} unidad(es) disponible(s)</div>
@@ -521,7 +544,6 @@ export default function HwDespachoModal({ onClose }) {
                   ))}
                 </>
               )}
-
               <div style={{ display:'flex', gap:8, marginTop:12, justifyContent:'flex-end', flexWrap:'wrap' }}>
                 {altModal.mainStock > 0 && (
                   <button onClick={handleAltKeep}
