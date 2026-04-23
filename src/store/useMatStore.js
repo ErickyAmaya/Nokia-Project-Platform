@@ -172,16 +172,29 @@ export const useMatStore = create((set, get) => ({
   deleteSitio: async (id, nombre) => {
     // Resolver nombre para limpiar movimientos/despachos relacionados
     const resolvedNombre = nombre || get().sitios.find(s => s.id === id)?.nombre || ''
+
     if (resolvedNombre) {
+      // ── Materiales ─────────────────────────────────────────────────
       await db().from('mat_movimientos').delete().eq('destino', resolvedNombre)
       await db().from('despachos').delete().eq('destino', resolvedNombre)
+
+      // ── HW Nokia ───────────────────────────────────────────────────
+      // Eliminar todos los movimientos HW con destino u origen igual al sitio
+      await db().from('hw_movimientos').delete().eq('destino', resolvedNombre)
+      await db().from('hw_movimientos').delete().eq('origen', resolvedNombre)
+      // Equipos que quedaron marcados como en_sitio aquí → volver a bodega
+      await db().from('hw_equipos')
+        .update({ estado: 'en_bodega', ubicacion_actual: null, updated_at: new Date().toISOString() })
+        .eq('ubicacion_actual', resolvedNombre)
     }
+
     const q = id
       ? db().from('mat_sitios').delete().eq('id', id)
       : db().from('mat_sitios').delete().eq('nombre', resolvedNombre)
     const { error } = await q
     if (error) throw error
-    // Recargar stock (los movimientos eliminados actualizan el inventario)
+
+    // Recargar estado Materiales
     const [{ data: stk }, { data: movData }, { data: depData }] = await Promise.all([
       db().from('mat_stock').select('*'),
       db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
@@ -193,6 +206,12 @@ export const useMatStore = create((set, get) => ({
       despachos:   depData || [],
       stock:       stk    || [],
     }))
+
+    // Recargar estado HW Nokia (importación lazy para evitar dependencia circular)
+    try {
+      const { useHwStore } = await import('./useHwStore')
+      useHwStore.getState().loadAll()
+    } catch (_) {}
   },
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
