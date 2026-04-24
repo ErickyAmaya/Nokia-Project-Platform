@@ -580,6 +580,55 @@ export const useAppStore = create((set, get) => ({
     set(s => ({ catalogCW: s.catalogCW.filter(x => x.actividad_id !== actividad_id) }))
     await supabase.from('catalogo_cw').delete().eq('actividad_id', actividad_id)
   },
+
+  // Carga masiva precios TI — updates: [{ id, nokia_0..3, a_0..3, aa_0..3, aaa_0..3 }]
+  bulkUpdateTIPrices: async (updates) => {
+    for (const u of updates) {
+      const payload = {}
+      ;['nokia','a','aa','aaa'].forEach(tier => {
+        ;[0,1,2,3].forEach(z => {
+          const k = `${tier}_${z}`
+          if (k in u) payload[k] = u[k]
+        })
+      })
+      if (Object.keys(payload).length === 0) continue
+      await supabase.from('catalogo_ti').update(payload).eq('id', u.id)
+    }
+    set(s => ({
+      catalogTI: s.catalogTI.map(item => {
+        const u = updates.find(x => x.id === item.id)
+        if (!u) return item
+        return {
+          ...item,
+          nokia: [u.nokia_0 ?? item.nokia[0], u.nokia_1 ?? item.nokia[1], u.nokia_2 ?? item.nokia[2], u.nokia_3 ?? item.nokia[3]],
+          A:     [u.a_0     ?? item.A[0],     u.a_1     ?? item.A[1],     u.a_2     ?? item.A[2],     u.a_3     ?? item.A[3]],
+          AA:    [u.aa_0    ?? item.AA[0],    u.aa_1    ?? item.AA[1],    u.aa_2    ?? item.AA[2],    u.aa_3    ?? item.AA[3]],
+          AAA:   [u.aaa_0   ?? item.AAA[0],   u.aaa_1   ?? item.AAA[1],  u.aaa_2   ?? item.AAA[2],   u.aaa_3   ?? item.AAA[3]],
+        }
+      }),
+    }))
+  },
+
+  // Carga masiva precios CW — updates: [{ actividad_id, precio_nokia_urbano, ... }]
+  bulkUpdateCWPrices: async (updates) => {
+    const CW_PRICE_KEYS = ['precio_nokia_urbano','precio_nokia_rural','precio_subc_urbano','precio_subc_rural']
+    for (const u of updates) {
+      const payload = {}
+      CW_PRICE_KEYS.forEach(k => { if (k in u) payload[k] = u[k] })
+      if (Object.keys(payload).length === 0) continue
+      await supabase.from('catalogo_cw').update(payload).eq('actividad_id', u.actividad_id)
+    }
+    set(s => ({
+      catalogCW: s.catalogCW.map(item => {
+        const u = updates.find(x => x.actividad_id === item.actividad_id)
+        if (!u) return item
+        return {
+          ...item,
+          ...Object.fromEntries(CW_PRICE_KEYS.filter(k => k in u).map(k => [k, u[k]])),
+        }
+      }),
+    }))
+  },
 }))
 
 // ── Sync authStore → useAppStore ─────────────────────────────────

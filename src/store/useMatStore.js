@@ -106,6 +106,23 @@ export const useMatStore = create((set, get) => ({
     set(s => ({ catalogo: s.catalogo.filter(c => c.id !== id) }))
   },
 
+  // Carga masiva de precios — updates: [{ id, costo_unitario }]
+  bulkUpdateMatPrices: async (updates) => {
+    for (const u of updates) {
+      const { error } = await db()
+        .from('mat_catalogo')
+        .update({ costo_unitario: u.costo_unitario })
+        .eq('id', u.id)
+      if (error) throw error
+    }
+    set(s => ({
+      catalogo: s.catalogo.map(c => {
+        const u = updates.find(x => x.id === c.id)
+        return u ? { ...c, costo_unitario: u.costo_unitario } : c
+      }),
+    }))
+  },
+
   // ── BODEGAS ──────────────────────────────────────────────────────
   saveBodega: async (bodega) => {
     const isNew = !bodega.id

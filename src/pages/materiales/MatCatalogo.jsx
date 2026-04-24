@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { supabase } from '../../lib/supabase'
+import PriceUploadModal from '../../components/PriceUploadModal'
 
 const BUCKET = 'material-images'
 
@@ -45,21 +46,28 @@ const MAT_FORM_DEFAULT  = { nombre:'', codigo:'', unidad:'Und.', categoria:'TI',
 const PROV_FORM_DEFAULT = { nombre:'', codigo:'', categoria:'PROVEEDORES', direccion:'', contacto:'', email:'', telefono:'', badge:'', activo:true }
 
 export default function MatCatalogo() {
-  const catalogo       = useMatStore(s => s.catalogo)
-  const saveCatItem    = useMatStore(s => s.saveCatItem)
-  const deleteCatItem  = useMatStore(s => s.deleteCatItem)
-  const user           = useAuthStore(s => s.user)
+  const catalogo            = useMatStore(s => s.catalogo)
+  const saveCatItem         = useMatStore(s => s.saveCatItem)
+  const deleteCatItem       = useMatStore(s => s.deleteCatItem)
+  const bulkUpdateMatPrices = useMatStore(s => s.bulkUpdateMatPrices)
+  const user                = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,   setSearch]   = useState('')
   const [filCat,   setFilCat]   = useState('')
-  const [modal,    setModal]    = useState(false)   // modal materiales
-  const [provMod,  setProvMod]  = useState(false)   // modal proveedores
-  const [matForm,  setMatForm]  = useState({})      // form exclusivo materiales
-  const [provForm, setProvForm] = useState({})      // form exclusivo proveedores
+  const [modal,      setModal]      = useState(false)   // modal materiales
+  const [provMod,    setProvMod]    = useState(false)   // modal proveedores
+  const [matForm,    setMatForm]    = useState({})      // form exclusivo materiales
+  const [provForm,   setProvForm]   = useState({})      // form exclusivo proveedores
+  const [priceModal, setPriceModal] = useState(false)
 
   const canEdit = ['admin','coordinador'].includes(user?.role)
+  const isAdmin = user?.role === 'admin'
   const isProveedoresTab = filCat === 'PROVEEDORES'
+
+  const matItems = catalogo
+    .filter(c => c.categoria !== 'PROVEEDORES')
+    .map(c => ({ id: c.id, codigo: c.codigo || '—', nombre: c.nombre, categoria: c.categoria || '—', costo_unitario: c.costo_unitario || 0 }))
 
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
@@ -170,11 +178,19 @@ export default function MatCatalogo() {
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Catálogo de Materiales ({filtered.length})</h2>
-          {canEdit && (
-            isProveedoresTab
-              ? <button className="btn bp btn-sm" onClick={() => openProvModal()}>+ Proveedor</button>
-              : <button className="btn bp btn-sm" onClick={() => openMatModal()}>+ Material</button>
-          )}
+          <div style={{ display:'flex', gap:8 }}>
+            {isAdmin && !isProveedoresTab && (
+              <button className="btn btn-sm" onClick={() => setPriceModal(true)}
+                style={{ background:'#e8f4fd', color:'#1a5276', border:'1.5px solid #aed6f1', fontWeight:600 }}>
+                Actualizar Precios
+              </button>
+            )}
+            {canEdit && (
+              isProveedoresTab
+                ? <button className="btn bp btn-sm" onClick={() => openProvModal()}>+ Proveedor</button>
+                : <button className="btn bp btn-sm" onClick={() => openMatModal()}>+ Material</button>
+            )}
+          </div>
         </div>
         <div className="card-b">
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
@@ -423,6 +439,27 @@ export default function MatCatalogo() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal Actualizar Precios ── */}
+      {priceModal && (
+        <PriceUploadModal
+          title="Actualizar Precios — Materiales"
+          items={matItems}
+          idKey="id"
+          displayCols={[
+            { key:'codigo',    label:'Código' },
+            { key:'nombre',    label:'Nombre' },
+            { key:'categoria', label:'Categoría' },
+          ]}
+          priceCols={[
+            { key:'costo_unitario', label:'Costo Unitario' },
+          ]}
+          onSave={async (updates) => {
+            await bulkUpdateMatPrices(updates)
+          }}
+          onClose={() => setPriceModal(false)}
+        />
       )}
     </div>
   )

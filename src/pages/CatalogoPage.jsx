@@ -6,6 +6,7 @@ import CatalogItemModal from '../modals/CatalogItemModal'
 import SubcModal from '../modals/SubcModal'
 import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
+import PriceUploadModal from '../components/PriceUploadModal'
 
 function IconEdit({ size = 13 }) {
   return (
@@ -211,12 +212,17 @@ export default function CatalogoPage() {
   const [deleting,  setDeleting]  = useState(null)   // item to delete
   const catalogTI           = useAppStore(s => s.catalogTI)
   const catalogCW           = useAppStore(s => s.catalogCW)
-  const saveCatalogTIItem   = useAppStore(s => s.saveCatalogTIItem)
-  const deleteCatalogTIItem = useAppStore(s => s.deleteCatalogTIItem)
-  const saveCatalogCWItem   = useAppStore(s => s.saveCatalogCWItem)
-  const deleteCatalogCWItem = useAppStore(s => s.deleteCatalogCWItem)
+  const saveCatalogTIItem    = useAppStore(s => s.saveCatalogTIItem)
+  const deleteCatalogTIItem  = useAppStore(s => s.deleteCatalogTIItem)
+  const saveCatalogCWItem    = useAppStore(s => s.saveCatalogCWItem)
+  const deleteCatalogCWItem  = useAppStore(s => s.deleteCatalogCWItem)
+  const bulkUpdateTIPrices   = useAppStore(s => s.bulkUpdateTIPrices)
+  const bulkUpdateCWPrices   = useAppStore(s => s.bulkUpdateCWPrices)
+
+  const [priceModal, setPriceModal] = useState(null)  // null | 'TI' | 'CW'
 
   const canEdit = user?.role === 'admin' || user?.role === 'coordinador' || user?.role === 'coord'
+  const isAdmin = user?.role === 'admin'
 
   if (!canEdit) {
     return (
@@ -247,6 +253,20 @@ export default function CatalogoPage() {
   }, [seccion, search, tiItems, catalogCW])
 
   const sc = SECC_COLOR[seccion] || SECC_COLOR.BASE
+
+  // Flat items for price upload modal
+  const flatTIItems = tiItems.map(i => ({
+    id: i.id, nombre: i.nombre, seccion: i.seccion,
+    nokia_0: i.nokia?.[0]||0, nokia_1: i.nokia?.[1]||0, nokia_2: i.nokia?.[2]||0, nokia_3: i.nokia?.[3]||0,
+    a_0: i.A?.[0]||0, a_1: i.A?.[1]||0, a_2: i.A?.[2]||0, a_3: i.A?.[3]||0,
+    aa_0: i.AA?.[0]||0, aa_1: i.AA?.[1]||0, aa_2: i.AA?.[2]||0, aa_3: i.AA?.[3]||0,
+    aaa_0: i.AAA?.[0]||0, aaa_1: i.AAA?.[1]||0, aaa_2: i.AAA?.[2]||0, aaa_3: i.AAA?.[3]||0,
+  }))
+  const flatCWItems = catalogCW.map(i => ({
+    actividad_id: i.actividad_id, nombre: i.nombre, unidad: i.unidad,
+    precio_nokia_urbano: i.precio_nokia_urbano||0, precio_nokia_rural: i.precio_nokia_rural||0,
+    precio_subc_urbano: i.precio_subc_urbano||0, precio_subc_rural: i.precio_subc_rural||0,
+  }))
 
   // ── New item templates ────────────────────────────────────────
   const newTIItem = () => ({
@@ -286,6 +306,15 @@ export default function CatalogoPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+          )}
+          {seccion !== 'SubC' && isAdmin && (
+            <button
+              className="btn btn-sm"
+              style={{ fontSize: 12, padding: '5px 14px', background:'#e8f4fd', color:'#1a5276', border:'1.5px solid #aed6f1', fontWeight:600 }}
+              onClick={() => setPriceModal(seccion === 'CW' ? 'CW' : 'TI')}
+            >
+              Actualizar Precios
+            </button>
           )}
           {seccion !== 'SubC' && (
             <button
@@ -607,6 +636,52 @@ export default function CatalogoPage() {
         <ConfirmDelete
           onConfirm={handleDelete}
           onCancel={() => setDeleting(null)}
+        />
+      )}
+
+      {/* ── Modal Actualizar Precios TI ── */}
+      {priceModal === 'TI' && (
+        <PriceUploadModal
+          title="Actualizar Precios — Catálogo TI"
+          items={flatTIItems}
+          idKey="id"
+          displayCols={[
+            { key:'nombre',  label:'Nombre' },
+            { key:'seccion', label:'Sección' },
+          ]}
+          priceCols={[
+            { key:'nokia_0', label:'Nokia P' }, { key:'nokia_1', label:'Nokia S' },
+            { key:'nokia_2', label:'Nokia I' }, { key:'nokia_3', label:'Nokia DA' },
+            { key:'a_0',    label:'A P' },      { key:'a_1',    label:'A S' },
+            { key:'a_2',    label:'A I' },      { key:'a_3',    label:'A DA' },
+            { key:'aa_0',   label:'AA P' },     { key:'aa_1',   label:'AA S' },
+            { key:'aa_2',   label:'AA I' },     { key:'aa_3',   label:'AA DA' },
+            { key:'aaa_0',  label:'AAA P' },    { key:'aaa_1',  label:'AAA S' },
+            { key:'aaa_2',  label:'AAA I' },    { key:'aaa_3',  label:'AAA DA' },
+          ]}
+          onSave={async (updates) => { await bulkUpdateTIPrices(updates) }}
+          onClose={() => setPriceModal(null)}
+        />
+      )}
+
+      {/* ── Modal Actualizar Precios CW ── */}
+      {priceModal === 'CW' && (
+        <PriceUploadModal
+          title="Actualizar Precios — Catálogo CW"
+          items={flatCWItems}
+          idKey="actividad_id"
+          displayCols={[
+            { key:'nombre', label:'Nombre' },
+            { key:'unidad', label:'Unidad' },
+          ]}
+          priceCols={[
+            { key:'precio_nokia_urbano', label:'Nokia Urbano' },
+            { key:'precio_nokia_rural',  label:'Nokia Rural' },
+            { key:'precio_subc_urbano',  label:'SubC Urbano' },
+            { key:'precio_subc_rural',   label:'SubC Rural' },
+          ]}
+          onSave={async (updates) => { await bulkUpdateCWPrices(updates) }}
+          onClose={() => setPriceModal(null)}
         />
       )}
     </>
