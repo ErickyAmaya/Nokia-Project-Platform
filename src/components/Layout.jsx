@@ -135,13 +135,15 @@ export default function Layout({ children }) {
       }}>
         {/* Mobile hamburger */}
         <button
-          className="btn btn-sm"
-          style={{ display: 'none', background: 'none', border: 'none', fontSize: 20, padding: '8px 10px' }}
-          id="hdr-menu-btn"
+          className="mob-menu-btn"
           onClick={() => setDrawerOpen(true)}
           aria-label="Menú"
         >
-          ☰
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="3" y1="6"  x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
         </button>
 
         {/* Brand */}
@@ -163,16 +165,17 @@ export default function Layout({ children }) {
           )}
         </div>
 
-        <span style={{
+        <span className="hdr-title" style={{
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          {inMateriales ? 'Gestión de Inventarios y Materiales' : 'Liquidador de Actividades'}
+          {inMateriales ? 'Gestión de Inventarios' : 'Liquidador de Actividades'}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {canSwitchModule && (
             <button
+              className="desk-only"
               onClick={() => navigate('/modulos')}
               style={{
                 background: 'none', border: '1px solid #e0e4e0', borderRadius: 6,
@@ -201,7 +204,7 @@ export default function Layout({ children }) {
       </header>
 
       {/* ── Desktop Nav ────────────────────────────────────────── */}
-      <nav style={{
+      <nav className="desk-nav" style={{
         background: '#fff', display: 'flex', gap: 1, padding: '0 18px',
         borderBottom: '1.5px solid #e0e4e0',
         overflowX: 'auto', WebkitOverflowScrolling: 'touch',
@@ -299,69 +302,108 @@ export default function Layout({ children }) {
         />
       )}
       <div className={`nav-drawer ${drawerOpen ? 'open' : ''}`}>
+
+        {/* ── Drawer header: usuario + cerrar ── */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 16px 12px', borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
+          padding: 'max(env(safe-area-inset-top), 16px) 16px 14px',
+          borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
+          background: 'rgba(0,0,0,.25)',
         }}>
-          <span style={{
-            fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
-            fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', color: '#27c727',
-          }}>
-            Navegación
-          </span>
-          <button
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.4)', fontSize: 22, cursor: 'pointer', padding: '2px 8px' }}
-            onClick={() => setDrawerOpen(false)}
-          >×</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 4, lineHeight: 1.2 }}>
+                {user?.nombre || user?.email || 'Usuario'}
+              </div>
+              <span className={`user-badge ${badge.cls}`} style={{ fontSize: 9, padding: '2px 8px' }}>
+                {badge.label}
+              </span>
+            </div>
+            <button
+              style={{ background: 'rgba(255,255,255,.08)', border: 'none', color: 'rgba(255,255,255,.6)',
+                fontSize: 18, cursor: 'pointer', borderRadius: 6, width: 32, height: 32,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              onClick={() => setDrawerOpen(false)}
+            >×</button>
+          </div>
+
+          {/* Módulo actual */}
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
+            textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
+            {inMateriales ? '📦 Gestión de Materiales' : '💰 Liquidador Nokia'}
+          </div>
+
+          {/* Cambiar módulo */}
+          {canSwitchModule && (
+            <button
+              onClick={() => { navigate('/modulos'); setDrawerOpen(false) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8,
+                background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)',
+                color: 'rgba(255,255,255,.7)', borderRadius: 6, padding: '7px 12px',
+                fontSize: 11, fontWeight: 700, cursor: 'pointer', width: '100%',
+                letterSpacing: .4 }}
+            >
+              ⊞ Cambiar Módulo
+            </button>
+          )}
         </div>
 
-        {allVisible.map(item => (
-          <NavLink
-            key={item.id}
-            to={item.to}
-            className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
-            onClick={() => setDrawerOpen(false)}
-            style={{ textDecoration: 'none' }}
-          >
-            <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-            {item.label}
-          </NavLink>
-        ))}
-        {inMateriales && (
-          <>
-            <div style={{ padding: '8px 16px 4px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase' }}>
-              HW Nokia
-            </div>
-            {HW_NAV.map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
-                onClick={() => setDrawerOpen(false)}
-                style={{ textDecoration: 'none', paddingLeft: 28 }}
-              >
-                <span style={{ fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-                {item.label}
-              </NavLink>
-            ))}
-          </>
-        )}
+        {/* ── Nav items ── */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingTop: 6 }}>
+          {allVisible.map(item => (
+            <NavLink
+              key={item.id}
+              to={item.to}
+              className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
+              onClick={() => setDrawerOpen(false)}
+              style={{ textDecoration: 'none' }}
+            >
+              <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
+          {inMateriales && (
+            <>
+              <div style={{ padding: '10px 16px 4px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2,
+                color: 'rgba(255,255,255,.3)', textTransform: 'uppercase', borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 }}>
+                HW Nokia
+              </div>
+              {HW_NAV.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
+                  onClick={() => setDrawerOpen(false)}
+                  style={{ textDecoration: 'none', paddingLeft: 28 }}
+                >
+                  <span style={{ fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
+        </div>
 
-        <div style={{
-          marginTop: 'auto', padding: '14px 16px',
-          borderTop: '1px solid rgba(255,255,255,.07)',
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.5)', letterSpacing: .8 }}>
-            {empresa?.nombre || 'INGETEL'}
-          </div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.3)', letterSpacing: .8, textTransform: 'uppercase', marginTop: 2 }}>
-            Diseñado por SCYTEL
+        {/* ── Drawer footer: logout ── */}
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,.07)',
+          paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+          <button
+            onClick={() => { setDrawerOpen(false); handleLogout() }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              background: 'rgba(192,57,43,.18)', border: '1px solid rgba(192,57,43,.35)',
+              color: '#e57373', borderRadius: 8, padding: '10px 14px',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer', letterSpacing: .3 }}
+          >
+            <span>↪</span> Cerrar Sesión
+          </button>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,.2)', marginTop: 8,
+            letterSpacing: .8, textTransform: 'uppercase', textAlign: 'center' }}>
+            {empresa?.nombre || 'INGETEL'} · Diseñado por SCYTEL
           </div>
         </div>
       </div>
 
       {/* ── Page content ───────────────────────────────────────── */}
-      <main style={{
+      <main className="page-main" style={{
         padding: '18px 18px max(18px, env(safe-area-inset-bottom))',
         maxWidth: 1400, margin: '0 auto',
       }}>

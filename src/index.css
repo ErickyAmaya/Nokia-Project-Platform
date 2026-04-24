@@ -261,3 +261,128 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   .no-print { display: none !important; }
   body { background: #fff; }
 }
+
+/* ── Btn edit (faltaba definición global) ─────────────────────── */
+.btn-edit {
+  background: #f0f7ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+  border-radius: 100px; padding: 2px 8px; font-size: 10px;
+  cursor: pointer; font-weight: 700; line-height: 1.4;
+}
+.btn-edit:hover { background: #dbeafe; }
+
+/* ── Desktop: ocultar elementos solo-móvil ───────────────────── */
+.mob-menu-btn { display: none; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — hasta 768px (tablets portrait + phones)
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Layout: hamburger visible, nav desktop oculto ── */
+  .mob-menu-btn {
+    display: flex !important;
+    align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer;
+    color: #555f55; padding: 8px; border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    flex-shrink: 0;
+  }
+  .desk-nav  { display: none !important; }
+  .hdr-title { display: none !important; }
+  .desk-only { display: none !important; }
+
+  /* ── Header ── */
+  header { padding: 0 10px !important; height: 46px !important; }
+  .user-badge { font-size: 9px !important; padding: 3px 8px !important; gap: 4px !important; }
+  .user-badge::after { content: ''; } /* quitar texto largo si fuera necesario */
+
+  /* ── Main padding ── */
+  .page-main {
+    padding: 10px 10px max(14px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* ── Cards ── */
+  .card   { margin-bottom: 10px; }
+  .card-h { padding: 8px 10px; }
+  .card-h h2 { font-size: 12px; letter-spacing: .6px; }
+  .card-b { padding: 10px; }
+
+  /* ── Stat cards ── */
+  .stat { padding: 10px 12px; }
+  .sv   { font-size: 20px !important; }
+  .sl   { font-size: 8px; }
+  .ss   { font-size: 9px; }
+
+  /* ── iOS: prevenir zoom al enfocar inputs (font ≥ 16px) ── */
+  input, select, textarea,
+  input.fc, select.fc, textarea.fc {
+    font-size: 16px !important;
+  }
+
+  /* ── Tables: scroll horizontal con scroll snapping ── */
+  .tbl      { font-size: 10px; }
+  .tbl th   { font-size: 8px; padding: 5px 5px; white-space: nowrap; }
+  .tbl td   { padding: 5px 5px; }
+  .tbl-scroll { max-height: calc(100vh - 240px); }
+
+  /* ── Grids responsive ── */
+  .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .g3      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .g2      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+
+  /* ── Buttons: touch-friendly ── */
+  .btn     { min-height: 36px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .btn-sm  { min-height: 30px; padding: 5px 10px; }
+  .btn-del,
+  .btn-edit { -webkit-tap-highlight-color: transparent; touch-action: manipulation; min-width: 28px; min-height: 28px; }
+
+  /* ── Toast: ancho completo ── */
+  #toast {
+    left: 10px !important; right: 10px !important;
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    max-width: none !important; font-size: 12px;
+    text-align: center;
+  }
+
+  /* ── Img tooltip: posición ajustada ── */
+  .img-tooltip { min-width: 120px; }
+
+  /* ── Modales: pantalla casi completa en móvil ── */
+  /* Los modales usan position:fixed con padding, reducimos el padding */
+  body > #root [style*="position: fixed"][style*="padding"],
+  body > #root [style*="position:fixed"][style*="padding"] {
+    padding: 6px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SMALL PHONES — iPhone SE / mini (≤390px)
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 390px) {
+  .g2      { grid-template-columns: 1fr 1fr !important; gap: 6px; }
+  .g3, .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 6px; }
+
+  .stat { padding: 8px 10px; }
+  .sv   { font-size: 17px !important; }
+  .sl   { font-size: 7px; }
+
+  .page-main { padding: 8px 8px max(12px, env(safe-area-inset-bottom)) !important; }
+  .card-b    { padding: 8px; }
+  .card-h    { padding: 7px 8px; }
+  .card-h h2 { font-size: 11px; }
+
+  .btn    { font-size: 10px; padding: 6px 10px; }
+  .btn-sm { font-size: 9px; padding: 4px 8px; }
+
+  /* Ocultar columnas menos importantes en tablas muy estrechas */
+  .tbl .hide-xs { display: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TABLET LANDSCAPE / SMALL DESKTOP (769px – 1024px)
+═══════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .g5 { grid-template-columns: repeat(3,1fr) !important; gap: 10px; }
+  .g4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px; }
+}
