@@ -42,7 +42,7 @@ export default function ModuloHomePage() {
   const color = empresaConfig?.color || '#144E4A'
 
   return (
-    <div style={{
+    <div className="modulos-wrap" style={{
       minHeight: '80vh', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: '40px 18px', gap: 32,
@@ -62,7 +62,7 @@ export default function ModuloHomePage() {
       </div>
 
       {/* Tarjetas */}
-      <div style={{
+      <div className="modulos-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         gap: 20, width: '100%', maxWidth: 900,
@@ -107,7 +107,7 @@ export default function ModuloHomePage() {
                 </span>
               )}
 
-              <div style={{ fontSize: 36, marginBottom: 14 }}>{m.icon}</div>
+              <div className="modulo-icon" style={{ fontSize: 36, marginBottom: 14 }}>{m.icon}</div>
 
               <h2 style={{
                 fontFamily: "'Barlow Condensed', sans-serif",

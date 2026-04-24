@@ -379,6 +379,32 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 
   /* ── Img tooltip: deshabilitar en mobile (sin hover) ── */
   .img-tooltip { display: none !important; }
+
+  /* ── Login: márgenes laterales para que no ocupe todo el ancho ── */
+  .login-card {
+    width: calc(100% - 40px) !important;
+    max-width: 360px !important;
+    margin: 0 auto;
+    border-radius: 12px !important;
+  }
+
+  /* ── Módulos home: cards más compactas para ver las 3 ── */
+  .modulos-wrap {
+    min-height: unset !important;
+    padding: 20px 16px !important;
+    gap: 16px !important;
+    justify-content: flex-start !important;
+  }
+  .modulos-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .modulos-grid > div {
+    padding: 14px 16px !important;
+  }
+  .modulo-icon { font-size: 24px !important; margin-bottom: 8px !important; }
+  .modulos-grid h2 { font-size: 15px !important; margin-bottom: 4px !important; }
+  .modulos-grid p  { font-size: 11px !important; margin-bottom: 10px !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

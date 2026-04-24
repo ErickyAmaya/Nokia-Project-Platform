@@ -46,7 +46,7 @@ export default function LoginScreen() {
       background: 'linear-gradient(135deg, #f0f4f0 0%, #e8f0e8 100%)',
       fontFamily: "'Barlow', 'Segoe UI', sans-serif",
     }}>
-      <div style={{
+      <div className="login-card" style={{
         width: '100%', maxWidth: 400, background: '#fff',
         borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
         overflow: 'hidden',
