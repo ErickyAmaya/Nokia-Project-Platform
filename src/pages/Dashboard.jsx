@@ -4,7 +4,7 @@ import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
 import { calcSitio, hasSN } from '../lib/calcSitio'
 import { cop, pct, mcls, mfcls, MESES_FULL } from '../lib/catalog'
-import { buildTCOptions, matchTipoCuadrilla, buildTiposCuadrilla, sinExternas } from '../lib/cuadrilla'
+import { buildTCOptions, matchTipoCuadrilla, sinExternas } from '../lib/cuadrilla'
 import NuevoSitioModal from '../modals/NuevoSitioModal'
 import NuevoTSSModal from '../modals/NuevoTSSModal'
 
@@ -119,17 +119,11 @@ export default function Dashboard() {
   const isAdmin  = user?.role === 'admin'
   const isViewer = user?.role === 'viewer'
 
-  // Cuadrilla selector options — empresa-named defaults + actual subcs, no "externa"
+  // Cuadrilla selector options — directo desde Supabase, sin hardcodear
   const tcOpts = useMemo(() => {
-    const nombreCorto = empresaConfig?.nombre_corto || 'Ingetel'
-    const extras    = empresaConfig?.tipos_cuadrilla || []
-    const base      = buildTiposCuadrilla(nombreCorto, extras)
-    const fromSubcs = sinExternas(subcs.map(s => s.tipoCuadrilla).filter(Boolean))
-    const baseNorm  = base.map(t => t.toLowerCase())
-    const uniqueFromSubcs = fromSubcs.filter(t => !baseNorm.includes(t.toLowerCase()))
-    const tipos = [...new Set([...base, ...uniqueFromSubcs])].sort()
+    const tipos = [...new Set(sinExternas(subcs.map(s => s.tipoCuadrilla).filter(Boolean)))].sort()
     return buildTCOptions(tipos)
-  }, [subcs, empresaConfig])
+  }, [subcs])
 
   // Filter + sort sites
   const filtered = useMemo(() => {
