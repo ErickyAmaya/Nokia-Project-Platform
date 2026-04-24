@@ -277,7 +277,8 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 /* ── Dashboard layout classes ────────────────────────────────── */
 .dash-hdr        { display: flex; justify-content: space-between; align-items: flex-start;
                    flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.dash-controls   { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dash-controls   { display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+.dash-controls input.fc { min-width: 180px; }
 .dash-main-grid  { display: grid; grid-template-columns: 1fr 340px; gap: 14px; }
 .kpi-grid        { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 10px; }
 
