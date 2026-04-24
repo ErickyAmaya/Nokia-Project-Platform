@@ -15,8 +15,8 @@ export function buildTiposCuadrilla(nombreCorto = 'Empresa', extras = []) {
   const base = [
     `TI ${empresa}`,
     `TSS ${empresa}`,
-    'TI Scytel',
-    'TSS Scytel',
+    'TI SCYTEL',
+    'TSS SCYTEL',
   ]
   return [...new Set([...base, ...extras])].filter(t => !t.toLowerCase().includes('externa'))
 }
