@@ -281,7 +281,7 @@ export default function MatDashboard() {
       </div>
 
       {/* ── KPIs fila 1 ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:10 }}>
+      <div className="kpi-grid">
         <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />
         <KpiCard label="En Stock"               value={kpis.enStock}           color={C.green}  />
         <KpiCard label="Bajo Mínimo"            value={kpis.bajoMin}           color={C.amber}  />
@@ -289,7 +289,7 @@ export default function MatDashboard() {
       </div>
 
       {/* ── KPIs fila 2 ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:16 }}>
+      <div className="kpi-grid" style={{ marginBottom:16 }}>
         <KpiCard label="Valor Inventario TI"  value={matCop(kpis.valTI)}    color={C.dark}   />
         <KpiCard label="Valor Inventario CW"  value={matCop(kpis.valCW)}    color={C.purple} />
         <KpiCard label="Total Entradas"       value={matCop(kpis.entradas)} color={C.green}  />
@@ -298,7 +298,7 @@ export default function MatDashboard() {
 
       {/* ── Analytics de Proveedores ── */}
       <SectionTitle>Analytics de Proveedores</SectionTitle>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'var(--two-col)', gap:12, marginBottom:16 }}>
 
         {/* Resumen por proveedor */}
         <div className="card">
@@ -399,7 +399,7 @@ export default function MatDashboard() {
       </div>
 
       {/* ── Pie charts ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'var(--two-col)', gap:12, marginBottom:12 }}>
         <div className="card">
           <div className="card-h"><h2>Valor Inventariado por Categoría</h2></div>
           <div className="card-b">
@@ -487,7 +487,7 @@ export default function MatDashboard() {
       </div>
 
       {/* ── Valor Despachado por Sitio + Top 10 consumo ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'var(--two-col)', gap:12, marginBottom:12 }}>
         <div className="card">
           <div className="card-h"><h2>Valor Despachado por Sitio</h2></div>
           <div className="card-b">

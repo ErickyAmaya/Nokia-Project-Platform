@@ -262,7 +262,7 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   body { background: #fff; }
 }
 
-/* ── Btn edit (faltaba definición global) ─────────────────────── */
+/* ── Btn edit ────────────────────────────────────────────────── */
 .btn-edit {
   background: #f0f7ff; color: #1d4ed8; border: 1px solid #bfdbfe;
   border-radius: 100px; padding: 2px 8px; font-size: 10px;
@@ -270,114 +270,20 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 }
 .btn-edit:hover { background: #dbeafe; }
 
+/* ── CSS custom properties para grids responsive ────────────────
+   Se sobreescriben en mobile para afectar los inline styles       */
+:root { --two-col: 1fr 1fr; }
+
+/* ── Dashboard layout classes ────────────────────────────────── */
+.dash-hdr        { display: flex; justify-content: space-between; align-items: flex-start;
+                   flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.dash-controls   { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dash-main-grid  { display: grid; grid-template-columns: 1fr 340px; gap: 14px; }
+.kpi-grid        { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 10px; }
+
 /* ── Desktop: ocultar elementos solo-móvil ───────────────────── */
 .mob-menu-btn { display: none; }
-
-/* ═══════════════════════════════════════════════════════════════
-   MOBILE — hasta 768px (tablets portrait + phones)
-═══════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-
-  /* ── Layout: hamburger visible, nav desktop oculto ── */
-  .mob-menu-btn {
-    display: flex !important;
-    align-items: center; justify-content: center;
-    background: none; border: none; cursor: pointer;
-    color: #555f55; padding: 8px; border-radius: 6px;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    flex-shrink: 0;
-  }
-  .desk-nav  { display: none !important; }
-  .hdr-title { display: none !important; }
-  .desk-only { display: none !important; }
-
-  /* ── Header ── */
-  header { padding: 0 10px !important; height: 46px !important; }
-  .user-badge { font-size: 9px !important; padding: 3px 8px !important; gap: 4px !important; }
-  .user-badge::after { content: ''; } /* quitar texto largo si fuera necesario */
-
-  /* ── Main padding ── */
-  .page-main {
-    padding: 10px 10px max(14px, env(safe-area-inset-bottom)) !important;
-  }
-
-  /* ── Cards ── */
-  .card   { margin-bottom: 10px; }
-  .card-h { padding: 8px 10px; }
-  .card-h h2 { font-size: 12px; letter-spacing: .6px; }
-  .card-b { padding: 10px; }
-
-  /* ── Stat cards ── */
-  .stat { padding: 10px 12px; }
-  .sv   { font-size: 20px !important; }
-  .sl   { font-size: 8px; }
-  .ss   { font-size: 9px; }
-
-  /* ── iOS: prevenir zoom al enfocar inputs (font ≥ 16px) ── */
-  input, select, textarea,
-  input.fc, select.fc, textarea.fc {
-    font-size: 16px !important;
-  }
-
-  /* ── Tables: scroll horizontal con scroll snapping ── */
-  .tbl      { font-size: 10px; }
-  .tbl th   { font-size: 8px; padding: 5px 5px; white-space: nowrap; }
-  .tbl td   { padding: 5px 5px; }
-  .tbl-scroll { max-height: calc(100vh - 240px); }
-
-  /* ── Grids responsive ── */
-  .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
-  .g3      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
-  .g2      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
-
-  /* ── Buttons: touch-friendly ── */
-  .btn     { min-height: 36px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-  .btn-sm  { min-height: 30px; padding: 5px 10px; }
-  .btn-del,
-  .btn-edit { -webkit-tap-highlight-color: transparent; touch-action: manipulation; min-width: 28px; min-height: 28px; }
-
-  /* ── Toast: ancho completo ── */
-  #toast {
-    left: 10px !important; right: 10px !important;
-    bottom: max(10px, env(safe-area-inset-bottom)) !important;
-    max-width: none !important; font-size: 12px;
-    text-align: center;
-  }
-
-  /* ── Img tooltip: posición ajustada ── */
-  .img-tooltip { min-width: 120px; }
-
-  /* ── Modales: pantalla casi completa en móvil ── */
-  /* Los modales usan position:fixed con padding, reducimos el padding */
-  body > #root [style*="position: fixed"][style*="padding"],
-  body > #root [style*="position:fixed"][style*="padding"] {
-    padding: 6px !important;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SMALL PHONES — iPhone SE / mini (≤390px)
-═══════════════════════════════════════════════════════════════ */
-@media (max-width: 390px) {
-  .g2      { grid-template-columns: 1fr 1fr !important; gap: 6px; }
-  .g3, .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 6px; }
-
-  .stat { padding: 8px 10px; }
-  .sv   { font-size: 17px !important; }
-  .sl   { font-size: 7px; }
-
-  .page-main { padding: 8px 8px max(12px, env(safe-area-inset-bottom)) !important; }
-  .card-b    { padding: 8px; }
-  .card-h    { padding: 7px 8px; }
-  .card-h h2 { font-size: 11px; }
-
-  .btn    { font-size: 10px; padding: 6px 10px; }
-  .btn-sm { font-size: 9px; padding: 4px 8px; }
-
-  /* Ocultar columnas menos importantes en tablas muy estrechas */
-  .tbl .hide-xs { display: none !important; }
-}
+.hide-sm      { }  /* visible en desktop — se oculta en @media */
 
 /* ═══════════════════════════════════════════════════════════════
    TABLET LANDSCAPE / SMALL DESKTOP (769px – 1024px)
@@ -385,4 +291,111 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 @media (min-width: 769px) and (max-width: 1024px) {
   .g5 { grid-template-columns: repeat(3,1fr) !important; gap: 10px; }
   .g4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px; }
+  .dash-main-grid { grid-template-columns: 1fr 280px !important; }
+  .kpi-grid { grid-template-columns: repeat(2,1fr) !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE — hasta 768px (tablets portrait + phones)
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Variables CSS: colapsar grids de 2 col → 1 col ── */
+  :root { --two-col: 1fr; }
+
+  /* ── Hamburger visible, nav desktop oculto ── */
+  .mob-menu-btn {
+    display: flex !important; align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer; color: #555f55;
+    padding: 8px; border-radius: 6px; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .desk-nav  { display: none !important; }
+  .hdr-title { display: none !important; }
+  .desk-only { display: none !important; }
+  .hide-sm   { display: none !important; }
+
+  /* ── Header compacto ── */
+  header { padding: 0 10px !important; height: 46px !important; }
+  .user-badge { font-size: 9px !important; padding: 3px 8px !important; gap: 3px !important; }
+
+  /* ── Main content ── */
+  .page-main { padding: 10px 10px max(14px, env(safe-area-inset-bottom)) !important; }
+
+  /* ── Cards ── */
+  .card     { margin-bottom: 10px; border-radius: 10px; }
+  .card-h   { padding: 9px 12px; }
+  .card-h h2{ font-size: 12px; letter-spacing: .5px; }
+  .card-b   { padding: 10px; }
+
+  /* ── Stat cards ── */
+  .stat { padding: 10px 12px; border-radius: 10px; }
+  .sv   { font-size: 19px !important; }
+  .sl   { font-size: 8px; }
+  .ss   { font-size: 9px; }
+
+  /* ── Dashboard specific ── */
+  .dash-hdr { flex-direction: column; gap: 10px; }
+  .dash-hdr h1 { font-size: 18px !important; }
+  .dash-controls { width: 100%; }
+  .dash-controls .fc { flex: 1; min-width: 0; }
+  .dash-main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 8px !important; }
+
+  /* ── Grids globales responsive ── */
+  .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .g3      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .g2      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+
+  /* ── iOS: prevenir zoom en inputs (debe ser ≥ 16px) ── */
+  input.fc, select.fc, textarea.fc,
+  input[type="text"], input[type="number"], input[type="date"],
+  input[type="email"], select, textarea { font-size: 16px !important; }
+
+  /* ── Tablas: compactas y horizontalmente scrolleables ── */
+  .tbl    { font-size: 10px; }
+  .tbl th { font-size: 8px; padding: 6px 6px; white-space: nowrap; }
+  .tbl td { padding: 6px 6px; }
+  .tbl-scroll { max-height: calc(100vh - 220px); }
+
+  /* ── Botones: touch-friendly (44px mínimo recomendado por Apple HIG) ── */
+  .btn     { min-height: 38px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .btn-sm  { min-height: 32px; padding: 5px 10px; }
+  .btn-lg  { min-height: 44px; font-size: 12px; }
+  .btn-del, .btn-edit { -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+                        min-width: 30px; min-height: 30px; }
+
+  /* ── Toast: ancho completo centrado ── */
+  #toast {
+    left: 12px !important; right: 12px !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    max-width: none !important; font-size: 12px; text-align: center;
+  }
+
+  /* ── Img tooltip: deshabilitar en mobile (sin hover) ── */
+  .img-tooltip { display: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SMALL PHONES — iPhone SE / mini / 13 mini (≤390px)
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 390px) {
+  .page-main { padding: 8px 8px max(12px, env(safe-area-inset-bottom)) !important; }
+  .card-b    { padding: 8px; }
+  .card-h    { padding: 7px 8px; }
+  .card-h h2 { font-size: 11px; }
+
+  .stat { padding: 8px 10px; }
+  .sv   { font-size: 16px !important; }
+  .sl   { font-size: 7px; }
+
+  .btn    { font-size: 10px; padding: 6px 10px; }
+  .btn-sm { font-size: 9px; padding: 4px 8px; }
+
+  /* 2 cols para KPIs, 1 col para g2 */
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+  .g2       { grid-template-columns: 1fr !important; }
+
+  /* Ocultar columnas extra en tablas */
+  .tbl .hide-xs { display: none !important; }
 }

@@ -180,25 +180,24 @@ export default function Dashboard() {
   return (
     <>
       {/* ── Page header ──────────────────────────────────────── */}
-      <div className="fb mb14">
+      <div className="dash-hdr mb14">
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700 }}>
           Proyecto Nokia 2026
         </h1>
-        <div className="flex gap8" style={{ flexWrap: 'wrap' }}>
+        <div className="dash-controls">
           <input
             type="text" className="fc"
             placeholder="🔍 Buscar sitio…"
-            style={{ width: 160 }}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
           <DateFilter value={dateFilter} onChange={setDateFilter} />
-          <select className="fc" style={{ width: 170 }} value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
+          <select className="fc" value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
             {tcOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {!isViewer && (
             <>
-              <button className="btn bp no-print" onClick={() => setModalSitio(true)}>＋ Nuevo Sitio</button>
+              <button className="btn bp no-print" onClick={() => setModalSitio(true)}>＋ Sitio</button>
               <button className="btn bo no-print" onClick={() => setModalTSS(true)}>＋ TSS</button>
             </>
           )}
@@ -239,21 +238,21 @@ export default function Dashboard() {
       </div>
 
       {/* ── Main grid: tabla + sidebar ────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14 }}>
+      <div className="dash-main-grid">
         {/* Sites table */}
         <div className="card">
-          <div className="card-h"><h2>Sitios del Proyecto</h2></div>
+          <div className="card-h"><h2>Sitios del Proyecto ({calcs.length})</h2></div>
           <div style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
             <table className="tbl" id="tbl-dash">
               <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr>
                   <th>Sitio</th>
-                  <th>LC</th>
-                  <th>Liquidación</th>
-                  <th>Región</th>
-                  <th className="num th-nokia">Venta Nokia</th>
-                  <th className="num th-subc">Costo SubC</th>
-                  <th className="num">Utilidad</th>
+                  <th className="hide-sm">LC</th>
+                  <th>Estado</th>
+                  <th className="hide-sm">Región</th>
+                  <th className="num th-nokia hide-sm">Venta Nokia</th>
+                  <th className="num th-subc hide-sm">Costo</th>
+                  <th className="num hide-sm">Utilidad</th>
                   <th className="num">% Margen</th>
                 </tr>
               </thead>
@@ -285,17 +284,17 @@ export default function Dashboard() {
                         }}>E</span>
                       )}
                     </td>
-                    <td style={{ fontSize: 10 }}>{s.lc}</td>
+                    <td className="hide-sm" style={{ fontSize: 10 }}>{s.lc}</td>
                     <td>
                       {s.estado === 'final'
                         ? <span className="badge" style={{ background: '#1a7a1a', color: '#fff', fontSize: 9, padding: '2px 8px' }}>FINAL</span>
                         : <span className="badge" style={{ background: '#d68910', color: '#fff', fontSize: 9, padding: '2px 8px' }}>PRE</span>
                       }
                     </td>
-                    <td><span className="badge bg-b" style={{ fontSize: 8 }}>{regionShort(s.region)}</span></td>
-                    <td className="num" style={{ color: 'var(--b)', fontWeight: 700 }}>{cop(c.totalVenta)}</td>
-                    <td className="num" style={{ color: '#b45309' }}>{cop(c.totalCosto)}</td>
-                    <td className={`num fw7 ${c.utilidad >= 0 ? 'tg' : 'tr'}`}>{cop(c.utilidad)}</td>
+                    <td className="hide-sm"><span className="badge bg-b" style={{ fontSize: 8 }}>{regionShort(s.region)}</span></td>
+                    <td className="num hide-sm" style={{ color: 'var(--b)', fontWeight: 700 }}>{cop(c.totalVenta)}</td>
+                    <td className="num hide-sm" style={{ color: '#b45309' }}>{cop(c.totalCosto)}</td>
+                    <td className={`num fw7 hide-sm ${c.utilidad >= 0 ? 'tg' : 'tr'}`}>{cop(c.utilidad)}</td>
                     <td className="num">
                       <span className={`badge ${mcls(c.margen)}`}>{pct(c.margen)}</span>
                     </td>
