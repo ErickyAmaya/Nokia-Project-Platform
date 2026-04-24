@@ -125,7 +125,9 @@ export default function Dashboard() {
     const extras    = empresaConfig?.tipos_cuadrilla || []
     const base      = buildTiposCuadrilla(nombreCorto, extras)
     const fromSubcs = sinExternas(subcs.map(s => s.tipoCuadrilla).filter(Boolean))
-    const tipos = [...new Set([...base, ...fromSubcs])].sort()
+    const baseNorm  = base.map(t => t.toLowerCase())
+    const extras2   = fromSubcs.filter(t => !baseNorm.includes(t.toLowerCase()))
+    const tipos = [...new Set([...base, ...extras2])].sort()
     return buildTCOptions(tipos)
   }, [subcs, empresaConfig])
 
