@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -25,6 +25,9 @@ export default function HwCatalogo() {
   const hwCatalogo      = useHwStore(s => s.hwCatalogo)
   const saveHwCatItem   = useHwStore(s => s.saveHwCatItem)
   const deleteHwCatItem = useHwStore(s => s.deleteHwCatItem)
+  const loadAll         = useHwStore(s => s.loadAll)
+
+  useEffect(() => { loadAll() }, [])
   const user            = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
