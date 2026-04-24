@@ -34,8 +34,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'Liquidador Nokia 2026',
-        short_name: 'Nokia Billing',
+        name: 'Nokia Platform 2026',
+        short_name: 'Nokia 2026',
         description: 'Seguimiento y liquidación de sitios Nokia — Ingetel 2026',
         theme_color: '#144E4A',
         background_color: '#f0f2f0',
