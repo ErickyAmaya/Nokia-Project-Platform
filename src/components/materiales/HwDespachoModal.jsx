@@ -358,6 +358,27 @@ export default function HwDespachoModal({ onClose }) {
                     onChange={v => { setSelCat(v); setSelCant(1) }}
                     placeholder="Buscar equipo HW…"
                   />
+                  {selectedCat?.imagen_url && (
+                    <div style={{ display:'flex', alignItems:'center', gap:10,
+                      background:'#f0f7ff', border:'1.5px solid #bfdbfe', borderRadius:8, padding:'8px 12px' }}>
+                      <img src={selectedCat.imagen_url} alt={selectedCat.descripcion}
+                        style={{ width:56, height:56, objectFit:'contain', borderRadius:6,
+                          border:'1px solid #dbeafe', background:'#fff', flexShrink:0 }}
+                        onError={e => { e.target.style.display='none' }}
+                      />
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:700, color:'#1e40af' }}>{selectedCat.descripcion}</div>
+                        {selectedCat.cod_material && (
+                          <div style={{ fontSize:10, color:'#9ca89c', fontFamily:"'Barlow Condensed',sans-serif", marginTop:2 }}>
+                            {selectedCat.cod_material}
+                          </div>
+                        )}
+                        <div style={{ fontSize:9, color:'#3b82f6', marginTop:3, fontWeight:600, letterSpacing:.3 }}>
+                          VERIFICAR EQUIPO
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {selCat && (
                     <div style={{ display:'flex', alignItems:'center', gap:12, fontSize:10 }}>
                       <span style={{ color:'#555f55' }}>
