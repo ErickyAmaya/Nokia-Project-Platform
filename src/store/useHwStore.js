@@ -54,6 +54,7 @@ export const useHwStore = create((set, get) => ({
       aplica_serial: item.aplica_serial ?? true,
       notas:         item.notas         || null,
       activo:        item.activo ?? true,
+      imagen_url:    item.imagen_url    || null,
     }
     const { data, error } = item.id
       ? await db().from('hw_catalogo').update(payload).eq('id', item.id).select().single()

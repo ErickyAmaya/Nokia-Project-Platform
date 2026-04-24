@@ -21,8 +21,9 @@ function nextHwDoc(movimientos, tipo) {
 }
 
 function SearchableEquipo({ value, onChange, options }) {
-  const [query, setQuery] = useState('')
-  const [open,  setOpen]  = useState(false)
+  const [query,     setQuery]     = useState('')
+  const [open,      setOpen]      = useState(false)
+  const [hoverItem, setHoverItem] = useState(null)
   const ref = useRef(null)
 
   const selected = options.find(o => String(o.id) === String(value))
@@ -44,6 +45,16 @@ function SearchableEquipo({ value, onChange, options }) {
 
   return (
     <div ref={ref} style={{ position:'relative' }}>
+      {/* Thumbnail del equipo seleccionado */}
+      {selected?.imagen_url && !open && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+          <img src={selected.imagen_url} alt={selected.descripcion}
+            style={{ width:36, height:36, objectFit:'contain', borderRadius:4, border:'1px solid #e0e4e0', background:'#f9f9f9' }}
+            onError={e => { e.target.style.display='none' }}
+          />
+          <span style={{ fontSize:10, color:'#9ca89c' }}>{selected.descripcion}</span>
+        </div>
+      )}
       <input
         className="fc"
         placeholder="Buscar equipo por descripción o código…"
@@ -55,7 +66,7 @@ function SearchableEquipo({ value, onChange, options }) {
         <div style={{
           position:'absolute', top:'100%', left:0, right:0, zIndex:700,
           background:'#fff', border:'1.5px solid #e0e4e0', borderRadius:6,
-          maxHeight:220, overflowY:'auto', boxShadow:'0 6px 20px rgba(0,0,0,.12)',
+          maxHeight:260, overflowY:'auto', boxShadow:'0 6px 20px rgba(0,0,0,.12)',
         }}>
           {filtered.length === 0 && (
             <div style={{ padding:'10px 12px', fontSize:11, color:'#9ca89c' }}>Sin resultados</div>
@@ -63,13 +74,24 @@ function SearchableEquipo({ value, onChange, options }) {
           {filtered.map(o => (
             <div key={o.id}
               onMouseDown={() => { onChange(String(o.id)); setOpen(false); setQuery('') }}
+              onMouseEnter={() => setHoverItem(o.id)}
+              onMouseLeave={() => setHoverItem(null)}
               style={{
                 padding:'8px 12px', cursor:'pointer', fontSize:11,
-                background: String(o.id) === String(value) ? '#f0fdf4' : '#fff',
+                display:'flex', alignItems:'center', gap:8,
+                background: String(o.id) === String(value) ? '#f0fdf4' : hoverItem === o.id ? '#f8faf8' : '#fff',
                 borderBottom:'1px solid #f0f2f0',
               }}>
-              <span style={{ fontWeight:600 }}>{o.descripcion}</span>
-              {o.cod_material && <span style={{ color:'#9ca89c', marginLeft:6, fontFamily:"'Barlow Condensed',sans-serif" }}>{o.cod_material}</span>}
+              {o.imagen_url && (
+                <img src={o.imagen_url} alt={o.descripcion}
+                  style={{ width:32, height:32, objectFit:'contain', borderRadius:4, border:'1px solid #e8e8e8', flexShrink:0 }}
+                  onError={e => { e.target.style.display='none' }}
+                />
+              )}
+              <div>
+                <span style={{ fontWeight:600 }}>{o.descripcion}</span>
+                {o.cod_material && <span style={{ color:'#9ca89c', marginLeft:6, fontFamily:"'Barlow Condensed',sans-serif" }}>{o.cod_material}</span>}
+              </div>
             </div>
           ))}
         </div>
