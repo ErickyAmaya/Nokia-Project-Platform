@@ -129,7 +129,7 @@ export default function Layout({ children }) {
       <header style={{
         background: '#fff', display: 'flex', alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 'env(safe-area-inset-top) 18px 0',
+        padding: 'calc(env(safe-area-inset-top) + 6px) 18px 6px',
         minHeight: 'calc(50px + env(safe-area-inset-top))',
         position: 'sticky', top: 0, zIndex: 200,
         borderBottom: `3px solid ${empresa?.color || '#1a9c1a'}`,
