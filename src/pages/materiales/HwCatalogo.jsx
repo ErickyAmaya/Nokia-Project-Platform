@@ -5,7 +5,8 @@ import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { supabase } from '../../lib/supabase'
 
-const BUCKET = 'hw-images'
+const BUCKET = 'material-images'
+const FOLDER = 'hw'
 
 const FORM_DEFAULT = {
   cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes',
@@ -62,7 +63,7 @@ export default function HwCatalogo() {
       const oldPath = pathFromUrl(form.imagen_url)
       const ext     = file.name.split('.').pop()
       const codigo  = (form.cod_material || form.descripcion || 'hw').replace(/[^a-zA-Z0-9_-]/g, '_')
-      const path    = `${codigo}.${ext}`
+      const path    = `${FOLDER}/${codigo}.${ext}`
       if (oldPath && oldPath !== path) {
         await supabase.storage.from(BUCKET).remove([oldPath])
       }
