@@ -148,12 +148,12 @@ const FC_CIERRE_MAP = {
   gap_hw_cierre:  'fc_cierre_hw_cierre',
 }
 
-function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search }) {
+function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, soloPend }) {
   const cfg = PROC_CONFIG[procesoKey]
 
   const rows = useMemo(() => {
     return sabana
-      .filter(r => !isFinal(r[procesoKey]))
+      .filter(r => soloPend ? !isFinal(r[procesoKey]) : true)
       .filter(r => {
         if (!search) return true
         const q = search.toLowerCase()
@@ -163,8 +163,14 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search }) {
           r.site_name?.toLowerCase().includes(q)
         )
       })
-      .sort((a, b) => (b.semanas_integracion || 0) - (a.semanas_integracion || 0))
-  }, [sabana, procesoKey, search])
+      .sort((a, b) => {
+        const aFin = isFinal(a[procesoKey])
+        const bFin = isFinal(b[procesoKey])
+        // Pendientes primero; dentro de cada grupo, más antiguos primero
+        if (aFin !== bFin) return aFin ? 1 : -1
+        return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
+      })
+  }, [sabana, procesoKey, search, soloPend])
 
   async function handleFcChange(smp, field, value) {
     try {
@@ -185,10 +191,16 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search }) {
   const faKey = FC_AVANCE_MAP[procesoKey]
   const fcKey = FC_CIERRE_MAP[procesoKey]
 
+  const pendCount = rows.filter(r => !isFinal(r[procesoKey])).length
+  const finCount  = rows.length - pendCount
+
   return (
     <div>
       <div style={{ fontSize: 11, color: '#9ca89c', marginBottom: 8 }}>
-        {rows.length} SMPs pendientes — ordenados por antigüedad ↓
+        {soloPend
+          ? `${rows.length} SMPs pendientes — ordenados por antigüedad ↓`
+          : <><span style={{ color: '#ef4444', fontWeight: 700 }}>{pendCount} pendientes</span> · <span style={{ color: '#22c55e', fontWeight: 700 }}>{finCount} cerrados</span> · {rows.length} total</>
+        }
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="tbl" style={{ fontSize: 10, width: '100%' }}>
@@ -207,9 +219,10 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search }) {
           </thead>
           <tbody>
             {rows.map(r => {
-              const fc = forecasts[r.smp] || {}
+              const fc  = forecasts[r.smp] || {}
+              const fin = isFinal(r[procesoKey])
               return (
-                <tr key={r.smp}>
+                <tr key={r.smp} style={{ opacity: fin ? 0.65 : 1, background: fin ? '#f0fdf4' : undefined }}>
                   <td style={{ fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
                   <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#555' }}>{r.smp}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{r.site_name}</td>
@@ -253,8 +266,9 @@ export default function AckTablas() {
   const forecasts   = useAckStore(s => s.forecasts)
   const saveForecast = useAckStore(s => s.saveForecast)
 
-  const [tab,    setTab]    = useState('gap_on_air')
-  const [search, setSearch] = useState('')
+  const [tab,      setTab]      = useState('gap_on_air')
+  const [search,   setSearch]   = useState('')
+  const [soloPend, setSoloPend] = useState(true)
 
   const tabStyle = (key) => ({
     padding: '7px 14px', border: 'none', cursor: 'pointer',
@@ -280,13 +294,22 @@ export default function AckTablas() {
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
           ACK — Tablas de Procesos
         </h1>
-        <input
-          type="text" className="fc"
-          placeholder="🔍 Buscar SMP / sitio…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ maxWidth: 220 }}
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="text" className="fc"
+            placeholder="🔍 Buscar SMP / sitio…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ maxWidth: 220 }}
+          />
+          <button
+            className={`btn btn-sm ${soloPend ? 'bp' : 'bou'}`}
+            onClick={() => setSoloPend(p => !p)}
+            title={soloPend ? 'Mostrando solo pendientes' : 'Mostrando todos'}
+          >
+            {soloPend ? '● Solo pendientes' : '◎ Ver todos'}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -314,6 +337,7 @@ export default function AckTablas() {
           forecasts={forecasts}
           saveForecast={saveForecast}
           search={search}
+          soloPend={soloPend}
         />
       </div>
 
