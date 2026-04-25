@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { showToast } from '../../components/Toast'
 
@@ -101,7 +101,107 @@ function FcDateCell({ value, onSave }) {
   )
 }
 
-// Configuración por proceso
+// ── Dropdown de búsqueda personalizado ────────────────────────────
+function SearchableSelect({ options, value, onChange, placeholder }) {
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState(value)
+  const ref = useRef(null)
+
+  // Sincronizar query si el valor externo cambia (ej: limpiar desde afuera)
+  useEffect(() => { setQuery(value) }, [value])
+
+  // Cerrar al hacer clic fuera
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = useMemo(() =>
+    options.filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+  , [options, query])
+
+  function select(opt) {
+    setQuery(opt)
+    onChange(opt)
+    setOpen(false)
+  }
+
+  function clear() {
+    setQuery('')
+    onChange('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <input
+          className="fc"
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          style={{ minWidth: 200, maxWidth: 260, fontSize: 11, paddingRight: query ? 22 : 8 }}
+        />
+        {query && (
+          <span
+            onMouseDown={e => { e.preventDefault(); clear() }}
+            style={{
+              position: 'absolute', right: 7, cursor: 'pointer',
+              color: '#9ca89c', fontSize: 14, lineHeight: 1, userSelect: 'none',
+            }}
+          >
+            ×
+          </span>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 3px)', left: 0, minWidth: 240,
+          zIndex: 200, background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8,
+          boxShadow: '0 6px 20px rgba(0,0,0,.13)', maxHeight: 320, overflowY: 'auto',
+        }}>
+          {!query && (
+            <div
+              onMouseDown={() => select('')}
+              style={{
+                padding: '7px 14px', fontSize: 11, cursor: 'pointer',
+                color: '#9ca89c', borderBottom: '1px solid #f0f0f0',
+              }}
+            >
+              — Todos los sitios
+            </div>
+          )}
+          {filtered.length === 0 ? (
+            <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+          ) : filtered.map(o => (
+            <div
+              key={o}
+              onMouseDown={() => select(o)}
+              style={{
+                padding: '7px 14px', fontSize: 11, cursor: 'pointer',
+                background: o === value ? '#f0f9ff' : undefined,
+                color: o === value ? '#0ea5e9' : '#374151',
+                fontWeight: o === value ? 700 : 400,
+                borderBottom: '1px solid #f8f9f8',
+              }}
+              onMouseEnter={e => { if (o !== value) e.currentTarget.style.background = '#f8faff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = o === value ? '#f0f9ff' : '' }}
+            >
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Configuración por proceso ─────────────────────────────────────
 const PROC_CONFIG = {
   gap_on_air: {
     label: 'ON AIR', color: '#0ea5e9',
@@ -110,7 +210,7 @@ const PROC_CONFIG = {
   },
   gap_log_inv: {
     label: 'LOGÍSTICA INVERSA', color: '#f59e0b',
-    fc_avance: 'fc_avance_on_air', fc_cierre: 'fc_cierre_on_air', // reutilizar estructura
+    fc_avance: 'fc_avance_on_air', fc_cierre: 'fc_cierre_on_air',
     ticket_owner: 'ticket_log_inv_owner',
   },
   gap_site_owner: {
@@ -130,7 +230,6 @@ const PROC_CONFIG = {
   },
 }
 
-// Corrección del fc_avance para LOG INV
 PROC_CONFIG.gap_log_inv.fc_avance = 'fc_avance_on_air'
 
 const FC_AVANCE_MAP = {
@@ -148,21 +247,41 @@ const FC_CIERRE_MAP = {
   gap_hw_cierre:  'fc_cierre_hw_cierre',
 }
 
-function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, soloPend }) {
+const FILTRO_OPTS = [
+  { value: 'todos',      label: 'Ver Todos' },
+  { value: 'pendientes', label: 'Solo Pendientes' },
+  { value: 'cerrados',   label: 'Solo Cerrados' },
+]
+
+const FILTRO_BADGE = {
+  pendientes: { bg: '#fee2e2', color: '#991b1b', text: '● Pendientes' },
+  cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
+}
+
+// ── Tabla de un proceso ───────────────────────────────────────────
+function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro }) {
   const cfg = PROC_CONFIG[procesoKey]
 
   const rows = useMemo(() => {
+    const q = search.toLowerCase()
     return sabana
-      .filter(r => soloPend ? !isFinal(r[procesoKey]) : true)
-      .filter(r => !search || r.site_name?.toLowerCase().includes(search.toLowerCase()))
+      .filter(r => {
+        if (filtro === 'pendientes') return !isFinal(r[procesoKey])
+        if (filtro === 'cerrados')   return  isFinal(r[procesoKey])
+        return true
+      })
+      .filter(r => !q ||
+        r.site_name?.toLowerCase().includes(q) ||
+        r.smp?.toLowerCase().includes(q) ||
+        r.main_smp?.toLowerCase().includes(q)
+      )
       .sort((a, b) => {
         const aFin = isFinal(a[procesoKey])
         const bFin = isFinal(b[procesoKey])
-        // Pendientes primero; dentro de cada grupo, más antiguos primero
         if (aFin !== bFin) return aFin ? 1 : -1
         return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
       })
-  }, [sabana, procesoKey, search, soloPend])
+  }, [sabana, procesoKey, search, filtro])
 
   async function handleFcChange(smp, field, value) {
     try {
@@ -173,9 +292,14 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
   }
 
   if (!rows.length) {
+    const emptyMsg = filtro === 'cerrados'
+      ? `Sin cerrados en ${cfg.label}`
+      : filtro === 'pendientes'
+        ? `✓ Sin pendientes en ${cfg.label}`
+        : `Sin resultados en ${cfg.label}`
     return (
       <div style={{ textAlign: 'center', padding: 40, color: '#9ca89c', fontSize: 13 }}>
-        ✓ Sin pendientes en {cfg.label}
+        {emptyMsg}
       </div>
     )
   }
@@ -186,13 +310,16 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
   const pendCount = rows.filter(r => !isFinal(r[procesoKey])).length
   const finCount  = rows.length - pendCount
 
+  const statsLabel = filtro === 'pendientes'
+    ? `${rows.length} SMPs pendientes — ordenados por antigüedad ↓`
+    : filtro === 'cerrados'
+      ? `${rows.length} SMPs cerrados`
+      : <><span style={{ color: '#ef4444', fontWeight: 700 }}>{pendCount} pendientes</span>{' · '}<span style={{ color: '#22c55e', fontWeight: 700 }}>{finCount} cerrados</span>{' · '}{rows.length} total</>
+
   return (
     <div>
       <div style={{ fontSize: 11, color: '#9ca89c', marginBottom: 8 }}>
-        {soloPend
-          ? `${rows.length} SMPs pendientes — ordenados por antigüedad ↓`
-          : <><span style={{ color: '#ef4444', fontWeight: 700 }}>{pendCount} pendientes</span> · <span style={{ color: '#22c55e', fontWeight: 700 }}>{finCount} cerrados</span> · {rows.length} total</>
-        }
+        {statsLabel}
       </div>
       <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
         <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -224,16 +351,10 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
                   </td>
                   <td>{badge(r[procesoKey])}</td>
                   <td>
-                    <FcDateCell
-                      value={fc[faKey]}
-                      onSave={v => handleFcChange(r.smp, faKey, v)}
-                    />
+                    <FcDateCell value={fc[faKey]} onSave={v => handleFcChange(r.smp, faKey, v)} />
                   </td>
                   <td>
-                    <FcCell
-                      value={fc[fcKey]}
-                      onSave={v => handleFcChange(r.smp, fcKey, v)}
-                    />
+                    <FcCell value={fc[fcKey]} onSave={v => handleFcChange(r.smp, fcKey, v)} />
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     {r[cfg.ticket_owner]
@@ -253,16 +374,17 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
   )
 }
 
+// ── Página principal ──────────────────────────────────────────────
 export default function AckTablas() {
-  const sabana      = useAckStore(s => s.sabana)
-  const forecasts   = useAckStore(s => s.forecasts)
+  const sabana       = useAckStore(s => s.sabana)
+  const forecasts    = useAckStore(s => s.forecasts)
   const saveForecast = useAckStore(s => s.saveForecast)
 
-  const [tab,      setTab]      = useState('gap_on_air')
-  const [sitio,    setSitio]    = useState('')
-  const [soloPend, setSoloPend] = useState(true)
+  const [tab,    setTab]    = useState('gap_on_air')
+  const [sitio,  setSitio]  = useState('')
+  const [filtro, setFiltro] = useState('pendientes')
 
-  const sitios = useMemo(() =>
+  const siteNames = useMemo(() =>
     [...new Set(sabana.map(r => r.site_name).filter(Boolean))].sort()
   , [sabana])
 
@@ -284,40 +406,44 @@ export default function AckTablas() {
     return map
   }, [sabana])
 
+  const filtroBadge = FILTRO_BADGE[filtro]
+
   return (
     <div>
       <div className="dash-hdr mb14">
-        <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-          ACK — Tablas de Procesos
-        </h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              className="fc"
-              type="text"
-              list="tablas-sitios-datalist"
-              placeholder="🔍 Buscar sitio…"
-              value={sitio}
-              onChange={e => setSitio(e.target.value)}
-              style={{ minWidth: 180, maxWidth: 260, fontSize: 11 }}
-            />
-            <datalist id="tablas-sitios-datalist">
-              {sitios.map(s => <option key={s} value={s} />)}
-            </datalist>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
+              ACK — Tablas de Procesos
+            </h1>
+            {filtroBadge && (
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20,
+                background: filtroBadge.bg, color: filtroBadge.color, whiteSpace: 'nowrap',
+              }}>
+                {filtroBadge.text}
+              </span>
+            )}
           </div>
-          <button
-            onClick={() => setSoloPend(p => !p)}
-            style={{
-              padding: '5px 14px', border: 'none', borderRadius: 20, cursor: 'pointer',
-              fontFamily: "'Barlow', sans-serif", fontSize: 10, fontWeight: 700,
-              letterSpacing: .5, whiteSpace: 'nowrap',
-              background: soloPend ? '#fee2e2' : '#dcfce7',
-              color:      soloPend ? '#991b1b' : '#166534',
-              transition: 'all .15s',
-            }}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SearchableSelect
+            options={siteNames}
+            value={sitio}
+            onChange={setSitio}
+            placeholder="🔍 Buscar sitio o SMP…"
+          />
+          <select
+            className="fc"
+            value={filtro}
+            onChange={e => setFiltro(e.target.value)}
+            style={{ fontSize: 11, fontWeight: 700 }}
           >
-            {soloPend ? '◎ Ver Todos' : '● Solo Pendientes'}
-          </button>
+            {FILTRO_OPTS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -346,12 +472,12 @@ export default function AckTablas() {
           forecasts={forecasts}
           saveForecast={saveForecast}
           search={sitio}
-          soloPend={soloPend}
+          filtro={filtro}
         />
       </div>
 
       <div style={{ marginTop: 10, fontSize: 9, color: '#9ca89c' }}>
-        💡 Haz clic en <b>FC Avance</b> o <b>FC Comentario</b> para editar. Los cambios se guardan automáticamente en Supabase y persisten al cargar nuevos reportes.
+        💡 Haz clic en <b>FC Avance</b> o <b>FC Comentario</b> para editar. Los cambios se guardan automáticamente en Supabase.
       </div>
     </div>
   )
