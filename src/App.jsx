@@ -30,6 +30,7 @@ import AckWrapper         from './pages/rollout/AckWrapper'
 import AckDashboard       from './pages/rollout/AckDashboard'
 import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
+import AckForecast        from './pages/rollout/AckForecast'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -189,10 +190,11 @@ function AppRoutes() {
           <Layout><AckWrapper /></Layout>
         </ProtectedRoute>
       }>
-        <Route index              element={<AckDashboard />} />
-        <Route path="ack"         element={<AckDashboard />} />
-        <Route path="ack/tablas"  element={<AckTablas />} />
-        <Route path="ack/sitios"  element={<AckSitios />} />
+        <Route index                  element={<AckDashboard />} />
+        <Route path="ack"             element={<AckDashboard />} />
+        <Route path="ack/tablas"      element={<AckTablas />} />
+        <Route path="ack/sitios"      element={<AckSitios />} />
+        <Route path="ack/forecast"    element={<AckForecast />} />
       </Route>
 
       <Route path="*" element={<RoleHome />} />

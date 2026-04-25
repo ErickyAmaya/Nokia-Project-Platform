@@ -37,9 +37,10 @@ const HW_NAV = [
 ]
 
 const ROLLOUT_NAV = [
-  { to: '/rollout/ack',        label: 'Dashboard', icon: '📊', id: 'ack-dashboard' },
-  { to: '/rollout/ack/tablas', label: 'Tablas',    icon: '📋', id: 'ack-tablas'   },
-  { to: '/rollout/ack/sitios', label: 'Por Sitio', icon: '📍', id: 'ack-sitios'   },
+  { to: '/rollout/ack',          label: 'Dashboard',     icon: '📊', id: 'ack-dashboard' },
+  { to: '/rollout/ack/tablas',   label: 'Tablas',        icon: '📋', id: 'ack-tablas'    },
+  { to: '/rollout/ack/sitios',   label: 'Por Sitio',     icon: '📍', id: 'ack-sitios'    },
+  { to: '/rollout/ack/forecast', label: 'Presentación',  icon: '🖨', id: 'ack-forecast'  },
 ]
 
 // Badge de rol
