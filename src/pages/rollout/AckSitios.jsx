@@ -7,7 +7,7 @@ function isFinal(val) {
 }
 
 // Badge compacto de estado por proceso
-function ProcBadge({ val, color }) {
+function ProcBadge({ val }) {
   if (!val) return <span style={{ fontSize: 9, color: '#ddd' }}>—</span>
   const fin = isFinal(val)
   return (
@@ -17,7 +17,6 @@ function ProcBadge({ val, color }) {
       background: fin ? '#dcfce7' : '#fee2e2',
       color:      fin ? '#166534' : '#991b1b',
       fontSize: 10, fontWeight: 800,
-      title: val,
     }} title={val}>
       {fin ? '✓' : '●'}
     </span>
@@ -25,7 +24,7 @@ function ProcBadge({ val, color }) {
 }
 
 // Barra de progreso compacta
-function MiniBar({ pct, color }) {
+function MiniBar({ pct }) {
   const c = pct >= 100 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -58,7 +57,7 @@ function SmpRow({ r }) {
       {/* 5 procesos */}
       {PROCESOS.map(p => (
         <td key={p.key} style={{ textAlign: 'center' }}>
-          <ProcBadge val={r[p.key]} color={p.color} />
+          <ProcBadge val={r[p.key]} />
         </td>
       ))}
     </tr>
@@ -69,10 +68,9 @@ function SmpRow({ r }) {
 function SitioRow({ mainSmp, smps }) {
   const [open, setOpen] = useState(false)
 
-  // Calcular % global del sitio: promedio de los 5 procesos
   const stats = useMemo(() => {
     const total = smps.length
-    if (!total) return { pct: 0, todos: false, algPend: false }
+    if (!total) return { pct: 0, todos: false, porProceso: [] }
     const porProceso = PROCESOS.map(p => {
       const fin = smps.filter(r => isFinal(r[p.key])).length
       return { key: p.key, pct: Math.round((fin / total) * 100), fin, total }
@@ -96,12 +94,9 @@ function SitioRow({ mainSmp, smps }) {
           transition: 'background .15s',
         }}
       >
-        {/* Toggle */}
         <td style={{ width: 28, textAlign: 'center', fontSize: 10, color: '#9ca89c', userSelect: 'none' }}>
           {open ? '▼' : '▶'}
         </td>
-
-        {/* Sitio */}
         <td style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
           {siteName}
           {stats.todos && (
@@ -113,57 +108,58 @@ function SitioRow({ mainSmp, smps }) {
             </span>
           )}
         </td>
-
-        {/* Main SMP */}
         <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#888', whiteSpace: 'nowrap' }}>{mainSmp}</td>
-
-        {/* Región */}
         <td style={{ fontSize: 9, color: '#666' }}>{region}</td>
-
-        {/* SMPs */}
         <td style={{ fontSize: 9, textAlign: 'center', color: '#9ca89c' }}>{smps.length}</td>
-
-        {/* % global */}
         <td style={{ minWidth: 110 }}>
           <MiniBar pct={stats.pct} />
         </td>
-
-        {/* Badge por proceso */}
-        {stats.porProceso?.map(p => {
-          const proc = PROCESOS.find(x => x.key === p.key)
-          return (
-            <td key={p.key} style={{ textAlign: 'center', minWidth: 60 }}>
-              <span style={{
-                fontSize: 9, fontWeight: 700,
-                color: p.pct === 100 ? '#166534' : p.pct >= 80 ? '#854d0e' : '#991b1b',
-              }}>
-                {p.pct}%
-              </span>
-            </td>
-          )
-        })}
+        {stats.porProceso?.map(p => (
+          <td key={p.key} style={{ textAlign: 'center', minWidth: 60 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 700,
+              color: p.pct === 100 ? '#166534' : p.pct >= 80 ? '#854d0e' : '#991b1b',
+            }}>
+              {p.pct}%
+            </span>
+          </td>
+        ))}
       </tr>
-
-      {/* Hijos expandidos */}
       {open && smps.map(r => <SmpRow key={r.smp} r={r} />)}
     </>
   )
+}
+
+const FILTRO_OPTS = [
+  { value: 'todos',       label: 'Ver Todos' },
+  { value: 'pendientes',  label: 'Solo Pendientes' },
+  { value: 'cerrados',    label: 'Solo Cerrados' },
+]
+
+const FILTRO_BADGE = {
+  pendientes: { bg: '#fee2e2', color: '#991b1b', text: '● Pendientes' },
+  cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
 }
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckSitios() {
   const sabana = useAckStore(s => s.sabana)
 
-  const [region,   setRegion]   = useState('')
-  const [soloPend, setSoloPend] = useState(false)
-  const [search,   setSearch]   = useState('')
+  const [region, setRegion] = useState('')
+  const [filtro, setFiltro] = useState('todos')
+  const [search, setSearch] = useState('')
 
   const regiones = useMemo(() =>
     [...new Set(sabana.map(r => r.region).filter(Boolean))].sort()
   , [sabana])
 
-  // Agrupar por main_smp
-  const sitios = useMemo(() => {
+  // Lista de nombres de sitio para el datalist
+  const siteNames = useMemo(() =>
+    [...new Set(sabana.map(r => r.site_name).filter(Boolean))].sort()
+  , [sabana])
+
+  // Agrupa por main_smp y aplica filtros de región y búsqueda (sin filtro de estado)
+  const allGroups = useMemo(() => {
     const map = {}
     for (const r of sabana) {
       if (!r.main_smp) continue
@@ -175,62 +171,93 @@ export default function AckSitios() {
         const todoFin = PROCESOS.every(p => smps.every(r => isFinal(r[p.key])))
         return { mainSmp, smps, todoFin }
       })
-      .filter(({ mainSmp, smps, todoFin }) => {
-        if (region   && smps[0]?.region    !== region)  return false
-        if (soloPend && todoFin)                         return false
-        if (search   && !smps[0]?.site_name?.toLowerCase().includes(search.toLowerCase()) &&
+      .filter(({ mainSmp, smps }) => {
+        if (region && smps[0]?.region !== region) return false
+        if (search && !smps[0]?.site_name?.toLowerCase().includes(search.toLowerCase()) &&
             !mainSmp.toLowerCase().includes(search.toLowerCase())) return false
         return true
       })
+  }, [sabana, region, search])
+
+  // Aplica filtro de estado y ordena
+  const sitios = useMemo(() => {
+    return allGroups
+      .filter(({ todoFin }) => {
+        if (filtro === 'pendientes') return !todoFin
+        if (filtro === 'cerrados')   return todoFin
+        return true
+      })
       .sort((a, b) => {
-        // Pendientes primero, luego por nombre de sitio
         if (a.todoFin !== b.todoFin) return a.todoFin ? 1 : -1
         return (a.smps[0]?.site_name || '').localeCompare(b.smps[0]?.site_name || '')
       })
-  }, [sabana, region, soloPend, search])
+  }, [allGroups, filtro])
 
-  const totalSitios  = sitios.length
-  const sitiosCerrados = sitios.filter(s => s.todoFin).length
+  const totalAll      = allGroups.length
+  const totalCerrados = allGroups.filter(s => s.todoFin).length
+  const totalPend     = totalAll - totalCerrados
+
+  const badge = FILTRO_BADGE[filtro]
 
   return (
     <div>
       {/* Header */}
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-            ACK — Vista por Sitio
-          </h1>
-          <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 2 }}>
-            <span style={{ color: '#ef4444', fontWeight: 700 }}>{totalSitios - sitiosCerrados} pendientes</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
+              ACK — Vista por Sitio
+            </h1>
+            {badge && (
+              <span style={{
+                fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20,
+                background: badge.bg, color: badge.color, whiteSpace: 'nowrap',
+              }}>
+                {badge.text}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+            <span style={{ color: '#ef4444', fontWeight: 700 }}>{totalPend} pendientes</span>
             {' · '}
-            <span style={{ color: '#22c55e', fontWeight: 700 }}>{sitiosCerrados} cerrados</span>
-            {' · '}{totalSitios} total
+            <span style={{ color: '#22c55e', fontWeight: 700 }}>{totalCerrados} cerrados</span>
+            {' · '}
+            <span style={{ fontWeight: 600 }}>{totalAll} total</span>
           </div>
         </div>
+
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            className="fc" type="text"
-            placeholder="🔍 Buscar sitio…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ maxWidth: 180, fontSize: 11 }}
-          />
+          {/* Búsqueda con datalist */}
+          <div style={{ position: 'relative' }}>
+            <input
+              className="fc"
+              type="text"
+              list="sitios-datalist"
+              placeholder="🔍 Buscar sitio…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ maxWidth: 200, fontSize: 11 }}
+            />
+            <datalist id="sitios-datalist">
+              {siteNames.map(n => <option key={n} value={n} />)}
+            </datalist>
+          </div>
+
           <select className="fc" value={region} onChange={e => setRegion(e.target.value)} style={{ fontSize: 11 }}>
             <option value="">Todas las Regiones</option>
             {regiones.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <button
-            onClick={() => setSoloPend(p => !p)}
-            style={{
-              padding: '5px 14px', border: 'none', borderRadius: 20, cursor: 'pointer',
-              fontFamily: "'Barlow', sans-serif", fontSize: 10, fontWeight: 700,
-              letterSpacing: .5, whiteSpace: 'nowrap',
-              background: soloPend ? '#fee2e2' : '#dcfce7',
-              color:      soloPend ? '#991b1b' : '#166534',
-            }}
+
+          <select
+            className="fc"
+            value={filtro}
+            onChange={e => setFiltro(e.target.value)}
+            style={{ fontSize: 11, fontWeight: 700 }}
           >
-            {soloPend ? '◎ Ver Todos' : '● Solo Pendientes'}
-          </button>
+            {FILTRO_OPTS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
         </div>
       </div>
 

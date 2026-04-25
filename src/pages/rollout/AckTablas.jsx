@@ -154,7 +154,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
   const rows = useMemo(() => {
     return sabana
       .filter(r => soloPend ? !isFinal(r[procesoKey]) : true)
-      .filter(r => !search || r.site_name === search)
+      .filter(r => !search || r.site_name?.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         const aFin = isFinal(a[procesoKey])
         const bFin = isFinal(b[procesoKey])
@@ -291,15 +291,20 @@ export default function AckTablas() {
           ACK — Tablas de Procesos
         </h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select
-            className="fc"
-            value={sitio}
-            onChange={e => setSitio(e.target.value)}
-            style={{ minWidth: 180, maxWidth: 260, fontSize: 11 }}
-          >
-            <option value="">Todos los sitios</option>
-            {sitios.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="fc"
+              type="text"
+              list="tablas-sitios-datalist"
+              placeholder="🔍 Buscar sitio…"
+              value={sitio}
+              onChange={e => setSitio(e.target.value)}
+              style={{ minWidth: 180, maxWidth: 260, fontSize: 11 }}
+            />
+            <datalist id="tablas-sitios-datalist">
+              {sitios.map(s => <option key={s} value={s} />)}
+            </datalist>
+          </div>
           <button
             onClick={() => setSoloPend(p => !p)}
             style={{
