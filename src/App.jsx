@@ -26,6 +26,9 @@ import HwInventario       from './pages/materiales/HwInventario'
 import HwMovimientos      from './pages/materiales/HwMovimientos'
 import HwCatalogo         from './pages/materiales/HwCatalogo'
 import MatReportes        from './pages/materiales/MatReportes'
+import AckWrapper         from './pages/rollout/AckWrapper'
+import AckDashboard       from './pages/rollout/AckDashboard'
+import AckTablas          from './pages/rollout/AckTablas'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -178,6 +181,17 @@ function AppRoutes() {
       <Route path="/config" element={
         <ProtectedRoute allowedRoles={R_ADMIN}>{W(<ConfigPage />)}</ProtectedRoute>
       } />
+
+      {/* ── Módulo Rollout ──────────────────────────────────── */}
+      <Route path="/rollout" element={
+        <ProtectedRoute allowedRoles={R_MGMT}>
+          <Layout><AckWrapper /></Layout>
+        </ProtectedRoute>
+      }>
+        <Route index              element={<AckDashboard />} />
+        <Route path="ack"         element={<AckDashboard />} />
+        <Route path="ack/tablas"  element={<AckTablas />} />
+      </Route>
 
       <Route path="*" element={<RoleHome />} />
     </Routes>

@@ -30,7 +30,7 @@ const MODULOS = [
     icon:        '📋',
     color:       '#7c3aed',
     border:      '#a78bfa',
-    ruta:        null,   // próximamente
+    ruta:        '/rollout',
   },
 ]
 

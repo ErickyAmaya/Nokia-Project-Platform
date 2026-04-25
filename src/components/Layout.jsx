@@ -36,6 +36,11 @@ const HW_NAV = [
   { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂' },
 ]
 
+const ROLLOUT_NAV = [
+  { to: '/rollout/ack',        label: 'Dashboard', icon: '📊', id: 'ack-dashboard' },
+  { to: '/rollout/ack/tablas', label: 'Tablas',    icon: '📋', id: 'ack-tablas'   },
+]
+
 // Badge de rol
 const BADGE = {
   admin:       { label: '⚙ Admin',   cls: 'ub-admin' },
@@ -65,6 +70,7 @@ export default function Layout({ children }) {
   const location      = useLocation()
 
   const inMateriales = location.pathname.startsWith('/materiales')
+  const inRollout    = location.pathname.startsWith('/rollout')
 
   // Fusión: los valores dinámicos (ConfigPage) tienen prioridad sobre los estáticos
   const empresa = {
@@ -110,7 +116,9 @@ export default function Layout({ children }) {
   // Nav según módulo activo
   const allVisible = inMateriales
     ? MAT_NAV.filter(canSee)
-    : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+    : inRollout
+      ? ROLLOUT_NAV
+      : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   // Botón cambiar módulo (solo admin/coord y solo cuando hay varios módulos)
   const canSwitchModule = user?.modulo === 'all'
@@ -171,7 +179,7 @@ export default function Layout({ children }) {
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          {inMateriales ? 'Gestión de Inventarios' : 'Liquidador de Actividades'}
+          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'Rollout & ACK' : 'Liquidador de Actividades'}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -331,7 +339,7 @@ export default function Layout({ children }) {
           {/* Módulo actual */}
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inMateriales ? '📦 Gestión de Materiales' : '💰 Liquidador Nokia'}
+            {inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : '💰 Liquidador Nokia'}
           </div>
 
           {/* Cambiar módulo */}
