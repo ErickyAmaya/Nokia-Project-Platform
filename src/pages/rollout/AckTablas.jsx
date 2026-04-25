@@ -328,7 +328,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
               <th style={{ position: 'sticky', top: 0, left: 0,   zIndex: 4, background: '#f8f9f8', minWidth: 120 }}>Sitio</th>
               <th style={{ position: 'sticky', top: 0, left: 120, zIndex: 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
               <th style={{ position: 'sticky', top: 0, left: 250, zIndex: 4, background: '#f8f9f8', minWidth: 160, boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>SMP</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Región</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Sub Proyecto</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Avance</th>
@@ -345,7 +345,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
                   <td style={{ position: 'sticky', left: 0,   zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.site_name}</td>
                   <td style={{ position: 'sticky', left: 120, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
                   <td style={{ position: 'sticky', left: 250, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555', boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>{r.smp}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{r.region}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontSize: 9, color: '#666' }}>{r.sub_proyecto || '—'}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: (r.semanas_integracion || 0) > 104 ? '#ef4444' : '#555' }}>
                     {r.semanas_integracion || '—'}
                   </td>

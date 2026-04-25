@@ -1,5 +1,103 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
+
+// ── Dropdown de búsqueda personalizado ────────────────────────────
+function SearchableSelect({ options, value, onChange, placeholder }) {
+  const [open,  setOpen]  = useState(false)
+  const [query, setQuery] = useState(value)
+  const ref = useRef(null)
+
+  useEffect(() => { setQuery(value) }, [value])
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = useMemo(() =>
+    options.filter(o => !query || o.toLowerCase().includes(query.toLowerCase()))
+  , [options, query])
+
+  function select(opt) {
+    setQuery(opt)
+    onChange(opt)
+    setOpen(false)
+  }
+
+  function clear() {
+    setQuery('')
+    onChange('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <input
+          className="fc"
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          style={{ minWidth: 200, maxWidth: 260, fontSize: 11, paddingRight: query ? 22 : 8 }}
+        />
+        {query && (
+          <span
+            onMouseDown={e => { e.preventDefault(); clear() }}
+            style={{
+              position: 'absolute', right: 7, cursor: 'pointer',
+              color: '#9ca89c', fontSize: 14, lineHeight: 1, userSelect: 'none',
+            }}
+          >
+            ×
+          </span>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 3px)', left: 0, minWidth: 240,
+          zIndex: 200, background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8,
+          boxShadow: '0 6px 20px rgba(0,0,0,.13)', maxHeight: 320, overflowY: 'auto',
+        }}>
+          {!query && (
+            <div
+              onMouseDown={() => select('')}
+              style={{
+                padding: '7px 14px', fontSize: 11, cursor: 'pointer',
+                color: '#9ca89c', borderBottom: '1px solid #f0f0f0',
+              }}
+            >
+              — Todos los sitios
+            </div>
+          )}
+          {filtered.length === 0 ? (
+            <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+          ) : filtered.map(o => (
+            <div
+              key={o}
+              onMouseDown={() => select(o)}
+              style={{
+                padding: '7px 14px', fontSize: 11, cursor: 'pointer',
+                background: o === value ? '#f0f9ff' : undefined,
+                color: o === value ? '#0ea5e9' : '#374151',
+                fontWeight: o === value ? 700 : 400,
+                borderBottom: '1px solid #f8f9f8',
+              }}
+              onMouseEnter={e => { if (o !== value) e.currentTarget.style.background = '#f8faff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = o === value ? '#f0f9ff' : '' }}
+            >
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function isFinal(val) {
   if (!val) return false
@@ -227,21 +325,12 @@ export default function AckSitios() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Búsqueda con datalist */}
-          <div style={{ position: 'relative' }}>
-            <input
-              className="fc"
-              type="text"
-              list="sitios-datalist"
-              placeholder="🔍 Buscar sitio…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ maxWidth: 200, fontSize: 11 }}
-            />
-            <datalist id="sitios-datalist">
-              {siteNames.map(n => <option key={n} value={n} />)}
-            </datalist>
-          </div>
+          <SearchableSelect
+            options={siteNames}
+            value={search}
+            onChange={setSearch}
+            placeholder="🔍 Buscar sitio…"
+          />
 
           <select className="fc" value={region} onChange={e => setRegion(e.target.value)} style={{ fontSize: 11 }}>
             <option value="">Todas las Regiones</option>
