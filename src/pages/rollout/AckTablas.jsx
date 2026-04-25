@@ -154,15 +154,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
   const rows = useMemo(() => {
     return sabana
       .filter(r => soloPend ? !isFinal(r[procesoKey]) : true)
-      .filter(r => {
-        if (!search) return true
-        const q = search.toLowerCase()
-        return (
-          r.smp?.toLowerCase().includes(q) ||
-          r.main_smp?.toLowerCase().includes(q) ||
-          r.site_name?.toLowerCase().includes(q)
-        )
-      })
+      .filter(r => !search || r.site_name === search)
       .sort((a, b) => {
         const aFin = isFinal(a[procesoKey])
         const bFin = isFinal(b[procesoKey])
@@ -202,19 +194,19 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
           : <><span style={{ color: '#ef4444', fontWeight: 700 }}>{pendCount} pendientes</span> · <span style={{ color: '#22c55e', fontWeight: 700 }}>{finCount} cerrados</span> · {rows.length} total</>
         }
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="tbl" style={{ fontSize: 10, width: '100%' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+        <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th>Main SMP</th>
-              <th>SMP</th>
-              <th>Sitio</th>
-              <th>Región</th>
-              <th style={{ whiteSpace: 'nowrap' }}>Sem. Integ.</th>
-              <th>Estado</th>
-              <th style={{ color: '#3b82f6' }}>FC Avance</th>
-              <th style={{ color: '#3b82f6' }}>FC Comentario</th>
-              <th>Owner Ticket</th>
+              <th style={{ position: 'sticky', top: 0, left: 0,   zIndex: 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
+              <th style={{ position: 'sticky', top: 0, left: 130, zIndex: 4, background: '#f8f9f8', minWidth: 160 }}>SMP</th>
+              <th style={{ position: 'sticky', top: 0, left: 290, zIndex: 4, background: '#f8f9f8', minWidth: 120, boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>Sitio</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Región</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Avance</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Comentario</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Owner Ticket</th>
             </tr>
           </thead>
           <tbody>
@@ -223,9 +215,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
               const fin = isFinal(r[procesoKey])
               return (
                 <tr key={r.smp} style={{ opacity: fin ? 0.65 : 1, background: fin ? '#f0fdf4' : undefined }}>
-                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#555' }}>{r.smp}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{r.site_name}</td>
+                  <td style={{ position: 'sticky', left: 0,   zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
+                  <td style={{ position: 'sticky', left: 130, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555' }}>{r.smp}</td>
+                  <td style={{ position: 'sticky', left: 290, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', whiteSpace: 'nowrap', boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>{r.site_name}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{r.region}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: (r.semanas_integracion || 0) > 104 ? '#ef4444' : '#555' }}>
                     {r.semanas_integracion || '—'}
@@ -267,8 +259,12 @@ export default function AckTablas() {
   const saveForecast = useAckStore(s => s.saveForecast)
 
   const [tab,      setTab]      = useState('gap_on_air')
-  const [search,   setSearch]   = useState('')
+  const [sitio,    setSitio]    = useState('')
   const [soloPend, setSoloPend] = useState(true)
+
+  const sitios = useMemo(() =>
+    [...new Set(sabana.map(r => r.site_name).filter(Boolean))].sort()
+  , [sabana])
 
   const tabStyle = (key) => ({
     padding: '7px 14px', border: 'none', cursor: 'pointer',
@@ -295,19 +291,27 @@ export default function AckTablas() {
           ACK — Tablas de Procesos
         </h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input
-            type="text" className="fc"
-            placeholder="🔍 Buscar SMP / sitio…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ maxWidth: 220 }}
-          />
-          <button
-            className={`btn btn-sm ${soloPend ? 'bp' : 'bou'}`}
-            onClick={() => setSoloPend(p => !p)}
-            title={soloPend ? 'Mostrando solo pendientes' : 'Mostrando todos'}
+          <select
+            className="fc"
+            value={sitio}
+            onChange={e => setSitio(e.target.value)}
+            style={{ minWidth: 180, maxWidth: 260, fontSize: 11 }}
           >
-            {soloPend ? '● Solo pendientes' : '◎ Ver todos'}
+            <option value="">Todos los sitios</option>
+            {sitios.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button
+            onClick={() => setSoloPend(p => !p)}
+            style={{
+              padding: '5px 14px', border: 'none', borderRadius: 20, cursor: 'pointer',
+              fontFamily: "'Barlow', sans-serif", fontSize: 10, fontWeight: 700,
+              letterSpacing: .5, whiteSpace: 'nowrap',
+              background: soloPend ? '#fee2e2' : '#dcfce7',
+              color:      soloPend ? '#991b1b' : '#166534',
+              transition: 'all .15s',
+            }}
+          >
+            {soloPend ? '◎ Ver Todos' : '● Solo Pendientes'}
           </button>
         </div>
       </div>
@@ -336,7 +340,7 @@ export default function AckTablas() {
           sabana={sabana}
           forecasts={forecasts}
           saveForecast={saveForecast}
-          search={search}
+          search={sitio}
           soloPend={soloPend}
         />
       </div>
