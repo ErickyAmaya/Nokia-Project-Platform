@@ -40,13 +40,22 @@ function MiniBar({ pct, color }) {
 // Fila de un SMP hijo
 function SmpRow({ r }) {
   const todoFin = PROCESOS.every(p => isFinal(r[p.key]))
+  const bg = todoFin ? '#f0fdf4' : '#fafafa'
   return (
-    <tr style={{ background: todoFin ? '#f0fdf4' : '#fafafa', opacity: todoFin ? 0.75 : 1 }}>
-      <td style={{ paddingLeft: 36, fontFamily: 'monospace', fontSize: 8, color: '#666' }}>{r.smp}</td>
+    <tr style={{ background: bg, opacity: todoFin ? 0.75 : 1 }}>
+      {/* toggle vacío */}
+      <td />
+      {/* SMP → columna Sitio */}
+      <td style={{ paddingLeft: 28, fontFamily: 'monospace', fontSize: 8, color: '#555', whiteSpace: 'nowrap' }}>{r.smp}</td>
+      {/* sub_proyecto → columna Main SMP */}
       <td style={{ fontSize: 9, color: '#888' }}>{r.sub_proyecto || '—'}</td>
-      <td style={{ fontSize: 9, color: todoFin ? '#9ca89c' : '#ef4444', fontWeight: 700 }}>
+      {/* semanas → columna Región */}
+      <td style={{ fontSize: 9, color: todoFin ? '#9ca89c' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>
         {r.semanas_integracion || '—'} sem
       </td>
+      {/* SMPs y %Global vacíos */}
+      <td /><td />
+      {/* 5 procesos */}
       {PROCESOS.map(p => (
         <td key={p.key} style={{ textAlign: 'center' }}>
           <ProcBadge val={r[p.key]} color={p.color} />
