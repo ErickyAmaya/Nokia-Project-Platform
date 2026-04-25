@@ -24,41 +24,98 @@ function badge(val) {
   )
 }
 
-function FcCell({ value, onSave }) {
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(value || '')
+// Modal de comentario con textarea
+function FcCell({ value, onSave, siteLabel }) {
+  const [open, setOpen] = useState(false)
+  const [val,  setVal]  = useState(value || '')
 
   function save() {
     onSave(val || null)
-    setEditing(false)
+    setOpen(false)
   }
 
-  if (editing) {
-    return (
-      <input
-        type="text"
-        value={val}
-        autoFocus
-        onChange={e => setVal(e.target.value)}
-        onBlur={save}
-        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-        style={{ width: 110, fontSize: 9, padding: '2px 4px', border: '1px solid #3b82f6', borderRadius: 3 }}
-      />
-    )
+  function cancel() {
+    setVal(value || '')
+    setOpen(false)
   }
+
+  // Sincronizar si el valor externo cambia
+  useEffect(() => { setVal(value || '') }, [value])
 
   return (
-    <span
-      onClick={() => setEditing(true)}
-      title="Clic para editar"
-      style={{
-        fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 60,
-        color: value ? '#1e40af' : '#d1d5db',
-        borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
-      }}
-    >
-      {value || '+ FC'}
-    </span>
+    <>
+      <span
+        onClick={() => setOpen(true)}
+        title="Clic para editar comentario"
+        style={{
+          fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 60, maxWidth: 140,
+          color: value ? '#1e40af' : '#d1d5db',
+          borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}
+      >
+        {value || '+ Comentario'}
+      </span>
+
+      {open && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+          zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) cancel() }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 12, width: 'min(520px, 92vw)',
+            boxShadow: '0 12px 40px rgba(0,0,0,.2)', overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <div style={{
+              background: '#3b82f6', color: '#fff',
+              padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>FC Comentario</div>
+                {siteLabel && <div style={{ fontSize: 10, opacity: .8, marginTop: 2 }}>{siteLabel}</div>}
+              </div>
+              <button onClick={cancel} style={{
+                background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff',
+                borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 16,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>×</button>
+            </div>
+            {/* Body */}
+            <div style={{ padding: 18 }}>
+              <textarea
+                autoFocus
+                value={val}
+                onChange={e => setVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') cancel() }}
+                placeholder="Escribe el comentario o forecast de cierre…"
+                style={{
+                  width: '100%', minHeight: 120, resize: 'vertical',
+                  fontSize: 13, padding: '10px 12px', borderRadius: 8,
+                  border: '1.5px solid #bfdbfe', outline: 'none', boxSizing: 'border-box',
+                  fontFamily: 'inherit', lineHeight: 1.5, color: '#1e3a5f',
+                }}
+              />
+            </div>
+            {/* Footer */}
+            <div style={{
+              padding: '10px 18px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8,
+            }}>
+              <button onClick={cancel} style={{
+                padding: '7px 18px', borderRadius: 8, border: '1px solid #e0e4e0',
+                background: '#f8f9fa', color: '#555', fontWeight: 600, fontSize: 12, cursor: 'pointer',
+              }}>Cancelar</button>
+              <button onClick={save} style={{
+                padding: '7px 22px', borderRadius: 8, border: 'none',
+                background: '#3b82f6', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -354,7 +411,11 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
                     <FcDateCell value={fc[faKey]} onSave={v => handleFcChange(r.smp, faKey, v)} />
                   </td>
                   <td>
-                    <FcCell value={fc[fcKey]} onSave={v => handleFcChange(r.smp, fcKey, v)} />
+                    <FcCell
+                      value={fc[fcKey]}
+                      onSave={v => handleFcChange(r.smp, fcKey, v)}
+                      siteLabel={`${r.site_name} · ${r.smp}`}
+                    />
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     {r[cfg.ticket_owner]

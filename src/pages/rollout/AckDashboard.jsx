@@ -236,9 +236,9 @@ export default function AckDashboard() {
           {proyectos.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         <select className="fc btn-sm" value={relacion} onChange={e => setRelacion(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="todos">P + Hijos</option>
-          <option value="P">Solo Padre (Sitios)</option>
-          <option value="H">Solo Hijos (Actividades)</option>
+          <option value="todos">Todos (SITIOS)</option>
+          <option value="P">main_smp</option>
+          <option value="H">activ_smp</option>
         </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, cursor: 'pointer' }}>
           <input type="checkbox" checked={soloPend} onChange={e => setSoloPend(e.target.checked)} />
