@@ -198,9 +198,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
         <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th style={{ position: 'sticky', top: 0, left: 0,   zIndex: 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
-              <th style={{ position: 'sticky', top: 0, left: 130, zIndex: 4, background: '#f8f9f8', minWidth: 160 }}>SMP</th>
-              <th style={{ position: 'sticky', top: 0, left: 290, zIndex: 4, background: '#f8f9f8', minWidth: 120, boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>Sitio</th>
+              <th style={{ position: 'sticky', top: 0, left: 0,   zIndex: 4, background: '#f8f9f8', minWidth: 120 }}>Sitio</th>
+              <th style={{ position: 'sticky', top: 0, left: 120, zIndex: 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
+              <th style={{ position: 'sticky', top: 0, left: 250, zIndex: 4, background: '#f8f9f8', minWidth: 160, boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>SMP</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Región</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
@@ -215,9 +215,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, sol
               const fin = isFinal(r[procesoKey])
               return (
                 <tr key={r.smp} style={{ opacity: fin ? 0.65 : 1, background: fin ? '#f0fdf4' : undefined }}>
-                  <td style={{ position: 'sticky', left: 0,   zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
-                  <td style={{ position: 'sticky', left: 130, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555' }}>{r.smp}</td>
-                  <td style={{ position: 'sticky', left: 290, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', whiteSpace: 'nowrap', boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>{r.site_name}</td>
+                  <td style={{ position: 'sticky', left: 0,   zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.site_name}</td>
+                  <td style={{ position: 'sticky', left: 120, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
+                  <td style={{ position: 'sticky', left: 250, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555', boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>{r.smp}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{r.region}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: (r.semanas_integracion || 0) > 104 ? '#ef4444' : '#555' }}>
                     {r.semanas_integracion || '—'}
