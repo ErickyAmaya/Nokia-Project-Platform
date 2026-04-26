@@ -396,12 +396,18 @@ export default function AckForecast() {
     style.id = 'ack-forecast-css'
     style.textContent = `
       @page { size: A4 landscape; margin: 8mm 10mm; }
+      @media screen {
+        #nokia-print-root { position: absolute; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
+      }
       @media print {
-        body { visibility: hidden !important; }
-        #nokia-print-root, #nokia-print-root * { visibility: visible !important; }
-        #nokia-print-root { position: absolute; top: 0; left: 0; width: 100%; font-family: Arial, sans-serif; }
-        .screen-section { display: none !important; }
-        .nokia-section { page-break-before: always; padding: 0 !important; }
+        body * { display: none !important; }
+        #nokia-print-root,
+        #nokia-print-root * { display: revert !important; }
+        #nokia-print-root {
+          position: fixed !important; top: 0 !important; left: 0 !important;
+          width: 100% !important; font-family: Arial, sans-serif; background: #fff;
+        }
+        .nokia-section { page-break-before: always; }
         .nokia-section:first-child { page-break-before: auto; }
       }
     `
@@ -484,7 +490,7 @@ export default function AckForecast() {
       </div>
 
       {/* ── Vista impresión: tablas formato Nokia (ocultas en pantalla) ── */}
-      <div id="nokia-print-root" style={{ display: 'none' }}>
+      <div id="nokia-print-root">
         {PROCESOS.map(p => (
           <NokiaSection key={p.key} proceso={p} data={nokiaData[p.key]} uploads={uploads} />
         ))}
