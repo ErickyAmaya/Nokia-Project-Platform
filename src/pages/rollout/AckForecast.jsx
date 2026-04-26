@@ -1,5 +1,8 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import * as XLSX from 'xlsx'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
+import { showToast } from '../../components/Toast'
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(val) {
@@ -7,31 +10,98 @@ function isFinal(val) {
   return val.startsWith('9999') || val.startsWith('70.')
 }
 
-function fmtWeek(dateStr) {
-  if (!dateStr) return null
-  const d = new Date(dateStr + 'T00:00:00')
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  const mon = new Date(d)
-  mon.setDate(diff)
-  return mon.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
+function pick(row, aliases) {
+  for (const a of aliases) {
+    if (row[a] !== undefined && row[a] !== null && row[a] !== '') return row[a]
+  }
+  return null
 }
 
 function fmtDate(dateStr) {
   if (!dateStr) return null
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit' })
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// Config exacta por proceso (labels y keys que usa Nokia)
+// Columnas para parsear el Excel de semana anterior
+const PREV_COL = {
+  smp:            ['smp', 'SMP'],
+  site_name:      ['siteName', 'site_name'],
+  gap_on_air:     ['GAP_OnAir', 'gap_on_air'],
+  gap_log_inv:    ['GAP_LOG_INV', 'gap_log_inv'],
+  gap_site_owner: ['GAP_SiteOwner', 'gap_site_owner'],
+  gap_doc:        ['GAP_DOC', 'gap_doc'],
+  gap_hw_cierre:  ['GAP_HW_Cierre', 'gap_hw_cierre'],
+}
+
+async function parseExcelFile(file) {
+  const buf = await file.arrayBuffer()
+  const wb  = XLSX.read(buf, { type: 'array', cellDates: false })
+  const sheetName = wb.SheetNames.find(n =>
+    n.toLowerCase().includes('sabana') || n.toLowerCase().includes('sábana')
+  )
+  if (!sheetName) throw new Error('No se encontró la hoja Sabana en el archivo')
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null, raw: true })
+  return rows
+    .map(r => ({
+      smp:            pick(r, PREV_COL.smp),
+      site_name:      pick(r, PREV_COL.site_name),
+      gap_on_air:     pick(r, PREV_COL.gap_on_air),
+      gap_log_inv:    pick(r, PREV_COL.gap_log_inv),
+      gap_site_owner: pick(r, PREV_COL.gap_site_owner),
+      gap_doc:        pick(r, PREV_COL.gap_doc),
+      gap_hw_cierre:  pick(r, PREV_COL.gap_hw_cierre),
+    }))
+    .filter(r => r.smp)
+}
+
+// Construye árbol GAP → sitios → count (igual al pivot Nokia)
+function buildGapTree(rows, procesoKey) {
+  const map = new Map()
+  for (const r of rows) {
+    const gap  = r[procesoKey] || '(Sin estado)'
+    const site = r.site_name   || '(Sin sitio)'
+    if (!map.has(gap)) map.set(gap, new Map())
+    map.get(gap).set(site, (map.get(gap).get(site) || 0) + 1)
+  }
+  return map
+}
+
+// Construye datos FC: gap → {dates: Map<date,count>, sites: Map<site, Map<date,count>>}
+function buildFcData(rows, procesoKey, forecasts, faKey) {
+  const gapMap  = new Map()
+  const dateSet = new Set()
+  const pending = rows.filter(r => !isFinal(r[procesoKey]))
+
+  for (const r of pending) {
+    const gap  = r[procesoKey] || '(Sin estado)'
+    const site = r.site_name   || '(Sin sitio)'
+    const fc   = forecasts[r.smp]
+    if (!fc?.[faKey]) continue
+    const d = fmtDate(fc[faKey])
+    dateSet.add(d)
+    if (!gapMap.has(gap)) gapMap.set(gap, { dates: new Map(), sites: new Map() })
+    const g = gapMap.get(gap)
+    g.dates.set(d, (g.dates.get(d) || 0) + 1)
+    if (!g.sites.has(site)) g.sites.set(site, new Map())
+    g.sites.get(site).set(d, (g.sites.get(site).get(d) || 0) + 1)
+  }
+
+  const gapEntries = [...gapMap.entries()]
+    .filter(([, g]) => g.dates.size > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+  return { gapEntries, dates: [...dateSet].sort() }
+}
+
+// ── Config por proceso ────────────────────────────────────────────
 const PROC_CFG = {
-  gap_on_air:     { label: 'ON AIR',           nokia: 'GAP OnAir',          col: 'Numero Actividades', color: '#0ea5e9', fa: 'fc_avance_on_air',     ticket: 'ticket_on_air_owner'    },
-  gap_log_inv:    { label: 'LOGÍSTICA INVERSA', nokia: 'GAP LI',             col: 'No de Actividades',  color: '#f59e0b', fa: 'fc_avance_on_air',     ticket: 'ticket_log_inv_owner'   },
-  gap_site_owner: { label: 'SITE OWNER',        nokia: 'GAP SITE OWNER',     col: 'No de Actividades',  color: '#8b5cf6', fa: 'fc_avance_site_owner', ticket: 'ticket_so_owner'        },
-  gap_doc:        { label: 'DOCUMENTACIÓN',     nokia: 'GAP DOC',            col: 'No de Actividades',  color: '#10b981', fa: 'fc_avance_doc',        ticket: 'ticket_doc_owner'       },
-  gap_hw_cierre:  { label: 'CIERRE HW',         nokia: 'GAP CIERRE DE HW',   col: 'No de Actividades',  color: '#ef4444', fa: 'fc_avance_hw_cierre',  ticket: 'ticket_hw_cierre_owner' },
+  gap_on_air:     { label: 'ON AIR',           nokia: 'GAP OnAir',        color: '#0ea5e9', fa: 'fc_avance_on_air',     ticket: 'ticket_on_air_owner'    },
+  gap_log_inv:    { label: 'LOGÍSTICA INVERSA', nokia: 'GAP LI',           color: '#f59e0b', fa: 'fc_avance_on_air',     ticket: 'ticket_log_inv_owner'   },
+  gap_site_owner: { label: 'SITE OWNER',        nokia: 'GAP SITE OWNER',   color: '#8b5cf6', fa: 'fc_avance_site_owner', ticket: 'ticket_so_owner'        },
+  gap_doc:        { label: 'DOCUMENTACIÓN',     nokia: 'GAP DOC',          color: '#10b981', fa: 'fc_avance_doc',        ticket: 'ticket_doc_owner'       },
+  gap_hw_cierre:  { label: 'CIERRE HW',         nokia: 'GAP CIERRE DE HW', color: '#ef4444', fa: 'fc_avance_hw_cierre',  ticket: 'ticket_hw_cierre_owner' },
 }
 
-const FILTRO_OPTS = [
+const FILTRO_OPTS  = [
   { value: 'todos',      label: 'Ver Todos' },
   { value: 'pendientes', label: 'Solo Pendientes' },
   { value: 'cerrados',   label: 'Solo Cerrados' },
@@ -41,432 +111,396 @@ const FILTRO_BADGE = {
   cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
 }
 
-// ── Construir datos de reporte Nokia ─────────────────────────────
-function buildNokiaData(sabana, forecasts, procesoKey) {
-  const cfg = PROC_CFG[procesoKey]
-  const pending = sabana.filter(r => !isFinal(r[procesoKey]))
+// ── Tabla Nokia (árbol GAP → sitios) ─────────────────────────────
+// forPrint: quita bordes redondeados y padding extra
+function NokiaTable({ rows, procesoKey, label, forPrint = false }) {
+  const gapTree   = useMemo(() => buildGapTree(rows, procesoKey), [rows, procesoKey])
+  const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const total      = rows.length
 
-  // Tabla 1: GAP status → sites → count
-  const gapMap = new Map()
-  for (const r of pending) {
-    const gap = r[procesoKey] || '(Sin estado)'
-    if (!gapMap.has(gap)) gapMap.set(gap, new Map())
-    const site = r.site_name || r.smp || '(Sin sitio)'
-    gapMap.get(gap).set(site, (gapMap.get(gap).get(site) || 0) + 1)
-  }
-  const gapEntries = [...gapMap.entries()].sort(([a], [b]) => a.localeCompare(b))
-
-  // Tabla 2: GAP × Semana FC
-  const weekMap = new Map()
-  const weekSet = new Set()
-  for (const r of pending) {
-    const gap = r[procesoKey] || '(Sin estado)'
-    const fc  = forecasts[r.smp]
-    if (fc?.[cfg.fa]) {
-      const wk = fmtWeek(fc[cfg.fa])
-      weekSet.add(wk)
-      if (!weekMap.has(gap)) weekMap.set(gap, new Map())
-      weekMap.get(gap).set(wk, (weekMap.get(gap).get(wk) || 0) + 1)
-    }
-  }
-  const weeks = [...weekSet].sort()
-
-  // Tabla 3: GAP × Owner
-  const ownerMap = new Map()
-  const ownerSet = new Set()
-  for (const r of pending) {
-    const gap   = r[procesoKey] || '(Sin estado)'
-    const owner = r[cfg.ticket] || '(Sin owner)'
-    ownerSet.add(owner)
-    if (!ownerMap.has(gap)) ownerMap.set(gap, new Map())
-    ownerMap.get(gap).set(owner, (ownerMap.get(gap).get(owner) || 0) + 1)
-  }
-  const owners = [...ownerSet].sort()
-
-  return { gapEntries, weekMap, weeks, ownerMap, owners, total: pending.length }
-}
-
-// ── Estilos de tabla (Nokia print) ───────────────────────────────
-const PS = { // print styles
-  table:     { width: '100%', borderCollapse: 'collapse', fontSize: 9 },
-  thTitle:   { background: '#1a3a5c', color: '#fff', padding: '5px 8px', textAlign: 'left', fontWeight: 700, fontSize: 9, border: '1px solid #ccc', whiteSpace: 'nowrap' },
-  thNum:     { background: '#1a3a5c', color: '#fff', padding: '5px 8px', textAlign: 'center', fontWeight: 700, fontSize: 9, border: '1px solid #ccc', width: 60 },
-  tdStatus:  { padding: '4px 8px', fontWeight: 700, fontSize: 9, background: '#dce6f1', border: '1px solid #ccc', whiteSpace: 'nowrap' },
-  tdSite:    { padding: '3px 8px 3px 22px', fontWeight: 400, fontSize: 8.5, background: '#fff', border: '1px solid #e8e8e8', color: '#333' },
-  tdCount:   { padding: '4px 6px', textAlign: 'center', fontWeight: 700, fontSize: 9, background: '#dce6f1', border: '1px solid #ccc' },
-  tdSiteNum: { padding: '3px 6px', textAlign: 'center', fontSize: 8.5, background: '#fff', border: '1px solid #e8e8e8' },
-  tdTotal:   { padding: '5px 8px', fontWeight: 800, fontSize: 9, background: '#c5d9f1', border: '1px solid #aaa' },
-  tdTotNum:  { padding: '5px 6px', textAlign: 'center', fontWeight: 800, fontSize: 9, background: '#c5d9f1', border: '1px solid #aaa' },
-}
-
-// ── Sección Nokia por proceso (vista impresión) ───────────────────
-function NokiaSection({ proceso, data, uploads }) {
-  const cfg = PROC_CFG[proceso.key]
-  const { gapEntries, weekMap, weeks, ownerMap, owners, total } = data
-  const lastUpload = uploads[0]
+  const FS = forPrint ? 8 : 10
 
   return (
-    <div className="nokia-section">
-      {/* ── Header de página ── */}
-      <table style={{ width: '100%', marginBottom: 8, borderCollapse: 'collapse' }}>
-        <tbody>
-          <tr>
-            <td style={{ fontWeight: 900, fontSize: 13, color: '#1a3a5c', fontFamily: 'Arial, sans-serif', width: '33%' }}>
-              INGETEL S.A.S.
-            </td>
-            <td style={{
-              textAlign: 'center', fontSize: 14, fontWeight: 900, color: '#fff',
-              background: cfg.color, padding: '6px 12px', borderRadius: 4,
-              letterSpacing: 1, fontFamily: 'Arial, sans-serif',
-            }}>
-              {cfg.nokia}
-            </td>
-            <td style={{ textAlign: 'right', fontSize: 9, color: '#555', width: '33%', fontFamily: 'Arial, sans-serif' }}>
-              {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}
-              {lastUpload && (
-                <><br /><span style={{ fontSize: 8, color: '#888' }}>Reporte: {lastUpload.file_name}</span></>
-              )}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style={{ height: 3, background: cfg.color, marginBottom: 12, borderRadius: 1 }} />
-
-      {/* ── Layout dos columnas: Tabla1 | Tabla2 ── */}
-      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
-
-        {/* ── Tabla 1: GAP status → Sites (formato Nokia exacto) ── */}
-        <div style={{ flex: gapEntries.length > 0 ? '0 0 45%' : '1' }}>
-          <table style={PS.table}>
-            <thead>
-              <tr>
-                <th style={PS.thTitle}>{cfg.nokia}</th>
-                <th style={PS.thNum}>{cfg.col}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gapEntries.length === 0 ? (
-                <tr>
-                  <td colSpan={2} style={{ padding: 12, textAlign: 'center', color: '#22c55e', fontWeight: 700, fontSize: 11 }}>
-                    ✓ Sin pendientes
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
+      <thead>
+        <tr>
+          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 7px' : '6px 10px', textAlign: 'left', fontWeight: 700, border: '1px solid #c0c0c0' }}>
+            {label}
+          </th>
+          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 6px' : '6px 8px', textAlign: 'center', fontWeight: 700, border: '1px solid #c0c0c0', width: 55, whiteSpace: 'nowrap' }}>
+            No de Actividades
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {gapEntries.length === 0
+          ? <tr><td colSpan={2} style={{ padding: 12, textAlign: 'center', color: '#9ca89c' }}>Sin datos</td></tr>
+          : gapEntries.map(([gap, sites]) => {
+              const fin      = isFinal(gap)
+              const gapTotal = [...sites.values()].reduce((s, v) => s + v, 0)
+              return [
+                <tr key={gap}>
+                  <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
+                    {gap}
                   </td>
-                </tr>
-              ) : gapEntries.map(([gap, sites]) => {
-                const gapTotal = [...sites.values()].reduce((s, v) => s + v, 0)
-                return [
-                  <tr key={`gap-${gap}`}>
-                    <td style={PS.tdStatus}>{gap}</td>
-                    <td style={PS.tdCount}>{gapTotal}</td>
-                  </tr>,
-                  ...[...sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, cnt]) => (
-                    <tr key={`site-${gap}-${site}`}>
-                      <td style={PS.tdSite}>{site}</td>
-                      <td style={PS.tdSiteNum}>{cnt}</td>
-                    </tr>
-                  )),
-                ]
-              })}
-              {gapEntries.length > 0 && (
-                <tr>
-                  <td style={PS.tdTotal}>Total general</td>
-                  <td style={PS.tdTotNum}>{total}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  <td style={{ padding: forPrint ? '3px 5px' : '4px 8px', textAlign: 'center', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
+                    {gapTotal}
+                  </td>
+                </tr>,
+                ...[...sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, cnt]) => (
+                  <tr key={`${gap}|${site}`}>
+                    <td style={{ padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
+                      {site}
+                    </td>
+                    <td style={{ padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
+                      {cnt}
+                    </td>
+                  </tr>
+                )),
+              ]
+            })
+        }
+        <tr>
+          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+            Total general
+          </td>
+          <td style={{ padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+            {total}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
 
-        {/* ── Tabla 2: GAP × Semana FC (si hay datos FC) ── */}
-        {weeks.length > 0 && (
-          <div style={{ flex: 1 }}>
-            <table style={PS.table}>
-              <thead>
-                <tr>
-                  <th style={PS.thTitle}>{cfg.nokia}</th>
-                  {weeks.map(w => <th key={w} style={PS.thNum}>{w}</th>)}
-                  <th style={PS.thNum}>Total</th>
+// ── Tabla Nokia de FC (GAP × Fecha → count) ──────────────────────
+function NokiaFcTable({ rows, procesoKey, forecasts, label, forPrint = false }) {
+  const { gapEntries, dates } = useMemo(
+    () => buildFcData(rows, procesoKey, forecasts, PROC_CFG[procesoKey].fa),
+    [rows, procesoKey, forecasts]
+  )
+
+  if (!dates.length) return (
+    <div style={{ padding: 16, textAlign: 'center', color: '#9ca89c', fontSize: 11 }}>
+      Sin fechas FC registradas para este proceso.
+    </div>
+  )
+
+  const FS = forPrint ? 8 : 10
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
+      <thead>
+        <tr>
+          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 7px' : '6px 10px', textAlign: 'left', fontWeight: 700, border: '1px solid #c0c0c0' }}>{label}</th>
+          {dates.map(d => (
+            <th key={d} style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 5px' : '6px 7px', textAlign: 'center', fontWeight: 700, border: '1px solid #c0c0c0', whiteSpace: 'nowrap' }}>{d}</th>
+          ))}
+          <th style={{ background: '#003366', color: '#fff', padding: forPrint ? '4px 5px' : '6px 7px', textAlign: 'center', fontWeight: 700, border: '1px solid #003366', whiteSpace: 'nowrap' }}>No de Actividades</th>
+        </tr>
+      </thead>
+      <tbody>
+        {gapEntries.map(([gap, g]) => {
+          const gapTotal = [...g.dates.values()].reduce((s, v) => s + v, 0)
+          return [
+            <tr key={gap}>
+              <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: '#C00000' }}>{gap}</td>
+              {dates.map(d => <td key={d} style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700 }}>{g.dates.get(d) || ''}</td>)}
+              <td style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>{gapTotal}</td>
+            </tr>,
+            ...[...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, siteDates]) => {
+              const siteTotal = [...siteDates.values()].reduce((s, v) => s + v, 0)
+              if (!siteTotal) return null
+              return (
+                <tr key={`${gap}|${site}`}>
+                  <td style={{ padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{site}</td>
+                  {dates.map(d => <td key={d} style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{siteDates.get(d) || ''}</td>)}
+                  <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{siteTotal}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {gapEntries.map(([gap]) => {
-                  const wm = weekMap.get(gap) || new Map()
-                  const rowTotal = [...wm.values()].reduce((s, v) => s + v, 0)
-                  if (rowTotal === 0) return null
-                  return (
-                    <tr key={`wk-${gap}`}>
-                      <td style={PS.tdStatus}>{gap}</td>
-                      {weeks.map(w => (
-                        <td key={w} style={PS.tdCount}>{wm.get(w) || ''}</td>
-                      ))}
-                      <td style={PS.tdCount}>{rowTotal}</td>
-                    </tr>
-                  )
-                })}
-                {/* Fila de totales */}
-                <tr>
-                  <td style={PS.tdTotal}>Total general</td>
-                  {weeks.map(w => {
-                    const col = gapEntries.reduce((s, [gap]) => s + (weekMap.get(gap)?.get(w) || 0), 0)
-                    return <td key={w} style={PS.tdTotNum}>{col || ''}</td>
-                  })}
-                  <td style={PS.tdTotNum}>{total}</td>
-                </tr>
-              </tbody>
-            </table>
+              )
+            }),
+          ]
+        })}
+        {/* Fila totales */}
+        <tr>
+          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>Total general</td>
+          {dates.map(d => {
+            const col = gapEntries.reduce((s, [, g]) => s + (g.dates.get(d) || 0), 0)
+            return <td key={d} style={{ padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>{col || ''}</td>
+          })}
+          <td style={{ padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+            {gapEntries.reduce((s, [, g]) => s + [...g.dates.values()].reduce((a, b) => a + b, 0), 0)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
+// ── Sección de proceso (pantalla) ─────────────────────────────────
+function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro }) {
+  const cfg = PROC_CFG[proceso.key]
+
+  function applyFiltro(rows) {
+    if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[proceso.key]))
+    if (filtro === 'cerrados')   return rows.filter(r =>  isFinal(r[proceso.key]))
+    return rows
+  }
+
+  const curr     = applyFiltro(currRows)
+  const prev     = applyFiltro(prevRows)
+  const hasPrev  = prevRows.length > 0
+
+  const total    = currRows.length
+  const pend     = currRows.filter(r => !isFinal(r[proceso.key])).length
+  const pct      = total ? Math.round(((total - pend) / total) * 100) : 0
+  const barClr   = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
+
+  const [showFc, setShowFc] = useState(false)
+
+  return (
+    <div style={{ marginBottom: 28, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
+      {/* Header Nokia */}
+      <div style={{ background: '#7030A0', padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>{cfg.nokia}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>{cfg.label}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ fontSize: 38, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1 }}>{pct}%</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)' }}>completado</div>
+        </div>
+      </div>
+      <div style={{ height: 4, background: 'rgba(0,0,0,.15)' }}>
+        <div style={{ height: 4, background: '#fff', opacity: .6, width: `${pct}%` }} />
+      </div>
+
+      {/* Stats + toggle FC */}
+      <div style={{ background: '#f8f9f8', borderLeft: '4px solid #7030A0', borderRight: '1px solid #e5e7eb', padding: '7px 18px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11 }}><b style={{ color: '#C00000' }}>{pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>pendientes</span></span>
+        <span style={{ fontSize: 11 }}><b style={{ color: '#166534' }}>{total - pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>cerrados</span></span>
+        <span style={{ fontSize: 11 }}><b>{total}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>total</span></span>
+        <span
+          onClick={() => setShowFc(s => !s)}
+          style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, cursor: 'pointer', color: '#7030A0', userSelect: 'none' }}
+        >
+          {showFc ? '▴ Ocultar FC Avance' : '▾ Ver FC Avance'}
+        </span>
+      </div>
+
+      {/* Tablas de comparación */}
+      <div style={{ padding: 16, background: '#fff' }}>
+        {hasPrev ? (
+          <>
+            {/* Label W_prev → W_curr */}
+            <div style={{ textAlign: 'center', color: '#7030A0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+              {prevLabel} &nbsp;——▶&nbsp; {currLabel}
+            </div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#7030A0', marginBottom: 4, letterSpacing: 1 }}>{prevLabel}</div>
+                <NokiaTable rows={prev} procesoKey={proceso.key} label={cfg.nokia} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: '#7030A0', marginBottom: 4, letterSpacing: 1 }}>{currLabel}</div>
+                <NokiaTable rows={curr} procesoKey={proceso.key} label={cfg.nokia} />
+              </div>
+            </div>
+          </>
+        ) : (
+          <NokiaTable rows={curr} procesoKey={proceso.key} label={cfg.nokia} />
+        )}
+
+        {/* Tabla FC (toggle) */}
+        {showFc && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, color: '#003366', marginBottom: 6, letterSpacing: 1 }}>FC AVANCE — {currLabel}</div>
+            <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={cfg.nokia} />
           </div>
         )}
       </div>
-
-      {/* ── Tabla 3: GAP × Owner ── */}
-      {owners.length > 0 && (
-        <table style={PS.table}>
-          <thead>
-            <tr>
-              <th style={PS.thTitle}>{cfg.nokia}</th>
-              {owners.map(o => <th key={o} style={PS.thNum}>{o}</th>)}
-              <th style={PS.thNum}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {gapEntries.map(([gap]) => {
-              const om = ownerMap.get(gap) || new Map()
-              const rowTotal = [...om.values()].reduce((s, v) => s + v, 0)
-              if (rowTotal === 0) return null
-              return (
-                <tr key={`ow-${gap}`}>
-                  <td style={PS.tdStatus}>{gap}</td>
-                  {owners.map(o => <td key={o} style={PS.tdCount}>{om.get(o) || ''}</td>)}
-                  <td style={PS.tdCount}>{rowTotal}</td>
-                </tr>
-              )
-            })}
-            <tr>
-              <td style={PS.tdTotal}>Total general</td>
-              {owners.map(o => {
-                const col = gapEntries.reduce((s, [gap]) => s + (ownerMap.get(gap)?.get(o) || 0), 0)
-                return <td key={o} style={PS.tdTotNum}>{col || ''}</td>
-              })}
-              <td style={PS.tdTotNum}>{total}</td>
-            </tr>
-          </tbody>
-        </table>
-      )}
     </div>
   )
 }
 
-// ── Vista pantalla por proceso ────────────────────────────────────
-function ScreenSection({ proceso, sabana, forecasts, filtro }) {
-  const cfg = PROC_CFG[proceso.key]
-
-  const rows = useMemo(() => {
-    return sabana
-      .filter(r => {
-        if (filtro === 'pendientes') return !isFinal(r[proceso.key])
-        if (filtro === 'cerrados')   return  isFinal(r[proceso.key])
-        return true
-      })
-      .sort((a, b) => {
-        const aFin = isFinal(a[proceso.key]), bFin = isFinal(b[proceso.key])
-        if (aFin !== bFin) return aFin ? 1 : -1
-        return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
-      })
-  }, [sabana, proceso.key, filtro])
-
-  const total  = sabana.length
-  const pend   = sabana.filter(r => !isFinal(r[proceso.key])).length
-  const closed = total - pend
-  const pct    = total ? Math.round(((total - pend) / total) * 100) : 0
-  const barClr = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
+// ── Diapositiva Nokia (impresión) ─────────────────────────────────
+function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, uploads }) {
+  const cfg      = PROC_CFG[proceso.key]
+  const hasPrev  = prevRows.length > 0
+  const lastFile = uploads[0]
 
   return (
-    <div style={{ marginBottom: 36 }}>
+    <div className="nokia-slide" style={{ fontFamily: 'Arial, sans-serif', padding: '6mm 0' }}>
       {/* Header */}
-      <div style={{ background: cfg.color, borderRadius: '10px 10px 0 0', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px' }}>
-          <div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.7)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>
-              {cfg.nokia}
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>
-              {cfg.label}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 46, fontWeight: 900, color: '#fff', lineHeight: 1, fontFamily: "'Barlow Condensed', sans-serif" }}>{pct}%</div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.75)' }}>completado</div>
-          </div>
-        </div>
-        <div style={{ height: 4, background: 'rgba(0,0,0,.2)' }}>
-          <div style={{ height: 4, background: 'rgba(255,255,255,.6)', width: `${pct}%` }} />
-        </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
+        <tbody>
+          <tr>
+            <td style={{ fontWeight: 900, fontSize: 13, color: '#7030A0', width: '30%' }}>INGETEL S.A.S.</td>
+            <td style={{ textAlign: 'center', fontSize: 15, fontWeight: 900, color: '#7030A0' }}>{cfg.nokia}</td>
+            <td style={{ textAlign: 'right', fontSize: 8, color: '#555', width: '30%' }}>
+              {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}
+              {lastFile && <><br /><span style={{ fontSize: 7, color: '#888' }}>{lastFile.file_name}</span></>}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div style={{ height: 2, background: '#7030A0', marginBottom: 8 }} />
+
+      {/* Etiqueta de semanas */}
+      <div style={{ textAlign: 'center', color: '#7030A0', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>
+        {hasPrev ? `${prevLabel}  ——▶  ${currLabel}` : currLabel}
       </div>
 
-      {/* Stats */}
-      <div style={{
-        background: '#f8f9f8', padding: '8px 22px',
-        borderLeft: `4px solid ${cfg.color}`, borderRight: '1px solid #e5e7eb',
-        display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap',
-      }}>
-        <span style={{ fontSize: 11 }}><b style={{ fontSize: 14, color: '#ef4444' }}>{pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>pendientes</span></span>
-        <span style={{ fontSize: 11 }}><b style={{ fontSize: 14, color: '#22c55e' }}>{closed}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>cerrados</span></span>
-        <span style={{ fontSize: 11 }}><b style={{ fontSize: 14, color: '#374151' }}>{total}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>total SMPs</span></span>
-        <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, minWidth: 60 }}>
-          <div style={{ height: 6, borderRadius: 3, background: barClr, width: `${pct}%` }} />
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div style={{ border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
-        {rows.length === 0 ? (
-          <div style={{ padding: 28, textAlign: 'center', color: '#9ca89c', fontSize: 12 }}>
-            Sin resultados para el filtro seleccionado
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
-              <thead>
-                <tr style={{ background: '#f8f9f8' }}>
-                  {['Sitio','Main SMP','SMP','Sub Proyecto','Sem.','Estado GAP','FC Avance','FC Comentario','Owner'].map(h => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 9, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: .5, borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const fc  = forecasts[r.smp] || {}
-                  const fin = isFinal(r[proceso.key])
-                  const sem = r.semanas_integracion || 0
-                  return (
-                    <tr key={r.smp} style={{ background: fin ? '#f0fdf4' : i % 2 === 0 ? '#fff' : '#fafafa', opacity: fin ? 0.75 : 1 }}>
-                      <td style={{ padding: '5px 10px', fontWeight: 700, whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' }}>{r.site_name || '—'}</td>
-                      <td style={{ padding: '5px 10px', fontFamily: 'monospace', fontSize: 8, color: '#888', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' }}>{r.main_smp}</td>
-                      <td style={{ padding: '5px 10px', fontFamily: 'monospace', fontSize: 8, color: '#555', whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' }}>{r.smp}</td>
-                      <td style={{ padding: '5px 10px', fontSize: 9, color: '#666', borderBottom: '1px solid #f0f0f0' }}>{r.sub_proyecto || '—'}</td>
-                      <td style={{ padding: '5px 10px', textAlign: 'center', fontWeight: 700, color: sem > 104 ? '#ef4444' : '#374151', borderBottom: '1px solid #f0f0f0' }}>{sem || '—'}</td>
-                      <td style={{ padding: '5px 10px', borderBottom: '1px solid #f0f0f0' }}>
-                        {r[proceso.key] ? (
-                          <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: fin ? '#dcfce7' : '#fee2e2', color: fin ? '#166534' : '#991b1b', whiteSpace: 'nowrap' }}>
-                            {fin ? '✓' : '●'} {r[proceso.key].split('.').slice(1).join('.').trim() || r[proceso.key]}
-                          </span>
-                        ) : <span style={{ color: '#ccc' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '5px 10px', color: '#1e40af', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid #f0f0f0' }}>
-                        {fmtDate(fc[cfg.fa]) || <span style={{ color: '#d1d5db' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '5px 10px', fontSize: 9, color: '#374151', maxWidth: 180, borderBottom: '1px solid #f0f0f0' }}>
-                        {fc['fc_cierre_' + (cfg.fa.replace('fc_avance_', ''))] || <span style={{ color: '#d1d5db' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '5px 10px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}>
-                        {r[cfg.ticket] ? (
-                          <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 4, background: r[cfg.ticket] === 'Nokia' ? '#eff6ff' : '#fffbeb', color: r[cfg.ticket] === 'Nokia' ? '#1e40af' : '#92400e' }}>
-                            {r[cfg.ticket]}
-                          </span>
-                        ) : <span style={{ color: '#d1d5db' }}>—</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {/* Comparación lado a lado */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+        {hasPrev && (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 8, fontWeight: 800, color: '#7030A0', marginBottom: 3 }}>{prevLabel}</div>
+            <NokiaTable rows={prevRows} procesoKey={proceso.key} label={cfg.nokia} forPrint />
           </div>
         )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {hasPrev && <div style={{ fontSize: 8, fontWeight: 800, color: '#7030A0', marginBottom: 3 }}>{currLabel}</div>}
+          <NokiaTable rows={currRows} procesoKey={proceso.key} label={cfg.nokia} forPrint />
+        </div>
       </div>
+
+      {/* Tabla FC */}
+      <div style={{ fontSize: 8, fontWeight: 800, color: '#003366', marginBottom: 4 }}>FC AVANCE — {currLabel}</div>
+      <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={cfg.nokia} forPrint />
     </div>
   )
 }
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
-  const sabana    = useAckStore(s => s.sabana)
-  const forecasts = useAckStore(s => s.forecasts)
-  const uploads   = useAckStore(s => s.uploads)
+  const sabana       = useAckStore(s => s.sabana)
+  const forecasts    = useAckStore(s => s.forecasts)
+  const uploads      = useAckStore(s => s.uploads)
 
-  const [filtro, setFiltro] = useState('pendientes')
+  const [prevSabana,  setPrevSabana]  = useState([])
+  const [prevLabel,   setPrevLabel]   = useState('')
+  const [currLabel,   setCurrLabel]   = useState('')
+  const [filtro,      setFiltro]      = useState('pendientes')
+  const [loadingPrev, setLoadingPrev] = useState(false)
+  const prevRef = useRef()
 
-  // Pre-calcular datos Nokia para todos los procesos
-  const nokiaData = useMemo(() =>
-    Object.fromEntries(PROCESOS.map(p => [p.key, buildNokiaData(sabana, forecasts, p.key)]))
-  , [sabana, forecasts])
+  // Etiqueta semana actual desde el último upload
+  useEffect(() => {
+    if (uploads[0] && !currLabel) {
+      // Intentar extraer semana del nombre de archivo
+      const m = uploads[0].file_name.match(/W\d{2,3}/i)
+      setCurrLabel(m ? m[0].toUpperCase() : 'Semana Actual')
+    }
+  }, [uploads])
 
-  // Inyectar CSS de impresión
+  async function handlePrevFile(file) {
+    setLoadingPrev(true)
+    try {
+      const rows = await parseExcelFile(file)
+      setPrevSabana(rows)
+      const m = file.name.match(/W\d{2,3}/i)
+      setPrevLabel(m ? m[0].toUpperCase() : 'Semana Anterior')
+      showToast(`✓ Semana anterior: ${rows.length} SMPs`, 'ok')
+    } catch (e) {
+      showToast(`Error: ${e.message}`, 'err')
+    } finally {
+      setLoadingPrev(false)
+      if (prevRef.current) prevRef.current.value = ''
+    }
+  }
+
+  // CSS de impresión global
   useEffect(() => {
     const style = document.createElement('style')
-    style.id = 'ack-forecast-css'
+    style.id = 'nokia-print-css'
     style.textContent = `
       @page { size: A4 landscape; margin: 8mm 10mm; }
-      @media screen {
-        #nokia-print-root { position: absolute; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
-      }
       @media print {
-        body * { display: none !important; }
-        #nokia-print-root,
-        #nokia-print-root * { display: revert !important; }
-        #nokia-print-root {
-          position: fixed !important; top: 0 !important; left: 0 !important;
-          width: 100% !important; font-family: Arial, sans-serif; background: #fff;
-        }
-        .nokia-section { page-break-before: always; }
-        .nokia-section:first-child { page-break-before: auto; }
+        #root                { display: none !important; }
+        #nokia-print-root    { display: block !important; font-family: Arial, sans-serif; }
+        .nokia-slide         { page-break-before: always; }
+        .nokia-slide:first-child { page-break-before: auto; }
+      }
+      @media screen {
+        #nokia-print-root { display: none; }
       }
     `
     document.head.appendChild(style)
-    return () => document.getElementById('ack-forecast-css')?.remove()
+    return () => document.getElementById('nokia-print-css')?.remove()
   }, [])
 
-  const filtroBadge = FILTRO_BADGE[filtro]
+  const filtroBadge  = FILTRO_BADGE[filtro]
+  const hasPrev      = prevSabana.length > 0
 
-  if (!sabana.length) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c' }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
-        <div style={{ fontSize: 14, marginBottom: 6 }}>Sin datos cargados.</div>
-        <div style={{ fontSize: 12 }}>Carga el reporte ACK desde el Dashboard.</div>
-      </div>
-    )
-  }
+  if (!sabana.length) return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+      <div style={{ fontSize: 14 }}>Sin datos. Carga el reporte ACK desde el Dashboard.</div>
+    </div>
+  )
 
   return (
-    <div>
-      {/* ── Controles (pantalla únicamente) ── */}
-      <div className="screen-section dash-hdr mb14">
+    <>
+      {/* ── Controles ── */}
+      <div className="dash-hdr mb14">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
               ACK — Reportes
             </h1>
             {filtroBadge && (
-              <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
                 {filtroBadge.text}
               </span>
             )}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca89c', marginTop: 3 }}>
-            {uploads[0] ? <>Reporte: <b>{uploads[0].file_name}</b></> : 'Vista de reportes y presentación Nokia'}
-          </div>
+          {hasPrev && (
+            <div style={{ fontSize: 11, color: '#7030A0', fontWeight: 700, marginTop: 4 }}>
+              Comparando: <b>{prevLabel}</b> ——▶ <b>{currLabel}</b>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Labels editables */}
+          {hasPrev && (
+            <>
+              <input className="fc" value={prevLabel} onChange={e => setPrevLabel(e.target.value)}
+                placeholder="Ej: W42" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
+              <span style={{ color: '#7030A0', fontWeight: 900 }}>▶</span>
+              <input className="fc" value={currLabel} onChange={e => setCurrLabel(e.target.value)}
+                placeholder="Ej: W44" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
+            </>
+          )}
+          {/* Upload semana anterior */}
+          <input ref={prevRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handlePrevFile(f) }} />
+          <button
+            onClick={() => prevRef.current?.click()}
+            disabled={loadingPrev}
+            style={{ padding: '7px 14px', border: '1.5px solid #7030A0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: hasPrev ? '#f3e8ff' : '#fff', color: '#7030A0' }}
+          >
+            {loadingPrev ? '⏳' : hasPrev ? `✓ ${prevLabel}` : '📂 Cargar Semana Anterior'}
+          </button>
+          {hasPrev && (
+            <button onClick={() => { setPrevSabana([]); setPrevLabel('') }}
+              style={{ padding: '7px 10px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, color: '#9ca89c', background: '#fff' }}>
+              ✕
+            </button>
+          )}
           <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 700 }}>
             {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <button
             onClick={() => window.print()}
-            style={{
-              padding: '9px 22px', border: 'none', borderRadius: 8, cursor: 'pointer',
-              fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800,
-              background: '#1a3a5c', color: '#fff', letterSpacing: .8,
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: '0 2px 8px rgba(0,0,0,.2)',
-            }}
+            style={{ padding: '9px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, background: '#1a3a5c', color: '#fff', letterSpacing: .8, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             🖨 Preparar Presentación
           </button>
         </div>
       </div>
 
-      {/* ── KPI resumen pantalla ── */}
-      <div className="screen-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
+      {/* ── KPI resumen ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
         {PROCESOS.map(p => {
           const cfg  = PROC_CFG[p.key]
           const pend = sabana.filter(r => !isFinal(r[p.key])).length
@@ -482,19 +516,38 @@ export default function AckForecast() {
         })}
       </div>
 
-      {/* ── Vista pantalla: secciones interactivas ── */}
-      <div className="screen-section">
-        {PROCESOS.map(p => (
-          <ScreenSection key={p.key} proceso={p} sabana={sabana} forecasts={forecasts} filtro={filtro} />
-        ))}
-      </div>
+      {/* ── Secciones interactivas pantalla ── */}
+      {PROCESOS.map(p => (
+        <ScreenProcess
+          key={p.key}
+          proceso={p}
+          currRows={sabana}
+          prevRows={prevSabana}
+          currLabel={currLabel}
+          prevLabel={prevLabel}
+          forecasts={forecasts}
+          filtro={filtro}
+        />
+      ))}
 
-      {/* ── Vista impresión: tablas formato Nokia (ocultas en pantalla) ── */}
-      <div id="nokia-print-root">
-        {PROCESOS.map(p => (
-          <NokiaSection key={p.key} proceso={p} data={nokiaData[p.key]} uploads={uploads} />
-        ))}
-      </div>
-    </div>
+      {/* ── Contenido de impresión vía portal (sibling de #root) ── */}
+      {createPortal(
+        <div id="nokia-print-root">
+          {PROCESOS.map(p => (
+            <PrintSlide
+              key={p.key}
+              proceso={p}
+              currRows={sabana}
+              prevRows={prevSabana}
+              currLabel={currLabel}
+              prevLabel={prevLabel}
+              forecasts={forecasts}
+              uploads={uploads}
+            />
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
