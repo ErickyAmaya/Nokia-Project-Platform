@@ -447,11 +447,11 @@ export default function AckTablas() {
   const [sitio,  setSitio]  = useState('')
   const [filtro, setFiltro] = useState('pendientes')
 
-  // Pre-filtrar si llegamos desde Reportes con ?smp=
+  // Pre-filtrar si llegamos desde Reportes con ?sitio=
   useEffect(() => {
-    const smpParam = searchParams.get('smp')
-    if (smpParam) {
-      setSitio(smpParam)
+    const sitioParam = searchParams.get('sitio')
+    if (sitioParam) {
+      setSitio(sitioParam)
       setFiltro('todos')
     }
   }, [])
