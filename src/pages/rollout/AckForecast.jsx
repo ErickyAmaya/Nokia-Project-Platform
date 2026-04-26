@@ -535,7 +535,7 @@ export default function AckForecast() {
   const sabana        = useAckStore(s => s.sabana)
   const forecasts     = useAckStore(s => s.forecasts)
   const uploads       = useAckStore(s => s.uploads)
-  const empresaNombre = useAppStore(s => s.empresaConfig?.nombre || '')
+  const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
   const [prevSabana,  setPrevSabana]  = useState([])
   const [prevLabel,   setPrevLabel]   = useState('')
