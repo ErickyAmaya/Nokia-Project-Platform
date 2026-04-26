@@ -73,15 +73,20 @@ function buildGapTree(rows, procesoKey) {
   return map
 }
 
-// GAP → ticket_owner → count (solo filas con ticket registrado)
+// GAP → ticket_owner → { count, ids: Set<ticketId> }
 function buildTicketTree(rows, procesoKey, ticketKey) {
   const map = new Map()
   for (const r of rows) {
-    const ticket = r[ticketKey]
-    if (!ticket) continue
+    const owner = r[ticketKey]
+    if (!owner) continue
     const gap = r[procesoKey] || '(Sin estado)'
+    const id  = r.tickets_id ? String(r.tickets_id).trim() : null
     if (!map.has(gap)) map.set(gap, new Map())
-    map.get(gap).set(ticket, (map.get(gap).get(ticket) || 0) + 1)
+    const gMap = map.get(gap)
+    if (!gMap.has(owner)) gMap.set(owner, { count: 0, ids: new Set() })
+    const entry = gMap.get(owner)
+    entry.count++
+    if (id) entry.ids.add(id)
   }
   return map
 }
@@ -269,12 +274,13 @@ function NokiaFcTable({ rows, procesoKey, forecasts, label, color = '#7030A0', f
   )
 }
 
-// ── Tabla Nokia Tickets (GAP → ticket_owner → count) ─────────────
+// ── Tabla Nokia Tickets (GAP → ticket_owner → {count, ids}) ──────
 function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0', forPrint = false }) {
   const gapTree    = useMemo(() => buildTicketTree(rows, procesoKey, ticketKey), [rows, procesoKey, ticketKey])
   const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
-  const total      = gapEntries.reduce((s, [, tickets]) => s + [...tickets.values()].reduce((a, b) => a + b, 0), 0)
-  const FS         = forPrint ? 8 : 10
+  const total      = gapEntries.reduce((s, [, owners]) =>
+    s + [...owners.values()].reduce((a, e) => a + e.count, 0), 0)
+  const FS = forPrint ? 8 : 10
 
   if (!total) return (
     <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#9ca89c', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
@@ -282,46 +288,54 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
     </div>
   )
 
+  const cellGap = { padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0' }
+  const cellSub = { background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }
+  const cellTot = { fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }
+
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
       <thead>
         <tr>
           <th style={thStyle(color, forPrint)}>{label}</th>
+          <th style={{ ...thCenterStyle(color, forPrint), width: forPrint ? 90 : 130 }}>No. Ticket</th>
           <th style={thCenterStyle(color, forPrint)}>No de Actividades</th>
         </tr>
       </thead>
       <tbody>
-        {gapEntries.map(([gap, tickets]) => {
+        {gapEntries.map(([gap, owners]) => {
           const fin      = isFinal(gap)
-          const gapTotal = [...tickets.values()].reduce((s, v) => s + v, 0)
+          const gapTotal = [...owners.values()].reduce((s, e) => s + e.count, 0)
+          const txtColor = fin ? '#166534' : '#C00000'
           return [
             <tr key={gap}>
-              <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
-                {gap}
-              </td>
-              <td style={{ padding: forPrint ? '3px 5px' : '4px 8px', textAlign: 'center', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
-                {gapTotal}
-              </td>
+              <td style={{ ...cellGap, color: txtColor }}>{gap}</td>
+              <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>—</td>
+              <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>{gapTotal}</td>
             </tr>,
-            ...[...tickets.entries()].sort(([a], [b]) => String(a).localeCompare(String(b))).map(([ticket, cnt]) => (
-              <tr key={`${gap}|${ticket}`}>
-                <td style={{ padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
-                  {ticket}
-                </td>
-                <td style={{ padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
-                  {cnt}
-                </td>
-              </tr>
-            )),
+            ...[...owners.entries()]
+              .sort(([a], [b]) => String(a).localeCompare(String(b)))
+              .map(([owner, { count, ids }]) => {
+                const ticketNums = [...ids].sort().join(', ') || '—'
+                return (
+                  <tr key={`${gap}|${owner}`}>
+                    <td style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px' }}>
+                      {owner}
+                    </td>
+                    <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', color: '#1a3a5c', fontWeight: 600 }}>
+                      {ticketNums}
+                    </td>
+                    <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center' }}>
+                      {count}
+                    </td>
+                  </tr>
+                )
+              }),
           ]
         })}
         <tr>
-          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
-            Total general
-          </td>
-          <td style={{ padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
-            {total}
-          </td>
+          <td style={{ ...cellTot, padding: forPrint ? '4px 7px' : '5px 10px' }}>Total general</td>
+          <td style={{ ...cellTot, padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center' }}>—</td>
+          <td style={{ ...cellTot, padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center' }}>{total}</td>
         </tr>
       </tbody>
     </table>
