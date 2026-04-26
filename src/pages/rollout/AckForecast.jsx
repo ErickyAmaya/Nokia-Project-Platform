@@ -1,21 +1,12 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import * as XLSX from 'xlsx'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
-import { showToast } from '../../components/Toast'
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(val) {
   if (!val) return false
   return val.startsWith('9999') || val.startsWith('70.')
-}
-
-function pick(row, aliases) {
-  for (const a of aliases) {
-    if (row[a] !== undefined && row[a] !== null && row[a] !== '') return row[a]
-  }
-  return null
 }
 
 function fmtDate(dateStr) {
@@ -26,38 +17,6 @@ function fmtDate(dateStr) {
 function rangeLabel(prev, curr) {
   if (prev && curr && prev !== curr) return `${prev}-${curr}`
   return curr || prev || ''
-}
-
-// Columnas para parsear el Excel de semana anterior
-const PREV_COL = {
-  smp:            ['smp', 'SMP'],
-  site_name:      ['siteName', 'site_name'],
-  gap_on_air:     ['GAP_OnAir', 'gap_on_air'],
-  gap_log_inv:    ['GAP_LOG_INV', 'gap_log_inv'],
-  gap_site_owner: ['GAP_SiteOwner', 'gap_site_owner'],
-  gap_doc:        ['GAP_DOC', 'gap_doc'],
-  gap_hw_cierre:  ['GAP_HW_Cierre', 'gap_hw_cierre'],
-}
-
-async function parseExcelFile(file) {
-  const buf = await file.arrayBuffer()
-  const wb  = XLSX.read(buf, { type: 'array', cellDates: false })
-  const sheetName = wb.SheetNames.find(n =>
-    n.toLowerCase().includes('sabana') || n.toLowerCase().includes('sábana')
-  )
-  if (!sheetName) throw new Error('No se encontró la hoja Sabana en el archivo')
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null, raw: true })
-  return rows
-    .map(r => ({
-      smp:            pick(r, PREV_COL.smp),
-      site_name:      pick(r, PREV_COL.site_name),
-      gap_on_air:     pick(r, PREV_COL.gap_on_air),
-      gap_log_inv:    pick(r, PREV_COL.gap_log_inv),
-      gap_site_owner: pick(r, PREV_COL.gap_site_owner),
-      gap_doc:        pick(r, PREV_COL.gap_doc),
-      gap_hw_cierre:  pick(r, PREV_COL.gap_hw_cierre),
-    }))
-    .filter(r => r.smp)
 }
 
 // ── Builders de árbol ─────────────────────────────────────────────
@@ -535,38 +494,30 @@ export default function AckForecast() {
   const sabana        = useAckStore(s => s.sabana)
   const forecasts     = useAckStore(s => s.forecasts)
   const uploads       = useAckStore(s => s.uploads)
+  const prevSabana    = useAckStore(s => s.prevSabana)
+  const prevUpload    = useAckStore(s => s.prevUpload)
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
-  const [prevSabana,  setPrevSabana]  = useState([])
-  const [prevLabel,   setPrevLabel]   = useState('')
-  const [currLabel,   setCurrLabel]   = useState('')
-  const [filtro,      setFiltro]      = useState('pendientes')
-  const [loadingPrev, setLoadingPrev] = useState(false)
-  const prevRef = useRef()
+  const [currLabel, setCurrLabel] = useState('')
+  const [prevLabel, setPrevLabel] = useState('')
+  const [filtro,    setFiltro]    = useState('pendientes')
 
-  // Etiqueta semana actual desde el último upload
+  // Auto-extraer etiquetas de semana desde los nombres de archivo
   useEffect(() => {
-    if (uploads[0] && !currLabel) {
+    if (uploads[0]) {
       const m = uploads[0].file_name.match(/W\d{2,3}/i)
       setCurrLabel(m ? m[0].toUpperCase() : 'Semana Actual')
     }
-  }, [uploads])
+  }, [uploads[0]?.id])
 
-  async function handlePrevFile(file) {
-    setLoadingPrev(true)
-    try {
-      const rows = await parseExcelFile(file)
-      setPrevSabana(rows)
-      const m = file.name.match(/W\d{2,3}/i)
+  useEffect(() => {
+    if (prevUpload) {
+      const m = prevUpload.file_name.match(/W\d{2,3}/i)
       setPrevLabel(m ? m[0].toUpperCase() : 'Semana Anterior')
-      showToast(`✓ Semana anterior: ${rows.length} SMPs`, 'ok')
-    } catch (e) {
-      showToast(`Error: ${e.message}`, 'err')
-    } finally {
-      setLoadingPrev(false)
-      if (prevRef.current) prevRef.current.value = ''
+    } else {
+      setPrevLabel('')
     }
-  }
+  }, [prevUpload?.id])
 
   // CSS de impresión global
   useEffect(() => {
@@ -613,14 +564,23 @@ export default function AckForecast() {
               </span>
             )}
           </div>
-          {hasPrev && (
-            <div style={{ fontSize: 11, color: '#555', fontWeight: 600, marginTop: 4 }}>
-              Comparando: <b>{prevLabel}</b> ——▶ <b>{currLabel}</b>
-            </div>
-          )}
+          {hasPrev
+            ? (
+              <div style={{ fontSize: 11, color: '#555', fontWeight: 600, marginTop: 4 }}>
+                Comparando: <b>{prevLabel}</b> ——▶ <b>{currLabel}</b>
+                <span style={{ marginLeft: 8, fontSize: 10, color: '#9ca89c', fontWeight: 400 }}>
+                  (auto · {new Date(prevUpload.loaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })})
+                </span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 4 }}>
+                Sin periodo anterior. Carga un segundo reporte con ≥10 días de diferencia para activar la comparación.
+              </div>
+            )
+          }
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Labels editables */}
+          {/* Labels editables (solo cuando hay comparación) */}
           {hasPrev && (
             <>
               <input className="fc" value={prevLabel} onChange={e => setPrevLabel(e.target.value)}
@@ -629,22 +589,6 @@ export default function AckForecast() {
               <input className="fc" value={currLabel} onChange={e => setCurrLabel(e.target.value)}
                 placeholder="Ej: W44" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
             </>
-          )}
-          {/* Upload semana anterior */}
-          <input ref={prevRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) handlePrevFile(f) }} />
-          <button
-            onClick={() => prevRef.current?.click()}
-            disabled={loadingPrev}
-            style={{ padding: '7px 14px', border: '1.5px solid #555f55', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: hasPrev ? '#f3f4f3' : '#fff', color: '#555f55' }}
-          >
-            {loadingPrev ? '⏳' : hasPrev ? `✓ ${prevLabel}` : '📂 Cargar Semana Anterior'}
-          </button>
-          {hasPrev && (
-            <button onClick={() => { setPrevSabana([]); setPrevLabel('') }}
-              style={{ padding: '7px 10px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, color: '#9ca89c', background: '#fff' }}>
-              ✕
-            </button>
           )}
           <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 700 }}>
             {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

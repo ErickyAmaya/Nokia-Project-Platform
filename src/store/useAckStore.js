@@ -179,42 +179,78 @@ function parseSheet(ws) {
 }
 
 // ── Store ─────────────────────────────────────────────────────────
+// "Carga de comparación" = el upload más reciente con al menos 10 días
+// de antigüedad respecto al último. Así múltiples cargas dentro del mismo
+// periodo de 15 días no generan una comparación espuria.
+function findPrevUpload(uploads) {
+  if (uploads.length < 2) return null
+  const latestDate = new Date(uploads[0].loaded_at)
+  return uploads.slice(1).find(u => {
+    const days = (latestDate - new Date(u.loaded_at)) / 864e5
+    return days >= 10
+  }) || null
+}
+
 export const useAckStore = create((set, get) => ({
-  sabana:    [],
-  forecasts: {},   // keyed by smp
-  uploads:   [],
-  loading:   false,
-  uploading: false,
+  sabana:     [],
+  prevSabana: [],   // snapshot del periodo anterior (auto)
+  prevUpload: null, // registro ack_uploads del periodo anterior
+  forecasts:  {},   // keyed by smp — fuente de verdad de la app
+  uploads:    [],
+  loading:    false,
+  uploading:  false,
 
   loadAll: async () => {
     if (get().loading) return
     set({ loading: true })
     try {
-      const [sab, fc, upl] = await Promise.all([
-        db().from('ack_sabana').select('*'),
+      // 1. Cargar historial de uploads (desc)
+      const { data: uploads } = await db()
+        .from('ack_uploads')
+        .select('*')
+        .order('loaded_at', { ascending: false })
+        .limit(20)
+
+      if (!uploads?.length) {
+        set({ sabana: [], prevSabana: [], prevUpload: null, uploads: [], loading: false })
+        return
+      }
+
+      const latest    = uploads[0]
+      const prevUpload = findPrevUpload(uploads)
+
+      // 2. Cargar sabana actual + anterior en paralelo con forecasts
+      const [sabRes, fcRes, prevRes] = await Promise.all([
+        db().from('ack_sabana').select('*').eq('upload_id', latest.id),
         db().from('ack_forecast').select('*'),
-        db().from('ack_uploads').select('*').order('loaded_at', { ascending: false }).limit(10),
+        prevUpload
+          ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)
+          : Promise.resolve({ data: [] }),
       ])
+
       const fcMap = {}
-      for (const f of (fc.data || [])) fcMap[f.smp] = f
+      for (const f of (fcRes.data || [])) fcMap[f.smp] = f
+
       set({
-        sabana:    sab.data  || [],
-        forecasts: fcMap,
-        uploads:   upl.data  || [],
+        sabana:     sabRes.data  || [],
+        prevSabana: prevRes.data || [],
+        prevUpload,
+        forecasts:  fcMap,
+        uploads,
       })
     } finally {
       set({ loading: false })
     }
   },
 
-  // Carga el Excel, parsea ACK_Report_Sabana y hace upsert en Supabase
+  // Carga el Excel, crea un snapshot nuevo — NO sobreescribe snapshots anteriores.
+  // Los forecasts existentes en la app NO son sobreescritos (Nokia entrega el ACK sin FC).
   uploadExcel: async (file) => {
     set({ uploading: true })
     try {
-      const buf  = await file.arrayBuffer()
-      const wb   = XLSX.read(buf, { type: 'array', cellDates: false })
+      const buf = await file.arrayBuffer()
+      const wb  = XLSX.read(buf, { type: 'array', cellDates: false })
 
-      // Buscar hoja ACK_Report_Sabana (nombre puede variar ligeramente)
       const sheetName = wb.SheetNames.find(n =>
         n.toLowerCase().includes('sabana') || n.toLowerCase().includes('sábana')
       )
@@ -223,28 +259,30 @@ export const useAckStore = create((set, get) => ({
       const { sabana, forecasts } = parseSheet(wb.Sheets[sheetName])
       if (!sabana.length) throw new Error('El archivo no contiene filas válidas')
 
-      // Upsert en lotes de 500 para evitar límites de Supabase
+      // 1. Crear registro de upload primero → obtenemos el id
+      const { data: uploadRec, error: uplErr } = await db()
+        .from('ack_uploads')
+        .insert({ file_name: file.name, rows_loaded: sabana.length })
+        .select()
+        .single()
+      if (uplErr) throw uplErr
+
+      // 2. Insertar sabana con upload_id (snapshot inmutable, no upsert)
       const BATCH = 500
-      for (let i = 0; i < sabana.length; i += BATCH) {
-        const { error } = await db()
-          .from('ack_sabana')
-          .upsert(sabana.slice(i, i + BATCH), { onConflict: 'smp' })
+      const rows  = sabana.map(r => ({ ...r, upload_id: uploadRec.id }))
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const { error } = await db().from('ack_sabana').insert(rows.slice(i, i + BATCH))
         if (error) throw error
       }
 
-      // Upsert FC solo los que tienen datos
+      // 3. Forecasts: solo insertar filas NUEVAS — nunca sobreescribir ediciones de la app
       if (forecasts.length) {
         for (let i = 0; i < forecasts.length; i += BATCH) {
-          await db().from('ack_forecast')
-            .upsert(forecasts.slice(i, i + BATCH), { onConflict: 'smp' })
+          await db()
+            .from('ack_forecast')
+            .upsert(forecasts.slice(i, i + BATCH), { onConflict: 'smp', ignoreDuplicates: true })
         }
       }
-
-      // Registrar la carga
-      await db().from('ack_uploads').insert({
-        file_name:   file.name,
-        rows_loaded: sabana.length,
-      })
 
       await get().loadAll()
       return { ok: true, rows: sabana.length }
