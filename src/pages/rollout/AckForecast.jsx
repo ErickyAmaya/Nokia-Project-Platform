@@ -351,9 +351,12 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
   const [showFc,     setShowFc]     = useState(false)
   const [showTicket, setShowTicket] = useState(false)
 
-  const gapLabel    = `${cfg.nokia} - ${rl}`
-  const fcLabel     = `${cfg.nokia} - FORECAST ${rl}`
-  const ticketLabel = `${cfg.nokia} - TICKET ${rl}`
+  // Labels individuales por lado; el rango va en FC y Ticket (tabla única)
+  const prevGapLabel = `${cfg.nokia} - ${prevLabel || 'Semana Anterior'}`
+  const currGapLabel = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const soloLabel    = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const fcLabel      = `${cfg.nokia} - FORECAST ${rl}`
+  const ticketLabel  = `${cfg.nokia} - TICKET ${rl}`
 
   return (
     <div style={{ marginBottom: 28, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
@@ -398,17 +401,21 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 4, letterSpacing: 1 }}>{prevLabel}</div>
-                <NokiaTable rows={prev} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
+                <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                </div>
+                <NokiaTable rows={prev} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 4, letterSpacing: 1 }}>{currLabel}</div>
-                <NokiaTable rows={curr} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
+                <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                </div>
+                <NokiaTable rows={curr} procesoKey={proceso.key} label={currGapLabel} color={cfg.color} />
               </div>
             </div>
           </>
         ) : (
-          <NokiaTable rows={curr} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
+          <NokiaTable rows={curr} procesoKey={proceso.key} label={soloLabel} color={cfg.color} />
         )}
 
         {/* Tabla FC */}
@@ -438,9 +445,11 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
   const lastFile = uploads[0]
   const rl       = rangeLabel(prevLabel, currLabel)
 
-  const gapLabel    = `${cfg.nokia} - ${rl}`
-  const fcLabel     = `${cfg.nokia} - FORECAST ${rl}`
-  const ticketLabel = `${cfg.nokia} - TICKET ${rl}`
+  const prevGapLabel = `${cfg.nokia} - ${prevLabel || 'Semana Anterior'}`
+  const currGapLabel = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const soloLabel    = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const fcLabel      = `${cfg.nokia} - FORECAST ${rl}`
+  const ticketLabel  = `${cfg.nokia} - TICKET ${rl}`
 
   return (
     <div className="nokia-slide" style={{ fontFamily: 'Arial, sans-serif', padding: '6mm 0' }}>
@@ -468,13 +477,19 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
         {hasPrev && (
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{prevLabel}</div>
-            <NokiaTable rows={prevRows} procesoKey={proceso.key} label={gapLabel} color={cfg.color} forPrint />
+            <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>
+              Semana Anterior ({prevLabel})
+            </div>
+            <NokiaTable rows={prevRows} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} forPrint />
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {hasPrev && <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{currLabel}</div>}
-          <NokiaTable rows={currRows} procesoKey={proceso.key} label={gapLabel} color={cfg.color} forPrint />
+          {hasPrev && (
+            <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>
+              Semana Actual ({currLabel})
+            </div>
+          )}
+          <NokiaTable rows={currRows} procesoKey={proceso.key} label={hasPrev ? currGapLabel : soloLabel} color={cfg.color} forPrint />
         </div>
       </div>
 
