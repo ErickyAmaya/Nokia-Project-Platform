@@ -22,6 +22,11 @@ function fmtDate(dateStr) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+function rangeLabel(prev, curr) {
+  if (prev && curr && prev !== curr) return `${prev}-${curr}`
+  return curr || prev || ''
+}
+
 // Columnas para parsear el Excel de semana anterior
 const PREV_COL = {
   smp:            ['smp', 'SMP'],
@@ -54,7 +59,9 @@ async function parseExcelFile(file) {
     .filter(r => r.smp)
 }
 
-// Construye árbol GAP → sitios → count (igual al pivot Nokia)
+// ── Builders de árbol ─────────────────────────────────────────────
+
+// GAP → sitios → count
 function buildGapTree(rows, procesoKey) {
   const map = new Map()
   for (const r of rows) {
@@ -66,7 +73,20 @@ function buildGapTree(rows, procesoKey) {
   return map
 }
 
-// Construye datos FC: gap → {dates: Map<date,count>, sites: Map<site, Map<date,count>>}
+// GAP → ticket_owner → count (solo filas con ticket registrado)
+function buildTicketTree(rows, procesoKey, ticketKey) {
+  const map = new Map()
+  for (const r of rows) {
+    const ticket = r[ticketKey]
+    if (!ticket) continue
+    const gap = r[procesoKey] || '(Sin estado)'
+    if (!map.has(gap)) map.set(gap, new Map())
+    map.get(gap).set(ticket, (map.get(gap).get(ticket) || 0) + 1)
+  }
+  return map
+}
+
+// FC: gap → {dates: Map<date,count>, sites: Map<site, Map<date,count>>}
 function buildFcData(rows, procesoKey, forecasts, faKey) {
   const gapMap  = new Map()
   const dateSet = new Set()
@@ -78,6 +98,7 @@ function buildFcData(rows, procesoKey, forecasts, faKey) {
     const fc   = forecasts[r.smp]
     if (!fc?.[faKey]) continue
     const d = fmtDate(fc[faKey])
+    if (!d) continue
     dateSet.add(d)
     if (!gapMap.has(gap)) gapMap.set(gap, { dates: new Map(), sites: new Map() })
     const g = gapMap.get(gap)
@@ -111,25 +132,35 @@ const FILTRO_BADGE = {
   cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
 }
 
-// ── Tabla Nokia (árbol GAP → sitios) ─────────────────────────────
-// forPrint: quita bordes redondeados y padding extra
-function NokiaTable({ rows, procesoKey, label, forPrint = false }) {
-  const gapTree   = useMemo(() => buildGapTree(rows, procesoKey), [rows, procesoKey])
+// ── Shared table styles ───────────────────────────────────────────
+function thStyle(color, forPrint, extra = {}) {
+  return {
+    background: color,
+    color: '#fff',
+    padding: forPrint ? '4px 7px' : '6px 10px',
+    textAlign: 'left',
+    fontWeight: 700,
+    border: `1px solid ${color}`,
+    ...extra,
+  }
+}
+function thCenterStyle(color, forPrint, extra = {}) {
+  return { ...thStyle(color, forPrint, extra), textAlign: 'center', width: forPrint ? 50 : 65, whiteSpace: 'nowrap' }
+}
+
+// ── Tabla Nokia GAP → sitios ──────────────────────────────────────
+function NokiaTable({ rows, procesoKey, label, color = '#7030A0', forPrint = false }) {
+  const gapTree    = useMemo(() => buildGapTree(rows, procesoKey), [rows, procesoKey])
   const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
   const total      = rows.length
-
-  const FS = forPrint ? 8 : 10
+  const FS         = forPrint ? 8 : 10
 
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
       <thead>
         <tr>
-          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 7px' : '6px 10px', textAlign: 'left', fontWeight: 700, border: '1px solid #c0c0c0' }}>
-            {label}
-          </th>
-          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 6px' : '6px 8px', textAlign: 'center', fontWeight: 700, border: '1px solid #c0c0c0', width: 55, whiteSpace: 'nowrap' }}>
-            No de Actividades
-          </th>
+          <th style={thStyle(color, forPrint)}>{label}</th>
+          <th style={thCenterStyle(color, forPrint)}>No de Actividades</th>
         </tr>
       </thead>
       <tbody>
@@ -173,16 +204,16 @@ function NokiaTable({ rows, procesoKey, label, forPrint = false }) {
   )
 }
 
-// ── Tabla Nokia de FC (GAP × Fecha → count) ──────────────────────
-function NokiaFcTable({ rows, procesoKey, forecasts, label, forPrint = false }) {
+// ── Tabla Nokia FC (GAP × Fecha) ──────────────────────────────────
+function NokiaFcTable({ rows, procesoKey, forecasts, label, color = '#7030A0', forPrint = false }) {
   const { gapEntries, dates } = useMemo(
     () => buildFcData(rows, procesoKey, forecasts, PROC_CFG[procesoKey].fa),
     [rows, procesoKey, forecasts]
   )
 
   if (!dates.length) return (
-    <div style={{ padding: 16, textAlign: 'center', color: '#9ca89c', fontSize: 11 }}>
-      Sin fechas FC registradas para este proceso.
+    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#9ca89c', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
+      Sin fechas FC registradas.
     </div>
   )
 
@@ -192,11 +223,13 @@ function NokiaFcTable({ rows, procesoKey, forecasts, label, forPrint = false }) 
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
       <thead>
         <tr>
-          <th style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 7px' : '6px 10px', textAlign: 'left', fontWeight: 700, border: '1px solid #c0c0c0' }}>{label}</th>
+          <th style={thStyle(color, forPrint)}>{label}</th>
           {dates.map(d => (
-            <th key={d} style={{ background: '#7030A0', color: '#fff', padding: forPrint ? '4px 5px' : '6px 7px', textAlign: 'center', fontWeight: 700, border: '1px solid #c0c0c0', whiteSpace: 'nowrap' }}>{d}</th>
+            <th key={d} style={thCenterStyle(color, forPrint, { width: 'auto' })}>{d}</th>
           ))}
-          <th style={{ background: '#003366', color: '#fff', padding: forPrint ? '4px 5px' : '6px 7px', textAlign: 'center', fontWeight: 700, border: '1px solid #003366', whiteSpace: 'nowrap' }}>No de Actividades</th>
+          <th style={{ ...thCenterStyle('#003366', forPrint, { width: 'auto' }), background: '#003366', border: '1px solid #003366' }}>
+            No de Actividades
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -221,7 +254,6 @@ function NokiaFcTable({ rows, procesoKey, forecasts, label, forPrint = false }) 
             }),
           ]
         })}
-        {/* Fila totales */}
         <tr>
           <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>Total general</td>
           {dates.map(d => {
@@ -237,9 +269,70 @@ function NokiaFcTable({ rows, procesoKey, forecasts, label, forPrint = false }) 
   )
 }
 
+// ── Tabla Nokia Tickets (GAP → ticket_owner → count) ─────────────
+function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0', forPrint = false }) {
+  const gapTree    = useMemo(() => buildTicketTree(rows, procesoKey, ticketKey), [rows, procesoKey, ticketKey])
+  const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const total      = gapEntries.reduce((s, [, tickets]) => s + [...tickets.values()].reduce((a, b) => a + b, 0), 0)
+  const FS         = forPrint ? 8 : 10
+
+  if (!total) return (
+    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#9ca89c', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
+      Sin tickets registrados para este proceso.
+    </div>
+  )
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS, fontFamily: 'Arial, sans-serif' }}>
+      <thead>
+        <tr>
+          <th style={thStyle(color, forPrint)}>{label}</th>
+          <th style={thCenterStyle(color, forPrint)}>No de Actividades</th>
+        </tr>
+      </thead>
+      <tbody>
+        {gapEntries.map(([gap, tickets]) => {
+          const fin      = isFinal(gap)
+          const gapTotal = [...tickets.values()].reduce((s, v) => s + v, 0)
+          return [
+            <tr key={gap}>
+              <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
+                {gap}
+              </td>
+              <td style={{ padding: forPrint ? '3px 5px' : '4px 8px', textAlign: 'center', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: fin ? '#166534' : '#C00000' }}>
+                {gapTotal}
+              </td>
+            </tr>,
+            ...[...tickets.entries()].sort(([a], [b]) => String(a).localeCompare(String(b))).map(([ticket, cnt]) => (
+              <tr key={`${gap}|${ticket}`}>
+                <td style={{ padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
+                  {ticket}
+                </td>
+                <td style={{ padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
+                  {cnt}
+                </td>
+              </tr>
+            )),
+          ]
+        })}
+        <tr>
+          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+            Total general
+          </td>
+          <td style={{ padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+            {total}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
 // ── Sección de proceso (pantalla) ─────────────────────────────────
 function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro }) {
-  const cfg = PROC_CFG[proceso.key]
+  const cfg     = PROC_CFG[proceso.key]
+  const rl      = rangeLabel(prevLabel, currLabel)
+  const hasPrev = prevRows.length > 0
 
   function applyFiltro(rows) {
     if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[proceso.key]))
@@ -247,75 +340,90 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
     return rows
   }
 
-  const curr     = applyFiltro(currRows)
-  const prev     = applyFiltro(prevRows)
-  const hasPrev  = prevRows.length > 0
+  const curr  = applyFiltro(currRows)
+  const prev  = applyFiltro(prevRows)
 
-  const total    = currRows.length
-  const pend     = currRows.filter(r => !isFinal(r[proceso.key])).length
-  const pct      = total ? Math.round(((total - pend) / total) * 100) : 0
-  const barClr   = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
+  const total  = currRows.length
+  const pend   = currRows.filter(r => !isFinal(r[proceso.key])).length
+  const pct    = total ? Math.round(((total - pend) / total) * 100) : 0
+  const barClr = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
 
-  const [showFc, setShowFc] = useState(false)
+  const [showFc,     setShowFc]     = useState(false)
+  const [showTicket, setShowTicket] = useState(false)
+
+  const gapLabel    = `${cfg.nokia} - ${rl}`
+  const fcLabel     = `${cfg.nokia} - FORECAST ${rl}`
+  const ticketLabel = `${cfg.nokia} - TICKET ${rl}`
 
   return (
     <div style={{ marginBottom: 28, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
-      {/* Header Nokia */}
-      <div style={{ background: '#7030A0', padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Header con color del proceso */}
+      <div style={{ background: cfg.color, padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>{cfg.nokia}</div>
+          <div style={{ fontSize: 8, color: 'rgba(255,255,255,.75)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>{cfg.nokia}</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>{cfg.label}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <div style={{ fontSize: 38, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1 }}>{pct}%</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)' }}>completado</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.8)' }}>completado</div>
         </div>
       </div>
       <div style={{ height: 4, background: 'rgba(0,0,0,.15)' }}>
-        <div style={{ height: 4, background: '#fff', opacity: .6, width: `${pct}%` }} />
+        <div style={{ height: 4, background: barClr, width: `${pct}%` }} />
       </div>
 
-      {/* Stats + toggle FC */}
-      <div style={{ background: '#f8f9f8', borderLeft: '4px solid #7030A0', borderRight: '1px solid #e5e7eb', padding: '7px 18px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Stats bar */}
+      <div style={{ background: '#f8f9f8', borderLeft: `4px solid ${cfg.color}`, borderRight: '1px solid #e5e7eb', padding: '7px 18px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11 }}><b style={{ color: '#C00000' }}>{pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>pendientes</span></span>
         <span style={{ fontSize: 11 }}><b style={{ color: '#166534' }}>{total - pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>cerrados</span></span>
         <span style={{ fontSize: 11 }}><b>{total}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>total</span></span>
-        <span
-          onClick={() => setShowFc(s => !s)}
-          style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, cursor: 'pointer', color: '#7030A0', userSelect: 'none' }}
-        >
-          {showFc ? '▴ Ocultar FC Avance' : '▾ Ver FC Avance'}
-        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+          <span onClick={() => setShowFc(s => !s)}
+            style={{ fontSize: 10, fontWeight: 700, cursor: 'pointer', color: cfg.color, userSelect: 'none' }}>
+            {showFc ? '▴ Ocultar FC' : '▾ FC Avance'}
+          </span>
+          <span onClick={() => setShowTicket(s => !s)}
+            style={{ fontSize: 10, fontWeight: 700, cursor: 'pointer', color: cfg.color, userSelect: 'none' }}>
+            {showTicket ? '▴ Ocultar Tickets' : '▾ Tickets'}
+          </span>
+        </div>
       </div>
 
-      {/* Tablas de comparación */}
+      {/* Tablas de comparación GAP */}
       <div style={{ padding: 16, background: '#fff' }}>
         {hasPrev ? (
           <>
-            {/* Label W_prev → W_curr */}
-            <div style={{ textAlign: 'center', color: '#7030A0', fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+            <div style={{ textAlign: 'center', color: cfg.color, fontWeight: 800, fontSize: 12, marginBottom: 10 }}>
               {prevLabel} &nbsp;——▶&nbsp; {currLabel}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#7030A0', marginBottom: 4, letterSpacing: 1 }}>{prevLabel}</div>
-                <NokiaTable rows={prev} procesoKey={proceso.key} label={cfg.nokia} />
+                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 4, letterSpacing: 1 }}>{prevLabel}</div>
+                <NokiaTable rows={prev} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, color: '#7030A0', marginBottom: 4, letterSpacing: 1 }}>{currLabel}</div>
-                <NokiaTable rows={curr} procesoKey={proceso.key} label={cfg.nokia} />
+                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 4, letterSpacing: 1 }}>{currLabel}</div>
+                <NokiaTable rows={curr} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
               </div>
             </div>
           </>
         ) : (
-          <NokiaTable rows={curr} procesoKey={proceso.key} label={cfg.nokia} />
+          <NokiaTable rows={curr} procesoKey={proceso.key} label={gapLabel} color={cfg.color} />
         )}
 
-        {/* Tabla FC (toggle) */}
+        {/* Tabla FC */}
         {showFc && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, color: '#003366', marginBottom: 6, letterSpacing: 1 }}>FC AVANCE — {currLabel}</div>
-            <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={cfg.nokia} />
+            <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{fcLabel}</div>
+            <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={fcLabel} color={cfg.color} />
+          </div>
+        )}
+
+        {/* Tabla Tickets */}
+        {showTicket && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{ticketLabel}</div>
+            <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} />
           </div>
         )}
       </div>
@@ -328,6 +436,11 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
   const cfg      = PROC_CFG[proceso.key]
   const hasPrev  = prevRows.length > 0
   const lastFile = uploads[0]
+  const rl       = rangeLabel(prevLabel, currLabel)
+
+  const gapLabel    = `${cfg.nokia} - ${rl}`
+  const fcLabel     = `${cfg.nokia} - FORECAST ${rl}`
+  const ticketLabel = `${cfg.nokia} - TICKET ${rl}`
 
   return (
     <div className="nokia-slide" style={{ fontFamily: 'Arial, sans-serif', padding: '6mm 0' }}>
@@ -335,8 +448,8 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 6 }}>
         <tbody>
           <tr>
-            <td style={{ fontWeight: 900, fontSize: 13, color: '#7030A0', width: '30%' }}>INGETEL S.A.S.</td>
-            <td style={{ textAlign: 'center', fontSize: 15, fontWeight: 900, color: '#7030A0' }}>{cfg.nokia}</td>
+            <td style={{ fontWeight: 900, fontSize: 13, color: cfg.color, width: '30%' }}>INGETEL S.A.S.</td>
+            <td style={{ textAlign: 'center', fontSize: 15, fontWeight: 900, color: cfg.color }}>{cfg.nokia}</td>
             <td style={{ textAlign: 'right', fontSize: 8, color: '#555', width: '30%' }}>
               {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}
               {lastFile && <><br /><span style={{ fontSize: 7, color: '#888' }}>{lastFile.file_name}</span></>}
@@ -344,39 +457,47 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
           </tr>
         </tbody>
       </table>
-      <div style={{ height: 2, background: '#7030A0', marginBottom: 8 }} />
+      <div style={{ height: 2, background: cfg.color, marginBottom: 8 }} />
 
       {/* Etiqueta de semanas */}
-      <div style={{ textAlign: 'center', color: '#7030A0', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>
+      <div style={{ textAlign: 'center', color: cfg.color, fontWeight: 800, fontSize: 12, marginBottom: 8 }}>
         {hasPrev ? `${prevLabel}  ——▶  ${currLabel}` : currLabel}
       </div>
 
-      {/* Comparación lado a lado */}
+      {/* Fila superior: tablas GAP de comparación */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
         {hasPrev && (
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, color: '#7030A0', marginBottom: 3 }}>{prevLabel}</div>
-            <NokiaTable rows={prevRows} procesoKey={proceso.key} label={cfg.nokia} forPrint />
+            <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{prevLabel}</div>
+            <NokiaTable rows={prevRows} procesoKey={proceso.key} label={gapLabel} color={cfg.color} forPrint />
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {hasPrev && <div style={{ fontSize: 8, fontWeight: 800, color: '#7030A0', marginBottom: 3 }}>{currLabel}</div>}
-          <NokiaTable rows={currRows} procesoKey={proceso.key} label={cfg.nokia} forPrint />
+          {hasPrev && <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{currLabel}</div>}
+          <NokiaTable rows={currRows} procesoKey={proceso.key} label={gapLabel} color={cfg.color} forPrint />
         </div>
       </div>
 
-      {/* Tabla FC */}
-      <div style={{ fontSize: 8, fontWeight: 800, color: '#003366', marginBottom: 4 }}>FC AVANCE — {currLabel}</div>
-      <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={cfg.nokia} forPrint />
+      {/* Fila inferior: FC y Tickets lado a lado */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{fcLabel}</div>
+          <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} label={fcLabel} color={cfg.color} forPrint />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{ticketLabel}</div>
+          <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} forPrint />
+        </div>
+      </div>
     </div>
   )
 }
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
-  const sabana       = useAckStore(s => s.sabana)
-  const forecasts    = useAckStore(s => s.forecasts)
-  const uploads      = useAckStore(s => s.uploads)
+  const sabana    = useAckStore(s => s.sabana)
+  const forecasts = useAckStore(s => s.forecasts)
+  const uploads   = useAckStore(s => s.uploads)
 
   const [prevSabana,  setPrevSabana]  = useState([])
   const [prevLabel,   setPrevLabel]   = useState('')
@@ -388,7 +509,6 @@ export default function AckForecast() {
   // Etiqueta semana actual desde el último upload
   useEffect(() => {
     if (uploads[0] && !currLabel) {
-      // Intentar extraer semana del nombre de archivo
       const m = uploads[0].file_name.match(/W\d{2,3}/i)
       setCurrLabel(m ? m[0].toUpperCase() : 'Semana Actual')
     }
@@ -430,8 +550,8 @@ export default function AckForecast() {
     return () => document.getElementById('nokia-print-css')?.remove()
   }, [])
 
-  const filtroBadge  = FILTRO_BADGE[filtro]
-  const hasPrev      = prevSabana.length > 0
+  const filtroBadge = FILTRO_BADGE[filtro]
+  const hasPrev     = prevSabana.length > 0
 
   if (!sabana.length) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c' }}>
@@ -456,7 +576,7 @@ export default function AckForecast() {
             )}
           </div>
           {hasPrev && (
-            <div style={{ fontSize: 11, color: '#7030A0', fontWeight: 700, marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: '#555', fontWeight: 600, marginTop: 4 }}>
               Comparando: <b>{prevLabel}</b> ——▶ <b>{currLabel}</b>
             </div>
           )}
@@ -467,17 +587,18 @@ export default function AckForecast() {
             <>
               <input className="fc" value={prevLabel} onChange={e => setPrevLabel(e.target.value)}
                 placeholder="Ej: W42" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
-              <span style={{ color: '#7030A0', fontWeight: 900 }}>▶</span>
+              <span style={{ color: '#555', fontWeight: 900 }}>▶</span>
               <input className="fc" value={currLabel} onChange={e => setCurrLabel(e.target.value)}
                 placeholder="Ej: W44" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
             </>
           )}
           {/* Upload semana anterior */}
-          <input ref={prevRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handlePrevFile(f) }} />
+          <input ref={prevRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handlePrevFile(f) }} />
           <button
             onClick={() => prevRef.current?.click()}
             disabled={loadingPrev}
-            style={{ padding: '7px 14px', border: '1.5px solid #7030A0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: hasPrev ? '#f3e8ff' : '#fff', color: '#7030A0' }}
+            style={{ padding: '7px 14px', border: '1.5px solid #555f55', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: hasPrev ? '#f3f4f3' : '#fff', color: '#555f55' }}
           >
             {loadingPrev ? '⏳' : hasPrev ? `✓ ${prevLabel}` : '📂 Cargar Semana Anterior'}
           </button>
@@ -516,7 +637,7 @@ export default function AckForecast() {
         })}
       </div>
 
-      {/* ── Secciones interactivas pantalla ── */}
+      {/* ── Secciones interactivas por proceso ── */}
       {PROCESOS.map(p => (
         <ScreenProcess
           key={p.key}
