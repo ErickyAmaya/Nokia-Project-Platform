@@ -43,14 +43,14 @@ const COL = {
 }
 
 const FC_COL = {
-  fc_avance_doc:        ['FC_Avance_DOC'],
-  fc_cierre_doc:        ['FC_Cierre_DOC'],
-  fc_avance_hw_cierre:  ['FC_Avance_HW_Cierre'],
-  fc_cierre_hw_cierre:  ['FC_Cierre_HW_Cierre', 'FC_re_HW_Cierre'],
-  fc_avance_site_owner: ['FC_Avance_SiteOwner'],
-  fc_cierre_site_owner: ['FC_Cierre_SiteOwner'],
-  fc_avance_on_air:     ['FC_Avance_OnAir'],
-  fc_cierre_on_air:     ['FC_Cierre_OnAir'],
+  fc_avance_doc:        ['FC_Avance_DOC',        'fc_avance_doc',        'FC Avance DOC',        'Fc_Avance_DOC'],
+  fc_cierre_doc:        ['FC_Cierre_DOC',         'fc_cierre_doc',        'FC Cierre DOC',        'Fc_Cierre_DOC'],
+  fc_avance_hw_cierre:  ['FC_Avance_HW_Cierre',   'fc_avance_hw_cierre',  'FC Avance HW Cierre',  'Fc_Avance_HW_Cierre'],
+  fc_cierre_hw_cierre:  ['FC_Cierre_HW_Cierre',   'FC_re_HW_Cierre',     'fc_cierre_hw_cierre',  'FC Cierre HW Cierre'],
+  fc_avance_site_owner: ['FC_Avance_SiteOwner',   'fc_avance_site_owner', 'FC Avance SiteOwner',  'FC_Avance_Site_Owner'],
+  fc_cierre_site_owner: ['FC_Cierre_SiteOwner',   'fc_cierre_site_owner', 'FC Cierre SiteOwner',  'FC_Cierre_Site_Owner'],
+  fc_avance_on_air:     ['FC_Avance_OnAir',       'fc_avance_on_air',     'FC Avance OnAir',      'FC_Avance_On_Air'],
+  fc_cierre_on_air:     ['FC_Cierre_OnAir',       'fc_cierre_on_air',     'FC Cierre OnAir',      'FC_Cierre_On_Air'],
 }
 
 // Estados finales por proceso
@@ -275,12 +275,19 @@ export const useAckStore = create((set, get) => ({
         if (error) throw error
       }
 
-      // 3. Forecasts: solo insertar filas NUEVAS — nunca sobreescribir ediciones de la app
+      // 3. Forecasts:
+      //    - Si ack_forecast está vacía (primera carga) → importar desde Excel como punto de partida
+      //    - Si ya tiene datos (cargas posteriores) → preservar ediciones de la app, ignorar Excel
       if (forecasts.length) {
+        const { count } = await db()
+          .from('ack_forecast')
+          .select('*', { count: 'exact', head: true })
+        const ignoreDuplicates = (count ?? 0) > 0
+
         for (let i = 0; i < forecasts.length; i += BATCH) {
           await db()
             .from('ack_forecast')
-            .upsert(forecasts.slice(i, i + BATCH), { onConflict: 'smp', ignoreDuplicates: true })
+            .upsert(forecasts.slice(i, i + BATCH), { onConflict: 'smp', ignoreDuplicates })
         }
       }
 
