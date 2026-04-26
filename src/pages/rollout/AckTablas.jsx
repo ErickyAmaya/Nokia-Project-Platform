@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { showToast } from '../../components/Toast'
 
@@ -440,10 +441,20 @@ export default function AckTablas() {
   const sabana       = useAckStore(s => s.sabana)
   const forecasts    = useAckStore(s => s.forecasts)
   const saveForecast = useAckStore(s => s.saveForecast)
+  const [searchParams] = useSearchParams()
 
   const [tab,    setTab]    = useState('gap_on_air')
   const [sitio,  setSitio]  = useState('')
   const [filtro, setFiltro] = useState('pendientes')
+
+  // Pre-filtrar si llegamos desde Reportes con ?smp=
+  useEffect(() => {
+    const smpParam = searchParams.get('smp')
+    if (smpParam) {
+      setSitio(smpParam)
+      setFiltro('todos')
+    }
+  }, [])
 
   const siteNames = useMemo(() =>
     [...new Set(sabana.map(r => r.site_name).filter(Boolean))].sort()
