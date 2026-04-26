@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import * as XLSX from 'xlsx'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
+import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -274,8 +275,14 @@ function NokiaFcTable({ rows, procesoKey, forecasts, label, color = '#7030A0', f
   )
 }
 
+// SS → nombre de empresa configurado en la app
+function resolveOwner(owner, empresaNombre) {
+  if (!owner) return owner
+  return owner.trim().toUpperCase() === 'SS' ? (empresaNombre || owner) : owner
+}
+
 // ── Tabla Nokia Tickets (GAP → ticket_owner → {count, ids}) ──────
-function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0', forPrint = false }) {
+function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0', empresaNombre = '', forPrint = false }) {
   const gapTree    = useMemo(() => buildTicketTree(rows, procesoKey, ticketKey), [rows, procesoKey, ticketKey])
   const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
   const total      = gapEntries.reduce((s, [, owners]) =>
@@ -315,11 +322,12 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
             ...[...owners.entries()]
               .sort(([a], [b]) => String(a).localeCompare(String(b)))
               .map(([owner, { count, ids }]) => {
-                const ticketNums = [...ids].sort().join(', ') || '—'
+                const ticketNums  = [...ids].sort().join(', ') || '—'
+                const ownerLabel  = resolveOwner(owner, empresaNombre)
                 return (
                   <tr key={`${gap}|${owner}`}>
                     <td style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px' }}>
-                      {owner}
+                      {ownerLabel}
                     </td>
                     <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', color: '#1a3a5c', fontWeight: 600 }}>
                       {ticketNums}
@@ -343,7 +351,7 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
 }
 
 // ── Sección de proceso (pantalla) ─────────────────────────────────
-function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro }) {
+function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro, empresaNombre }) {
   const cfg     = PROC_CFG[proceso.key]
   const rl      = rangeLabel(prevLabel, currLabel)
   const hasPrev = prevRows.length > 0
@@ -444,7 +452,7 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
         {showTicket && (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{ticketLabel}</div>
-            <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} />
+            <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} empresaNombre={empresaNombre} />
           </div>
         )}
       </div>
@@ -453,7 +461,7 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
 }
 
 // ── Diapositiva Nokia (impresión) ─────────────────────────────────
-function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, uploads }) {
+function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, uploads, empresaNombre }) {
   const cfg      = PROC_CFG[proceso.key]
   const hasPrev  = prevRows.length > 0
   const lastFile = uploads[0]
@@ -515,7 +523,7 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, marginBottom: 3 }}>{ticketLabel}</div>
-          <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} forPrint />
+          <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} empresaNombre={empresaNombre} forPrint />
         </div>
       </div>
     </div>
@@ -524,9 +532,10 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
-  const sabana    = useAckStore(s => s.sabana)
-  const forecasts = useAckStore(s => s.forecasts)
-  const uploads   = useAckStore(s => s.uploads)
+  const sabana        = useAckStore(s => s.sabana)
+  const forecasts     = useAckStore(s => s.forecasts)
+  const uploads       = useAckStore(s => s.uploads)
+  const empresaNombre = useAppStore(s => s.empresaConfig?.nombre || '')
 
   const [prevSabana,  setPrevSabana]  = useState([])
   const [prevLabel,   setPrevLabel]   = useState('')
@@ -677,6 +686,7 @@ export default function AckForecast() {
           prevLabel={prevLabel}
           forecasts={forecasts}
           filtro={filtro}
+          empresaNombre={empresaNombre}
         />
       ))}
 
@@ -693,6 +703,7 @@ export default function AckForecast() {
               prevLabel={prevLabel}
               forecasts={forecasts}
               uploads={uploads}
+              empresaNombre={empresaNombre}
             />
           ))}
         </div>,
