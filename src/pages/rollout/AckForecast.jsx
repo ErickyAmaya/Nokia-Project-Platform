@@ -34,51 +34,49 @@ function buildGapTree(rows, procesoKey) {
   return map
 }
 
-// GAP → ticket_owner → { count, ids: Set<ticketId>, smps: [{smpId, label}] }
+// GAP → ticket_owner → { count, ids: Set<ticketId>, sites: Set<site_name> }
 function buildTicketTree(rows, procesoKey, ticketKey) {
   const map = new Map()
   for (const r of rows) {
     const owner = r[ticketKey]
     if (!owner) continue
-    const gap   = r[procesoKey] || '(Sin estado)'
-    const smpId = r.smp
-    const label = r.site_name ? `${r.site_name} (${smpId})` : smpId
-    const id    = r.tickets_id ? String(r.tickets_id).trim() : null
+    const gap  = r[procesoKey] || '(Sin estado)'
+    const site = r.site_name || r.smp
+    const id   = r.tickets_id ? String(r.tickets_id).trim() : null
     if (!map.has(gap)) map.set(gap, new Map())
     const gMap = map.get(gap)
-    if (!gMap.has(owner)) gMap.set(owner, { count: 0, ids: new Set(), smps: [] })
+    if (!gMap.has(owner)) gMap.set(owner, { count: 0, ids: new Set(), sites: new Set() })
     const entry = gMap.get(owner)
     entry.count++
     if (id) entry.ids.add(id)
-    entry.smps.push({ smpId, label })
+    entry.sites.add(site)
   }
   return map
 }
 
-// FC: gap → { dates: Map<date,count>, smps: Map<smpId, {label, dates, hasTicket}> }
+// FC: gap → { dates: Map<date,count>, sites: Map<site_name, {dates, ticketCount}> }
 function buildFcData(rows, procesoKey, forecasts, faKey, ticketKey) {
   const gapMap  = new Map()
   const dateSet = new Set()
   const pending = rows.filter(r => !isFinal(r[procesoKey]))
 
   for (const r of pending) {
-    const gap   = r[procesoKey] || '(Sin estado)'
-    const smpId = r.smp
-    const label = r.site_name ? `${r.site_name} (${smpId})` : smpId
-    const fc    = forecasts[smpId]
+    const gap  = r[procesoKey] || '(Sin estado)'
+    const site = r.site_name   || '(Sin sitio)'
+    const fc   = forecasts[r.smp]
     if (!fc?.[faKey]) continue
     const d = fmtDate(fc[faKey])
     if (!d) continue
     dateSet.add(d)
 
-    if (!gapMap.has(gap)) gapMap.set(gap, { dates: new Map(), smps: new Map() })
+    if (!gapMap.has(gap)) gapMap.set(gap, { dates: new Map(), sites: new Map() })
     const g = gapMap.get(gap)
     g.dates.set(d, (g.dates.get(d) || 0) + 1)
 
-    if (!g.smps.has(smpId)) {
-      g.smps.set(smpId, { label, smpId, dates: new Map(), hasTicket: ticketKey ? !!r[ticketKey] : false })
-    }
-    g.smps.get(smpId).dates.set(d, (g.smps.get(smpId).dates.get(d) || 0) + 1)
+    if (!g.sites.has(site)) g.sites.set(site, { dates: new Map(), ticketCount: 0 })
+    const s = g.sites.get(site)
+    s.dates.set(d, (s.dates.get(d) || 0) + 1)
+    if (ticketKey && r[ticketKey]) s.ticketCount++
   }
 
   const gapEntries = [...gapMap.entries()]
@@ -178,7 +176,7 @@ function NokiaTable({ rows, procesoKey, label, color = '#7030A0', forPrint = fal
   )
 }
 
-// ── Tabla Nokia FC (GAP × SMP × Fecha + Tickets) ─────────────────
+// ── Tabla Nokia FC (GAP × Sitio × Fecha + Tickets) ───────────────
 function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '#7030A0', forPrint = false }) {
   const navigate = useNavigate()
   const { gapEntries, dates } = useMemo(
@@ -192,11 +190,11 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
     </div>
   )
 
-  const FS = forPrint ? 8 : 10
+  const FS   = forPrint ? 8 : 10
   const totBg = { background: '#003366', color: '#fff', border: '1px solid #003366', fontWeight: 800 }
 
-  function goToTablas(smpId) {
-    if (!forPrint) navigate(`/rollout/ack/tablas?smp=${encodeURIComponent(smpId)}`)
+  function goToTablas(siteName) {
+    if (!forPrint) navigate(`/rollout/ack/tablas?sitio=${encodeURIComponent(siteName)}`)
   }
 
   return (
@@ -205,7 +203,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
         <tr>
           <th style={thStyle(color, forPrint)}>{label}</th>
           {dates.map(d => <th key={d} style={thCenterStyle(color, forPrint, { width: 'auto' })}>{d}</th>)}
-          <th style={{ ...thCenterStyle(color, forPrint, { width: 40 }) }}>TICKETS</th>
+          <th style={thCenterStyle(color, forPrint, { width: 44 })}>TICKETS</th>
           <th style={{ ...thCenterStyle('#003366', forPrint, { width: 'auto' }), background: '#003366', border: '1px solid #003366' }}>
             No de Actividades
           </th>
@@ -214,7 +212,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
       <tbody>
         {gapEntries.map(([gap, g]) => {
           const gapTotal   = [...g.dates.values()].reduce((s, v) => s + v, 0)
-          const gapTickets = [...g.smps.values()].filter(s => s.hasTicket).length
+          const gapTickets = [...g.sites.values()].reduce((s, v) => s + v.ticketCount, 0)
           return [
             <tr key={gap}>
               <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: '#C00000' }}>{gap}</td>
@@ -222,27 +220,25 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
               <td style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700, color: gapTickets ? '#1a3a5c' : '#ccc' }}>{gapTickets || '—'}</td>
               <td style={{ ...totBg, padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center' }}>{gapTotal}</td>
             </tr>,
-            ...[...g.smps.entries()].sort(([, a], [, b]) => a.label.localeCompare(b.label)).map(([smpId, s]) => {
-              const smpTotal = [...s.dates.values()].reduce((a, b) => a + b, 0)
-              if (!smpTotal) return null
+            ...[...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, s]) => {
+              const siteTotal = [...s.dates.values()].reduce((a, b) => a + b, 0)
+              if (!siteTotal) return null
               return (
-                <tr key={`${gap}|${smpId}`}>
+                <tr key={`${gap}|${site}`}>
                   <td style={{ padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>
-                    {forPrint ? s.label : (
-                      <span
-                        onClick={() => goToTablas(smpId)}
+                    {forPrint ? site : (
+                      <span onClick={() => goToTablas(site)}
                         style={{ cursor: 'pointer', color: '#1a3a5c', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
-                        title="Ver en Tablas"
-                      >
-                        {s.label}
+                        title="Ver todos los SMPs en Tablas">
+                        {site}
                       </span>
                     )}
                   </td>
                   {dates.map(d => <td key={d} style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{s.dates.get(d) || ''}</td>)}
-                  <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9, color: s.hasTicket ? '#1a3a5c' : '#ccc', fontWeight: s.hasTicket ? 700 : 400 }}>
-                    {s.hasTicket ? '✓' : '—'}
+                  <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9, color: s.ticketCount ? '#1a3a5c' : '#ccc', fontWeight: s.ticketCount ? 700 : 400 }}>
+                    {s.ticketCount || '—'}
                   </td>
-                  <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{smpTotal}</td>
+                  <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{siteTotal}</td>
                 </tr>
               )
             }),
@@ -255,7 +251,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
             return <td key={d} style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>{col || ''}</td>
           })}
           <td style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>
-            {gapEntries.reduce((s, [, g]) => s + [...g.smps.values()].filter(x => x.hasTicket).length, 0) || '—'}
+            {gapEntries.reduce((s, [, g]) => s + [...g.sites.values()].reduce((a, v) => a + v.ticketCount, 0), 0) || '—'}
           </td>
           <td style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>
             {gapEntries.reduce((s, [, g]) => s + [...g.dates.values()].reduce((a, b) => a + b, 0), 0)}
@@ -292,8 +288,8 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   const cellSmp = { background: '#f8f9ff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7 : 8.5 }
   const cellTot = { fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }
 
-  function goToTablas(smpId) {
-    if (!forPrint) navigate(`/rollout/ack/tablas?smp=${encodeURIComponent(smpId)}`)
+  function goToTablas(siteName) {
+    if (!forPrint) navigate(`/rollout/ack/tablas?sitio=${encodeURIComponent(siteName)}`)
   }
 
   return (
@@ -317,16 +313,20 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
               <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>—</td>
               <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>{gapTotal}</td>
             </tr>,
-            // Filas por owner
+            // Filas por owner (una línea por owner, clickable → Tablas por primer sitio del owner)
             ...[...owners.entries()]
               .sort(([a], [b]) => String(a).localeCompare(String(b)))
-              .flatMap(([owner, { count, ids, smps }]) => {
+              .map(([owner, { count, ids, sites }]) => {
                 const ticketNums = [...ids].sort().join(', ') || '—'
                 const ownerLabel = resolveOwner(owner, empresaNombre)
-                return [
-                  // Fila owner
+                const firstSite  = [...sites][0]
+                return (
                   <tr key={`${gap}|${owner}`}>
-                    <td style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px' }}>
+                    <td
+                      style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', cursor: forPrint ? 'default' : 'pointer', color: forPrint ? 'inherit' : '#1a3a5c', textDecoration: forPrint ? 'none' : 'underline', textDecorationStyle: 'dotted' }}
+                      onClick={() => firstSite && goToTablas(firstSite)}
+                      title={forPrint ? undefined : 'Ver sitios en Tablas'}
+                    >
                       {ownerLabel}
                     </td>
                     <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', color: '#1a3a5c', fontWeight: 600 }}>
@@ -335,25 +335,8 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
                     <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center' }}>
                       {count}
                     </td>
-                  </tr>,
-                  // Sub-filas SMP (clickables)
-                  ...smps.map(({ smpId, label: smpLabel }) => (
-                    <tr key={`${gap}|${owner}|${smpId}`}>
-                      <td colSpan={2} style={{ ...cellSmp, padding: forPrint ? '1px 7px 1px 30px' : '2px 10px 2px 36px' }}>
-                        {forPrint ? smpLabel : (
-                          <span
-                            onClick={() => goToTablas(smpId)}
-                            style={{ cursor: 'pointer', color: '#1a3a5c', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
-                            title="Ver en Tablas"
-                          >
-                            {smpLabel}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ ...cellSmp, padding: forPrint ? '1px 5px' : '2px 8px', textAlign: 'center', color: '#9ca89c' }}>1</td>
-                    </tr>
-                  )),
-                ]
+                  </tr>
+                )
               }),
           ]
         })}
