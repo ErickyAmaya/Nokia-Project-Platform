@@ -321,8 +321,28 @@ const PAGE_SIZE = 100
 // Orden de tabs en Tablas (independiente del orden en el store)
 const TAB_ORDER = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
 
+// Filtro de vejez (desde Dashboard)
+const VEJEZ_LABELS = {
+  'lte26': '≤26 sem',
+  '27-52': '27-52 sem',
+  '1-2y':  '1-2 años',
+  '2-3y':  '2-3 años',
+  'gt3y':  '>3 años',
+}
+
+function matchesVejez(semanas, vejez) {
+  if (!vejez) return true
+  const s = semanas || 0
+  if (vejez === 'lte26') return s <= 26
+  if (vejez === '27-52') return s > 26 && s <= 52
+  if (vejez === '1-2y')  return s > 52  && s <= 104
+  if (vejez === '2-3y')  return s > 104 && s <= 156
+  if (vejez === 'gt3y')  return s > 156
+  return true
+}
+
 // ── Tabla de un proceso ───────────────────────────────────────────
-function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro }) {
+function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro, vejez }) {
   const cfg = PROC_CONFIG[procesoKey]
   const sentinelRef = useRef(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
@@ -340,13 +360,14 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         r.smp?.toLowerCase().includes(q) ||
         r.main_smp?.toLowerCase().includes(q)
       )
+      .filter(r => matchesVejez(r.semanas_integracion, vejez))
       .sort((a, b) => {
         const aFin = isFinal(a[procesoKey])
         const bFin = isFinal(b[procesoKey])
         if (aFin !== bFin) return aFin ? 1 : -1
         return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
       })
-  }, [sabana, procesoKey, search, filtro])
+  }, [sabana, procesoKey, search, filtro, vejez])
 
   // Reset visible count cuando cambian los filtros/búsqueda
   useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
@@ -415,7 +436,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Avance</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Comentario</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Cierre / Comentario</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Owner Ticket</th>
             </tr>
           </thead>
@@ -482,14 +503,16 @@ export default function AckTablas() {
   const [tab,    setTab]    = useState('gap_doc')
   const [sitio,  setSitio]  = useState('')
   const [filtro, setFiltro] = useState('pendientes')
+  const [vejez,  setVejez]  = useState('')
 
-  // Pre-filtrar si llegamos desde Reportes con ?sitio=
+  // Pre-filtrar si llegamos desde Reportes (?sitio=) o Dashboard (?vejez=)
   useEffect(() => {
-    const sitioParam = searchParams.get('sitio')
-    if (sitioParam) {
-      setSitio(sitioParam)
-      setFiltro('todos')
-    }
+    const sitioParam  = searchParams.get('sitio')
+    const vejezParam  = searchParams.get('vejez')
+    const filtroParam = searchParams.get('filtro')
+    if (sitioParam) { setSitio(sitioParam); setFiltro('todos') }
+    if (vejezParam)  setVejez(vejezParam)
+    if (filtroParam && !sitioParam) setFiltro(filtroParam)
   }, [])
 
   const siteNames = useMemo(() =>
@@ -530,6 +553,18 @@ export default function AckTablas() {
                 background: filtroBadge.bg, color: filtroBadge.color, whiteSpace: 'nowrap',
               }}>
                 {filtroBadge.text}
+              </span>
+            )}
+            {vejez && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
+                background: '#fef3c7', color: '#92400e', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+              }}
+                onClick={() => setVejez('')}
+                title="Clic para quitar filtro de vejez"
+              >
+                ⏱ Vejez: {VEJEZ_LABELS[vejez] || vejez} ×
               </span>
             )}
           </div>
@@ -581,6 +616,7 @@ export default function AckTablas() {
           saveForecast={saveForecast}
           search={sitio}
           filtro={filtro}
+          vejez={vejez}
         />
       </div>
 

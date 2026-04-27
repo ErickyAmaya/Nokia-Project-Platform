@@ -1,9 +1,22 @@
 import { useRef, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, FINAL } from '../../store/useAckStore'
 import { showToast } from '../../components/Toast'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
 } from 'recharts'
+
+// Orden homogéneo con Tablas y Reportes
+const DASH_ORDER = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
+
+// Slugs para pasar el filtro de vejez a Tablas via URL
+const BIN_SLUG = {
+  '≤26 sem':  'lte26',
+  '27-52 sem': '27-52',
+  '1-2 años': '1-2y',
+  '2-3 años': '2-3y',
+  '>3 años':  'gt3y',
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(proceso, val) {
@@ -49,6 +62,23 @@ function ProcesoCard({ proceso, data, total }) {
   const porcentaje  = pct(finalizados, total)
   const color = porcentaje >= 97 ? '#22c55e' : porcentaje >= 90 ? '#f59e0b' : '#ef4444'
 
+  // Top 3 estados de pendientes para este proceso
+  const top3 = useMemo(() => {
+    const counts = {}
+    for (const r of data) {
+      const v = r[proceso.key]
+      if (!v || isFinal(proceso.key, v)) continue
+      counts[v] = (counts[v] || 0) + 1
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([estado, count]) => ({
+        label: estado.split('.').slice(1).join('.').trim() || estado,
+        count,
+      }))
+  }, [data, proceso.key])
+
   return (
     <div className="stat" style={{ borderLeftColor: proceso.color, padding: '14px 16px' }}>
       <div className="sl" style={{ color: proceso.color, fontWeight: 800, letterSpacing: 1 }}>
@@ -71,13 +101,30 @@ function ProcesoCard({ proceso, data, total }) {
       <div style={{ marginTop: 8, height: 4, background: '#e5e7eb', borderRadius: 2 }}>
         <div style={{ height: 4, borderRadius: 2, background: color, width: `${porcentaje}%`, transition: 'width .4s' }} />
       </div>
+      {top3.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: '1px solid #f0f2f0', paddingTop: 8 }}>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca89c', letterSpacing: .5, marginBottom: 5, textTransform: 'uppercase' }}>
+            Top estados pendientes
+          </div>
+          {top3.map((t, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3, gap: 6 }}>
+              <span style={{ fontSize: 8, color: '#555f55', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
+                {t.label}
+              </span>
+              <span style={{ fontSize: 8, fontWeight: 700, color: proceso.color, flexShrink: 0 }}>
+                {t.count}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 const COLORS_PIE = ['#22c55e', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
-function VejezChart({ data }) {
+function VejezChart({ data, onBarClick }) {
   const bins = useMemo(() => {
     const map = {}
     for (const r of data) {
@@ -96,13 +143,14 @@ function VejezChart({ data }) {
     <div className="card-b" style={{ padding: 16 }}>
       <div className="card-h" style={{ padding: '0 0 10px', borderBottom: '1px solid #f0f2f0', marginBottom: 12 }}>
         <h2 style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>⏱ Vejez — Antigüedad de pendientes</h2>
+        <span style={{ fontSize: 9, color: '#9ca89c' }}>Clic en barra para ver SMPs en Tablas</span>
       </div>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={bins} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
-          <Tooltip formatter={v => [v, 'SMPs']} />
-          <Bar dataKey="smps" radius={[3, 3, 0, 0]}>
+          <Tooltip formatter={v => [v, 'SMPs']} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
+          <Bar dataKey="smps" radius={[3, 3, 0, 0]} cursor="pointer" onClick={entry => onBarClick(entry.nombre)}>
             {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} />)}
           </Bar>
         </BarChart>
@@ -154,6 +202,7 @@ function RegionChart({ data }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────
 export default function AckDashboard() {
+  const navigate    = useNavigate()
   const sabana    = useAckStore(s => s.sabana)
   const uploads   = useAckStore(s => s.uploads)
   const uploading = useAckStore(s => s.uploading)
@@ -168,6 +217,11 @@ export default function AckDashboard() {
     const res = await uploadExcel(file)
     if (res.ok) showToast(`✓ ${res.rows.toLocaleString('es-CO')} SMPs cargados desde ${file.name}`, 'ok')
     else        showToast(`Error: ${res.error}`, 'err')
+  }
+
+  function handleVejezClick(bin) {
+    const slug = BIN_SLUG[bin] || bin
+    navigate(`/rollout/ack/tablas?vejez=${slug}&filtro=pendientes`)
   }
 
   const regiones  = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
@@ -267,14 +321,14 @@ export default function AckDashboard() {
 
       {/* ── Tarjetas por proceso ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 14 }} className="ack-proc-grid">
-        {PROCESOS.map(p => (
+        {DASH_ORDER.map(key => PROCESOS.find(p => p.key === key)).filter(Boolean).map(p => (
           <ProcesoCard key={p.key} proceso={p} data={filtered} total={filtered.length} />
         ))}
       </div>
 
       {/* ── Gráficas ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'var(--two-col)', gap: 14 }}>
-        <VejezChart data={pendientes} />
+        <VejezChart data={pendientes} onBarClick={handleVejezClick} />
         <RegionChart data={pendientes} />
       </div>
     </div>
