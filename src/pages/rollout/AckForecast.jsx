@@ -564,13 +564,14 @@ export default function AckForecast() {
   const uploads       = useAckStore(s => s.uploads)
   const prevSabana    = useAckStore(s => s.prevSabana)
   const prevUpload    = useAckStore(s => s.prevUpload)
+  const currUpload    = useAckStore(s => s.currUpload || s.uploads[0])
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
   const [filtro, setFiltro] = useState('pendientes')
 
-  // Etiquetas Nokia (domingo–sábado) desde la fecha de carga de cada upload
-  const currLabel = uploads[0] ? nokiaWeekLabel(uploads[0].loaded_at)  : 'Actual'
-  const prevLabel = prevUpload ? nokiaWeekLabel(prevUpload.loaded_at)  : ''
+  // Etiquetas Nokia calculadas desde el par (curr, prev) seleccionado por el store
+  const currLabel = currUpload ? nokiaWeekLabel(currUpload.loaded_at) : 'Actual'
+  const prevLabel = prevUpload ? nokiaWeekLabel(prevUpload.loaded_at) : ''
 
   // CSS de impresión global
   useEffect(() => {

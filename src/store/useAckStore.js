@@ -198,25 +198,59 @@ export function nokiaWeekLabel(dateInput) {
   return `W${String(week).padStart(2, '0')}`
 }
 
-// ── Store ─────────────────────────────────────────────────────────
-// Comparación siempre contra el upload de exactamente 2 semanas Nokia atrás.
-// Si hay uploads intermedios (ej. W17 entre W16 y W18) se ignoran.
-function findPrevUpload(uploads) {
-  if (uploads.length < 2) return null
-  const latest = uploads[0]
-  // 2 semanas Nokia = ~14 días; usamos días/7 redondeado para cubrir
-  // cargas a mitad de semana sin fallar
-  return uploads.slice(1).find(u => {
-    const weeks = (new Date(latest.loaded_at) - new Date(u.loaded_at)) / (86400000 * 7)
-    return Math.round(weeks) >= 2
-  }) || null
+// ── Seleccionar el mejor par (curr, prev) para la comparación ────
+//
+// Reglas:
+// 1. Dentro de la misma semana Nokia usar siempre el upload más reciente
+//    (múltiples cargas diarias durante la semana de reunión → siempre el último).
+// 2. Buscar el par donde la diferencia es EXACTAMENTE 2 semanas Nokia.
+//    Si no existe par de 2 semanas con el upload más reciente, buscar en
+//    uploads anteriores (ej. W17+W18 → usar W17 como curr y W15 como prev).
+// 3. Si tampoco hay par de 2 semanas en uploads anteriores, aceptar ≥ 2 semanas.
+function findComparePair(uploads) {
+  if (!uploads?.length) return { currUpload: null, prevUpload: null }
+
+  // De-duplicar por semana Nokia: queda el upload más reciente de cada semana
+  const weekMap = new Map()
+  for (const u of uploads) { // uploads ya viene DESC por loaded_at
+    const wl = nokiaWeekLabel(u.loaded_at)
+    if (!weekMap.has(wl)) weekMap.set(wl, u)
+  }
+  const weeks = [...weekMap.values()]
+    .sort((a, b) => new Date(b.loaded_at) - new Date(a.loaded_at))
+
+  function weeksDiff(a, b) {
+    return Math.round((new Date(a.loaded_at) - new Date(b.loaded_at)) / (86400000 * 7))
+  }
+
+  // Paso 1: buscar par con diferencia EXACTA de 2 semanas Nokia
+  for (let i = 0; i < weeks.length - 1; i++) {
+    for (let j = i + 1; j < weeks.length; j++) {
+      if (weeksDiff(weeks[i], weeks[j]) === 2) {
+        return { currUpload: weeks[i], prevUpload: weeks[j] }
+      }
+    }
+  }
+
+  // Paso 2: aceptar cualquier diferencia ≥ 2 semanas
+  for (let i = 0; i < weeks.length - 1; i++) {
+    for (let j = i + 1; j < weeks.length; j++) {
+      if (weeksDiff(weeks[i], weeks[j]) >= 2) {
+        return { currUpload: weeks[i], prevUpload: weeks[j] }
+      }
+    }
+  }
+
+  // Sin par válido: solo curr, sin comparación
+  return { currUpload: uploads[0], prevUpload: null }
 }
 
 export const useAckStore = create((set, get) => ({
   sabana:     [],
-  prevSabana: [],   // snapshot del periodo anterior (auto)
-  prevUpload: null, // registro ack_uploads del periodo anterior
-  forecasts:  {},   // keyed by smp — fuente de verdad de la app
+  prevSabana: [],    // snapshot del periodo anterior (auto)
+  prevUpload: null,  // registro ack_uploads del periodo anterior
+  currUpload: null,  // upload usado como "actual" (puede no ser uploads[0])
+  forecasts:  {},    // keyed by smp — fuente de verdad de la app
   uploads:    [],
   loading:    false,
   uploading:  false,
@@ -230,19 +264,18 @@ export const useAckStore = create((set, get) => ({
         .from('ack_uploads')
         .select('*')
         .order('loaded_at', { ascending: false })
-        .limit(20)
+        .limit(30)
 
       if (!uploads?.length) {
-        set({ sabana: [], prevSabana: [], prevUpload: null, uploads: [], loading: false })
+        set({ sabana: [], prevSabana: [], prevUpload: null, currUpload: null, uploads: [], loading: false })
         return
       }
 
-      const latest    = uploads[0]
-      const prevUpload = findPrevUpload(uploads)
+      const { currUpload, prevUpload } = findComparePair(uploads)
 
       // 2. Cargar sabana actual + anterior en paralelo con forecasts
       const [sabRes, fcRes, prevRes] = await Promise.all([
-        db().from('ack_sabana').select('*').eq('upload_id', latest.id),
+        db().from('ack_sabana').select('*').eq('upload_id', currUpload.id),
         db().from('ack_forecast').select('*'),
         prevUpload
           ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)
@@ -256,6 +289,7 @@ export const useAckStore = create((set, get) => ({
         sabana:     sabRes.data  || [],
         prevSabana: prevRes.data || [],
         prevUpload,
+        currUpload,
         forecasts:  fcMap,
         uploads,
       })
