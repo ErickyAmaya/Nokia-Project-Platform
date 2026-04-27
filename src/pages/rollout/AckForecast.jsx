@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import * as XLSX from 'xlsx'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
+import { exportAckToExcel } from '../../lib/ackExcelExport'
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(val) {
@@ -362,69 +362,11 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
 const REPORT_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
 const REPORT_PROCESOS = REPORT_KEYS.map(k => PROCESOS.find(p => p.key === k)).filter(Boolean)
 
-// ── Helpers para exportación Excel ───────────────────────────────
+// ── Helper filtro (también usado por export) ──────────────────────
 function applyFiltroRows(rows, procesoKey, filtro) {
   if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[procesoKey]))
   if (filtro === 'cerrados')   return rows.filter(r =>  isFinal(r[procesoKey]))
   return rows
-}
-
-function mergeAoaSideBySide(left, right, sep = 2) {
-  const maxRows = Math.max(left.length, right.length)
-  const leftW   = left[0]?.length || 0
-  return Array.from({ length: maxRows }, (_, i) => [
-    ...(left[i]  || Array(leftW).fill('')),
-    ...Array(sep).fill(''),
-    ...(right[i] || []),
-  ])
-}
-
-function gapToAoA(gapTree, label) {
-  const rows = [[label, 'No de Actividades']]
-  let total = 0
-  for (const [gap, sites] of [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const gapTotal = [...sites.values()].reduce((s, v) => s + v, 0)
-    rows.push([gap, gapTotal])
-    for (const [site, cnt] of [...sites.entries()].sort(([a], [b]) => a.localeCompare(b)))
-      rows.push([`  ${site}`, cnt])
-    total += gapTotal
-  }
-  rows.push(['Total general', total])
-  return rows
-}
-
-function fcToAoA(rows, procesoKey, forecasts, faKey, ticketKey, label) {
-  const { gapEntries, dates } = buildFcData(rows, procesoKey, forecasts, faKey, ticketKey)
-  if (!dates.length) return [[label], ['Sin fechas FC registradas']]
-  const header = [label, ...dates, 'TICKETS', 'No de Actividades']
-  const result = [header]
-  for (const [gap, g] of gapEntries) {
-    const gapTotal   = [...g.dates.values()].reduce((s, v) => s + v, 0)
-    const gapTickets = [...g.sites.values()].reduce((s, v) => s + v.ticketCount, 0)
-    result.push([gap, ...dates.map(d => g.dates.get(d) || ''), gapTickets || '', gapTotal])
-    for (const [site, s] of [...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-      const st = [...s.dates.values()].reduce((a, b) => a + b, 0)
-      if (!st) continue
-      result.push([`  ${site}`, ...dates.map(d => s.dates.get(d) || ''), s.ticketCount || '', st])
-    }
-  }
-  result.push(['Total general', ...dates.map(d => gapEntries.reduce((s, [, g]) => s + (g.dates.get(d) || 0), 0) || ''), '', gapEntries.reduce((s, [, g]) => s + [...g.dates.values()].reduce((a, b) => a + b, 0), 0)])
-  return result
-}
-
-function ticketToAoA(rows, procesoKey, ticketKey, label, empresaNombre) {
-  const gapTree = buildTicketTree(rows, procesoKey, ticketKey)
-  const result  = [[label, 'Owner', 'No. Ticket', 'No de Actividades']]
-  let total = 0
-  for (const [gap, sites] of [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const gapTotal = [...sites.values()].reduce((s, e) => s + e.count, 0)
-    result.push([gap, '—', '—', gapTotal])
-    for (const [site, { owner, count, ids }] of [...sites.entries()].sort(([a], [b]) => a.localeCompare(b)))
-      result.push([`  ${site}`, resolveOwner(owner, empresaNombre), [...ids].sort().join(', ') || '—', count])
-    total += gapTotal
-  }
-  result.push(['Total general', '—', '—', total])
-  return result
 }
 
 // ── Sección de proceso (pantalla) ─────────────────────────────────
@@ -677,47 +619,26 @@ export default function AckForecast() {
     })
   }
 
-  // Exportar a Excel
-  function handleExcelExport() {
-    const wb = XLSX.utils.book_new()
-    for (const p of REPORT_PROCESOS) {
-      const cfg  = PROC_CFG[p.key]
-      const curr = applyFiltroRows(sabana,     p.key, filtro)
-      const prev = applyFiltroRows(prevSabana, p.key, filtro)
-      const aoa  = [[cfg.label + (currLabel ? ` — ${currLabel}` : '')], []]
-
-      // GAP
-      const cGap = gapToAoA(buildGapTree(curr, p.key), `${cfg.nokia} - ${currLabel || 'Actual'}`)
-      if (hasPrev) {
-        const pGap = gapToAoA(buildGapTree(prev, p.key), `${cfg.nokia} - ${prevLabel || 'Anterior'}`)
-        mergeAoaSideBySide(pGap, cGap).forEach(r => aoa.push(r))
-      } else {
-        cGap.forEach(r => aoa.push(r))
-      }
-      aoa.push([])
-
-      // FC
-      const cFc = fcToAoA(curr, p.key, forecasts, cfg.fa, cfg.ticket, `${cfg.nokia} - FORECAST ${currLabel || 'Actual'}`)
-      if (hasPrev) {
-        const pFc = fcToAoA(prev, p.key, forecasts, cfg.fa, cfg.ticket, `${cfg.nokia} - FORECAST ${prevLabel || 'Anterior'}`)
-        mergeAoaSideBySide(pFc, cFc).forEach(r => aoa.push(r))
-      } else {
-        cFc.forEach(r => aoa.push(r))
-      }
-      aoa.push([])
-
-      // Tickets
-      const cTk = ticketToAoA(curr, p.key, cfg.ticket, `${cfg.nokia} - TICKET ${currLabel || 'Actual'}`, empresaNombre)
-      if (hasPrev) {
-        const pTk = ticketToAoA(prev, p.key, cfg.ticket, `${cfg.nokia} - TICKET ${prevLabel || 'Anterior'}`, empresaNombre)
-        mergeAoaSideBySide(pTk, cTk).forEach(r => aoa.push(r))
-      } else {
-        cTk.forEach(r => aoa.push(r))
-      }
-
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), cfg.label.substring(0, 31))
+  // Exportar a Excel con formato Nokia completo
+  const [exporting, setExporting] = useState(false)
+  async function handleExcelExport() {
+    setExporting(true)
+    try {
+      await exportAckToExcel({
+        reportProcesos: REPORT_PROCESOS,
+        procCfg:        PROC_CFG,
+        sabana,
+        prevSabana,
+        forecasts,
+        filtro,
+        currLabel,
+        prevLabel,
+        hasPrev,
+        empresaNombre,
+      })
+    } finally {
+      setExporting(false)
     }
-    XLSX.writeFile(wb, `ACK_Reportes_${currLabel || 'export'}.xlsx`)
   }
 
   if (!sabana.length) return (
@@ -772,9 +693,10 @@ export default function AckForecast() {
           </select>
           <button
             onClick={handleExcelExport}
-            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
+            disabled={exporting}
+            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#9ca89c' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            ⬇ Exportar Excel
+            {exporting ? '⏳ Generando…' : '⬇ Exportar Excel'}
           </button>
         </div>
       </div>
