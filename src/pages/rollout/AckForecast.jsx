@@ -358,6 +358,19 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   )
 }
 
+// ── Semana ISO desde una fecha ────────────────────────────────────
+function isoWeekLabel(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  // Ajustar al jueves más cercano para obtener semana ISO correcta
+  const day = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const dow = day.getUTCDay() || 7          // lunes=1 … domingo=7
+  day.setUTCDate(day.getUTCDate() + 4 - dow) // llevar al jueves
+  const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1))
+  const week = Math.ceil((((day - yearStart) / 86400000) + 1) / 7)
+  return `W${String(week).padStart(2, '0')}`
+}
+
 // ── Orden de procesos en Reportes ────────────────────────────────
 const REPORT_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
 const REPORT_PROCESOS = REPORT_KEYS.map(k => PROCESOS.find(p => p.key === k)).filter(Boolean)
@@ -565,26 +578,11 @@ export default function AckForecast() {
   const prevUpload    = useAckStore(s => s.prevUpload)
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
-  const [currLabel, setCurrLabel] = useState('')
-  const [prevLabel, setPrevLabel] = useState('')
-  const [filtro,    setFiltro]    = useState('pendientes')
+  const [filtro, setFiltro] = useState('pendientes')
 
-  // Auto-extraer etiquetas de semana desde los nombres de archivo
-  useEffect(() => {
-    if (uploads[0]) {
-      const m = uploads[0].file_name.match(/W\d{2,3}/i)
-      setCurrLabel(m ? m[0].toUpperCase() : 'Semana Actual')
-    }
-  }, [uploads[0]?.id])
-
-  useEffect(() => {
-    if (prevUpload) {
-      const m = prevUpload.file_name.match(/W\d{2,3}/i)
-      setPrevLabel(m ? m[0].toUpperCase() : 'Semana Anterior')
-    } else {
-      setPrevLabel('')
-    }
-  }, [prevUpload?.id])
+  // Etiquetas de semana calculadas automáticamente desde la fecha de carga
+  const currLabel = uploads[0]    ? isoWeekLabel(uploads[0].loaded_at)    : 'Actual'
+  const prevLabel = prevUpload    ? isoWeekLabel(prevUpload.loaded_at)     : ''
 
   // CSS de impresión global
   useEffect(() => {
@@ -679,15 +677,6 @@ export default function AckForecast() {
           }
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {hasPrev && (
-            <>
-              <input className="fc" value={prevLabel} onChange={e => setPrevLabel(e.target.value)}
-                placeholder="Ej: W42" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
-              <span style={{ color: '#555', fontWeight: 700 }}>▶</span>
-              <input className="fc" value={currLabel} onChange={e => setCurrLabel(e.target.value)}
-                placeholder="Ej: W44" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
-            </>
-          )}
           <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600 }}>
             {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
