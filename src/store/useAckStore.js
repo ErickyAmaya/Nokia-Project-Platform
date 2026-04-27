@@ -178,16 +178,37 @@ function parseSheet(ws) {
   return { sabana, forecasts }
 }
 
+// ── Semana Nokia (domingo–sábado, W1 = semana con primer jueves del año) ──
+// Nokia week = ISO week de (fecha + 1 día), porque Nokia empieza el domingo
+// y el estándar ISO empieza el lunes.
+export function getNokiaWeek(dateInput) {
+  const d = new Date(dateInput)
+  // Desplazar +1 día para convertir domingo-inicio → lunes-inicio (ISO)
+  const shifted = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
+  const dow = shifted.getUTCDay() || 7          // lun=1 … dom=7
+  shifted.setUTCDate(shifted.getUTCDate() + 4 - dow) // al jueves de esa semana
+  const yearStart = new Date(Date.UTC(shifted.getUTCFullYear(), 0, 1))
+  const week = Math.ceil((((shifted - yearStart) / 86400000) + 1) / 7)
+  return { week, year: shifted.getUTCFullYear() }
+}
+
+export function nokiaWeekLabel(dateInput) {
+  if (!dateInput) return ''
+  const { week } = getNokiaWeek(dateInput)
+  return `W${String(week).padStart(2, '0')}`
+}
+
 // ── Store ─────────────────────────────────────────────────────────
-// "Carga de comparación" = el upload más reciente con al menos 10 días
-// de antigüedad respecto al último. Así múltiples cargas dentro del mismo
-// periodo de 15 días no generan una comparación espuria.
+// Comparación siempre contra el upload de exactamente 2 semanas Nokia atrás.
+// Si hay uploads intermedios (ej. W17 entre W16 y W18) se ignoran.
 function findPrevUpload(uploads) {
   if (uploads.length < 2) return null
-  const latestDate = new Date(uploads[0].loaded_at)
+  const latest = uploads[0]
+  // 2 semanas Nokia = ~14 días; usamos días/7 redondeado para cubrir
+  // cargas a mitad de semana sin fallar
   return uploads.slice(1).find(u => {
-    const days = (latestDate - new Date(u.loaded_at)) / 864e5
-    return days >= 10
+    const weeks = (new Date(latest.loaded_at) - new Date(u.loaded_at)) / (86400000 * 7)
+    return Math.round(weeks) >= 2
   }) || null
 }
 

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useAckStore, PROCESOS } from '../../store/useAckStore'
+import { useAckStore, PROCESOS, nokiaWeekLabel } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
 import { exportAckToExcel } from '../../lib/ackExcelExport'
 
@@ -358,18 +358,6 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   )
 }
 
-// ── Semana ISO desde una fecha ────────────────────────────────────
-function isoWeekLabel(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  // Ajustar al jueves más cercano para obtener semana ISO correcta
-  const day = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  const dow = day.getUTCDay() || 7          // lunes=1 … domingo=7
-  day.setUTCDate(day.getUTCDate() + 4 - dow) // llevar al jueves
-  const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1))
-  const week = Math.ceil((((day - yearStart) / 86400000) + 1) / 7)
-  return `W${String(week).padStart(2, '0')}`
-}
 
 // ── Orden de procesos en Reportes ────────────────────────────────
 const REPORT_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
@@ -580,9 +568,9 @@ export default function AckForecast() {
 
   const [filtro, setFiltro] = useState('pendientes')
 
-  // Etiquetas de semana calculadas automáticamente desde la fecha de carga
-  const currLabel = uploads[0]    ? isoWeekLabel(uploads[0].loaded_at)    : 'Actual'
-  const prevLabel = prevUpload    ? isoWeekLabel(prevUpload.loaded_at)     : ''
+  // Etiquetas Nokia (domingo–sábado) desde la fecha de carga de cada upload
+  const currLabel = uploads[0] ? nokiaWeekLabel(uploads[0].loaded_at)  : 'Actual'
+  const prevLabel = prevUpload ? nokiaWeekLabel(prevUpload.loaded_at)  : ''
 
   // CSS de impresión global
   useEffect(() => {

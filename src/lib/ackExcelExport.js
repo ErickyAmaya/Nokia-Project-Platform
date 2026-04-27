@@ -21,6 +21,18 @@ function fmtDateStr(dateStr) {
   })
 }
 
+// Re-usa la misma lógica Nokia del store (evita importar para no circular)
+function _nokiaWeekLabel(dateInput) {
+  if (!dateInput) return ''
+  const d = new Date(dateInput)
+  const shifted = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1))
+  const dow = shifted.getUTCDay() || 7
+  shifted.setUTCDate(shifted.getUTCDate() + 4 - dow)
+  const yearStart = new Date(Date.UTC(shifted.getUTCFullYear(), 0, 1))
+  const week = Math.ceil((((shifted - yearStart) / 86400000) + 1) / 7)
+  return `W${String(week).padStart(2, '0')}`
+}
+
 function applyFiltro(rows, key, filtro) {
   if (filtro === 'pendientes') return rows.filter(r => !isFin(r[key]))
   if (filtro === 'cerrados')   return rows.filter(r =>  isFin(r[key]))
