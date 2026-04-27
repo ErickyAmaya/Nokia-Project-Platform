@@ -318,6 +318,9 @@ const FILTRO_BADGE = {
 
 const PAGE_SIZE = 100
 
+// Orden de tabs en Tablas (independiente del orden en el store)
+const TAB_ORDER = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
+
 // ── Tabla de un proceso ───────────────────────────────────────────
 function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro }) {
   const cfg = PROC_CONFIG[procesoKey]
@@ -476,7 +479,7 @@ export default function AckTablas() {
   const saveForecast = useAckStore(s => s.saveForecast)
   const [searchParams] = useSearchParams()
 
-  const [tab,    setTab]    = useState('gap_on_air')
+  const [tab,    setTab]    = useState('gap_doc')
   const [sitio,  setSitio]  = useState('')
   const [filtro, setFiltro] = useState('pendientes')
 
@@ -554,7 +557,7 @@ export default function AckTablas() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1.5px solid #e0e4e0', marginBottom: 16, overflowX: 'auto' }}>
-        {PROCESOS.map(p => (
+        {TAB_ORDER.map(key => PROCESOS.find(p => p.key === key)).filter(Boolean).map(p => (
           <button key={p.key} style={tabStyle(p.key)} onClick={() => setTab(p.key)}>
             {p.label}
             {pendCounts[p.key] > 0 && (

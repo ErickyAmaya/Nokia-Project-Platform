@@ -244,7 +244,7 @@ export default function AckSitios() {
   const sabana = useAckStore(s => s.sabana)
 
   const [region, setRegion] = useState('')
-  const [filtro, setFiltro] = useState('todos')
+  const [filtro, setFiltro] = useState('pendientes')
   const [search, setSearch] = useState('')
 
   const regiones = useMemo(() =>
