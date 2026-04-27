@@ -103,19 +103,35 @@ function ProcesoCard({ proceso, data, total }) {
       </div>
       {top3.length > 0 && (
         <div style={{ marginTop: 10, borderTop: '1px solid #f0f2f0', paddingTop: 8 }}>
-          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca89c', letterSpacing: .5, marginBottom: 5, textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca89c', letterSpacing: .5, marginBottom: 7, textTransform: 'uppercase' }}>
             Top estados pendientes
           </div>
-          {top3.map((t, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3, gap: 6 }}>
-              <span style={{ fontSize: 8, color: '#555f55', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
-                {t.label}
-              </span>
-              <span style={{ fontSize: 8, fontWeight: 700, color: proceso.color, flexShrink: 0 }}>
-                {t.count}
-              </span>
-            </div>
-          ))}
+          {top3.map((t, i) => {
+            const barPct = Math.round((t.count / top3[0].count) * 100)
+            const opacity = i === 0 ? 1 : i === 1 ? 0.7 : 0.45
+            const lbl = t.label.length > 23 ? t.label.slice(0, 23) + '…' : t.label
+            return (
+              <div key={i} style={{ marginBottom: 7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                  <span style={{ fontSize: 8, color: '#555f55', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.label}>
+                    {lbl}
+                  </span>
+                  <span style={{ fontSize: 8, fontWeight: 700, color: proceso.color, flexShrink: 0, marginLeft: 4 }}>
+                    {t.count}
+                  </span>
+                </div>
+                <div style={{ height: 5, background: '#f0f2f0', borderRadius: 3 }}>
+                  <div style={{
+                    height: 5, borderRadius: 3,
+                    background: proceso.color,
+                    opacity,
+                    width: `${barPct}%`,
+                    transition: 'width .3s',
+                  }} />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -150,8 +166,8 @@ function VejezChart({ data, onBarClick }) {
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
           <Tooltip formatter={v => [v, 'SMPs']} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
-          <Bar dataKey="smps" radius={[3, 3, 0, 0]} cursor="pointer" onClick={entry => onBarClick(entry.nombre)}>
-            {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} />)}
+          <Bar dataKey="smps" radius={[3, 3, 0, 0]} onClick={entry => onBarClick(entry.nombre)}>
+            {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} cursor="pointer" />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -221,7 +237,7 @@ export default function AckDashboard() {
 
   function handleVejezClick(bin) {
     const slug = BIN_SLUG[bin] || bin
-    navigate(`/rollout/ack/tablas?vejez=${slug}&filtro=pendientes`)
+    navigate(`/rollout/ack/tablas?vejez=${slug}&filtro=todos`)
   }
 
   const regiones  = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
