@@ -219,8 +219,16 @@ function findComparePair(uploads) {
   const weeks = [...weekMap.values()]
     .sort((a, b) => new Date(b.loaded_at) - new Date(a.loaded_at))
 
+  // Diferencia en semanas Nokia reales (no días/7 redondeado)
   function weeksDiff(a, b) {
-    return Math.round((new Date(a.loaded_at) - new Date(b.loaded_at)) / (86400000 * 7))
+    const wa = getNokiaWeek(a.loaded_at)
+    const wb = getNokiaWeek(b.loaded_at)
+    if (wa.year === wb.year) return wa.week - wb.week
+    // Cruce de año: contar semanas del año anterior
+    const lastWeekOfPrevYear = getNokiaWeek(
+      new Date(Date.UTC(wb.year, 11, 28)).toISOString() // 28 dic siempre está en la última semana
+    ).week
+    return lastWeekOfPrevYear - wb.week + wa.week
   }
 
   // Paso 1: buscar par con diferencia EXACTA de 2 semanas Nokia
