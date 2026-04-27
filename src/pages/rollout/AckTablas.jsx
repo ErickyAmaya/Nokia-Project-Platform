@@ -316,9 +316,13 @@ const FILTRO_BADGE = {
   cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
 }
 
+const PAGE_SIZE = 100
+
 // ── Tabla de un proceso ───────────────────────────────────────────
 function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro }) {
   const cfg = PROC_CONFIG[procesoKey]
+  const sentinelRef = useRef(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
@@ -340,6 +344,21 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
       })
   }, [sabana, procesoKey, search, filtro])
+
+  // Reset visible count cuando cambian los filtros/búsqueda
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
+
+  // IntersectionObserver: cargar más filas al llegar al final
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(n => Math.min(n + PAGE_SIZE, rows.length))
+      }
+    }, { threshold: 0.1 })
+    obs.observe(sentinelRef.current)
+    return () => obs.disconnect()
+  }, [rows.length])
 
   async function handleFcChange(smp, field, value) {
     try {
@@ -374,6 +393,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
       ? `${rows.length} SMPs cerrados`
       : <><span style={{ color: '#ef4444', fontWeight: 700 }}>{pendCount} pendientes</span>{' · '}<span style={{ color: '#22c55e', fontWeight: 700 }}>{finCount} cerrados</span>{' · '}{rows.length} total</>
 
+  const visibleRows = rows.slice(0, visibleCount)
+  const allLoaded   = visibleCount >= rows.length
+
   return (
     <div>
       <div style={{ fontSize: 11, color: '#9ca89c', marginBottom: 8 }}>
@@ -395,7 +417,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => {
+            {visibleRows.map(r => {
               const fc  = forecasts[r.smp] || {}
               const fin = isFinal(r[procesoKey])
               return (
@@ -431,6 +453,17 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
             })}
           </tbody>
         </table>
+
+        {/* Sentinel para scroll infinito */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
+
+        {/* Footer de paginación */}
+        <div style={{ textAlign: 'center', padding: '10px 0 4px', fontSize: 10, color: '#9ca89c' }}>
+          {allLoaded
+            ? `✓ Todos los registros cargados (${rows.length})`
+            : `Mostrando ${visibleCount} de ${rows.length} — desplázate para cargar más`
+          }
+        </div>
       </div>
     </div>
   )
