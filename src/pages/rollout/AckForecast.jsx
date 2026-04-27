@@ -34,7 +34,7 @@ function buildGapTree(rows, procesoKey) {
   return map
 }
 
-// GAP → ticket_owner → { count, ids: Set<ticketId>, sites: Set<site_name> }
+// GAP → site_name → { owner, count, ids: Set<ticketId> }
 function buildTicketTree(rows, procesoKey, ticketKey) {
   const map = new Map()
   for (const r of rows) {
@@ -45,11 +45,10 @@ function buildTicketTree(rows, procesoKey, ticketKey) {
     const id   = r.tickets_id ? String(r.tickets_id).trim() : null
     if (!map.has(gap)) map.set(gap, new Map())
     const gMap = map.get(gap)
-    if (!gMap.has(owner)) gMap.set(owner, { count: 0, ids: new Set(), sites: new Set() })
-    const entry = gMap.get(owner)
+    if (!gMap.has(site)) gMap.set(site, { owner, count: 0, ids: new Set() })
+    const entry = gMap.get(site)
     entry.count++
     if (id) entry.ids.add(id)
-    entry.sites.add(site)
   }
   return map
 }
@@ -273,8 +272,8 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   const navigate   = useNavigate()
   const gapTree    = useMemo(() => buildTicketTree(rows, procesoKey, ticketKey), [rows, procesoKey, ticketKey])
   const gapEntries = [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))
-  const total      = gapEntries.reduce((s, [, owners]) =>
-    s + [...owners.values()].reduce((a, e) => a + e.count, 0), 0)
+  const total      = gapEntries.reduce((s, [, sites]) =>
+    s + [...sites.values()].reduce((a, e) => a + e.count, 0), 0)
   const FS = forPrint ? 8 : 10
 
   if (!total) return (
@@ -285,7 +284,6 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
 
   const cellGap = { padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0' }
   const cellSub = { background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }
-  const cellSmp = { background: '#f8f9ff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7 : 8.5 }
   const cellTot = { fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }
 
   function goToTablas(siteName) {
@@ -297,36 +295,44 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
       <thead>
         <tr>
           <th style={thStyle(color, forPrint)}>{label}</th>
+          <th style={thCenterStyle(color, forPrint)}>Owner</th>
           <th style={{ ...thCenterStyle(color, forPrint), width: forPrint ? 90 : 130 }}>No. Ticket</th>
           <th style={thCenterStyle(color, forPrint)}>No de Actividades</th>
         </tr>
       </thead>
       <tbody>
-        {gapEntries.map(([gap, owners]) => {
+        {gapEntries.map(([gap, sites]) => {
           const fin      = isFinal(gap)
-          const gapTotal = [...owners.values()].reduce((s, e) => s + e.count, 0)
+          const gapTotal = [...sites.values()].reduce((s, e) => s + e.count, 0)
           const txtColor = fin ? '#166534' : '#C00000'
           return [
             // Fila GAP
             <tr key={gap}>
               <td style={{ ...cellGap, color: txtColor }}>{gap}</td>
               <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>—</td>
+              <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>—</td>
               <td style={{ ...cellGap, color: txtColor, textAlign: 'center' }}>{gapTotal}</td>
             </tr>,
-            // Filas por owner (una línea por owner, clickable → Tablas por primer sitio del owner)
-            ...[...owners.entries()]
+            // Una fila por sitio: Sitio (clickable) | Owner | Tickets | Count
+            ...[...sites.entries()]
               .sort(([a], [b]) => String(a).localeCompare(String(b)))
-              .map(([owner, { count, ids, sites }]) => {
+              .map(([site, { owner, count, ids }]) => {
                 const ticketNums = [...ids].sort().join(', ') || '—'
                 const ownerLabel = resolveOwner(owner, empresaNombre)
-                const firstSite  = [...sites][0]
                 return (
-                  <tr key={`${gap}|${owner}`}>
-                    <td
-                      style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px', cursor: forPrint ? 'default' : 'pointer', color: forPrint ? 'inherit' : '#1a3a5c', textDecoration: forPrint ? 'none' : 'underline', textDecorationStyle: 'dotted' }}
-                      onClick={() => firstSite && goToTablas(firstSite)}
-                      title={forPrint ? undefined : 'Ver sitios en Tablas'}
-                    >
+                  <tr key={`${gap}|${site}`}>
+                    <td style={{ ...cellSub, padding: forPrint ? '2px 7px 2px 18px' : '3px 10px 3px 22px' }}>
+                      {forPrint ? site : (
+                        <span
+                          onClick={() => goToTablas(site)}
+                          style={{ cursor: 'pointer', color: '#1a3a5c', textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+                          title="Ver en Tablas"
+                        >
+                          {site}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', color: '#555' }}>
                       {ownerLabel}
                     </td>
                     <td style={{ ...cellSub, padding: forPrint ? '2px 5px' : '3px 8px', textAlign: 'center', color: '#1a3a5c', fontWeight: 600 }}>
@@ -342,6 +348,7 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
         })}
         <tr>
           <td style={{ ...cellTot, padding: forPrint ? '4px 7px' : '5px 10px' }}>Total general</td>
+          <td style={{ ...cellTot, padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center' }}>—</td>
           <td style={{ ...cellTot, padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center' }}>—</td>
           <td style={{ ...cellTot, padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center' }}>{total}</td>
         </tr>
@@ -443,16 +450,54 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
         {/* Tabla FC */}
         {showFc && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{fcLabel}</div>
-            <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={fcLabel} color={cfg.color} />
+            {hasPrev ? (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                  </div>
+                  <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${prevLabel}`} color={cfg.color} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                  </div>
+                  <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel}`} color={cfg.color} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{fcLabel}</div>
+                <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={fcLabel} color={cfg.color} />
+              </>
+            )}
           </div>
         )}
 
         {/* Tabla Tickets */}
         {showTicket && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{ticketLabel}</div>
-            <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} empresaNombre={empresaNombre} />
+            {hasPrev ? (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                  </div>
+                  <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${prevLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                  </div>
+                  <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{ticketLabel}</div>
+                <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} empresaNombre={empresaNombre} />
+              </>
+            )}
           </div>
         )}
       </div>
