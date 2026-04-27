@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
 
@@ -357,150 +358,188 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   )
 }
 
+// ── Orden de procesos en Reportes ────────────────────────────────
+const REPORT_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
+const REPORT_PROCESOS = REPORT_KEYS.map(k => PROCESOS.find(p => p.key === k)).filter(Boolean)
+
+// ── Helpers para exportación Excel ───────────────────────────────
+function applyFiltroRows(rows, procesoKey, filtro) {
+  if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[procesoKey]))
+  if (filtro === 'cerrados')   return rows.filter(r =>  isFinal(r[procesoKey]))
+  return rows
+}
+
+function mergeAoaSideBySide(left, right, sep = 2) {
+  const maxRows = Math.max(left.length, right.length)
+  const leftW   = left[0]?.length || 0
+  return Array.from({ length: maxRows }, (_, i) => [
+    ...(left[i]  || Array(leftW).fill('')),
+    ...Array(sep).fill(''),
+    ...(right[i] || []),
+  ])
+}
+
+function gapToAoA(gapTree, label) {
+  const rows = [[label, 'No de Actividades']]
+  let total = 0
+  for (const [gap, sites] of [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const gapTotal = [...sites.values()].reduce((s, v) => s + v, 0)
+    rows.push([gap, gapTotal])
+    for (const [site, cnt] of [...sites.entries()].sort(([a], [b]) => a.localeCompare(b)))
+      rows.push([`  ${site}`, cnt])
+    total += gapTotal
+  }
+  rows.push(['Total general', total])
+  return rows
+}
+
+function fcToAoA(rows, procesoKey, forecasts, faKey, ticketKey, label) {
+  const { gapEntries, dates } = buildFcData(rows, procesoKey, forecasts, faKey, ticketKey)
+  if (!dates.length) return [[label], ['Sin fechas FC registradas']]
+  const header = [label, ...dates, 'TICKETS', 'No de Actividades']
+  const result = [header]
+  for (const [gap, g] of gapEntries) {
+    const gapTotal   = [...g.dates.values()].reduce((s, v) => s + v, 0)
+    const gapTickets = [...g.sites.values()].reduce((s, v) => s + v.ticketCount, 0)
+    result.push([gap, ...dates.map(d => g.dates.get(d) || ''), gapTickets || '', gapTotal])
+    for (const [site, s] of [...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      const st = [...s.dates.values()].reduce((a, b) => a + b, 0)
+      if (!st) continue
+      result.push([`  ${site}`, ...dates.map(d => s.dates.get(d) || ''), s.ticketCount || '', st])
+    }
+  }
+  result.push(['Total general', ...dates.map(d => gapEntries.reduce((s, [, g]) => s + (g.dates.get(d) || 0), 0) || ''), '', gapEntries.reduce((s, [, g]) => s + [...g.dates.values()].reduce((a, b) => a + b, 0), 0)])
+  return result
+}
+
+function ticketToAoA(rows, procesoKey, ticketKey, label, empresaNombre) {
+  const gapTree = buildTicketTree(rows, procesoKey, ticketKey)
+  const result  = [[label, 'Owner', 'No. Ticket', 'No de Actividades']]
+  let total = 0
+  for (const [gap, sites] of [...gapTree.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const gapTotal = [...sites.values()].reduce((s, e) => s + e.count, 0)
+    result.push([gap, '—', '—', gapTotal])
+    for (const [site, { owner, count, ids }] of [...sites.entries()].sort(([a], [b]) => a.localeCompare(b)))
+      result.push([`  ${site}`, resolveOwner(owner, empresaNombre), [...ids].sort().join(', ') || '—', count])
+    total += gapTotal
+  }
+  result.push(['Total general', '—', '—', total])
+  return result
+}
+
 // ── Sección de proceso (pantalla) ─────────────────────────────────
-function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro, empresaNombre }) {
+function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro, empresaNombre, expanded, onToggle }) {
   const cfg     = PROC_CFG[proceso.key]
-  const rl      = rangeLabel(prevLabel, currLabel)
   const hasPrev = prevRows.length > 0
 
-  function applyFiltro(rows) {
-    if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[proceso.key]))
-    if (filtro === 'cerrados')   return rows.filter(r =>  isFinal(r[proceso.key]))
-    return rows
-  }
-
-  const curr  = applyFiltro(currRows)
-  const prev  = applyFiltro(prevRows)
+  const curr = applyFiltroRows(currRows, proceso.key, filtro)
+  const prev = applyFiltroRows(prevRows, proceso.key, filtro)
 
   const total  = currRows.length
   const pend   = currRows.filter(r => !isFinal(r[proceso.key])).length
   const pct    = total ? Math.round(((total - pend) / total) * 100) : 0
   const barClr = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
 
-  const [showFc,     setShowFc]     = useState(false)
-  const [showTicket, setShowTicket] = useState(false)
-
-  // Labels individuales por lado; el rango va en FC y Ticket (tabla única)
   const prevGapLabel = `${cfg.nokia} - ${prevLabel || 'Semana Anterior'}`
   const currGapLabel = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
   const soloLabel    = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
-  const fcLabel      = `${cfg.nokia} - FORECAST ${rl}`
-  const ticketLabel  = `${cfg.nokia} - TICKET ${rl}`
 
   return (
-    <div style={{ marginBottom: 28, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
-      {/* Header con color del proceso */}
-      <div style={{ background: cfg.color, padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
+      {/* Header clickable — colapsa/expande */}
+      <div
+        onClick={onToggle}
+        style={{ background: cfg.color, padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+      >
         <div>
-          <div style={{ fontSize: 8, color: 'rgba(255,255,255,.75)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 700 }}>{cfg.nokia}</div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1 }}>{cfg.label}</div>
+          <div style={{ fontSize: 7, color: 'rgba(255,255,255,.7)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 600 }}>{cfg.nokia}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>{cfg.label}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <div style={{ fontSize: 38, fontWeight: 900, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1 }}>{pct}%</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.8)' }}>completado</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1 }}>{pct}%</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)' }}>{pend} pend · {total - pend} cerr</div>
+          </div>
+          <div style={{ fontSize: 16, color: 'rgba(255,255,255,.85)', fontWeight: 400 }}>{expanded ? '▾' : '▸'}</div>
         </div>
       </div>
-      <div style={{ height: 4, background: 'rgba(0,0,0,.15)' }}>
-        <div style={{ height: 4, background: barClr, width: `${pct}%` }} />
-      </div>
-
-      {/* Stats bar */}
-      <div style={{ background: '#f8f9f8', borderLeft: `4px solid ${cfg.color}`, borderRight: '1px solid #e5e7eb', padding: '7px 18px', display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11 }}><b style={{ color: '#C00000' }}>{pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>pendientes</span></span>
-        <span style={{ fontSize: 11 }}><b style={{ color: '#166534' }}>{total - pend}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>cerrados</span></span>
-        <span style={{ fontSize: 11 }}><b>{total}</b><span style={{ color: '#9ca89c', marginLeft: 4 }}>total</span></span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-          <span onClick={() => setShowFc(s => !s)}
-            style={{ fontSize: 10, fontWeight: 700, cursor: 'pointer', color: cfg.color, userSelect: 'none' }}>
-            {showFc ? '▴ Ocultar FC' : '▾ FC Avance'}
-          </span>
-          <span onClick={() => setShowTicket(s => !s)}
-            style={{ fontSize: 10, fontWeight: 700, cursor: 'pointer', color: cfg.color, userSelect: 'none' }}>
-            {showTicket ? '▴ Ocultar Tickets' : '▾ Tickets'}
-          </span>
-        </div>
+      <div style={{ height: 3, background: 'rgba(0,0,0,.12)' }}>
+        <div style={{ height: 3, background: barClr, width: `${pct}%` }} />
       </div>
 
-      {/* Tablas de comparación GAP */}
-      <div style={{ padding: 16, background: '#fff' }}>
-        {hasPrev ? (
-          <>
-            <div style={{ textAlign: 'center', color: cfg.color, fontWeight: 800, fontSize: 12, marginBottom: 10 }}>
-              {prevLabel} &nbsp;——▶&nbsp; {currLabel}
-            </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
-                  Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
-                </div>
-                <NokiaTable rows={prev} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} />
+      {/* Contenido expandible */}
+      {expanded && (
+        <div style={{ padding: 16, background: '#fff' }}>
+          {/* Tablas GAP */}
+          {hasPrev ? (
+            <>
+              <div style={{ textAlign: 'center', color: cfg.color, fontWeight: 600, fontSize: 11, marginBottom: 10 }}>
+                {prevLabel} &nbsp;——▶&nbsp; {currLabel}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
-                  Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                  </div>
+                  <NokiaTable rows={prev} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} />
                 </div>
-                <NokiaTable rows={curr} procesoKey={proceso.key} label={currGapLabel} color={cfg.color} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                  </div>
+                  <NokiaTable rows={curr} procesoKey={proceso.key} label={currGapLabel} color={cfg.color} />
+                </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <NokiaTable rows={curr} procesoKey={proceso.key} label={soloLabel} color={cfg.color} />
-        )}
+            </>
+          ) : (
+            <NokiaTable rows={curr} procesoKey={proceso.key} label={soloLabel} color={cfg.color} />
+          )}
 
-        {/* Tabla FC */}
-        {showFc && (
+          {/* Tablas FC */}
           <div style={{ marginTop: 16 }}>
             {hasPrev ? (
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
                     Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
                   </div>
                   <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${prevLabel}`} color={cfg.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
                     Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
                   </div>
                   <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel}`} color={cfg.color} />
                 </div>
               </div>
             ) : (
-              <>
-                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{fcLabel}</div>
-                <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={fcLabel} color={cfg.color} />
-              </>
+              <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel || 'Actual'}`} color={cfg.color} />
             )}
           </div>
-        )}
 
-        {/* Tabla Tickets */}
-        {showTicket && (
+          {/* Tablas Tickets */}
           <div style={{ marginTop: 16 }}>
             {hasPrev ? (
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
                     Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
                   </div>
                   <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${prevLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: cfg.color, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
                     Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
                   </div>
                   <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
               </div>
             ) : (
-              <>
-                <div style={{ fontSize: 9, fontWeight: 800, color: cfg.color, marginBottom: 6, letterSpacing: 1 }}>{ticketLabel}</div>
-                <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={ticketLabel} color={cfg.color} empresaNombre={empresaNombre} />
-              </>
+              <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel || 'Actual'}`} color={cfg.color} empresaNombre={empresaNombre} />
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -628,6 +667,59 @@ export default function AckForecast() {
   const filtroBadge = FILTRO_BADGE[filtro]
   const hasPrev     = prevSabana.length > 0
 
+  // Estado de expansión por proceso — solo el primero abierto por defecto
+  const [expanded, setExpanded] = useState(() => new Set([REPORT_PROCESOS[0]?.key]))
+  function toggleExpanded(key) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  // Exportar a Excel
+  function handleExcelExport() {
+    const wb = XLSX.utils.book_new()
+    for (const p of REPORT_PROCESOS) {
+      const cfg  = PROC_CFG[p.key]
+      const curr = applyFiltroRows(sabana,     p.key, filtro)
+      const prev = applyFiltroRows(prevSabana, p.key, filtro)
+      const aoa  = [[cfg.label + (currLabel ? ` — ${currLabel}` : '')], []]
+
+      // GAP
+      const cGap = gapToAoA(buildGapTree(curr, p.key), `${cfg.nokia} - ${currLabel || 'Actual'}`)
+      if (hasPrev) {
+        const pGap = gapToAoA(buildGapTree(prev, p.key), `${cfg.nokia} - ${prevLabel || 'Anterior'}`)
+        mergeAoaSideBySide(pGap, cGap).forEach(r => aoa.push(r))
+      } else {
+        cGap.forEach(r => aoa.push(r))
+      }
+      aoa.push([])
+
+      // FC
+      const cFc = fcToAoA(curr, p.key, forecasts, cfg.fa, cfg.ticket, `${cfg.nokia} - FORECAST ${currLabel || 'Actual'}`)
+      if (hasPrev) {
+        const pFc = fcToAoA(prev, p.key, forecasts, cfg.fa, cfg.ticket, `${cfg.nokia} - FORECAST ${prevLabel || 'Anterior'}`)
+        mergeAoaSideBySide(pFc, cFc).forEach(r => aoa.push(r))
+      } else {
+        cFc.forEach(r => aoa.push(r))
+      }
+      aoa.push([])
+
+      // Tickets
+      const cTk = ticketToAoA(curr, p.key, cfg.ticket, `${cfg.nokia} - TICKET ${currLabel || 'Actual'}`, empresaNombre)
+      if (hasPrev) {
+        const pTk = ticketToAoA(prev, p.key, cfg.ticket, `${cfg.nokia} - TICKET ${prevLabel || 'Anterior'}`, empresaNombre)
+        mergeAoaSideBySide(pTk, cTk).forEach(r => aoa.push(r))
+      } else {
+        cTk.forEach(r => aoa.push(r))
+      }
+
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), cfg.label.substring(0, 31))
+    }
+    XLSX.writeFile(wb, `ACK_Reportes_${currLabel || 'export'}.xlsx`)
+  }
+
   if (!sabana.length) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c' }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
@@ -645,16 +737,16 @@ export default function AckForecast() {
               ACK — Reportes
             </h1>
             {filtroBadge && (
-              <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
                 {filtroBadge.text}
               </span>
             )}
           </div>
           {hasPrev
             ? (
-              <div style={{ fontSize: 11, color: '#555', fontWeight: 600, marginTop: 4 }}>
-                Comparando: <b>{prevLabel}</b> ——▶ <b>{currLabel}</b>
-                <span style={{ marginLeft: 8, fontSize: 10, color: '#9ca89c', fontWeight: 400 }}>
+              <div style={{ fontSize: 11, color: '#555', fontWeight: 500, marginTop: 4 }}>
+                Comparando: <b style={{ fontWeight: 700 }}>{prevLabel}</b> ——▶ <b style={{ fontWeight: 700 }}>{currLabel}</b>
+                <span style={{ marginLeft: 8, fontSize: 10, color: '#9ca89c' }}>
                   (auto · {new Date(prevUpload.loaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })})
                 </span>
               </div>
@@ -666,47 +758,46 @@ export default function AckForecast() {
           }
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Labels editables (solo cuando hay comparación) */}
           {hasPrev && (
             <>
               <input className="fc" value={prevLabel} onChange={e => setPrevLabel(e.target.value)}
                 placeholder="Ej: W42" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
-              <span style={{ color: '#555', fontWeight: 900 }}>▶</span>
+              <span style={{ color: '#555', fontWeight: 700 }}>▶</span>
               <input className="fc" value={currLabel} onChange={e => setCurrLabel(e.target.value)}
                 placeholder="Ej: W44" style={{ width: 72, fontSize: 11, textAlign: 'center', fontWeight: 700 }} />
             </>
           )}
-          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 700 }}>
+          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600 }}>
             {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <button
-            onClick={() => window.print()}
-            style={{ padding: '9px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, background: '#1a3a5c', color: '#fff', letterSpacing: .8, display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={handleExcelExport}
+            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            🖨 Preparar Presentación
+            ⬇ Exportar Excel
           </button>
         </div>
       </div>
 
       {/* ── KPI resumen ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
-        {PROCESOS.map(p => {
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
+        {REPORT_PROCESOS.map(p => {
           const cfg  = PROC_CFG[p.key]
           const pend = sabana.filter(r => !isFinal(r[p.key])).length
           const tot  = sabana.length
           const pct  = tot ? Math.round(((tot - pend) / tot) * 100) : 0
           return (
-            <div key={p.key} className="stat" style={{ borderLeftColor: cfg.color, padding: '10px 14px' }}>
-              <div style={{ fontSize: 8, fontWeight: 800, color: cfg.color, letterSpacing: 1, marginBottom: 4 }}>{cfg.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif", color: pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444' }}>{pct}%</div>
+            <div key={p.key} className="stat" style={{ borderLeftColor: cfg.color, padding: '10px 14px', cursor: 'pointer' }} onClick={() => toggleExpanded(p.key)}>
+              <div style={{ fontSize: 8, fontWeight: 600, color: cfg.color, letterSpacing: .5, marginBottom: 4 }}>{cfg.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", color: pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444' }}>{pct}%</div>
               <div style={{ fontSize: 9, color: '#9ca89c' }}>{pend} pend. · {tot - pend} cerr.</div>
             </div>
           )
         })}
       </div>
 
-      {/* ── Secciones interactivas por proceso ── */}
-      {PROCESOS.map(p => (
+      {/* ── Secciones por proceso (en orden definido) ── */}
+      {REPORT_PROCESOS.map(p => (
         <ScreenProcess
           key={p.key}
           proceso={p}
@@ -717,13 +808,15 @@ export default function AckForecast() {
           forecasts={forecasts}
           filtro={filtro}
           empresaNombre={empresaNombre}
+          expanded={expanded.has(p.key)}
+          onToggle={() => toggleExpanded(p.key)}
         />
       ))}
 
       {/* ── Contenido de impresión vía portal (sibling de #root) ── */}
       {createPortal(
         <div id="nokia-print-root">
-          {PROCESOS.map(p => (
+          {REPORT_PROCESOS.map(p => (
             <PrintSlide
               key={p.key}
               proceso={p}
