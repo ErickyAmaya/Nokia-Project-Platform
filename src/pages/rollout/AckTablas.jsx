@@ -505,11 +505,13 @@ export default function AckTablas() {
   const [filtro, setFiltro] = useState('pendientes')
   const [vejez,  setVejez]  = useState('')
 
-  // Pre-filtrar si llegamos desde Reportes (?sitio=) o Dashboard (?vejez=)
+  // Pre-filtrar si llegamos desde Reportes (?sitio=), Dashboard (?vejez=) o Sitios (?tab=)
   useEffect(() => {
     const sitioParam  = searchParams.get('sitio')
     const vejezParam  = searchParams.get('vejez')
     const filtroParam = searchParams.get('filtro')
+    const tabParam    = searchParams.get('tab')
+    if (tabParam && PROC_CONFIG[tabParam]) setTab(tabParam)
     if (sitioParam) { setSitio(sitioParam); setFiltro('todos') }
     if (vejezParam)  setVejez(vejezParam)
     if (filtroParam && !sitioParam) setFiltro(filtroParam)

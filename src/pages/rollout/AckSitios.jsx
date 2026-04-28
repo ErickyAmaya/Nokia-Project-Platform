@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 
 // ── Dropdown de búsqueda personalizado ────────────────────────────
@@ -105,17 +106,23 @@ function isFinal(val) {
 }
 
 // Badge compacto de estado por proceso
-function ProcBadge({ val }) {
+function ProcBadge({ val, onClick }) {
   if (!val) return <span style={{ fontSize: 9, color: '#ddd' }}>—</span>
   const fin = isFinal(val)
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 20, height: 20, borderRadius: '50%',
-      background: fin ? '#dcfce7' : '#fee2e2',
-      color:      fin ? '#166534' : '#991b1b',
-      fontSize: 10, fontWeight: 800,
-    }} title={val}>
+    <span
+      onClick={!fin && onClick ? onClick : undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 20, height: 20, borderRadius: '50%',
+        background: fin ? '#dcfce7' : '#fee2e2',
+        color:      fin ? '#166534' : '#991b1b',
+        fontSize: 10, fontWeight: 800,
+        cursor: !fin ? 'pointer' : 'default',
+        transition: 'opacity .15s',
+      }}
+      title={fin ? val : `Ver pendiente en Tablas`}
+    >
       {fin ? '✓' : '●'}
     </span>
   )
@@ -136,8 +143,14 @@ function MiniBar({ pct }) {
 
 // Fila de un SMP hijo
 function SmpRow({ r }) {
+  const navigate = useNavigate()
   const todoFin = PROCESOS.every(p => isFinal(r[p.key]))
   const bg = todoFin ? '#f0fdf4' : '#fafafa'
+
+  function goToTabla(procesoKey) {
+    navigate(`/rollout/ack/tablas?tab=${procesoKey}&sitio=${encodeURIComponent(r.smp)}`)
+  }
+
   return (
     <tr style={{ background: bg, opacity: todoFin ? 0.75 : 1 }}>
       {/* toggle vacío */}
@@ -155,7 +168,7 @@ function SmpRow({ r }) {
       {/* 5 procesos */}
       {PROCESOS.map(p => (
         <td key={p.key} style={{ textAlign: 'center' }}>
-          <ProcBadge val={r[p.key]} />
+          <ProcBadge val={r[p.key]} onClick={() => goToTabla(p.key)} />
         </td>
       ))}
     </tr>
@@ -388,7 +401,7 @@ export default function AckSitios() {
       </div>
 
       <div style={{ marginTop: 8, fontSize: 9, color: '#9ca89c' }}>
-        💡 Haz clic en una fila para ver los SMPs del sitio con el estado de cada proceso.
+        💡 Haz clic en una fila para ver los SMPs del sitio. Haz clic en un círculo rojo <span style={{ color: '#991b1b', fontWeight: 700 }}>●</span> para ir directamente al proceso pendiente en Tablas.
       </div>
     </div>
   )
