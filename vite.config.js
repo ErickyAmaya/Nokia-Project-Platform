@@ -2,24 +2,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const base = process.env.VITE_BASE_PATH || '/'
+
 export default defineConfig({
-  // Base para GitHub Pages: https://erick-amaya.github.io/Nokia-Project-Platform/
-  // Si usas dominio propio (ej. app.ingetel.com) cambia esto a '/'
-  base: '/Nokia-Project-Platform/',
+  base,
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // Show update prompt automatically when new SW is ready
       injectRegister: 'auto',
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
-        // Pre-cache all assets from the build
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Don't let SW cache Supabase API calls — always go to network
-        navigateFallback: '/Nokia-Project-Platform/index.html',
-        navigateFallbackAllowlist: [/^\/Nokia-Project-Platform/],
+        navigateFallback: `${base}index.html`,
+        navigateFallbackAllowlist: [new RegExp(`^${base.replace(/\//g, '\\/')}`)],
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
@@ -41,8 +38,8 @@ export default defineConfig({
         background_color: '#f0f2f0',
         display: 'standalone',
         orientation: 'any',
-        start_url: '/Nokia-Project-Platform/',
-        scope: '/Nokia-Project-Platform/',
+        start_url: base,
+        scope: base,
         icons: [
           {
             src: 'icon-192x192.png',
@@ -57,9 +54,9 @@ export default defineConfig({
           },
         ],
         shortcuts: [
-          { name: 'Dashboard',  short_name: 'Dashboard',  url: '/Nokia-Project-Platform/dashboard', description: 'Ver resumen del proyecto' },
-          { name: 'Sitios TI',  short_name: 'TI',         url: '/Nokia-Project-Platform/ti',        description: 'Consolidado TI' },
-          { name: 'Analítica',  short_name: 'Analítica',  url: '/Nokia-Project-Platform/analitica', description: 'Gráficas del proyecto' },
+          { name: 'Dashboard',  short_name: 'Dashboard',  url: `${base}dashboard`, description: 'Ver resumen del proyecto' },
+          { name: 'Sitios TI',  short_name: 'TI',         url: `${base}ti`,        description: 'Consolidado TI' },
+          { name: 'Analítica',  short_name: 'Analítica',  url: `${base}analitica`, description: 'Gráficas del proyecto' },
         ],
         categories: ['business', 'productivity'],
       },

@@ -39,6 +39,7 @@ jobs:
 
       - name: Build
         env:
+          VITE_BASE_PATH: /Nokia-Project-Platform/
           # ── Ingetel ───────────────────────────────────────────────
           VITE_INGETEL_URL: ${{ secrets.VITE_INGETEL_URL }}
           VITE_INGETEL_KEY: ${{ secrets.VITE_INGETEL_KEY }}
