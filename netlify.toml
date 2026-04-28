@@ -6,3 +6,21 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Evita que la app se embeba en iframes (clickjacking)
+    X-Frame-Options = "DENY"
+
+    # Evita que el browser reinterprete tipos de archivo
+    X-Content-Type-Options = "nosniff"
+
+    # Fuerza HTTPS por 1 año (Netlify siempre sirve HTTPS)
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+    # Controla qué información se envía al navegar a otros sitios
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Desactiva APIs del browser que la app no utiliza
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
