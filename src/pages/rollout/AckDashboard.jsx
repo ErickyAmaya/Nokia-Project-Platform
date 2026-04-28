@@ -181,8 +181,23 @@ function VejezChart({ data, onBarClick }) {
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
           <Tooltip content={vejezTooltip} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
-          <Bar dataKey="smps" radius={[3, 3, 0, 0]} minPointSize={24} barSize={44} onClick={entry => onBarClick(entry.nombre)}>
-            {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} cursor="pointer" />)}
+          <Bar
+            dataKey="smps"
+            barSize={44}
+            shape={(props) => {
+              const { x, y, width, height, fill, index } = props
+              const MIN_CLICK = 40
+              const clickH = Math.max(height, MIN_CLICK)
+              const clickY = y + height - clickH
+              return (
+                <g style={{ cursor: 'pointer' }} onClick={() => onBarClick(bins[index].nombre)}>
+                  <rect x={x} y={clickY} width={width} height={clickH} fill="transparent" />
+                  <rect x={x} y={y} width={width} height={Math.max(height, 2)} fill={fill} rx={3} ry={3} />
+                </g>
+              )
+            }}
+          >
+            {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
