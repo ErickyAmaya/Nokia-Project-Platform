@@ -395,15 +395,15 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
         style={{ background: cfg.color, padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
       >
         <div>
-          <div style={{ fontSize: 7, color: 'rgba(255,255,255,.7)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 600 }}>{cfg.nokia}</div>
+          <div style={{ fontSize: 7, color: 'rgba(255,255,255,.92)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 600 }}>{cfg.nokia}</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>{cfg.label}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1 }}>{pct}%</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)' }}>{pend} pend · {total - pend} cerr</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,.95)' }}>{pend} pend · {total - pend} cerr</div>
           </div>
-          <div style={{ fontSize: 16, color: 'rgba(255,255,255,.85)', fontWeight: 400 }}>{expanded ? '▾' : '▸'}</div>
+          <div style={{ fontSize: 16, color: 'rgba(255,255,255,.95)', fontWeight: 400 }}>{expanded ? '▾' : '▸'}</div>
         </div>
       </div>
       <div style={{ height: 3, background: 'rgba(0,0,0,.12)' }}>
