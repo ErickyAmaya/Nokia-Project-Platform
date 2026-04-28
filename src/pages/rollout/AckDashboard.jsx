@@ -181,7 +181,7 @@ function VejezChart({ data, onBarClick }) {
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
           <Tooltip content={vejezTooltip} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
-          <Bar dataKey="smps" radius={[3, 3, 0, 0]} onClick={entry => onBarClick(entry.nombre)}>
+          <Bar dataKey="smps" radius={[3, 3, 0, 0]} minPointSize={24} barSize={44} onClick={entry => onBarClick(entry.nombre)}>
             {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} cursor="pointer" />)}
           </Bar>
         </BarChart>
