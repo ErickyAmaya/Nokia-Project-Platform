@@ -140,6 +140,19 @@ function ProcesoCard({ proceso, data, total }) {
 
 const COLORS_PIE = ['#22c55e', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
 
+const PROC_GAP_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner', 'gap_on_air']
+
+function vejezTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e0e4e0', borderRadius: 6, padding: '7px 11px', fontSize: 10, boxShadow: '0 2px 8px rgba(0,0,0,.1)' }}>
+      <div style={{ fontWeight: 700, marginBottom: 3 }}>{d.nombre}</div>
+      <div>{d.smps} SMPs ({d.actividades} actividades)</div>
+    </div>
+  )
+}
+
 function VejezChart({ data, onBarClick }) {
   const bins = useMemo(() => {
     const map = {}
@@ -147,10 +160,12 @@ function VejezChart({ data, onBarClick }) {
       const s = r.semanas_integracion
       if (!s) continue
       const bin = s <= 26 ? '≤26 sem' : s <= 52 ? '27-52 sem' : s <= 104 ? '1-2 años' : s <= 156 ? '2-3 años' : '>3 años'
-      map[bin] = (map[bin] || 0) + 1
+      if (!map[bin]) map[bin] = { smps: 0, actividades: 0 }
+      map[bin].smps++
+      map[bin].actividades += PROC_GAP_KEYS.filter(k => r[k] && !isFinal(k, r[k])).length
     }
     const order = ['≤26 sem', '27-52 sem', '1-2 años', '2-3 años', '>3 años']
-    return order.filter(k => map[k]).map(k => ({ nombre: k, smps: map[k] }))
+    return order.filter(k => map[k]).map(k => ({ nombre: k, ...map[k] }))
   }, [data])
 
   if (!bins.length) return null
@@ -165,7 +180,7 @@ function VejezChart({ data, onBarClick }) {
         <BarChart data={bins} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
-          <Tooltip formatter={v => [v, 'SMPs']} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
+          <Tooltip content={vejezTooltip} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
           <Bar dataKey="smps" radius={[3, 3, 0, 0]} onClick={entry => onBarClick(entry.nombre)}>
             {bins.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} cursor="pointer" />)}
           </Bar>
@@ -216,6 +231,67 @@ function RegionChart({ data }) {
   )
 }
 
+// ── Multi-select de proyectos ─────────────────────────────────────
+function MultiSelect({ options, value, onChange, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const label = value.length === 0
+    ? placeholder
+    : value.length === 1
+      ? value[0]
+      : `${value.length} proyectos`
+
+  function toggle(opt) {
+    onChange(value.includes(opt) ? value.filter(v => v !== opt) : [...value, opt])
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        className="fc btn-sm"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          minWidth: 160, justifyContent: 'space-between', background: value.length ? '#eff6ff' : undefined,
+          borderColor: value.length ? '#3b82f6' : undefined,
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        <span style={{ fontSize: 9, color: '#9ca89c', flexShrink: 0 }}>▾</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 3px)', left: 0, minWidth: 220, zIndex: 300,
+          background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8,
+          boxShadow: '0 6px 20px rgba(0,0,0,.13)', maxHeight: 280, overflowY: 'auto',
+        }}>
+          {value.length > 0 && (
+            <div
+              onMouseDown={() => onChange([])}
+              style={{ padding: '6px 12px', fontSize: 10, color: '#ef4444', cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontWeight: 700 }}
+            >
+              ✕ Limpiar selección
+            </div>
+          )}
+          {options.map(o => (
+            <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', fontSize: 11, cursor: 'pointer', borderBottom: '1px solid #f8f9f8' }}>
+              <input type="checkbox" checked={value.includes(o)} onChange={() => toggle(o)} style={{ margin: 0, accentColor: '#3b82f6' }} />
+              {o}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────
 export default function AckDashboard() {
   const navigate    = useNavigate()
@@ -224,10 +300,10 @@ export default function AckDashboard() {
   const uploading = useAckStore(s => s.uploading)
   const uploadExcel = useAckStore(s => s.uploadExcel)
 
-  const [region,   setRegion]   = useState('todos')
-  const [proyecto, setProyecto] = useState('todos')
-  const [relacion, setRelacion] = useState('todos')
-  const [soloPend, setSoloPend] = useState(false)
+  const [region,       setRegion]       = useState('todos')
+  const [proyectoSel,  setProyectoSel]  = useState([])
+  const [relacion,     setRelacion]     = useState('todos')
+  const [soloPend,     setSoloPend]     = useState(false)
 
   async function handleFile(file) {
     const res = await uploadExcel(file)
@@ -240,18 +316,18 @@ export default function AckDashboard() {
     navigate(`/rollout/ack/tablas?vejez=${slug}&filtro=todos`)
   }
 
-  const regiones  = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
-  const proyectos = useMemo(() => [...new Set(sabana.map(r => r.proyecto_alcance).filter(Boolean))].sort(), [sabana])
+  const regiones      = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
+  const proyectoOpts  = useMemo(() => [...new Set(sabana.map(r => r.proyecto_alcance).filter(Boolean))].sort(), [sabana])
 
   const filtered = useMemo(() => {
     return sabana.filter(r => {
-      if (region   !== 'todos' && r.region           !== region)   return false
-      if (proyecto !== 'todos' && r.proyecto_alcance  !== proyecto) return false
-      if (relacion !== 'todos' && r.relacion          !== relacion) return false
+      if (region !== 'todos' && r.region !== region) return false
+      if (proyectoSel.length > 0 && !proyectoSel.includes(r.proyecto_alcance)) return false
+      if (relacion !== 'todos' && r.relacion !== relacion) return false
       if (soloPend && !r.procesos_cierre_ph2) return false
       return true
     })
-  }, [sabana, region, proyecto, relacion, soloPend])
+  }, [sabana, region, proyectoSel, relacion, soloPend])
 
   const pendientes = useMemo(() => filtered.filter(r => r.procesos_cierre_ph2), [filtered])
 
@@ -301,10 +377,12 @@ export default function AckDashboard() {
           <option value="todos">Todas las Regiones</option>
           {regiones.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-        <select className="fc btn-sm" value={proyecto} onChange={e => setProyecto(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="todos">Todos los Proyectos</option>
-          {proyectos.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <MultiSelect
+          options={proyectoOpts}
+          value={proyectoSel}
+          onChange={setProyectoSel}
+          placeholder="Todos los Proyectos"
+        />
         <select className="fc btn-sm" value={relacion} onChange={e => setRelacion(e.target.value)} style={{ fontSize: 11 }}>
           <option value="todos">Todos (SITIOS)</option>
           <option value="P">main_smp</option>

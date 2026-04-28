@@ -50,7 +50,7 @@ function FcCell({ value, onSave, siteLabel }) {
         title="Clic para editar comentario"
         style={{
           fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 60, maxWidth: 140,
-          color: value ? '#1e40af' : '#d1d5db',
+          color: value ? '#1e40af' : '#6b7280',
           borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}
@@ -150,7 +150,7 @@ function FcDateCell({ value, onSave }) {
       title="Clic para editar fecha"
       style={{
         fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 55,
-        color: value ? '#1e40af' : '#d1d5db',
+        color: value ? '#1e40af' : '#6b7280',
         borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
       }}
     >
@@ -422,7 +422,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
 
   return (
     <div>
-      <div style={{ fontSize: 11, color: '#9ca89c', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, color: '#555f55', marginBottom: 8 }}>
         {statsLabel}
       </div>
       <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
@@ -525,7 +525,7 @@ export default function AckTablas() {
     letterSpacing: .4, textTransform: 'uppercase',
     background: tab === key ? '#fff' : 'transparent',
     borderBottom: tab === key ? `3px solid ${PROC_CONFIG[key].color}` : '3px solid transparent',
-    color: tab === key ? PROC_CONFIG[key].color : '#9ca89c',
+    color: tab === key ? PROC_CONFIG[key].color : '#4b5563',
     transition: 'all .15s',
   })
 
