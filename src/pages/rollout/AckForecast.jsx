@@ -137,7 +137,7 @@ function NokiaTable({ rows, procesoKey, label, color = '#7030A0', forPrint = fal
       </thead>
       <tbody>
         {gapEntries.length === 0
-          ? <tr><td colSpan={2} style={{ padding: 12, textAlign: 'center', color: '#9ca89c' }}>Sin datos</td></tr>
+          ? <tr><td colSpan={2} style={{ padding: 12, textAlign: 'center', color: '#4b5563' }}>Sin datos</td></tr>
           : gapEntries.map(([gap, sites]) => {
               const fin      = isFinal(gap)
               const gapTotal = [...sites.values()].reduce((s, v) => s + v, 0)
@@ -185,7 +185,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
   )
 
   if (!dates.length) return (
-    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#9ca89c', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#4b5563', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
       Sin fechas FC registradas.
     </div>
   )
@@ -278,7 +278,7 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
   const FS = forPrint ? 8 : 10
 
   if (!total) return (
-    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#9ca89c', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#4b5563', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
       Sin tickets registrados para este proceso.
     </div>
   )
@@ -422,13 +422,13 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
                   </div>
                   <NokiaTable rows={prev} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
                   </div>
                   <NokiaTable rows={curr} procesoKey={proceso.key} label={currGapLabel} color={cfg.color} />
                 </div>
@@ -444,13 +444,13 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
                   </div>
                   <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${prevLabel}`} color={cfg.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
                   </div>
                   <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel}`} color={cfg.color} />
                 </div>
@@ -466,13 +466,13 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#9ca89c' }}>({prevLabel})</span>
+                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
                   </div>
                   <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${prevLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#9ca89c' }}>({currLabel})</span>
+                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
                   </div>
                   <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
@@ -629,7 +629,7 @@ export default function AckForecast() {
   }
 
   if (!sabana.length) return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c' }}>
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4b5563' }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
       <div style={{ fontSize: 14 }}>Sin datos. Carga el reporte ACK desde el Dashboard.</div>
     </div>
@@ -654,12 +654,12 @@ export default function AckForecast() {
             ? (
               <div style={{ fontSize: 11, color: '#555', fontWeight: 500, marginTop: 4 }}>
                 Comparando: <b style={{ fontWeight: 700 }}>{prevLabel}</b> ——▶ <b style={{ fontWeight: 700 }}>{currLabel}</b>
-                <span style={{ marginLeft: 8, fontSize: 10, color: '#9ca89c' }}>
+                <span style={{ marginLeft: 8, fontSize: 10, color: '#4b5563' }}>
                   (auto · {new Date(prevUpload.loaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })})
                 </span>
               </div>
             ) : (
-              <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: '#4b5563', marginTop: 4 }}>
                 Sin periodo anterior. Carga un segundo reporte con ≥10 días de diferencia para activar la comparación.
               </div>
             )
@@ -672,7 +672,7 @@ export default function AckForecast() {
           <button
             onClick={handleExcelExport}
             disabled={exporting}
-            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#9ca89c' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {exporting ? '⏳ Generando…' : '⬇ Exportar Excel'}
           </button>
@@ -690,7 +690,7 @@ export default function AckForecast() {
             <div key={p.key} className="stat" style={{ borderLeftColor: cfg.color, padding: '10px 14px', cursor: 'pointer' }} onClick={() => toggleExpanded(p.key)}>
               <div style={{ fontSize: 8, fontWeight: 600, color: cfg.color, letterSpacing: .5, marginBottom: 4 }}>{cfg.label}</div>
               <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", color: pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444' }}>{pct}%</div>
-              <div style={{ fontSize: 9, color: '#9ca89c' }}>{pend} pend. · {tot - pend} cerr.</div>
+              <div style={{ fontSize: 9, color: '#4b5563' }}>{pend} pend. · {tot - pend} cerr.</div>
             </div>
           )
         })}

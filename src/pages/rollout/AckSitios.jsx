@@ -51,7 +51,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
             onMouseDown={e => { e.preventDefault(); clear() }}
             style={{
               position: 'absolute', right: 7, cursor: 'pointer',
-              color: '#9ca89c', fontSize: 14, lineHeight: 1, userSelect: 'none',
+              color: '#4b5563', fontSize: 14, lineHeight: 1, userSelect: 'none',
             }}
           >
             ×
@@ -69,14 +69,14 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
               onMouseDown={() => select('')}
               style={{
                 padding: '7px 14px', fontSize: 11, cursor: 'pointer',
-                color: '#9ca89c', borderBottom: '1px solid #f0f0f0',
+                color: '#4b5563', borderBottom: '1px solid #f0f0f0',
               }}
             >
               — Todos los sitios
             </div>
           )}
           {filtered.length === 0 ? (
-            <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+            <div style={{ padding: '10px 14px', fontSize: 11, color: '#4b5563' }}>Sin resultados</div>
           ) : filtered.map(o => (
             <div
               key={o}
@@ -160,7 +160,7 @@ function SmpRow({ r }) {
       {/* sub_proyecto → columna Main SMP */}
       <td style={{ fontSize: 9, color: '#888' }}>{r.sub_proyecto || '—'}</td>
       {/* semanas → columna Región */}
-      <td style={{ fontSize: 9, color: todoFin ? '#9ca89c' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>
+      <td style={{ fontSize: 9, color: todoFin ? '#4b5563' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>
         {r.semanas_integracion || '—'} sem
       </td>
       {/* SMPs y %Global vacíos */}
@@ -205,7 +205,7 @@ function SitioRow({ mainSmp, smps }) {
           transition: 'background .15s',
         }}
       >
-        <td style={{ width: 28, textAlign: 'center', fontSize: 10, color: '#9ca89c', userSelect: 'none' }}>
+        <td style={{ width: 28, textAlign: 'center', fontSize: 10, color: '#4b5563', userSelect: 'none' }}>
           {open ? '▼' : '▶'}
         </td>
         <td style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -221,7 +221,7 @@ function SitioRow({ mainSmp, smps }) {
         </td>
         <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#888', whiteSpace: 'nowrap' }}>{mainSmp}</td>
         <td style={{ fontSize: 9, color: '#666' }}>{region}</td>
-        <td style={{ fontSize: 9, textAlign: 'center', color: '#9ca89c' }}>{smps.length}</td>
+        <td style={{ fontSize: 9, textAlign: 'center', color: '#4b5563' }}>{smps.length}</td>
         <td style={{ minWidth: 110 }}>
           <MiniBar pct={stats.pct} />
         </td>
@@ -328,7 +328,7 @@ export default function AckSitios() {
               </span>
             )}
           </div>
-          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: '#374151', marginTop: 4 }}>
             <span style={{ color: '#ef4444', fontWeight: 700 }}>{totalPend} pendientes</span>
             {' · '}
             <span style={{ color: '#22c55e', fontWeight: 700 }}>{totalCerrados} cerrados</span>
@@ -388,7 +388,7 @@ export default function AckSitios() {
             <tbody>
               {sitios.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + PROCESOS.length} style={{ textAlign: 'center', padding: 40, color: '#9ca89c' }}>
+                  <td colSpan={6 + PROCESOS.length} style={{ textAlign: 'center', padding: 40, color: '#4b5563' }}>
                     Sin resultados
                   </td>
                 </tr>
@@ -400,7 +400,7 @@ export default function AckSitios() {
         </div>
       </div>
 
-      <div style={{ marginTop: 8, fontSize: 9, color: '#9ca89c' }}>
+      <div style={{ marginTop: 8, fontSize: 9, color: '#4b5563' }}>
         💡 Haz clic en una fila para ver los SMPs del sitio. Haz clic en un círculo rojo <span style={{ color: '#991b1b', fontWeight: 700 }}>●</span> para ir directamente al proceso pendiente en Tablas.
       </div>
     </div>

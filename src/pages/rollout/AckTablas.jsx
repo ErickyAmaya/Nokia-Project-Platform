@@ -50,7 +50,7 @@ function FcCell({ value, onSave, siteLabel }) {
         title="Clic para editar comentario"
         style={{
           fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 60, maxWidth: 140,
-          color: value ? '#1e40af' : '#6b7280',
+          color: value ? '#1e40af' : '#374151',
           borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}
@@ -150,7 +150,7 @@ function FcDateCell({ value, onSave }) {
       title="Clic para editar fecha"
       style={{
         fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 55,
-        color: value ? '#1e40af' : '#6b7280',
+        color: value ? '#1e40af' : '#374151',
         borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
       }}
     >
@@ -210,7 +210,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
             onMouseDown={e => { e.preventDefault(); clear() }}
             style={{
               position: 'absolute', right: 7, cursor: 'pointer',
-              color: '#9ca89c', fontSize: 14, lineHeight: 1, userSelect: 'none',
+              color: '#4b5563', fontSize: 14, lineHeight: 1, userSelect: 'none',
             }}
           >
             ×
@@ -228,14 +228,14 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
               onMouseDown={() => select('')}
               style={{
                 padding: '7px 14px', fontSize: 11, cursor: 'pointer',
-                color: '#9ca89c', borderBottom: '1px solid #f0f0f0',
+                color: '#4b5563', borderBottom: '1px solid #f0f0f0',
               }}
             >
               — Todos los sitios
             </div>
           )}
           {filtered.length === 0 ? (
-            <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+            <div style={{ padding: '10px 14px', fontSize: 11, color: '#4b5563' }}>Sin resultados</div>
           ) : filtered.map(o => (
             <div
               key={o}
@@ -399,7 +399,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         ? `✓ Sin pendientes en ${cfg.label}`
         : `Sin resultados en ${cfg.label}`
     return (
-      <div style={{ textAlign: 'center', padding: 40, color: '#9ca89c', fontSize: 13 }}>
+      <div style={{ textAlign: 'center', padding: 40, color: '#4b5563', fontSize: 13 }}>
         {emptyMsg}
       </div>
     )
@@ -482,7 +482,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         <div ref={sentinelRef} style={{ height: 1 }} />
 
         {/* Footer de paginación */}
-        <div style={{ textAlign: 'center', padding: '10px 0 4px', fontSize: 10, color: '#9ca89c' }}>
+        <div style={{ textAlign: 'center', padding: '10px 0 4px', fontSize: 10, color: '#4b5563' }}>
           {allLoaded
             ? `✓ Todos los registros cargados (${rows.length})`
             : `Mostrando ${visibleCount} de ${rows.length} — desplázate para cargar más`
@@ -622,7 +622,7 @@ export default function AckTablas() {
         />
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 9, color: '#9ca89c' }}>
+      <div style={{ marginTop: 10, fontSize: 9, color: '#4b5563' }}>
         💡 Haz clic en <b>FC Avance</b> o <b>FC Comentario</b> para editar. Los cambios se guardan automáticamente en Supabase.
       </div>
     </div>

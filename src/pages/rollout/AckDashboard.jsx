@@ -88,13 +88,13 @@ function ProcesoCard({ proceso, data, total }) {
         <span style={{ fontSize: 28, fontWeight: 700, color, fontFamily: "'Barlow Condensed', sans-serif" }}>
           {porcentaje}%
         </span>
-        <span style={{ fontSize: 10, color: '#9ca89c' }}>completado</span>
+        <span style={{ fontSize: 10, color: '#4b5563' }}>completado</span>
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
-        <span style={{ fontSize: 10, color: '#9ca89c' }}>
+        <span style={{ fontSize: 10, color: '#4b5563' }}>
           ✓ {fmt(finalizados)}
         </span>
-        <span style={{ fontSize: 10, color: pendientes > 0 ? '#ef4444' : '#9ca89c', fontWeight: 700 }}>
+        <span style={{ fontSize: 10, color: pendientes > 0 ? '#ef4444' : '#4b5563', fontWeight: 700 }}>
           ● {fmt(pendientes)} pend.
         </span>
       </div>
@@ -103,7 +103,7 @@ function ProcesoCard({ proceso, data, total }) {
       </div>
       {top3.length > 0 && (
         <div style={{ marginTop: 10, borderTop: '1px solid #f0f2f0', paddingTop: 8 }}>
-          <div style={{ fontSize: 8, fontWeight: 700, color: '#9ca89c', letterSpacing: .5, marginBottom: 7, textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 8, fontWeight: 700, color: '#4b5563', letterSpacing: .5, marginBottom: 7, textTransform: 'uppercase' }}>
             Top estados pendientes
           </div>
           {top3.map((t, i) => {
@@ -174,7 +174,7 @@ function VejezChart({ data, onBarClick }) {
     <div className="card-b" style={{ padding: 16 }}>
       <div className="card-h" style={{ padding: '0 0 10px', borderBottom: '1px solid #f0f2f0', marginBottom: 12 }}>
         <h2 style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>⏱ Vejez — Antigüedad de pendientes</h2>
-        <span style={{ fontSize: 9, color: '#9ca89c' }}>Clic en barra para ver SMPs en Tablas</span>
+        <span style={{ fontSize: 9, color: '#4b5563' }}>Clic en barra para ver SMPs en Tablas</span>
       </div>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={bins} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
@@ -264,7 +264,7 @@ function MultiSelect({ options, value, onChange, placeholder }) {
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        <span style={{ fontSize: 9, color: '#9ca89c', flexShrink: 0 }}>▾</span>
+        <span style={{ fontSize: 9, color: '#4b5563', flexShrink: 0 }}>▾</span>
       </button>
       {open && (
         <div style={{
@@ -343,7 +343,7 @@ export default function AckDashboard() {
         <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, color: '#555f55', marginBottom: 8 }}>
           Módulo ACK
         </h2>
-        <p style={{ fontSize: 13, color: '#9ca89c', marginBottom: 24 }}>
+        <p style={{ fontSize: 13, color: '#4b5563', marginBottom: 24 }}>
           No hay datos cargados. Sube el reporte Nokia para comenzar.
         </p>
         <UploadZone onFile={handleFile} uploading={uploading} />
@@ -360,7 +360,7 @@ export default function AckDashboard() {
             ACK — Seguimiento de Procesos
           </h1>
           {lastUpload && (
-            <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 2 }}>
+            <div style={{ fontSize: 10, color: '#4b5563', marginTop: 2 }}>
               Último reporte: <b>{lastUpload.file_name}</b> ·{' '}
               {new Date(lastUpload.loaded_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
             </div>
