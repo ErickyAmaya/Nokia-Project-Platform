@@ -81,7 +81,7 @@ INSERT INTO user_roles (user_id, role, nombre) VALUES
   ('uuid-usuario-3', 'TI',          'Nombre Técnico TI'),
   ('uuid-usuario-4', 'TSS',         'Nombre Técnico TSS'),
   ('uuid-usuario-5', 'CW',          'Nombre Técnico CW'),
-  ('uuid-usuario-5', 'viewer',      'Nombre Técnico Viewer');
+  ('uuid-usuario-6', 'viewer',      'Nombre Viewer');
 ```
 
 ### Permisos por rol
@@ -120,36 +120,45 @@ Abrir `src/config/empresas.js` y agregar una nueva entrada:
 
 ---
 
-## Paso 6 — Agregar las credenciales al `.env`
+## Paso 6 — Agregar las credenciales al hosting
 
-Abrir el archivo `.env` en la raíz del proyecto y agregar:
-
-```bash
-VITE_NUEVAEMPRESA_URL=https://xxxxxxxxxxxx.supabase.co
-VITE_NUEVAEMPRESA_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-> El prefijo `VITE_` es obligatorio para que Vite exponga la variable
-> al bundle del frontend.
+Las credenciales **nunca se suben a Git**. Se configuran directamente en el
+panel del hosting. El método varía según la plataforma:
 
 ---
 
-## Paso 7 — Agregar los secrets en el hosting
+### Netlify ⭐ (recomendado — más simple)
 
-Las variables del `.env` **no se suben a Git** (está en `.gitignore`).
-Deben configurarse en el entorno de deploy:
+1. Ir al proyecto en [app.netlify.com](https://app.netlify.com)
+2. **Site settings → Environment variables → Add a variable**
+3. Agregar las dos variables:
+
+| Key                       | Value                               |
+|---------------------------|-------------------------------------|
+| `VITE_NUEVAEMPRESA_URL`   | `https://xxxxxxxxxxxx.supabase.co`  |
+| `VITE_NUEVAEMPRESA_KEY`   | `eyJ...`                            |
+
+4. Ir a **Deploys → Trigger deploy → Deploy site**
+
+**No se requiere ningún otro cambio** — Netlify inyecta las variables
+automáticamente en cada build.
+
+---
 
 ### GitHub Pages (GitHub Actions)
 
+Requiere dos pasos adicionales:
+
+**a) Agregar los secrets en el repositorio:**
+
 Repositorio → **Settings → Secrets and variables → Actions → New secret**:
 
-| Name                      | Value                          |
-|---------------------------|-------------------------------|
-| `VITE_NUEVAEMPRESA_URL`   | `https://xxxxxxxxxxxx.supabase.co` |
-| `VITE_NUEVAEMPRESA_KEY`   | `eyJ...`                      |
+| Name                      | Value                               |
+|---------------------------|-------------------------------------|
+| `VITE_NUEVAEMPRESA_URL`   | `https://xxxxxxxxxxxx.supabase.co`  |
+| `VITE_NUEVAEMPRESA_KEY`   | `eyJ...`                            |
 
-Verificar que el archivo `.github/workflows/deploy.yml` incluye las nuevas
-variables en el paso de build:
+**b) Exponer los secrets en `.github/workflows/deploy.yml`:**
 
 ```yaml
 - name: Build
@@ -161,13 +170,9 @@ variables en el paso de build:
   run: npm run build
 ```
 
-### Vercel
-
-Proyecto → **Settings → Environment Variables** → agregar las dos variables.
-
 ---
 
-## Paso 8 — Deploy
+## Paso 7 — Deploy
 
 ```bash
 git add src/config/empresas.js
@@ -180,7 +185,7 @@ usuario con `@nuevaempresa.com` es dirigido automáticamente a su Supabase.
 
 ---
 
-## Paso 9 — Configuración inicial desde la app (opcional)
+## Paso 8 — Configuración inicial desde la app (opcional)
 
 1. Ingresar con el usuario `admin@nuevaempresa.com`
 2. Ir a **Config**
@@ -192,7 +197,7 @@ y tienen prioridad sobre los valores estáticos de `empresas.js`.
 
 ---
 
-## Paso 10 — Cargar catálogo (opcional)
+## Paso 9 — Cargar catálogo (opcional)
 
 Si la nueva empresa usa el mismo catálogo de precios TI/CW que Ingetel:
 
@@ -214,11 +219,10 @@ Si la nueva empresa usa el mismo catálogo de precios TI/CW que Ingetel:
 3. Crear usuarios en Authentication
 4. Asignar roles en user_roles
 5. Agregar entrada en src/config/empresas.js
-6. Agregar credenciales en .env
-7. Agregar secrets en GitHub / Vercel
-8. git push → deploy automático
-9. Entrar a Config y personalizar branding
-10. Cargar catálogo si aplica
+6. Agregar variables en Netlify (o secrets en GitHub Actions)
+7. git push → deploy automático
+8. Entrar a Config y personalizar branding
+9. Cargar catálogo si aplica
 ```
 
 ---
