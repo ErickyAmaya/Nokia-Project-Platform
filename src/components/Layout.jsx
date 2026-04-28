@@ -139,8 +139,8 @@ export default function Layout({ children }) {
       <header style={{
         background: '#fff', display: 'flex', alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 'calc(env(safe-area-inset-top) + 12px) 18px 8px',
-        minHeight: 'calc(50px + env(safe-area-inset-top))',
+        padding: 'calc(env(safe-area-inset-top) + 20px) 18px 8px',
+        minHeight: 'calc(58px + env(safe-area-inset-top))',
         position: 'sticky', top: 0, zIndex: 200,
         borderBottom: `3px solid ${empresa?.color || '#1a9c1a'}`,
         boxShadow: '0 1px 4px rgba(0,0,0,.08)',
@@ -220,7 +220,7 @@ export default function Layout({ children }) {
         background: '#fff', display: 'flex', gap: 1, padding: '0 18px',
         borderBottom: '1.5px solid #e0e4e0',
         overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-        position: 'sticky', top: 'calc(50px + env(safe-area-inset-top))', zIndex: 199,
+        position: 'sticky', top: 'calc(58px + env(safe-area-inset-top))', zIndex: 199,
         boxShadow: '0 1px 3px rgba(0,0,0,.06)',
       }}>
         {allVisible.map((item, idx) => {
