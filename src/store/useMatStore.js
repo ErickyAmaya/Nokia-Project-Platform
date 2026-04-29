@@ -22,10 +22,13 @@ export const useMatStore = create((set, get) => ({
   despachos:    [],
   loading:      false,
   error:        null,
+  _syncChannel: null,
 
   // ── Carga inicial ────────────────────────────────────────────────
   loadAll: async () => {
-    set({ loading: true, error: null })
+    // Spinner solo en carga inicial — recargas de fondo son silenciosas
+    const firstLoad = get().catalogo.length === 0
+    if (firstLoad) set({ loading: true, error: null })
     try {
       const [cat, stk, bod, sit, mov, dep] = await Promise.all([
         db().from('mat_catalogo').select('*').order('categoria').order('nombre'),
@@ -53,7 +56,7 @@ export const useMatStore = create((set, get) => ({
         loading: false,
       })
     } catch (e) {
-      set({ loading: false, error: e.message })
+      if (firstLoad) set({ loading: false, error: e.message })
     }
   },
 
@@ -239,16 +242,17 @@ export const useMatStore = create((set, get) => ({
     const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     set(s => ({ movimientos: [data, ...s.movimientos] }))
+    get()._broadcastChange()
     return data
   },
 
   deleteMovimiento: async (id) => {
     const { error } = await db().from('mat_movimientos').delete().eq('id', id)
     if (error) throw error
-    // Recargar stock
     const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     set(s => ({ movimientos: s.movimientos.filter(m => m.id !== id) }))
+    get()._broadcastChange()
   },
 
   // ── DESPACHOS ────────────────────────────────────────────────────
@@ -271,6 +275,7 @@ export const useMatStore = create((set, get) => ({
     set(s => ({
       despachos: isNew ? [data, ...s.despachos] : s.despachos.map(d => d.id === data.id ? data : d),
     }))
+    get()._broadcastChange()
     return data
   },
 
@@ -280,10 +285,10 @@ export const useMatStore = create((set, get) => ({
       .eq('id', id).select().single()
     if (error) throw error
     set(s => ({ despachos: s.despachos.map(d => d.id === id ? data : d) }))
+    get()._broadcastChange()
   },
 
   deleteDespacho: async (id) => {
-    // Eliminar movimientos asociados y recargar stock
     const movs = get().movimientos.filter(m => m.numero_doc === get().despachos.find(d => d.id === id)?.numero_doc)
     for (const m of movs) {
       await db().from('mat_movimientos').delete().eq('id', m.id)
@@ -296,6 +301,7 @@ export const useMatStore = create((set, get) => ({
       movimientos: movData || [],
       stock: stk || [],
     }))
+    get()._broadcastChange()
   },
 
   // ── Realtime sync — lo llama MatWrapper al montar ────────────────
@@ -303,15 +309,26 @@ export const useMatStore = create((set, get) => ({
     const reload = () => get().loadAll()
 
     const channel = db()
-      .channel('mat-realtime-sync')
+      .channel('mat-sync')
+      // Broadcast: cualquier dispositivo que guarda avisa a todos los demás
+      .on('broadcast', { event: 'changed' }, reload)
+      // postgres_changes como respaldo
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mat_movimientos' }, reload)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mat_movimientos' }, reload)
-      .on('postgres_changes', { event: '*',      schema: 'public', table: 'mat_stock'       }, reload)
-      .on('postgres_changes', { event: '*',      schema: 'public', table: 'despachos'        }, reload)
-      .on('postgres_changes', { event: '*',      schema: 'public', table: 'mat_catalogo'     }, reload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'despachos'       }, reload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'despachos'       }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'despachos'       }, reload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mat_stock'       }, reload)
       .subscribe()
 
-    return () => { db().removeChannel(channel) }
+    set({ _syncChannel: channel })
+    return () => { db().removeChannel(channel); set({ _syncChannel: null }) }
+  },
+
+  // Notifica a otros dispositivos que hubo un cambio
+  _broadcastChange: () => {
+    const ch = get()._syncChannel
+    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
   },
 
   // ── Corrección directa de stock (sin movimiento) ─────────────────
@@ -323,6 +340,7 @@ export const useMatStore = create((set, get) => ({
     if (error) throw error
     const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
+    get()._broadcastChange()
   },
 
   // ── Ajuste manual de stock (RPC) ─────────────────────────────────
@@ -331,5 +349,6 @@ export const useMatStore = create((set, get) => ({
     if (error) throw error
     const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
+    get()._broadcastChange()
   },
 }))
