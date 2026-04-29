@@ -289,17 +289,14 @@ export const useAckStore = create((set, get) => ({
   },
 
   // Recarga solo los forecasts — liviano, usado en polling
-  forecastsLastSync: null,
   loadForecasts: async () => {
-    const ts = new Date().toISOString()
     try {
-      const { data, error } = await db().from('ack_forecast').select('*')
-      if (error) { set({ forecastsLastSync: `ERROR ${ts.slice(11,19)}` }); return }
-      if (!data)  { set({ forecastsLastSync: `NULL ${ts.slice(11,19)}` });  return }
+      const { data } = await db().from('ack_forecast').select('*')
+      if (!data) return
       const fcMap = {}
       for (const f of data) fcMap[f.smp] = f
-      set({ forecasts: fcMap, forecastsLastSync: ts.slice(11,19) })
-    } catch (e) { set({ forecastsLastSync: `CATCH ${ts.slice(11,19)}` }) }
+      set({ forecasts: fcMap })
+    } catch {}
   },
 
   // Crea el canal Broadcast por usuario — lo llama AckWrapper al montar

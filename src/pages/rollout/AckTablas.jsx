@@ -495,11 +495,10 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckTablas() {
-  const sabanaRaw        = useAckStore(s => s.sabana)
-  const saveForecast     = useAckStore(s => s.saveForecast)
-  const proyectoSel      = useAckStore(s => s.proyectoSel)
-  const forecasts        = useAckStore(s => s.forecasts)
-  const forecastsLastSync = useAckStore(s => s.forecastsLastSync)
+  const sabanaRaw    = useAckStore(s => s.sabana)
+  const saveForecast = useAckStore(s => s.saveForecast)
+  const proyectoSel  = useAckStore(s => s.proyectoSel)
+  const forecasts    = useAckStore(s => s.forecasts)
 
   const sabana = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
@@ -633,11 +632,8 @@ export default function AckTablas() {
         />
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 9, color: '#4b5563', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-        <span>💡 Haz clic en <b>FC Avance</b> o <b>FC Comentario</b> para editar. Los cambios se guardan automáticamente en Supabase.</span>
-        <span style={{ fontFamily: 'monospace', opacity: .6 }}>
-          sync: {forecastsLastSync ?? '—'}
-        </span>
+      <div style={{ marginTop: 10, fontSize: 9, color: '#4b5563' }}>
+        💡 Haz clic en <b>FC Avance</b> o <b>FC Comentario</b> para editar. Los cambios se guardan automáticamente en Supabase.
       </div>
     </div>
   )
