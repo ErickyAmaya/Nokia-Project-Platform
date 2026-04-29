@@ -500,6 +500,10 @@ export default function AckTablas() {
   const proyectoSel  = useAckStore(s => s.proyectoSel)
   const forecasts    = useAckStore(s => s.forecasts)
 
+  useEffect(() => {
+    console.log('[AckTablas] forecasts changed, keys:', Object.keys(forecasts).length)
+  }, [forecasts])
+
   const sabana = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
   , [sabanaRaw, proyectoSel])
