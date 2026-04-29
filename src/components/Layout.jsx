@@ -77,10 +77,12 @@ export default function Layout({ children }) {
   // Fusión: los valores dinámicos (ConfigPage) tienen prioridad sobre los estáticos
   const empresa = {
     ...empresaBase,
-    nombre:       empresaConfig?.nombre       || empresaBase?.nombre,
-    nombre_corto: empresaConfig?.nombre_corto || empresaBase?.nombre_corto,
-    logoUrl:      empresaConfig?.logo_url     || empresaBase?.logoUrl,
-    color:        empresaConfig?.color_primario || empresaBase?.color,
+    nombre:          empresaConfig?.nombre          || empresaBase?.nombre,
+    nombre_corto:    empresaConfig?.nombre_corto    || empresaBase?.nombre_corto,
+    logoUrl:         empresaConfig?.logo_url        || empresaBase?.logoUrl,
+    color:           empresaConfig?.color_primario  || empresaBase?.color,
+    clienteNombre:   empresaConfig?.cliente_nombre   || '',
+    clienteLogoUrl:  empresaConfig?.cliente_logo_url || '',
   }
 
   useEffect(() => {
@@ -199,6 +201,33 @@ export default function Layout({ children }) {
               ⊞ Módulos
             </button>
           )}
+
+          {/* Chip cliente (Nokia, Ericsson, etc.) */}
+          {(empresa.clienteLogoUrl || empresa.clienteNombre) && (
+            <div
+              className="desk-only"
+              title={`Cliente: ${empresa.clienteNombre}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '3px 9px', borderRadius: 6,
+                border: '1px solid #e0e4e0', background: '#fafafa',
+                fontSize: 9, fontWeight: 700, letterSpacing: .8,
+                textTransform: 'uppercase', color: '#9ca89c',
+                userSelect: 'none',
+              }}
+            >
+              para
+              {empresa.clienteLogoUrl
+                ? <img
+                    src={empresa.clienteLogoUrl}
+                    alt={empresa.clienteNombre || 'cliente'}
+                    style={{ height: 16, maxWidth: 60, objectFit: 'contain' }}
+                  />
+                : <span style={{ color: '#3f3f46', fontWeight: 800 }}>{empresa.clienteNombre}</span>
+              }
+            </div>
+          )}
+
           <span
             title={rtStatus === 'connected' ? 'Tiempo real: conectado' : rtStatus === 'error' ? 'Error de conexión' : 'Conectando…'}
             style={{

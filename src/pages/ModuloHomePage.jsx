@@ -97,7 +97,9 @@ export default function ModuloHomePage() {
     return []
   }
 
-  const primerNombre = user?.nombre?.split(' ')[0] || 'Usuario'
+  const empresaConfig  = useAppStore(s => s.empresaConfig)
+  const clienteNombre  = empresaConfig?.cliente_nombre || ''
+  const primerNombre   = user?.nombre?.split(' ')[0] || 'Usuario'
 
   return (
     <div style={{
@@ -130,7 +132,7 @@ export default function ModuloHomePage() {
             background: '#22c55e', display: 'inline-block',
             animation: 'mod-pulse 2s infinite',
           }} />
-          Nokia · Ingetel 2026
+          {clienteNombre ? `${clienteNombre} · Ingetel 2026` : 'Ingetel 2026'}
         </div>
 
         <h1 style={{
