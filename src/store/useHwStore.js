@@ -17,11 +17,13 @@ export const useHwStore = create((set, get) => ({
   hwServiceSuppliers:[],
   hwTipoUnidades:    [],
   loading:           false,
+  _syncChannel:      null,
 
   // ── Carga inicial ────────────────────────────────────────────────
   loadAll: async () => {
     if (get().loading) return
-    set({ loading: true })
+    const firstLoad = get().hwCatalogo.length === 0
+    if (firstLoad) set({ loading: true })
     try {
       const [cat, equ, mov, bod, ss, tu] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
@@ -40,8 +42,38 @@ export const useHwStore = create((set, get) => ({
         hwTipoUnidades:     tu.data   || [],
       })
     } finally {
-      set({ loading: false })
+      if (firstLoad) set({ loading: false })
+      else set({ loading: false })
     }
+  },
+
+  // ── Realtime sync ────────────────────────────────────────────────
+  initRealtimeSync: () => {
+    const reload = () => get().loadAll()
+
+    const syncChannel = db()
+      .channel('hw-sync')
+      .on('broadcast', { event: 'changed' }, reload)
+      .subscribe()
+
+    const pgChannel = db()
+      .channel('hw-pg-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hw_movimientos' }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'hw_movimientos' }, reload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hw_equipos'     }, reload)
+      .subscribe()
+
+    set({ _syncChannel: syncChannel })
+    return () => {
+      db().removeChannel(syncChannel)
+      db().removeChannel(pgChannel)
+      set({ _syncChannel: null })
+    }
+  },
+
+  _broadcastChange: () => {
+    const ch = get()._syncChannel
+    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
   },
 
   // ── Catálogo HW ─────────────────────────────────────────────────
@@ -88,6 +120,7 @@ export const useHwStore = create((set, get) => ({
     const { data, error } = await db().from('hw_equipos').insert(payload).select().single()
     if (error) throw error
     set(s => ({ hwEquipos: [data, ...s.hwEquipos] }))
+    get()._broadcastChange()
     return data
   },
 
@@ -97,6 +130,7 @@ export const useHwStore = create((set, get) => ({
       .eq('id', id).select().single()
     if (error) throw error
     set(s => ({ hwEquipos: s.hwEquipos.map(e => e.id === id ? data : e) }))
+    get()._broadcastChange()
     return data
   },
 
@@ -104,6 +138,7 @@ export const useHwStore = create((set, get) => ({
     const { error } = await db().from('hw_equipos').delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwEquipos: s.hwEquipos.filter(e => e.id !== id) }))
+    get()._broadcastChange()
   },
 
   // ── Movimientos HW ───────────────────────────────────────────────
@@ -111,6 +146,7 @@ export const useHwStore = create((set, get) => ({
     const { data, error } = await db().from('hw_movimientos').insert(mov).select().single()
     if (error) throw error
     set(s => ({ hwMovimientos: [data, ...s.hwMovimientos] }))
+    get()._broadcastChange()
     return data
   },
 
@@ -118,6 +154,7 @@ export const useHwStore = create((set, get) => ({
     const { error } = await db().from('hw_movimientos').delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwMovimientos: s.hwMovimientos.filter(m => m.id !== id) }))
+    get()._broadcastChange()
   },
 
   // ── Bodegas Nokia ────────────────────────────────────────────────

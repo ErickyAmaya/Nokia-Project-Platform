@@ -236,7 +236,6 @@ export const useMatStore = create((set, get) => ({
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
   addMovimiento: async (mov) => {
-    console.error('[MAT-DEBUG] addMovimiento CALLED — build 8923')
     const { data, error } = await db().from('mat_movimientos').insert(mov).select().single()
     if (error) throw error
     // Recargar stock desde DB (trigger lo actualizó)
@@ -305,20 +304,14 @@ export const useMatStore = create((set, get) => ({
     get()._broadcastChange()
   },
 
-  _lastSyncAt: null,
-
   // ── Realtime sync — lo llama MatWrapper al montar ────────────────
   initRealtimeSync: () => {
-    const reload = () => {
-      set({ _lastSyncAt: new Date().toISOString().slice(11, 19) })
-      get().loadAll()
-    }
+    const reload = () => get().loadAll()
 
-    // Canal puro de Broadcast — mismo patrón que ack-prefs que funciona
     const syncChannel = db()
       .channel('mat-sync')
       .on('broadcast', { event: 'changed' }, reload)
-      .subscribe(status => console.log('[mat-sync] status:', status))
+      .subscribe()
 
     // Canal separado para postgres_changes (respaldo)
     const pgChannel = db()
@@ -341,10 +334,7 @@ export const useMatStore = create((set, get) => ({
   // Notifica a otros dispositivos que hubo un cambio
   _broadcastChange: () => {
     const ch = get()._syncChannel
-    console.error('[MAT-DEBUG] _broadcastChange channel:', ch ? 'ok' : 'NULL')
-    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} })
-      .then(r => console.error('[MAT-DEBUG] broadcast sent:', JSON.stringify(r)))
-      .catch(e => console.error('[MAT-DEBUG] broadcast error:', e))
+    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
   },
 
   // ── Corrección directa de stock (sin movimiento) ─────────────────

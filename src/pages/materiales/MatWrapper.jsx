@@ -1,31 +1,39 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useMatStore } from '../../store/useMatStore'
+import { useHwStore }  from '../../store/useHwStore'
 import StockAlerts from '../../components/materiales/StockAlerts'
 
 export default function MatWrapper() {
-  const loadAll          = useMatStore(s => s.loadAll)
-  const initRealtimeSync = useMatStore(s => s.initRealtimeSync)
-  const loading          = useMatStore(s => s.loading)
-  const catalogo         = useMatStore(s => s.catalogo)
-  const lastSyncAt       = useMatStore(s => s._lastSyncAt)
+  const loadAll            = useMatStore(s => s.loadAll)
+  const initMatSync        = useMatStore(s => s.initRealtimeSync)
+  const loading            = useMatStore(s => s.loading)
+  const catalogo           = useMatStore(s => s.catalogo)
 
-  useEffect(() => { loadAll() }, [loadAll])
+  const loadAllHw          = useHwStore(s => s.loadAll)
+  const initHwSync         = useHwStore(s => s.initRealtimeSync)
 
-  useEffect(() => { return initRealtimeSync() }, [initRealtimeSync])
+  useEffect(() => { loadAll() },   [loadAll])
+  useEffect(() => { loadAllHw() }, [loadAllHw])
 
-  // Polling de respaldo: recarga completa cada 60s y al volver a la pestaña
+  useEffect(() => { return initMatSync() }, [initMatSync])
+  useEffect(() => { return initHwSync()  }, [initHwSync])
+
+  // Polling de respaldo: recarga cada 60s y al volver a la pestaña
   useEffect(() => {
-    function onVisible() { if (document.visibilityState === 'visible') loadAll() }
+    function onVisible() {
+      if (document.visibilityState === 'visible') { loadAll(); loadAllHw() }
+    }
     document.addEventListener('visibilitychange', onVisible)
-    const interval = setInterval(loadAll, 60_000)
+    const matInterval = setInterval(loadAll,    60_000)
+    const hwInterval  = setInterval(loadAllHw,  60_000)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
-      clearInterval(interval)
+      clearInterval(matInterval)
+      clearInterval(hwInterval)
     }
-  }, [loadAll])
+  }, [loadAll, loadAllHw])
 
-  // Spinner solo en la carga inicial — las recargas de fondo no interrumpen la UI
   if (loading && catalogo.length === 0) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, flexDirection:'column', gap:12 }}>
@@ -39,9 +47,6 @@ export default function MatWrapper() {
   return (
     <>
       <StockAlerts />
-      <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'right', padding: '2px 8px', fontFamily: 'monospace' }}>
-        build: 8923 {lastSyncAt ? `· sync: ${lastSyncAt}` : ''}
-      </div>
       <Outlet />
     </>
   )
