@@ -12,7 +12,11 @@ let _client = null
  * de la empresa detectada por dominio de email.
  */
 export function initSupabaseClient(url, key) {
-  _client = createClient(url, key)
+  _client = createClient(url, key, {
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
+  })
   return _client
 }
 
