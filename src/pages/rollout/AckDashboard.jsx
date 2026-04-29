@@ -338,7 +338,11 @@ function MultiSelect({ options, value, onChange, placeholder }) {
   useEffect(() => {
     function h(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
+    document.addEventListener('touchstart', h, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', h)
+      document.removeEventListener('touchstart', h)
+    }
   }, [])
 
   const label = value.length === 0

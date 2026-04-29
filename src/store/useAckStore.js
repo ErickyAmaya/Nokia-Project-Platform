@@ -253,11 +253,6 @@ function findComparePair(uploads) {
   return { currUpload: uploads[0], prevUpload: null }
 }
 
-const PROYECTO_SEL_KEY = 'ack_proyectoSel'
-function loadProyectoSel() {
-  try { return JSON.parse(localStorage.getItem(PROYECTO_SEL_KEY) || '[]') } catch { return [] }
-}
-
 export const useAckStore = create((set, get) => ({
   sabana:      [],
   prevSabana:  [],
@@ -267,23 +262,43 @@ export const useAckStore = create((set, get) => ({
   uploads:     [],
   loading:     false,
   uploading:   false,
-  proyectoSel: loadProyectoSel(),
+  proyectoSel: [],
 
+  // Carga preferencias del usuario autenticado desde user_prefs
+  loadUserPrefs: async () => {
+    try {
+      const { data: { user } } = await db().auth.getUser()
+      if (!user) return
+      const { data } = await db()
+        .from('user_prefs')
+        .select('ack_proyectos')
+        .eq('user_id', user.id)
+        .single()
+      if (data?.ack_proyectos?.length) set({ proyectoSel: data.ack_proyectos })
+    } catch { /* tabla no existe aún o sin conexión — ignorar */ }
+  },
+
+  // Actualiza estado + persiste en Supabase (fire-and-forget)
   setProyectoSel: (arr) => {
-    try { localStorage.setItem(PROYECTO_SEL_KEY, JSON.stringify(arr)) } catch {}
     set({ proyectoSel: arr })
+    db().auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      return db().from('user_prefs').upsert(
+        { user_id: user.id, ack_proyectos: arr, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+    }).catch(() => {})
   },
 
   loadAll: async () => {
     if (get().loading) return
-    set({ loading: true })
+    set({ loading: true, proyectoSel: [] })
     try {
-      // 1. Cargar historial de uploads (desc)
-      const { data: uploads } = await db()
-        .from('ack_uploads')
-        .select('*')
-        .order('loaded_at', { ascending: false })
-        .limit(30)
+      // Cargar prefs de usuario y uploads en paralelo
+      const [, { data: uploads }] = await Promise.all([
+        get().loadUserPrefs(),
+        db().from('ack_uploads').select('*').order('loaded_at', { ascending: false }).limit(30),
+      ])
 
       if (!uploads?.length) {
         set({ sabana: [], prevSabana: [], prevUpload: null, currUpload: null, uploads: [], loading: false })
