@@ -60,11 +60,17 @@ export default function ModuloHomePage() {
     return total < c.stock_minimo
   }).length
 
-  // ── Métricas Rollout ACK ─────────────────────────────────────────
+  // ── Métricas Rollout ACK (respeta filtro proyectoSel) ───────────
   const ackSabana      = useAckStore(s => s.sabana)
   const ackForecasts   = useAckStore(s => s.forecasts)
   const ackUploads     = useAckStore(s => s.uploads)
+  const ackProyectoSel = useAckStore(s => s.proyectoSel)
   const ackLoaded      = ackSabana.length > 0 || ackUploads.length > 0
+
+  // Aplicar el mismo filtro de proyecto que usa AckDashboard
+  const ackFiltered = ackProyectoSel.length > 0
+    ? ackSabana.filter(r => ackProyectoSel.includes(r.proyecto_alcance))
+    : ackSabana
 
   // Pre-carga silenciosa de Materiales para tener métricas listas
   useEffect(() => { loadMat() }, [loadMat])
@@ -84,9 +90,9 @@ export default function ModuloHomePage() {
       { val: n(matLoaded, matDespachos.length),label: 'Despachos'    },
     ]
     if (id === 'rollout') return [
-      { val: n(ackLoaded, ackSabana.length),              label: 'SMPs'         },
-      { val: n(ackLoaded, Object.keys(ackForecasts).length), label: 'Con forecast' },
-      { val: n(ackLoaded, ackUploads.length),             label: 'Subidas'      },
+      { val: n(ackLoaded, ackFiltered.length),                                        label: 'SMPs'        },
+      { val: n(ackLoaded, ackFiltered.filter(r => ackForecasts[r.smp]).length),       label: 'Con FC'      },
+      { val: n(ackLoaded, ackFiltered.filter(r => r.procesos_cierre_ph2).length),     label: 'Pendientes'  },
     ]
     return []
   }
@@ -220,9 +226,26 @@ export default function ModuloHomePage() {
               <div style={{
                 margin: '0 28px',
                 borderTop: '1px solid #f0f0f0',
-                padding: '16px 0',
-                display: 'flex',
+                padding: '16px 0 12px',
+                display: 'flex', flexDirection: 'column', gap: 10,
               }}>
+                {/* Indicador de filtro activo (solo ACK) */}
+                {m.id === 'rollout' && ackProyectoSel.length > 0 && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 10, fontWeight: 600, letterSpacing: .5,
+                    color: m.color, textTransform: 'uppercase',
+                  }}>
+                    <span style={{
+                      width: 5, height: 5, borderRadius: '50%',
+                      background: m.color, display: 'inline-block',
+                    }} />
+                    {ackProyectoSel.length === 1
+                      ? ackProyectoSel[0]
+                      : `${ackProyectoSel.length} proyectos`}
+                  </div>
+                )}
+                <div style={{ display: 'flex' }}>
                 {metrics.map((met, i) => (
                   <div key={i} style={{
                     flex: 1, textAlign: 'center', padding: '0 8px',
@@ -243,6 +266,7 @@ export default function ModuloHomePage() {
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
 
               {/* Footer CTA */}
