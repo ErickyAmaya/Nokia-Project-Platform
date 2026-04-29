@@ -308,21 +308,28 @@ export const useMatStore = create((set, get) => ({
   initRealtimeSync: () => {
     const reload = () => get().loadAll()
 
-    const channel = db()
+    // Canal puro de Broadcast — mismo patrón que ack-prefs que funciona
+    const syncChannel = db()
       .channel('mat-sync')
-      // Broadcast: cualquier dispositivo que guarda avisa a todos los demás
       .on('broadcast', { event: 'changed' }, reload)
-      // postgres_changes como respaldo
+      .subscribe()
+
+    // Canal separado para postgres_changes (respaldo)
+    const pgChannel = db()
+      .channel('mat-pg-sync')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mat_movimientos' }, reload)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mat_movimientos' }, reload)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'despachos'       }, reload)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'despachos'       }, reload)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'despachos'       }, reload)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mat_stock'       }, reload)
       .subscribe()
 
-    set({ _syncChannel: channel })
-    return () => { db().removeChannel(channel); set({ _syncChannel: null }) }
+    set({ _syncChannel: syncChannel })
+    return () => {
+      db().removeChannel(syncChannel)
+      db().removeChannel(pgChannel)
+      set({ _syncChannel: null })
+    }
   },
 
   // Notifica a otros dispositivos que hubo un cambio
