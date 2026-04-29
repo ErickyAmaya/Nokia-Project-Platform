@@ -304,15 +304,20 @@ export const useMatStore = create((set, get) => ({
     get()._broadcastChange()
   },
 
+  _lastSyncAt: null,
+
   // ── Realtime sync — lo llama MatWrapper al montar ────────────────
   initRealtimeSync: () => {
-    const reload = () => get().loadAll()
+    const reload = () => {
+      set({ _lastSyncAt: new Date().toISOString().slice(11, 19) })
+      get().loadAll()
+    }
 
     // Canal puro de Broadcast — mismo patrón que ack-prefs que funciona
     const syncChannel = db()
       .channel('mat-sync')
       .on('broadcast', { event: 'changed' }, reload)
-      .subscribe()
+      .subscribe(status => console.log('[mat-sync] status:', status))
 
     // Canal separado para postgres_changes (respaldo)
     const pgChannel = db()
@@ -335,7 +340,10 @@ export const useMatStore = create((set, get) => ({
   // Notifica a otros dispositivos que hubo un cambio
   _broadcastChange: () => {
     const ch = get()._syncChannel
-    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
+    console.log('[mat] _broadcastChange channel:', ch ? 'ok' : 'NULL')
+    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} })
+      .then(r => console.log('[mat] broadcast sent:', r))
+      .catch(e => console.error('[mat] broadcast error:', e))
   },
 
   // ── Corrección directa de stock (sin movimiento) ─────────────────

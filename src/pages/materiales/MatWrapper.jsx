@@ -8,6 +8,7 @@ export default function MatWrapper() {
   const initRealtimeSync = useMatStore(s => s.initRealtimeSync)
   const loading          = useMatStore(s => s.loading)
   const catalogo         = useMatStore(s => s.catalogo)
+  const lastSyncAt       = useMatStore(s => s._lastSyncAt)
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -38,6 +39,11 @@ export default function MatWrapper() {
   return (
     <>
       <StockAlerts />
+      {lastSyncAt && (
+        <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'right', padding: '2px 8px', fontFamily: 'monospace' }}>
+          sync: {lastSyncAt}
+        </div>
+      )}
       <Outlet />
     </>
   )
