@@ -254,15 +254,32 @@ function findComparePair(uploads) {
 }
 
 export const useAckStore = create((set, get) => ({
-  sabana:      [],
-  prevSabana:  [],
-  prevUpload:  null,
-  currUpload:  null,
-  forecasts:   {},
-  uploads:     [],
-  loading:     false,
-  uploading:   false,
-  proyectoSel: [],
+  sabana:        [],
+  prevSabana:    [],
+  prevUpload:    null,
+  currUpload:    null,
+  forecasts:     {},
+  uploads:       [],
+  loading:       false,
+  uploading:     false,
+  proyectoSel:   [],
+  _prefsChannel: null,
+
+  // Crea el canal Broadcast por usuario — lo llama AckWrapper al montar
+  initPrefsChannel: (userId) => {
+    const prev = get()._prefsChannel
+    if (prev) db().removeChannel(prev)
+
+    const channel = db()
+      .channel(`ack-prefs:${userId}`)
+      .on('broadcast', { event: 'update' }, ({ payload }) => {
+        set({ proyectoSel: payload.ack_proyectos ?? [] })
+      })
+      .subscribe()
+
+    set({ _prefsChannel: channel })
+    return () => { db().removeChannel(channel); set({ _prefsChannel: null }) }
+  },
 
   // Carga preferencias del usuario autenticado desde user_prefs
   loadUserPrefs: async () => {
@@ -274,13 +291,18 @@ export const useAckStore = create((set, get) => ({
         .select('ack_proyectos')
         .eq('user_id', user.id)
         .single()
-      if (data?.ack_proyectos?.length) set({ proyectoSel: data.ack_proyectos })
+      set({ proyectoSel: data?.ack_proyectos ?? [] })
     } catch { /* tabla no existe aún o sin conexión — ignorar */ }
   },
 
-  // Actualiza estado + persiste en Supabase (fire-and-forget)
+  // Actualiza estado + persiste en Supabase + notifica otros dispositivos
   setProyectoSel: (arr) => {
     set({ proyectoSel: arr })
+    const channel = get()._prefsChannel
+    if (channel) {
+      channel.send({ type: 'broadcast', event: 'update', payload: { ack_proyectos: arr } })
+        .catch(() => {})
+    }
     db().auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       return db().from('user_prefs').upsert(
