@@ -417,14 +417,18 @@ export default function AckDashboard() {
   const regiones      = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
   const proyectoOpts  = useMemo(() => [...new Set(sabana.map(r => r.proyecto_alcance).filter(Boolean))].sort(), [sabana])
 
-  const filtered = useMemo(() => {
+  const filteredBase = useMemo(() => {
     return sabana.filter(r => {
       if (region !== 'todos' && r.region !== region) return false
       if (proyectoSel.length > 0 && !proyectoSel.includes(r.proyecto_alcance)) return false
-      if (soloPend && !r.procesos_cierre_ph2) return false
       return true
     })
-  }, [sabana, region, proyectoSel, soloPend])
+  }, [sabana, region, proyectoSel])
+
+  const filtered = useMemo(() => {
+    if (!soloPend) return filteredBase
+    return filteredBase.filter(r => r.procesos_cierre_ph2)
+  }, [filteredBase, soloPend])
 
   const pendientes = useMemo(() => filtered.filter(r => r.procesos_cierre_ph2), [filtered])
 
@@ -515,9 +519,9 @@ export default function AckDashboard() {
       {/* ── Gráficas ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'var(--two-col)', gap: 14, marginBottom: 14 }}>
         <VejezChart data={pendientes} onBarClick={handleVejezClick} />
-        <AvancePorRegionChart data={filtered} />
+        <AvancePorRegionChart data={filteredBase} />
       </div>
-      <MatrizProcesoRegion data={filtered} />
+      <MatrizProcesoRegion data={filteredBase} />
     </div>
   )
 }
