@@ -43,7 +43,6 @@ export const useHwStore = create((set, get) => ({
       })
     } finally {
       if (firstLoad) set({ loading: false })
-      else set({ loading: false })
     }
   },
 
