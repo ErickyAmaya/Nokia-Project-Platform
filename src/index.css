@@ -294,6 +294,7 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   .g4 { grid-template-columns: repeat(2,1fr) !important; gap: 10px; }
   .dash-main-grid { grid-template-columns: 1fr 280px !important; }
   .kpi-grid { grid-template-columns: repeat(2,1fr) !important; }
+  .ack-proc-grid { grid-template-columns: repeat(3, 1fr) !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -351,6 +352,10 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
   .g3      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
   .g2      { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+
+  /* ── ACK proceso cards: 2 columnas, último centrado si queda solo ── */
+  .ack-proc-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .ack-proc-grid > *:last-child:nth-child(odd) { grid-column: span 2; }
 
   /* ── iOS: prevenir zoom en inputs (debe ser ≥ 16px) ── */
   input.fc, select.fc, textarea.fc,
