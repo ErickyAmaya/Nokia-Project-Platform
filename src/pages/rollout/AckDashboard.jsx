@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, FINAL } from '../../store/useAckStore'
 import { showToast } from '../../components/Toast'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 
 // Orden homogéneo con Tablas y Reportes
@@ -205,16 +205,32 @@ function VejezChart({ data, onBarClick }) {
   )
 }
 
-function RegionChart({ data }) {
+function regionTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e0e4e0', borderRadius: 6, padding: '7px 11px', fontSize: 10, boxShadow: '0 2px 8px rgba(0,0,0,.1)' }}>
+      <div style={{ fontWeight: 700, marginBottom: 3 }}>{d.name}</div>
+      <div>{d.pct}% completado · {d.pend} pend. de {d.total}</div>
+    </div>
+  )
+}
+
+function AvancePorRegionChart({ data }) {
   const byRegion = useMemo(() => {
     const map = {}
     for (const r of data) {
       const reg = r.region || 'Sin región'
-      map[reg] = (map[reg] || 0) + 1
+      if (!map[reg]) map[reg] = { total: 0, closed: 0 }
+      map[reg].total++
+      if (PROCESOS.every(p => isFinal(p.key, r[p.key]))) map[reg].closed++
     }
     return Object.entries(map)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, { total, closed }]) => ({
+        name, total, pend: total - closed,
+        pct: Math.round((closed / total) * 100),
+      }))
+      .sort((a, b) => a.pct - b.pct)
   }, [data])
 
   if (!byRegion.length) return null
@@ -222,26 +238,94 @@ function RegionChart({ data }) {
   return (
     <div className="card-b" style={{ padding: 16 }}>
       <div className="card-h" style={{ padding: '0 0 10px', borderBottom: '1px solid #f0f2f0', marginBottom: 12 }}>
-        <h2 style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>🗺 Pendientes por Región</h2>
+        <h2 style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>🗺 % Avance por Región</h2>
       </div>
-      <ResponsiveContainer width="100%" height={180}>
-        <PieChart>
-          <Pie
-            data={byRegion}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={65}
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-            labelLine={false}
-            fontSize={9}
-          >
-            {byRegion.map((_, i) => <Cell key={i} fill={COLORS_PIE[i % COLORS_PIE.length]} />)}
-          </Pie>
-          <Tooltip formatter={v => [v, 'SMPs']} />
-        </PieChart>
+      <ResponsiveContainer width="100%" height={Math.max(160, byRegion.length * 36)}>
+        <BarChart data={byRegion} layout="vertical" margin={{ top: 4, right: 36, left: 4, bottom: 4 }}>
+          <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
+          <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={90} />
+          <Tooltip content={regionTooltip} />
+          <Bar dataKey="pct" radius={[0, 3, 3, 0]} barSize={18}>
+            {byRegion.map((d, i) => (
+              <Cell key={i} fill={d.pct >= 97 ? '#22c55e' : d.pct >= 80 ? '#f59e0b' : '#ef4444'} />
+            ))}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
+    </div>
+  )
+}
+
+function matrizTooltip(pct) {
+  if (pct <= 10) return { bg: '#dcfce7', color: '#166534' }
+  if (pct <= 30) return { bg: '#fef9c3', color: '#854d0e' }
+  if (pct <= 60) return { bg: '#ffedd5', color: '#9a3412' }
+  return { bg: '#fee2e2', color: '#991b1b' }
+}
+
+function MatrizProcesoRegion({ data }) {
+  const regiones = useMemo(() =>
+    [...new Set(data.map(r => r.region).filter(Boolean))].sort()
+  , [data])
+
+  const matrix = useMemo(() => {
+    const map = {}
+    for (const r of data) {
+      const reg = r.region || 'Sin región'
+      if (!map[reg]) map[reg] = {}
+      for (const p of PROCESOS) {
+        if (!map[reg][p.key]) map[reg][p.key] = { total: 0, pend: 0 }
+        map[reg][p.key].total++
+        if (!isFinal(p.key, r[p.key])) map[reg][p.key].pend++
+      }
+    }
+    return map
+  }, [data])
+
+  if (!regiones.length) return null
+
+  return (
+    <div className="card-b" style={{ padding: 16 }}>
+      <div className="card-h" style={{ padding: '0 0 10px', borderBottom: '1px solid #f0f2f0', marginBottom: 12 }}>
+        <h2 style={{ fontSize: 12, fontWeight: 700, margin: 0 }}>🔥 Matriz Proceso × Región — % Pendiente</h2>
+        <span style={{ fontSize: 9, color: '#4b5563' }}>Verde ≤10% · Amarillo ≤30% · Naranja ≤60% · Rojo &gt;60%</span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', padding: '6px 10px', fontSize: 9, fontWeight: 700, color: '#555f55', background: '#f8f9f8', borderBottom: '2px solid #e5e7eb' }}>
+                Región
+              </th>
+              {PROCESOS.map(p => (
+                <th key={p.key} style={{ padding: '6px 10px', fontSize: 8, fontWeight: 700, color: p.color, background: '#f8f9f8', borderBottom: `2px solid ${p.color}`, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {p.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {regiones.map((reg, i) => (
+              <tr key={reg} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                <td style={{ padding: '6px 10px', fontWeight: 600, fontSize: 10, whiteSpace: 'nowrap' }}>{reg}</td>
+                {PROCESOS.map(p => {
+                  const d = matrix[reg]?.[p.key]
+                  if (!d) return <td key={p.key} style={{ textAlign: 'center', color: '#ccc', padding: '5px 8px' }}>—</td>
+                  const pctPend = Math.round((d.pend / d.total) * 100)
+                  const { bg, color } = matrizTooltip(pctPend)
+                  return (
+                    <td key={p.key} style={{ textAlign: 'center', padding: '5px 8px' }}>
+                      <span style={{ background: bg, color, fontWeight: 700, fontSize: 9, padding: '2px 8px', borderRadius: 4, display: 'inline-block' }}>
+                        {pctPend}%
+                      </span>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -429,10 +513,11 @@ export default function AckDashboard() {
       </div>
 
       {/* ── Gráficas ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'var(--two-col)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'var(--two-col)', gap: 14, marginBottom: 14 }}>
         <VejezChart data={pendientes} onBarClick={handleVejezClick} />
-        <RegionChart data={pendientes} />
+        <AvancePorRegionChart data={filtered} />
       </div>
+      <MatrizProcesoRegion data={filtered} />
     </div>
   )
 }
