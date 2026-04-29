@@ -393,15 +393,16 @@ function MultiSelect({ options, value, onChange, placeholder }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────
 export default function AckDashboard() {
-  const navigate    = useNavigate()
-  const sabana    = useAckStore(s => s.sabana)
-  const uploads   = useAckStore(s => s.uploads)
-  const uploading = useAckStore(s => s.uploading)
-  const uploadExcel = useAckStore(s => s.uploadExcel)
+  const navigate       = useNavigate()
+  const sabana         = useAckStore(s => s.sabana)
+  const uploads        = useAckStore(s => s.uploads)
+  const uploading      = useAckStore(s => s.uploading)
+  const uploadExcel    = useAckStore(s => s.uploadExcel)
+  const proyectoSel    = useAckStore(s => s.proyectoSel)
+  const setProyectoSel = useAckStore(s => s.setProyectoSel)
 
-  const [region,       setRegion]       = useState('todos')
-  const [proyectoSel,  setProyectoSel]  = useState([])
-  const [soloPend,     setSoloPend]     = useState(false)
+  const [region,   setRegion]   = useState('todos')
+  const [soloPend, setSoloPend] = useState(false)
 
   async function handleFile(file) {
     const res = await uploadExcel(file)
@@ -412,6 +413,14 @@ export default function AckDashboard() {
   function handleVejezClick(bin) {
     const slug = BIN_SLUG[bin] || bin
     navigate(`/rollout/ack/tablas?vejez=${slug}&filtro=todos`)
+  }
+
+  function handleProyectoChange(arr) {
+    setProyectoSel(arr)
+    if (arr.length > 0)
+      showToast(`🔖 Filtro de proyectos aplicado a todo el módulo ACK`, 'ok')
+    else
+      showToast(`Filtro de proyectos eliminado — mostrando todos`, 'ok')
   }
 
   const regiones      = useMemo(() => [...new Set(sabana.map(r => r.region).filter(Boolean))].sort(), [sabana])
@@ -481,9 +490,18 @@ export default function AckDashboard() {
         <MultiSelect
           options={proyectoOpts}
           value={proyectoSel}
-          onChange={setProyectoSel}
+          onChange={handleProyectoChange}
           placeholder="Todos los Proyectos"
         />
+        {proyectoSel.length > 0 && (
+          <button
+            className="btn-sm"
+            onClick={() => handleProyectoChange([])}
+            style={{ fontSize: 10, padding: '4px 10px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            ✕ Limpiar proyectos
+          </button>
+        )}
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, cursor: 'pointer' }}>
           <input type="checkbox" checked={soloPend} onChange={e => setSoloPend(e.target.checked)} />
           Solo pendientes

@@ -253,15 +253,26 @@ function findComparePair(uploads) {
   return { currUpload: uploads[0], prevUpload: null }
 }
 
+const PROYECTO_SEL_KEY = 'ack_proyectoSel'
+function loadProyectoSel() {
+  try { return JSON.parse(localStorage.getItem(PROYECTO_SEL_KEY) || '[]') } catch { return [] }
+}
+
 export const useAckStore = create((set, get) => ({
-  sabana:     [],
-  prevSabana: [],    // snapshot del periodo anterior (auto)
-  prevUpload: null,  // registro ack_uploads del periodo anterior
-  currUpload: null,  // upload usado como "actual" (puede no ser uploads[0])
-  forecasts:  {},    // keyed by smp — fuente de verdad de la app
-  uploads:    [],
-  loading:    false,
-  uploading:  false,
+  sabana:      [],
+  prevSabana:  [],
+  prevUpload:  null,
+  currUpload:  null,
+  forecasts:   {},
+  uploads:     [],
+  loading:     false,
+  uploading:   false,
+  proyectoSel: loadProyectoSel(),
+
+  setProyectoSel: (arr) => {
+    try { localStorage.setItem(PROYECTO_SEL_KEY, JSON.stringify(arr)) } catch {}
+    set({ proyectoSel: arr })
+  },
 
   loadAll: async () => {
     if (get().loading) return

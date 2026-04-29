@@ -559,12 +559,21 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
-  const sabana        = useAckStore(s => s.sabana)
+  const sabanaRaw     = useAckStore(s => s.sabana)
+  const prevSabanaRaw = useAckStore(s => s.prevSabana)
   const forecasts     = useAckStore(s => s.forecasts)
   const uploads       = useAckStore(s => s.uploads)
-  const prevSabana    = useAckStore(s => s.prevSabana)
   const prevUpload    = useAckStore(s => s.prevUpload)
   const currUpload    = useAckStore(s => s.currUpload || s.uploads[0])
+  const proyectoSel   = useAckStore(s => s.proyectoSel)
+
+  const sabana     = useMemo(() =>
+    proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
+  , [sabanaRaw, proyectoSel])
+
+  const prevSabana = useMemo(() =>
+    proyectoSel.length ? prevSabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : prevSabanaRaw
+  , [prevSabanaRaw, proyectoSel])
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
   const [filtro, setFiltro] = useState('pendientes')
@@ -647,6 +656,11 @@ export default function AckForecast() {
             {filtroBadge && (
               <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
                 {filtroBadge.text}
+              </span>
+            )}
+            {proyectoSel.length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
+                🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
               </span>
             )}
           </div>

@@ -254,7 +254,12 @@ const FILTRO_BADGE = {
 
 // ── Página principal ──────────────────────────────────────────────
 export default function AckSitios() {
-  const sabana = useAckStore(s => s.sabana)
+  const sabanaRaw   = useAckStore(s => s.sabana)
+  const proyectoSel = useAckStore(s => s.proyectoSel)
+
+  const sabana = useMemo(() =>
+    proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
+  , [sabanaRaw, proyectoSel])
 
   const [region, setRegion] = useState('')
   const [filtro, setFiltro] = useState('pendientes')
@@ -325,6 +330,11 @@ export default function AckSitios() {
                 background: badge.bg, color: badge.color, whiteSpace: 'nowrap',
               }}>
                 {badge.text}
+              </span>
+            )}
+            {proyectoSel.length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
+                🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
               </span>
             )}
           </div>
