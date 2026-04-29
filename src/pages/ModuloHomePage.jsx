@@ -65,6 +65,7 @@ export default function ModuloHomePage() {
   const ackForecasts   = useAckStore(s => s.forecasts)
   const ackUploads     = useAckStore(s => s.uploads)
   const ackProyectoSel = useAckStore(s => s.proyectoSel)
+  const loadAck        = useAckStore(s => s.loadAll)
   const ackLoaded      = ackSabana.length > 0 || ackUploads.length > 0
 
   // Aplicar el mismo filtro de proyecto que usa AckDashboard
@@ -72,8 +73,9 @@ export default function ModuloHomePage() {
     ? ackSabana.filter(r => ackProyectoSel.includes(r.proyecto_alcance))
     : ackSabana
 
-  // Pre-carga silenciosa de Materiales para tener métricas listas
+  // Pre-carga silenciosa de Materiales y ACK para tener métricas listas
   useEffect(() => { loadMat() }, [loadMat])
+  useEffect(() => { loadAck() }, [loadAck])
 
   // ── Helper: "—" si el store todavía no tiene datos ──────────────
   const n = (loaded, val) => loaded ? val : '—'
