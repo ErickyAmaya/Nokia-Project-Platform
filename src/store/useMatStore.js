@@ -236,6 +236,7 @@ export const useMatStore = create((set, get) => ({
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
   addMovimiento: async (mov) => {
+    console.log('[mat] addMovimiento v2 called')
     const { data, error } = await db().from('mat_movimientos').insert(mov).select().single()
     if (error) throw error
     // Recargar stock desde DB (trigger lo actualizó)
