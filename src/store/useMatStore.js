@@ -236,7 +236,7 @@ export const useMatStore = create((set, get) => ({
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
   addMovimiento: async (mov) => {
-    console.log('[mat] addMovimiento v2 called')
+    console.error('[MAT-DEBUG] addMovimiento CALLED — build 8923')
     const { data, error } = await db().from('mat_movimientos').insert(mov).select().single()
     if (error) throw error
     // Recargar stock desde DB (trigger lo actualizó)
@@ -341,10 +341,10 @@ export const useMatStore = create((set, get) => ({
   // Notifica a otros dispositivos que hubo un cambio
   _broadcastChange: () => {
     const ch = get()._syncChannel
-    console.log('[mat] _broadcastChange channel:', ch ? 'ok' : 'NULL')
+    console.error('[MAT-DEBUG] _broadcastChange channel:', ch ? 'ok' : 'NULL')
     if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} })
-      .then(r => console.log('[mat] broadcast sent:', r))
-      .catch(e => console.error('[mat] broadcast error:', e))
+      .then(r => console.error('[MAT-DEBUG] broadcast sent:', JSON.stringify(r)))
+      .catch(e => console.error('[MAT-DEBUG] broadcast error:', e))
   },
 
   // ── Corrección directa de stock (sin movimiento) ─────────────────

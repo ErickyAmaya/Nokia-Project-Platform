@@ -39,11 +39,9 @@ export default function MatWrapper() {
   return (
     <>
       <StockAlerts />
-      {lastSyncAt && (
-        <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'right', padding: '2px 8px', fontFamily: 'monospace' }}>
-          sync: {lastSyncAt}
-        </div>
-      )}
+      <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'right', padding: '2px 8px', fontFamily: 'monospace' }}>
+        build: 8923 {lastSyncAt ? `· sync: ${lastSyncAt}` : ''}
+      </div>
       <Outlet />
     </>
   )
