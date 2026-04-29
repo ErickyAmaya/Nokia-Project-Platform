@@ -47,6 +47,14 @@ export function useRealtime() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'subcontratistas' },
         p => applyRT('subcontratistas', 'DELETE', p.old))
 
+      // liquidaciones_cw
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'liquidaciones_cw' },
+        p => applyRT('liquidaciones_cw', 'INSERT', p.new))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'liquidaciones_cw' },
+        p => applyRT('liquidaciones_cw', 'UPDATE', p.new))
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'liquidaciones_cw' },
+        p => applyRT('liquidaciones_cw', 'DELETE', p.old))
+
       .subscribe(st => {
         if      (st === 'SUBSCRIBED')   setStatus('connected')
         else if (st === 'CHANNEL_ERROR') setStatus('error')

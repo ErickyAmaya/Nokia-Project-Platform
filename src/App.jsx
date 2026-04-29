@@ -206,6 +206,7 @@ export default function App() {
   const initSession       = useAuthStore(s => s.initSession)
   const loadData          = useAppStore(s => s.loadData)
   const loadEmpresaConfig = useAppStore(s => s.loadEmpresaConfig)
+  const initAppSync       = useAppStore(s => s.initRealtimeSync)
   const user              = useAuthStore(s => s.user)
 
   // Realtime subscriptions (active when logged in)
@@ -223,6 +224,26 @@ export default function App() {
       loadEmpresaConfig()
     }
   }, [user, loadData, loadEmpresaConfig])
+
+  // Broadcast channel — notifica a otros dispositivos cuando este hace cambios
+  useEffect(() => {
+    if (!user) return
+    return initAppSync()
+  }, [user, initAppSync])
+
+  // Polling de respaldo: recarga cada 60s y al volver a la pestaña
+  useEffect(() => {
+    if (!user) return
+    function onVisible() {
+      if (document.visibilityState === 'visible') loadData()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const interval = setInterval(loadData, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(interval)
+    }
+  }, [user, loadData])
 
   // Expose RT status globally so Layout can read it without prop drilling
   useEffect(() => {
