@@ -24,6 +24,18 @@ Login: admin@nuevaempresa.com
 
 ---
 
+## Módulos disponibles
+
+Una empresa con acceso completo (`modulo: 'all'`) tiene acceso a:
+
+| Módulo | Descripción |
+|---|---|
+| **Liquidador Nokia** | Sitios TI/TSS, CW, Gastos, Reportes, Analítica |
+| **Gestión de Materiales** | Inventario, Movimientos, Despachos, HW Nokia |
+| **Rollout ACK** | Dashboard, Tablas, Vista por Sitio, Reportes *(+ submódulo pendiente)* |
+
+---
+
 ## Paso 1 — Crear el proyecto en Supabase
 
 1. Ir a [supabase.com](https://supabase.com) → **New project**
@@ -40,15 +52,32 @@ Login: admin@nuevaempresa.com
 1. En el proyecto Supabase recién creado ir a **SQL Editor → New query**
 2. Abrir el archivo `schema.sql` de este repositorio
 3. Pegar el contenido completo y hacer clic en **Run**
-4. Verificar que se crearon las tablas en **Table Editor**:
-   - `user_roles`
-   - `config`
-   - `sitios`
-   - `gastos`
-   - `subcontratistas`
-   - `catalogo_ti`
-   - `catalogo_cw`
-   - `liquidaciones_cw`
+
+> ⚠️ **Estado actual del schema.sql (pendiente de completar)**
+>
+> El `schema.sql` actual solo cubre el módulo **Liquidador**. Las tablas
+> de los módulos de Materiales y Rollout ACK aún no están incluidas y
+> deben completarse antes de onboardear una empresa con acceso total.
+>
+> **Tablas cubiertas actualmente:**
+> - `user_roles`, `config`
+> - `sitios`, `gastos`, `subcontratistas`
+> - `catalogo_ti`, `catalogo_cw`, `liquidaciones_cw`
+>
+> **Tablas pendientes de agregar al schema:**
+>
+> *Módulo Materiales:*
+> `bodegas`, `despachos`, `mat_catalogo`, `mat_movimientos`,
+> `mat_sitios`, `mat_stock`, `hw_equipos`, `hw_movimientos`
+>
+> *Módulo HW Nokia:*
+> `hw_bodegas_nokia`, `hw_catalogo`, `hw_service_suppliers`, `hw_tipo_unidades`
+>
+> *Módulo Rollout ACK:*
+> `ack_sabana`, `ack_forecast`, `ack_uploads`
+>
+> Una vez completado el schema, este aviso debe eliminarse y la lista
+> de tablas actualizarse con todas las incluidas.
 
 ---
 
@@ -74,26 +103,28 @@ Después de crear cada usuario, copiar su **UUID** desde la columna `id`
 en Authentication → Users y ejecutar en SQL Editor:
 
 ```sql
--- Roles disponibles: admin | coordinador | TI | TSS | CW | viewer
+-- Roles disponibles: admin | coordinador | TI | TSS | CW | viewer | logistica
 INSERT INTO user_roles (user_id, role, nombre) VALUES
   ('uuid-usuario-1', 'admin',       'Nombre Admin'),
   ('uuid-usuario-2', 'coordinador', 'Nombre Coordinador'),
   ('uuid-usuario-3', 'TI',          'Nombre Técnico TI'),
   ('uuid-usuario-4', 'TSS',         'Nombre Técnico TSS'),
   ('uuid-usuario-5', 'CW',          'Nombre Técnico CW'),
-  ('uuid-usuario-6', 'viewer',      'Nombre Viewer');
+  ('uuid-usuario-6', 'viewer',      'Nombre Viewer'),
+  ('uuid-usuario-7', 'logistica',   'Nombre Logística');
 ```
 
 ### Permisos por rol
 
-| Rol          | Acceso                                                  |
-|--------------|---------------------------------------------------------|
-| `admin`      | Todo, incluyendo Config y Catálogo                      |
-| `coordinador`| Todo excepto Config                                     |
-| `TI`         | Dashboard, módulo TI, Liquidador                        |
-| `TSS`        | Dashboard, módulo TSS, Liquidador                       |
-| `CW`         | Dashboard, módulo CW, Liquidador                        |
-| `viewer`     | Lectura de todos los módulos, sin edición               |
+| Rol           | Acceso                                                        |
+|---------------|---------------------------------------------------------------|
+| `admin`       | Todo, incluyendo Config y Catálogo                            |
+| `coordinador` | Todo excepto Config                                           |
+| `TI`          | Dashboard, módulo TI, Liquidador                              |
+| `TSS`         | Dashboard, módulo TSS, Liquidador                             |
+| `CW`          | Dashboard, módulo CW, Liquidador                              |
+| `viewer`      | Lectura de todos los módulos, sin edición                     |
+| `logistica`   | Módulo de Materiales (Inventario, Movimientos, Despachos, HW) |
 
 ---
 
@@ -110,9 +141,13 @@ Abrir `src/config/empresas.js` y agregar una nueva entrada:
   supabaseKey:  import.meta.env.VITE_NUEVAEMPRESA_KEY,
   logoUrl:      null,                      // URL pública del logo o null
   color:        '#1a4f7a',                 // color primario (hex)
-  modulo:       'nokia-billing',
+  modulo:       'all',                     // 'all' = acceso a todos los módulos
 },
 ```
+
+> **Valores posibles para `modulo`:**
+> - `'all'` — acceso completo a Liquidador + Materiales + Rollout ACK
+> - `'nokia-billing'` — solo módulo Liquidador
 
 > **Nota sobre el logo:** puede usarse una URL pública directa, por ejemplo
 > desde GitHub raw:
@@ -185,7 +220,7 @@ usuario con `@nuevaempresa.com` es dirigido automáticamente a su Supabase.
 
 ---
 
-## Paso 8 — Configuración inicial desde la app (opcional)
+## Paso 8 — Configuración inicial desde la app
 
 1. Ingresar con el usuario `admin@nuevaempresa.com`
 2. Ir a **Config**
@@ -197,17 +232,22 @@ y tienen prioridad sobre los valores estáticos de `empresas.js`.
 
 ---
 
-## Paso 9 — Cargar catálogo (opcional)
+## Paso 9 — Cargar catálogos de precios
 
-Si la nueva empresa usa el mismo catálogo de precios TI/CW que Ingetel:
+Los catálogos TI y CW se cargan directamente desde la app — no se requiere
+SQL ni intervención técnica:
 
-1. Ir a **Catálogo → TI** o **CW**
-2. Importar los ítems manualmente, o
-3. Ejecutar un script SQL de seed en el SQL Editor del nuevo proyecto Supabase
+1. Ingresar con rol `admin` o `coordinador`
+2. Ir a **Catálogo → TI** (o **CW**)
+3. Descargar la plantilla Excel con el botón **"Descargar plantilla"**
+4. Completar los precios en la plantilla
+5. Subirla con el botón **"Actualizar precios"** (mass upload)
 
-> Para generar el script de seed con los datos actuales de Ingetel,
-> exportar desde Supabase Dashboard → Table Editor → `catalogo_ti` → Export CSV,
-> o solicitar el script al equipo de desarrollo.
+Los precios se actualizan en bloque. El mismo proceso aplica para
+actualizaciones futuras de tarifas.
+
+> Para el catálogo de **Materiales** (`mat_catalogo`, `hw_catalogo`),
+> la carga se gestiona desde **Materiales → Catálogo** dentro de la app.
 
 ---
 
@@ -215,15 +255,23 @@ Si la nueva empresa usa el mismo catálogo de precios TI/CW que Ingetel:
 
 ```
 1. Crear proyecto Supabase
-2. Ejecutar schema.sql
+2. Ejecutar schema.sql  ⚠️ (pendiente completar para todos los módulos)
 3. Crear usuarios en Authentication
-4. Asignar roles en user_roles
-5. Agregar entrada en src/config/empresas.js
-6. Agregar variables en Netlify (o secrets en GitHub Actions)
+4. Asignar roles en user_roles (incluir 'logistica' si usa Materiales)
+5. Agregar entrada en src/config/empresas.js con modulo: 'all'
+6. Agregar variables en Netlify → Trigger deploy
 7. git push → deploy automático
 8. Entrar a Config y personalizar branding
-9. Cargar catálogo si aplica
+9. Cargar catálogos TI/CW desde la app (Catálogo → Actualizar precios)
 ```
+
+---
+
+## Pendientes técnicos antes de onboardear una segunda empresa
+
+- [ ] Completar `schema.sql` con tablas de Materiales, HW Nokia y Rollout ACK
+- [ ] Completar submódulo pendiente dentro de Rollout ACK
+- [ ] Verificar RLS policies para las nuevas tablas
 
 ---
 
