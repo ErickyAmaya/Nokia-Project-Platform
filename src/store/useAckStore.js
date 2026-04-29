@@ -254,39 +254,44 @@ function findComparePair(uploads) {
 }
 
 export const useAckStore = create((set, get) => ({
-  sabana:        [],
-  prevSabana:    [],
-  prevUpload:    null,
-  currUpload:    null,
-  forecasts:     {},
-  uploads:       [],
-  loading:       false,
-  uploading:     false,
-  proyectoSel:   [],
-  _prefsChannel: null,
+  sabana:             [],
+  prevSabana:         [],
+  prevUpload:         null,
+  currUpload:         null,
+  forecasts:          {},
+  uploads:            [],
+  loading:            false,
+  uploading:          false,
+  proyectoSel:        [],
+  _prefsChannel:      null,
+  _moduleSyncChannel: null,
 
   // Suscripciones Realtime del módulo ACK — lo llama AckWrapper al montar
   initRealtimeSync: () => {
+    // ack_uploads: cuando otro usuario sube un nuevo Excel, todos recargan
     const uploadsChannel = db()
       .channel('ack-uploads-sync')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ack_uploads' }, (payload) => {
-        // Solo recargar si el upload viene de otro usuario (el propio ya fue procesado)
         if (payload.new?.id !== get().currUpload?.id) get().loadAll()
       })
       .subscribe()
 
-    const forecastChannel = db()
-      .channel('ack-forecast-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ack_forecast' }, (payload) => {
-        const row = payload.new
+    // ack-module-sync: canal Broadcast compartido para forecasts en tiempo real
+    const moduleSyncChannel = db()
+      .channel('ack-module-sync')
+      .on('broadcast', { event: 'forecast_update' }, ({ payload }) => {
+        const row = payload.forecast
         if (!row?.smp) return
         set(s => ({ forecasts: { ...s.forecasts, [row.smp]: { ...(s.forecasts[row.smp] || {}), ...row } } }))
       })
       .subscribe()
 
+    set({ _moduleSyncChannel: moduleSyncChannel })
+
     return () => {
       db().removeChannel(uploadsChannel)
-      db().removeChannel(forecastChannel)
+      db().removeChannel(moduleSyncChannel)
+      set({ _moduleSyncChannel: null })
     }
   },
 
@@ -442,7 +447,12 @@ export const useAckStore = create((set, get) => ({
     const { error } = await db().from('ack_forecast')
       .upsert(row, { onConflict: 'smp' })
     if (error) throw error
-    set(s => ({ forecasts: { ...s.forecasts, [smp]: { ...(s.forecasts[smp] || {}), ...row } } }))
+    const updated = { ...(get().forecasts[smp] || {}), ...row }
+    set(s => ({ forecasts: { ...s.forecasts, [smp]: updated } }))
+    // Notificar a todos los usuarios del módulo ACK en tiempo real
+    get()._moduleSyncChannel?.send({
+      type: 'broadcast', event: 'forecast_update', payload: { forecast: updated },
+    }).catch(() => {})
   },
 
   // Computed: SMPs con procesos pendientes (solo filas Padre o todas)
