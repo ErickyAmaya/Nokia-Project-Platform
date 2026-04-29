@@ -1,12 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import fs from 'node:fs'
 
 const base = process.env.VITE_BASE_PATH || '/'
 
 export default defineConfig({
   base,
   plugins: [
+    // Genera dist/version.json con timestamp de build — usado por checkVersion para auto-reload PWA
+    {
+      name: 'version-json',
+      apply: 'build',
+      writeBundle() {
+        fs.writeFileSync('dist/version.json', JSON.stringify({ v: Date.now() }))
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -17,7 +26,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: `${base}index.html`,
         navigateFallbackAllowlist: [new RegExp(`^${base.replace(/\//g, '\\/')}`)],
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /version\.json/],
         runtimeCaching: [
           {
             // Google Fonts
