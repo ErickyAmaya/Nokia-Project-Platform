@@ -254,17 +254,16 @@ function findComparePair(uploads) {
 }
 
 export const useAckStore = create((set, get) => ({
-  sabana:             [],
-  prevSabana:         [],
-  prevUpload:         null,
-  currUpload:         null,
-  forecasts:          {},
-  uploads:            [],
-  loading:            false,
-  uploading:          false,
-  proyectoSel:        [],
-  _prefsChannel:      null,
-  _moduleSyncChannel: null,
+  sabana:        [],
+  prevSabana:    [],
+  prevUpload:    null,
+  currUpload:    null,
+  forecasts:     {},
+  uploads:       [],
+  loading:       false,
+  uploading:     false,
+  proyectoSel:   [],
+  _prefsChannel: null,
 
   // Suscripciones Realtime del módulo ACK — lo llama AckWrapper al montar
   initRealtimeSync: () => {
@@ -276,23 +275,18 @@ export const useAckStore = create((set, get) => ({
       })
       .subscribe()
 
-    // ack-module-sync: canal Broadcast compartido para forecasts en tiempo real
-    const moduleSyncChannel = db()
-      .channel('ack-module-sync')
-      .on('broadcast', { event: 'forecast_update' }, ({ payload }) => {
-        const row = payload.forecast
-        if (!row?.smp) return
-        set(s => ({ forecasts: { ...s.forecasts, [row.smp]: { ...(s.forecasts[row.smp] || {}), ...row } } }))
-      })
-      .subscribe()
+    return () => { db().removeChannel(uploadsChannel) }
+  },
 
-    set({ _moduleSyncChannel: moduleSyncChannel })
-
-    return () => {
-      db().removeChannel(uploadsChannel)
-      db().removeChannel(moduleSyncChannel)
-      set({ _moduleSyncChannel: null })
-    }
+  // Recarga solo los forecasts — liviano, usado en polling
+  loadForecasts: async () => {
+    try {
+      const { data } = await db().from('ack_forecast').select('*')
+      if (!data) return
+      const fcMap = {}
+      for (const f of data) fcMap[f.smp] = f
+      set({ forecasts: fcMap })
+    } catch {}
   },
 
   // Crea el canal Broadcast por usuario — lo llama AckWrapper al montar
@@ -447,12 +441,7 @@ export const useAckStore = create((set, get) => ({
     const { error } = await db().from('ack_forecast')
       .upsert(row, { onConflict: 'smp' })
     if (error) throw error
-    const updated = { ...(get().forecasts[smp] || {}), ...row }
-    set(s => ({ forecasts: { ...s.forecasts, [smp]: updated } }))
-    // Notificar a todos los usuarios del módulo ACK en tiempo real
-    get()._moduleSyncChannel?.send({
-      type: 'broadcast', event: 'forecast_update', payload: { forecast: updated },
-    }).catch(() => {})
+    set(s => ({ forecasts: { ...s.forecasts, [smp]: { ...(s.forecasts[smp] || {}), ...row } } }))
   },
 
   // Computed: SMPs con procesos pendientes (solo filas Padre o todas)

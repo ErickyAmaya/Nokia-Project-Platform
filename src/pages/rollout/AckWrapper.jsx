@@ -6,31 +6,39 @@ import { useAuthStore } from '../../store/authStore'
 export default function AckWrapper() {
   const loadAll          = useAckStore(s => s.loadAll)
   const loadUserPrefs    = useAckStore(s => s.loadUserPrefs)
+  const loadForecasts    = useAckStore(s => s.loadForecasts)
   const initPrefsChannel = useAckStore(s => s.initPrefsChannel)
   const initRealtimeSync = useAckStore(s => s.initRealtimeSync)
   const userId           = useAuthStore(s => s.user?.id)
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  // Realtime: sync de uploads y forecasts para todos los usuarios
+  // Realtime: nuevo Excel sube → todos recargan sábana
   useEffect(() => { return initRealtimeSync() }, [initRealtimeSync])
 
-  // Canal Broadcast por usuario — sincronización instantánea entre dispositivos
+  // Broadcast por usuario: filtro de proyectos sincronizado entre dispositivos
   useEffect(() => {
     if (!userId) return
     return initPrefsChannel(userId)
   }, [userId, initPrefsChannel])
 
-  // Polling 30s como fallback + recarga al volver a la app
+  // Polling: prefs cada 30s + forecasts cada 10s
   useEffect(() => {
-    function onVisible() { if (document.visibilityState === 'visible') loadUserPrefs() }
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        loadUserPrefs()
+        loadForecasts()
+      }
+    }
     document.addEventListener('visibilitychange', onVisible)
-    const interval = setInterval(loadUserPrefs, 30_000)
+    const prefsInterval     = setInterval(loadUserPrefs,  30_000)
+    const forecastsInterval = setInterval(loadForecasts,  10_000)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
-      clearInterval(interval)
+      clearInterval(prefsInterval)
+      clearInterval(forecastsInterval)
     }
-  }, [loadUserPrefs])
+  }, [loadUserPrefs, loadForecasts])
 
   return <Outlet />
 }
