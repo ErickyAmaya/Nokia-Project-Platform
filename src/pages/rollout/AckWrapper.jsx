@@ -7,9 +7,13 @@ export default function AckWrapper() {
   const loadAll          = useAckStore(s => s.loadAll)
   const loadUserPrefs    = useAckStore(s => s.loadUserPrefs)
   const initPrefsChannel = useAckStore(s => s.initPrefsChannel)
+  const initRealtimeSync = useAckStore(s => s.initRealtimeSync)
   const userId           = useAuthStore(s => s.user?.id)
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  // Realtime: sync de uploads y forecasts para todos los usuarios
+  useEffect(() => { return initRealtimeSync() }, [initRealtimeSync])
 
   // Canal Broadcast por usuario — sincronización instantánea entre dispositivos
   useEffect(() => {

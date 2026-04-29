@@ -265,6 +265,31 @@ export const useAckStore = create((set, get) => ({
   proyectoSel:   [],
   _prefsChannel: null,
 
+  // Suscripciones Realtime del módulo ACK — lo llama AckWrapper al montar
+  initRealtimeSync: () => {
+    const uploadsChannel = db()
+      .channel('ack-uploads-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ack_uploads' }, (payload) => {
+        // Solo recargar si el upload viene de otro usuario (el propio ya fue procesado)
+        if (payload.new?.id !== get().currUpload?.id) get().loadAll()
+      })
+      .subscribe()
+
+    const forecastChannel = db()
+      .channel('ack-forecast-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ack_forecast' }, (payload) => {
+        const row = payload.new
+        if (!row?.smp) return
+        set(s => ({ forecasts: { ...s.forecasts, [row.smp]: { ...(s.forecasts[row.smp] || {}), ...row } } }))
+      })
+      .subscribe()
+
+    return () => {
+      db().removeChannel(uploadsChannel)
+      db().removeChannel(forecastChannel)
+    }
+  },
+
   // Crea el canal Broadcast por usuario — lo llama AckWrapper al montar
   initPrefsChannel: (userId) => {
     const prev = get()._prefsChannel
