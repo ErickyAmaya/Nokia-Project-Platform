@@ -7,6 +7,7 @@ export default function MatWrapper() {
   const loadAll          = useMatStore(s => s.loadAll)
   const initRealtimeSync = useMatStore(s => s.initRealtimeSync)
   const loading          = useMatStore(s => s.loading)
+  const catalogo         = useMatStore(s => s.catalogo)
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -23,7 +24,8 @@ export default function MatWrapper() {
     }
   }, [loadAll])
 
-  if (loading) {
+  // Spinner solo en la carga inicial — las recargas de fondo no interrumpen la UI
+  if (loading && catalogo.length === 0) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200, flexDirection:'column', gap:12 }}>
         <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #e0e4e0', borderTopColor:'#1a9c1a', animation:'spin .8s linear infinite' }} />
