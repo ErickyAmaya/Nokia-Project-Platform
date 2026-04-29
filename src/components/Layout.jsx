@@ -363,6 +363,7 @@ export default function Layout({ children }) {
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 6 }}>
           {allVisible.map(item => (
             <NavLink
+              end
               key={item.id}
               to={item.to}
               className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
