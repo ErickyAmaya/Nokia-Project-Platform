@@ -498,31 +498,7 @@ export default function AckTablas() {
   const sabanaRaw    = useAckStore(s => s.sabana)
   const saveForecast = useAckStore(s => s.saveForecast)
   const proyectoSel  = useAckStore(s => s.proyectoSel)
-
-  // forecasts en estado local para garantizar re-render al polling
-  const forecastsStore = useAckStore(s => s.forecasts)
-  const [forecasts, setForecasts] = useState(forecastsStore)
-
-  // Sincronizar estado local cuando el store cambia (guardado propio)
-  useEffect(() => { setForecasts(forecastsStore) }, [forecastsStore])
-
-  // Polling directo cada 10s — bypasa Zustand para garantizar re-render
-  useEffect(() => {
-    async function poll() {
-      try {
-        const { getSupabaseClient } = await import('../../lib/supabase')
-        const db = getSupabaseClient()
-        if (!db) return
-        const { data } = await db.from('ack_forecast').select('*')
-        if (!data?.length) return
-        const fcMap = {}
-        for (const f of data) fcMap[f.smp] = f
-        setForecasts(fcMap)
-      } catch {}
-    }
-    const interval = setInterval(poll, 10_000)
-    return () => clearInterval(interval)
-  }, [])
+  const forecasts    = useAckStore(s => s.forecasts)
 
   const sabana = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw

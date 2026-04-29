@@ -275,7 +275,17 @@ export const useAckStore = create((set, get) => ({
       })
       .subscribe()
 
-    return () => { db().removeChannel(uploadsChannel) }
+    // ack_forecast: sincronización en tiempo real entre dispositivos
+    const forecastChannel = db()
+      .channel('ack-forecast-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ack_forecast' }, () => get().loadForecasts())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ack_forecast' }, () => get().loadForecasts())
+      .subscribe()
+
+    return () => {
+      db().removeChannel(uploadsChannel)
+      db().removeChannel(forecastChannel)
+    }
   },
 
   // Recarga solo los forecasts — liviano, usado en polling
