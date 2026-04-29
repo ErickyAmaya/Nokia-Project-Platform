@@ -4,10 +4,24 @@ import { useMatStore } from '../../store/useMatStore'
 import StockAlerts from '../../components/materiales/StockAlerts'
 
 export default function MatWrapper() {
-  const loadAll = useMatStore(s => s.loadAll)
-  const loading = useMatStore(s => s.loading)
+  const loadAll          = useMatStore(s => s.loadAll)
+  const initRealtimeSync = useMatStore(s => s.initRealtimeSync)
+  const loading          = useMatStore(s => s.loading)
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  useEffect(() => { return initRealtimeSync() }, [initRealtimeSync])
+
+  // Polling de respaldo: recarga completa cada 60s y al volver a la pestaña
+  useEffect(() => {
+    function onVisible() { if (document.visibilityState === 'visible') loadAll() }
+    document.addEventListener('visibilitychange', onVisible)
+    const interval = setInterval(loadAll, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(interval)
+    }
+  }, [loadAll])
 
   if (loading) {
     return (

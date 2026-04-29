@@ -298,6 +298,22 @@ export const useMatStore = create((set, get) => ({
     }))
   },
 
+  // ── Realtime sync — lo llama MatWrapper al montar ────────────────
+  initRealtimeSync: () => {
+    const reload = () => get().loadAll()
+
+    const channel = db()
+      .channel('mat-realtime-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mat_movimientos' }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mat_movimientos' }, reload)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'mat_stock'       }, reload)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'despachos'        }, reload)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'mat_catalogo'     }, reload)
+      .subscribe()
+
+    return () => { db().removeChannel(channel) }
+  },
+
   // ── Corrección directa de stock (sin movimiento) ─────────────────
   correccionStock: async (catalogo_id, bodega_id, stockNuevo) => {
     const { error } = await db().from('mat_stock')
