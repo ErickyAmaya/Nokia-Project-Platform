@@ -97,9 +97,10 @@ export default function ModuloHomePage() {
     return []
   }
 
-  const empresaConfig  = useAppStore(s => s.empresaConfig)
-  const clienteNombre  = empresaConfig?.cliente_nombre || ''
-  const primerNombre   = user?.nombre?.split(' ')[0] || 'Usuario'
+  const empresaConfig   = useAppStore(s => s.empresaConfig)
+  const clienteNombre   = empresaConfig?.cliente_nombre   || ''
+  const clienteLogoUrl  = empresaConfig?.cliente_logo_url || ''
+  const primerNombre    = user?.nombre?.split(' ')[0] || 'Usuario'
 
   return (
     <div style={{
@@ -132,7 +133,12 @@ export default function ModuloHomePage() {
             background: '#22c55e', display: 'inline-block',
             animation: 'mod-pulse 2s infinite',
           }} />
-          {clienteNombre ? `${clienteNombre} · Ingetel 2026` : 'Ingetel 2026'}
+          {clienteLogoUrl
+            ? <img src={clienteLogoUrl} alt={clienteNombre} style={{ height: 14, maxWidth: 56, objectFit: 'contain', verticalAlign: 'middle' }} />
+            : clienteNombre || 'Ingetel'
+          }
+          <span style={{ color: '#d4d4d8' }}>·</span>
+          Ingetel 2026
         </div>
 
         <h1 style={{
