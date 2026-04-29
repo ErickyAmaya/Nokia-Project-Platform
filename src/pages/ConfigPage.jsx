@@ -25,9 +25,7 @@ function LogoUploader({ label, hint, currentUrl, filename, onUrl, disabled }) {
     if (file.size > 2 * 1024 * 1024)     { showToast('Máximo 2 MB', 'err'); return }
     setBusy(true)
     try {
-      const ext  = file.name.split('.').pop().toLowerCase()
-      const path = `${filename}.${ext}`
-      // Si cambia extensión, eliminar el anterior
+      const path    = file.name
       const oldPath = pathFromUrl(currentUrl)
       if (oldPath && oldPath !== path) {
         await supabase.storage.from(BUCKET).remove([oldPath])
