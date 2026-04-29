@@ -317,7 +317,6 @@ export default function AckDashboard() {
 
   const [region,       setRegion]       = useState('todos')
   const [proyectoSel,  setProyectoSel]  = useState([])
-  const [relacion,     setRelacion]     = useState('todos')
   const [soloPend,     setSoloPend]     = useState(false)
 
   async function handleFile(file) {
@@ -338,11 +337,10 @@ export default function AckDashboard() {
     return sabana.filter(r => {
       if (region !== 'todos' && r.region !== region) return false
       if (proyectoSel.length > 0 && !proyectoSel.includes(r.proyecto_alcance)) return false
-      if (relacion !== 'todos' && r.relacion !== relacion) return false
       if (soloPend && !r.procesos_cierre_ph2) return false
       return true
     })
-  }, [sabana, region, proyectoSel, relacion, soloPend])
+  }, [sabana, region, proyectoSel, soloPend])
 
   const pendientes = useMemo(() => filtered.filter(r => r.procesos_cierre_ph2), [filtered])
 
@@ -398,11 +396,6 @@ export default function AckDashboard() {
           onChange={setProyectoSel}
           placeholder="Todos los Proyectos"
         />
-        <select className="fc btn-sm" value={relacion} onChange={e => setRelacion(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="todos">Todos (SITIOS)</option>
-          <option value="P">main_smp</option>
-          <option value="H">activ_smp</option>
-        </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, cursor: 'pointer' }}>
           <input type="checkbox" checked={soloPend} onChange={e => setSoloPend(e.target.checked)} />
           Solo pendientes
