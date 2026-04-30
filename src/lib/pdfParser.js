@@ -1,5 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.js?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
