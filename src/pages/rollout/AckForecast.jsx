@@ -13,7 +13,7 @@ function isFinal(val) {
 
 function fmtDate(dateStr) {
   if (!dateStr) return null
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return dateStr.slice(0, 10)
 }
 
 function rangeLabel(prev, curr) {

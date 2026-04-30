@@ -117,7 +117,7 @@ export default function MatSitios() {
 
   function fmtFecha(f) {
     if (!f) return '—'
-    return new Date(f).toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' })
+    return String(f).slice(0, 10)
   }
 
   return (

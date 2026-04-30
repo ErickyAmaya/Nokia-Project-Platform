@@ -27,7 +27,7 @@ function ws(rows) {
 
 function fmtDate(d) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'numeric' })
+  return String(d).slice(0, 10)
 }
 
 function inRange(dateStr, from, to) {
