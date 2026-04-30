@@ -54,35 +54,47 @@ function buildTicketTree(rows, procesoKey, ticketKey) {
   return map
 }
 
-// FC: gap → { dates: Map<date,count>, sites: Map<site_name, {dates, ticketCount}> }
+// FC: gap → { weeks: Map<week,count>, sites: Map<site_name, {weeks: Map<week,{count,exactDates}>, ticketCount}> }
 function buildFcData(rows, procesoKey, forecasts, faKey, ticketKey) {
-  const gapMap  = new Map()
-  const dateSet = new Set()
-  const pending = rows.filter(r => !isFinal(r[procesoKey]))
+  const gapMap        = new Map()
+  const weekSet       = new Set()
+  const weekFirstDate = new Map()
+  const pending       = rows.filter(r => !isFinal(r[procesoKey]))
 
   for (const r of pending) {
-    const gap  = r[procesoKey] || '(Sin estado)'
-    const site = r.site_name   || '(Sin sitio)'
-    const fc   = forecasts[r.smp]
+    const gap     = r[procesoKey] || '(Sin estado)'
+    const site    = r.site_name   || '(Sin sitio)'
+    const fc      = forecasts[r.smp]
     if (!fc?.[faKey]) continue
-    const d = fmtDate(fc[faKey])
-    if (!d) continue
-    dateSet.add(d)
+    const rawDate = fc[faKey]
+    const week    = nokiaWeekLabel(rawDate)
+    const fmted   = fmtDate(rawDate)
+    if (!week) continue
 
-    if (!gapMap.has(gap)) gapMap.set(gap, { dates: new Map(), sites: new Map() })
+    weekSet.add(week)
+    if (!weekFirstDate.has(week) || rawDate < weekFirstDate.get(week))
+      weekFirstDate.set(week, rawDate)
+
+    if (!gapMap.has(gap)) gapMap.set(gap, { weeks: new Map(), sites: new Map() })
     const g = gapMap.get(gap)
-    g.dates.set(d, (g.dates.get(d) || 0) + 1)
+    g.weeks.set(week, (g.weeks.get(week) || 0) + 1)
 
-    if (!g.sites.has(site)) g.sites.set(site, { dates: new Map(), ticketCount: 0 })
+    if (!g.sites.has(site)) g.sites.set(site, { weeks: new Map(), ticketCount: 0 })
     const s = g.sites.get(site)
-    s.dates.set(d, (s.dates.get(d) || 0) + 1)
+    if (!s.weeks.has(week)) s.weeks.set(week, { count: 0, exactDates: new Set() })
+    const sw = s.weeks.get(week)
+    sw.count++
+    if (fmted) sw.exactDates.add(fmted)
     if (ticketKey && r[ticketKey]) s.ticketCount++
   }
 
   const gapEntries = [...gapMap.entries()]
-    .filter(([, g]) => g.dates.size > 0)
+    .filter(([, g]) => g.weeks.size > 0)
     .sort(([a], [b]) => a.localeCompare(b))
-  return { gapEntries, dates: [...dateSet].sort() }
+  const weeks = [...weekSet].sort((a, b) =>
+    (weekFirstDate.get(a) || '').localeCompare(weekFirstDate.get(b) || '')
+  )
+  return { gapEntries, weeks }
 }
 
 // ── Config por proceso ────────────────────────────────────────────
@@ -176,21 +188,21 @@ function NokiaTable({ rows, procesoKey, label, color = '#7030A0', forPrint = fal
   )
 }
 
-// ── Tabla Nokia FC (GAP × Sitio × Fecha + Tickets) ───────────────
+// ── Tabla Nokia FC (GAP × Sitio × Semana Nokia + Tickets) ────────
 function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '#7030A0', forPrint = false }) {
   const navigate = useNavigate()
-  const { gapEntries, dates } = useMemo(
+  const { gapEntries, weeks } = useMemo(
     () => buildFcData(rows, procesoKey, forecasts, PROC_CFG[procesoKey].fa, ticketKey),
     [rows, procesoKey, forecasts, ticketKey]
   )
 
-  if (!dates.length) return (
+  if (!weeks.length) return (
     <div style={{ padding: forPrint ? '4px 8px' : 16, textAlign: 'center', color: '#4b5563', fontSize: forPrint ? 8 : 11, fontFamily: 'Arial, sans-serif' }}>
       Sin fechas FC registradas.
     </div>
   )
 
-  const FS   = forPrint ? 8 : 10
+  const FS    = forPrint ? 8 : 10
   const totBg = { background: '#003366', color: '#fff', border: '1px solid #003366', fontWeight: 800 }
 
   function goToTablas(siteName) {
@@ -202,7 +214,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
       <thead>
         <tr>
           <th style={thStyle(color, forPrint)}>{label}</th>
-          {dates.map(d => <th key={d} style={thCenterStyle(color, forPrint, { width: 'auto' })}>{d}</th>)}
+          {weeks.map(w => <th key={w} style={thCenterStyle(color, forPrint, { width: 'auto' })}>{w}</th>)}
           <th style={thCenterStyle(color, forPrint, { width: 44 })}>TICKETS</th>
           <th style={{ ...thCenterStyle('#003366', forPrint, { width: 'auto' }), background: '#003366', border: '1px solid #003366' }}>
             No de Actividades
@@ -211,17 +223,17 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
       </thead>
       <tbody>
         {gapEntries.map(([gap, g]) => {
-          const gapTotal   = [...g.dates.values()].reduce((s, v) => s + v, 0)
+          const gapTotal   = [...g.weeks.values()].reduce((s, v) => s + v, 0)
           const gapTickets = [...g.sites.values()].reduce((s, v) => s + v.ticketCount, 0)
           return [
             <tr key={gap}>
               <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: '#C00000' }}>{gap}</td>
-              {dates.map(d => <td key={d} style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700 }}>{g.dates.get(d) || ''}</td>)}
+              {weeks.map(w => <td key={w} style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700 }}>{g.weeks.get(w) || ''}</td>)}
               <td style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700, color: gapTickets ? '#1a3a5c' : '#ccc' }}>{gapTickets || '—'}</td>
               <td style={{ ...totBg, padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center' }}>{gapTotal}</td>
             </tr>,
             ...[...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, s]) => {
-              const siteTotal = [...s.dates.values()].reduce((a, b) => a + b, 0)
+              const siteTotal = [...s.weeks.values()].reduce((a, sw) => a + sw.count, 0)
               if (!siteTotal) return null
               return (
                 <tr key={`${gap}|${site}`}>
@@ -234,7 +246,26 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
                       </span>
                     )}
                   </td>
-                  {dates.map(d => <td key={d} style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }}>{s.dates.get(d) || ''}</td>)}
+                  {weeks.map(w => {
+                    const sw    = s.weeks.get(w)
+                    const count = sw?.count || 0
+                    const title = sw ? [...sw.exactDates].sort().join(' · ') : ''
+                    return (
+                      <td key={w}
+                        title={title || undefined}
+                        style={{
+                          padding: forPrint ? '2px 5px' : '3px 7px',
+                          textAlign: 'center',
+                          background: '#fff',
+                          border: '1px solid #e8e8e8',
+                          fontSize: forPrint ? 7.5 : 9,
+                          cursor: (!forPrint && title) ? 'help' : 'default',
+                        }}
+                      >
+                        {count || ''}
+                      </td>
+                    )
+                  })}
                   <td style={{ padding: forPrint ? '2px 5px' : '3px 7px', textAlign: 'center', background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9, color: s.ticketCount ? '#1a3a5c' : '#ccc', fontWeight: s.ticketCount ? 700 : 400 }}>
                     {s.ticketCount || '—'}
                   </td>
@@ -246,15 +277,15 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
         })}
         <tr>
           <td style={{ ...totBg, padding: forPrint ? '4px 7px' : '5px 10px' }}>Total general</td>
-          {dates.map(d => {
-            const col = gapEntries.reduce((s, [, g]) => s + (g.dates.get(d) || 0), 0)
-            return <td key={d} style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>{col || ''}</td>
+          {weeks.map(w => {
+            const col = gapEntries.reduce((s, [, g]) => s + (g.weeks.get(w) || 0), 0)
+            return <td key={w} style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>{col || ''}</td>
           })}
           <td style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>
             {gapEntries.reduce((s, [, g]) => s + [...g.sites.values()].reduce((a, v) => a + v.ticketCount, 0), 0) || '—'}
           </td>
           <td style={{ ...totBg, padding: forPrint ? '4px 5px' : '5px 7px', textAlign: 'center' }}>
-            {gapEntries.reduce((s, [, g]) => s + [...g.dates.values()].reduce((a, b) => a + b, 0), 0)}
+            {gapEntries.reduce((s, [, g]) => s + [...g.weeks.values()].reduce((a, b) => a + b, 0), 0)}
           </td>
         </tr>
       </tbody>
