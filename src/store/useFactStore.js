@@ -165,6 +165,12 @@ export const useFactStore = create((set, get) => ({
       const extracted = await parsePOPdf(file)
       if (!extracted.spo_number) throw new Error('No se pudo extraer el SPO del PDF')
 
+      // Validar que el SPO exista en el PPA cargado
+      const { ppa } = get()
+      if (ppa.length > 0 && !ppa.some(r => r.spo_number === extracted.spo_number)) {
+        throw new Error(`SPO ${extracted.spo_number} no está en el PPA cargado`)
+      }
+
       // Subir archivo a Storage
       const path = `pos/${extracted.spo_number}_${Date.now()}.pdf`
       const { error: stErr } = await supabase.storage.from('facturacion').upload(path, file, { upsert: true })
