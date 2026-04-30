@@ -137,7 +137,7 @@ export const useFactStore = create((set, get) => ({
 
       const { data: upload, error: upErr } = await supabase
         .from('fact_uploads')
-        .insert({ file_name: file.name, row_count: parsed.length })
+        .insert({ filename: file.name, row_count: parsed.length })
         .select().single()
       if (upErr) throw upErr
 
