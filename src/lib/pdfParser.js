@@ -20,9 +20,14 @@ function grab(text, pattern) {
 }
 
 export async function parsePOPdf(file) {
-  const text = await extractText(file)
-
-  // Log para depuración — ver en consola del navegador
+  console.log('[pdfParser] iniciando:', file.name, file.type, file.size)
+  let text = ''
+  try {
+    text = await extractText(file)
+  } catch (e) {
+    console.error('[pdfParser] extractText falló:', e)
+    throw new Error('No se pudo leer el PDF: ' + e.message)
+  }
   console.log('[pdfParser] texto extraído (primeros 1500 chars):\n', text.slice(0, 1500))
 
   // SPO: varios patrones posibles según versión del PDF Nokia

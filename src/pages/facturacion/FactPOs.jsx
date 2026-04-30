@@ -78,13 +78,13 @@ export default function FactPOs() {
   async function handleFiles(e) {
     const files = [...(e.target.files || [])]
     if (!files.length) return
-    let ok = 0, fail = 0
+    let ok = 0, lastErr = ''
     for (const file of files) {
       const result = await uploadPOPdf(file)
-      result.ok ? ok++ : fail++
+      result.ok ? ok++ : (lastErr = result.error || 'error desconocido')
     }
-    if (ok)   showToast(`${ok} PO${ok > 1 ? 's' : ''} cargada${ok > 1 ? 's' : ''}`)
-    if (fail) showToast(`${fail} error${fail > 1 ? 'es' : ''} al leer PDF`, 'err')
+    if (ok)      showToast(`${ok} PO${ok > 1 ? 's' : ''} cargada${ok > 1 ? 's' : ''}`)
+    if (lastErr) showToast(`Error al leer PDF: ${lastErr}`, 'err')
     e.target.value = ''
   }
 
