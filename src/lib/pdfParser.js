@@ -22,28 +22,48 @@ function grab(text, pattern) {
 export async function parsePOPdf(file) {
   const text = await extractText(file)
 
-  const spo           = grab(text, /Purchase Doc Number:\s*(\d+)/)
-  const docDate       = grab(text, /Doc Date:\s*(\S+)/)
-  const supplierName  = grab(text, /Supplier Name:\s*(.+?)(?:\s{2,}|Supplier Number:)/)
-  const paymentTerms  = grab(text, /Payment Terms:\s*(.+?)(?:\s{2,}|Supplier|NSN|$)/)
-  const pciDesc       = grab(text, /PCI Description:\s*(.+?)(?:\s*$|\n)/)
+  // Log para depuración — ver en consola del navegador
+  console.log('[pdfParser] texto extraído (primeros 1500 chars):\n', text.slice(0, 1500))
 
-  // Total Value: "4.180.241,00 COP"
-  const valueMatch = text.match(/Total Value:\s*([\d.,]+)\s+([A-Z]+)/)
-  const rawValue   = valueMatch?.[1]?.replace(/\./g, '').replace(',', '.') || null
-  const moneda     = valueMatch?.[2] || 'COP'
-  const valor      = rawValue ? parseFloat(rawValue) : null
+  // SPO: varios patrones posibles según versión del PDF Nokia
+  const spo = grab(text, /Purchase Doc(?:ument)? Number[:\s]+(\d+)/)
+           || grab(text, /PO Number[:\s]+(\d+)/)
+           || grab(text, /Order Number[:\s]+(\d+)/)
+           || grab(text, /\bPO\s+(\d{7,})\b/)
+           || grab(file.name, /PO[\s_]?(\d{5,})/)   // fallback desde el nombre del archivo
 
-  // Free Text first line: "CAL0248_CAL.San Carlos_SMP-WO-0266410"
-  const ftMatch  = text.match(/Free Text:\s*([\w._\- ]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/)
+  const docDate       = grab(text, /Doc(?:ument)? Date[:\s]+(\S+)/)
+                     || grab(text, /Date[:\s]+(\d{2}[./]\d{2}[./]\d{4})/)
+  const supplierName  = grab(text, /Supplier Name[:\s]+(.+?)(?:\s{2,}|Supplier Number:|$)/m)
+  const paymentTerms  = grab(text, /Payment Terms[:\s]+(.+?)(?:\s{2,}|Supplier|NSN|$)/m)
+  const pciDesc       = grab(text, /PCI Description[:\s]+(.+?)(?:\s*$|\n)/m)
+
+  // Total Value: "4.180.241,00 COP" o "COP 4.180.241,00"
+  const valueMatch = text.match(/Total Value[:\s]+([\d.,]+)\s+([A-Z]{3})\b/)
+                  || text.match(/\b([A-Z]{3})\s+([\d.,]+)/)
+  let rawValue, moneda = 'COP', valor = null
+  if (valueMatch) {
+    const isLeading = /^[A-Z]{3}$/.test(valueMatch[1])
+    rawValue = isLeading ? valueMatch[2] : valueMatch[1]
+    moneda   = isLeading ? valueMatch[1] : valueMatch[2]
+    valor    = parseFloat(rawValue.replace(/\./g, '').replace(',', '.')) || null
+  }
+
+  // Free Text: "CAL0248_CAL.San Carlos_SMP-WO-0266410"
+  const ftMatch  = text.match(/Free Text[:\s]+([\w._\- ]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/i)
   const freeText = ftMatch?.[1]?.trim() || ''
   const parts    = freeText.split('_')
-  const smpIdx   = parts.findIndex(p => p.startsWith('SMP-WO-'))
+  const smpIdx   = parts.findIndex(p => /SMP-WO-/i.test(p))
   const siteId   = parts[0] || ''
   const siteName = smpIdx > 1 ? parts.slice(1, smpIdx).join('_') : (parts[1] || '')
-  const smpId    = smpIdx >= 0 ? parts[smpIdx] : (grab(text, /(SMP-WO-\d+)/))
+  const smpId    = smpIdx >= 0 ? parts[smpIdx] : (grab(text, /(SMP-WO-\d+)/i))
 
-  return { spo_number: spo, smp_id: smpId, site_id: siteId, site_name: siteName,
+  return { spo_number: normSPO(spo), smp_id: smpId, site_id: siteId, site_name: siteName,
            doc_date: docDate, supplier_name: supplierName, valor, moneda,
            payment_terms: paymentTerms, pci_description: pciDesc }
+}
+
+function normSPO(v) {
+  if (!v) return ''
+  return String(v).replace(/^0+/, '') || String(v)
 }
