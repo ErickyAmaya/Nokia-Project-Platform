@@ -43,6 +43,14 @@ const ROLLOUT_NAV = [
   { to: '/rollout/ack/forecast', label: 'Reportes',      icon: '🖨', id: 'ack-forecast'  },
 ]
 
+const FACT_NAV = [
+  { to: '/facturacion',              label: 'Dashboard',       icon: '📊', id: 'fact-dashboard' },
+  { to: '/facturacion/por-facturar', label: 'Por Facturar',    icon: '📄', id: 'fact-pf'        },
+  { to: '/facturacion/facturado',    label: 'Facturado',       icon: '✓',  id: 'fact-fc'        },
+  { to: '/facturacion/pos',          label: 'POs',             icon: '📁', id: 'fact-pos'       },
+  { to: '/facturacion/smps',         label: 'Todos los SMPs',  icon: '🗂', id: 'fact-smps'      },
+]
+
 // Badge de rol
 const BADGE = {
   admin:       { label: '⚙ Admin',   cls: 'ub-admin' },
@@ -71,8 +79,9 @@ export default function Layout({ children }) {
   const navigate      = useNavigate()
   const location      = useLocation()
 
-  const inMateriales = location.pathname.startsWith('/materiales')
-  const inRollout    = location.pathname.startsWith('/rollout')
+  const inMateriales   = location.pathname.startsWith('/materiales')
+  const inRollout      = location.pathname.startsWith('/rollout')
+  const inFacturacion  = location.pathname.startsWith('/facturacion')
 
   // Fusión: los valores dinámicos (ConfigPage) tienen prioridad sobre los estáticos
   const empresa = {
@@ -122,7 +131,9 @@ export default function Layout({ children }) {
     ? MAT_NAV.filter(canSee)
     : inRollout
       ? ROLLOUT_NAV
-      : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+      : inFacturacion
+        ? FACT_NAV
+        : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   // Botón cambiar módulo (solo admin/coord y solo cuando hay varios módulos)
   const canSwitchModule = user?.modulo === 'all'
@@ -183,7 +194,7 @@ export default function Layout({ children }) {
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'ACK' : 'Liquidador de Actividades'}
+          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'ACK' : inFacturacion ? 'Facturación Nokia' : 'Liquidador de Actividades'}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

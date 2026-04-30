@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
 import { useMatStore }  from '../store/useMatStore'
 import { useAckStore }  from '../store/useAckStore'
+import { useFactStore, buildInvoicesMap, getEventosRow } from '../store/useFactStore'
 
 const MODULOS = [
   {
@@ -32,6 +33,15 @@ const MODULOS = [
     icon:        '📋',
     color:       '#7c3aed',
     ruta:        '/rollout',
+  },
+  {
+    id:          'facturacion',
+    nombre:      'Facturación Nokia',
+    corto:       'Facturación',
+    descripcion: 'Seguimiento de hitos de facturación, POs y estados por evento y SMP.',
+    icon:        '🧾',
+    color:       '#b45309',
+    ruta:        '/facturacion',
   },
 ]
 
@@ -73,9 +83,16 @@ export default function ModuloHomePage() {
     ? ackSabana.filter(r => ackProyectoSel.includes(r.proyecto_alcance))
     : ackSabana
 
-  // Pre-carga silenciosa de Materiales y ACK para tener métricas listas
+  // ── Métricas Facturación ─────────────────────────────────────────
+  const factPPA      = useFactStore(s => s.ppa)
+  const factInvoices = useFactStore(s => s.invoices)
+  const loadFact     = useFactStore(s => s.loadAll)
+  const factLoaded   = factPPA.length > 0
+
+  // Pre-carga silenciosa de Materiales, ACK y Facturación
   useEffect(() => { loadMat() }, [loadMat])
   useEffect(() => { loadAck() }, [loadAck])
+  useEffect(() => { loadFact() }, [loadFact])
 
   // ── Helper: "—" si el store todavía no tiene datos ──────────────
   const n = (loaded, val) => loaded ? val : '—'
@@ -96,6 +113,22 @@ export default function ModuloHomePage() {
       { val: n(ackLoaded, ackFiltered.filter(r => ackForecasts[r.smp]).length),       label: 'Con FC'      },
       { val: n(ackLoaded, ackFiltered.filter(r => r.procesos_cierre_ph2).length),     label: 'Pendientes'  },
     ]
+    if (id === 'facturacion') {
+      const invMap   = buildInvoicesMap(factInvoices)
+      const porFact  = factLoaded ? factPPA.filter(row => {
+        if (!row.sgr) return false
+        return getEventosRow(row, invMap).some(e => e.status === 'facturar')
+      }).length : '—'
+      const facturado = factLoaded ? factPPA.filter(row => {
+        if (!row.sgr) return false
+        return getEventosRow(row, invMap).some(e => e.status === 'facturado')
+      }).length : '—'
+      return [
+        { val: n(factLoaded, factPPA.length),  label: 'SMPs'        },
+        { val: n(factLoaded, porFact),          label: 'Por facturar' },
+        { val: n(factLoaded, facturado),        label: 'Facturado'   },
+      ]
+    }
     return []
   }
 

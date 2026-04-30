@@ -1,7 +1,123 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAppStore } from '../store/useAppStore'
-import { showToast }   from '../components/Toast'
-import { supabase }    from '../lib/supabase'
+import { useAppStore }   from '../store/useAppStore'
+import { useFactStore }  from '../store/useFactStore'
+import { showToast }     from '../components/Toast'
+import { supabase }      from '../lib/supabase'
+
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+// ── Calendario de Facturación ─────────────────────────────────────
+function CalendarioConfig() {
+  const calendar            = useFactStore(s => s.calendar)
+  const loadAll             = useFactStore(s => s.loadAll)
+  const saveCalendarPeriod  = useFactStore(s => s.saveCalendarPeriod)
+  const deleteCalendarPeriod = useFactStore(s => s.deleteCalendarPeriod)
+
+  const [editing, setEditing] = useState(null)
+  const [form, setForm]       = useState({ year: new Date().getFullYear(), month: 1, month_name: 'Enero', start_day: 1, cutoff_day: 25 })
+  const [saving, setSaving]   = useState(false)
+
+  useEffect(() => { if (!calendar.length) loadAll() }, [])
+
+  function startNew() {
+    setForm({ year: new Date().getFullYear(), month: 1, month_name: 'Enero', start_day: 1, cutoff_day: 25 })
+    setEditing('new')
+  }
+
+  function startEdit(p) {
+    setForm({ year: p.year, month: p.month, month_name: p.month_name, start_day: p.start_day, cutoff_day: p.cutoff_day })
+    setEditing(p.id)
+  }
+
+  function updForm(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function handleSave() {
+    if (!form.year || !form.month || !form.start_day || !form.cutoff_day) { showToast('Completa todos los campos', 'err'); return }
+    setSaving(true)
+    try {
+      const payload = { ...form, year: Number(form.year), month: Number(form.month), start_day: Number(form.start_day), cutoff_day: Number(form.cutoff_day), month_name: MONTH_NAMES[Number(form.month) - 1] }
+      if (editing !== 'new') payload.id = editing
+      await saveCalendarPeriod(payload)
+      showToast('Periodo guardado')
+      setEditing(null)
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
+  const byYear = calendar.reduce((acc, c) => { (acc[c.year] = acc[c.year] || []).push(c); return acc }, {})
+
+  return (
+    <div className="card">
+      <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2>Calendario de Facturación Nokia</h2>
+        <button className="btn bp btn-sm" onClick={startNew}>+ Agregar periodo</button>
+      </div>
+      <div className="card-b">
+        {editing && (
+          <div style={{ background: '#f8faf8', borderRadius: 8, padding: 14, marginBottom: 16, border: '1px solid #e0e4e0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 10 }}>{editing === 'new' ? 'Nuevo periodo' : 'Editar periodo'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div className="fg">
+                <label className="fl">Año</label>
+                <input type="number" className="fc" value={form.year} onChange={e => updForm('year', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Mes</label>
+                <select className="fc" value={form.month} onChange={e => updForm('month', Number(e.target.value))}>
+                  {MONTH_NAMES.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+                </select>
+              </div>
+              <div className="fg">
+                <label className="fl">Día apertura</label>
+                <input type="number" className="fc" min={1} max={31} value={form.start_day} onChange={e => updForm('start_day', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Día cierre</label>
+                <input type="number" className="fc" min={1} max={31} value={form.cutoff_day} onChange={e => updForm('cutoff_day', e.target.value)} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEditing(null)} style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 11 }}>Cancelar</button>
+              <button onClick={handleSave} disabled={saving} className="btn bp btn-sm">{saving ? 'Guardando…' : '✓ Guardar'}</button>
+            </div>
+          </div>
+        )}
+
+        {Object.keys(byYear).sort((a, b) => b - a).map(year => (
+          <div key={year} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca89c', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>{year}</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: '#f8faf8' }}>
+                  {['Período', 'Apertura', 'Cierre', ''].map(h => (
+                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {byYear[year].map(p => (
+                  <tr key={p.id} style={{ borderTop: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '6px 10px', fontWeight: 600 }}>{p.month_name}</td>
+                    <td style={{ padding: '6px 10px', color: '#555' }}>Día {p.start_day}</td>
+                    <td style={{ padding: '6px 10px', color: '#555' }}>Día {p.cutoff_day}</td>
+                    <td style={{ padding: '6px 10px', display: 'flex', gap: 6 }}>
+                      <button onClick={() => startEdit(p)} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>
+                      <button onClick={() => { if (window.confirm('¿Eliminar?')) deleteCalendarPeriod(p.id) }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Quitar</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+
+        {!calendar.length && !editing && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca89c', fontSize: 12 }}>Sin periodos configurados.</div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const BUCKET = 'logos'
 
@@ -322,6 +438,7 @@ export default function ConfigPage() {
             </a>.
           </div>
         </div>
+        <CalendarioConfig />
       </div>
     </>
   )

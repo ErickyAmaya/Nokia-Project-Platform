@@ -31,6 +31,12 @@ import AckDashboard       from './pages/rollout/AckDashboard'
 import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
 import AckForecast        from './pages/rollout/AckForecast'
+import FactWrapper        from './pages/facturacion/FactWrapper'
+import FactDashboard      from './pages/facturacion/FactDashboard'
+import FactPorFacturar    from './pages/facturacion/FactPorFacturar'
+import FactFacturado      from './pages/facturacion/FactFacturado'
+import FactPOs            from './pages/facturacion/FactPOs'
+import FactSMPs           from './pages/facturacion/FactSMPs'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -183,6 +189,19 @@ function AppRoutes() {
       <Route path="/config" element={
         <ProtectedRoute allowedRoles={R_ADMIN}>{W(<ConfigPage />)}</ProtectedRoute>
       } />
+
+      {/* ── Módulo Facturación ─────────────────────────────── */}
+      <Route path="/facturacion" element={
+        <ProtectedRoute allowedRoles={['admin','coordinador']}>
+          <Layout><FactWrapper /></Layout>
+        </ProtectedRoute>
+      }>
+        <Route index                    element={<FactDashboard />} />
+        <Route path="por-facturar"      element={<FactPorFacturar />} />
+        <Route path="facturado"         element={<FactFacturado />} />
+        <Route path="pos"               element={<FactPOs />} />
+        <Route path="smps"              element={<FactSMPs />} />
+      </Route>
 
       {/* ── Módulo Rollout ──────────────────────────────────── */}
       <Route path="/rollout" element={
