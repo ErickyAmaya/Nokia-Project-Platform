@@ -97,7 +97,7 @@ export const useFactStore = create((set, get) => ({
     set({ loading: true })
     try {
       const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }] = await Promise.all([
-        supabase.from('fact_uploads').select('*').order('loaded_at', { ascending: false }),
+        supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
         supabase.from('fact_pos').select('*'),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
