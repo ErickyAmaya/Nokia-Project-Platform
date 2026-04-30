@@ -54,13 +54,15 @@ export async function parsePOPdf(file) {
     valor    = parseFloat(rawValue.replace(/\./g, '').replace(',', '.')) || null
   }
 
-  // Free Text: "CAL0248_CAL.San Carlos_SMP-WO-0266410"
+  // Free Text: "PO_BOG1008_BOG.Tenerife_SMP-WO-0264209" o "CAL0248_CAL.San Carlos_SMP-WO-0266410"
   const ftMatch  = text.match(/Free Text[:\s]+([\w._\- ]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/i)
   const freeText = ftMatch?.[1]?.trim() || ''
   const parts    = freeText.split('_')
+  // Saltar prefijo "PO" si está presente
+  const start    = parts[0].toUpperCase() === 'PO' ? 1 : 0
   const smpIdx   = parts.findIndex(p => /SMP-WO-/i.test(p))
-  const siteId   = parts[0] || ''
-  const siteName = smpIdx > 1 ? parts.slice(1, smpIdx).join('_') : (parts[1] || '')
+  const siteId   = parts[start] || ''
+  const siteName = smpIdx > start + 1 ? parts.slice(start + 1, smpIdx).join('_') : (parts[start + 1] || '')
   const smpId    = smpIdx >= 0 ? parts[smpIdx] : (grab(text, /(SMP-WO-\d+)/i))
 
   return { spo_number: normSPO(spo), smp_id: smpId, site_id: siteId, site_name: siteName,
