@@ -3,6 +3,18 @@ import * as XLSX   from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { parsePOPdf } from '../lib/pdfParser'
 
+// ── Categorías SMP (por SMP Name) ────────────────────────────────
+export const SMP_CATS = [
+  { key: 'impl', label: 'Implementación', color: '#0ea5e9', test: n => /Process_Implementation/i.test(n) },
+  { key: 'adj',  label: 'ADJ',            color: '#f59e0b', test: n => /IMP_ADJ H2/i.test(n) },
+  { key: 'cw',   label: 'CW',             color: '#8b5cf6', test: n => /Process_CW/i.test(n) },
+  { key: 'cr',   label: 'CR',             color: '#ec4899', test: n => /No Back to Back Process|Extra works/i.test(n) },
+  { key: 'tss',  label: 'TSS',            color: '#10b981', test: n => /TSS Process/i.test(n) },
+]
+export function getSmpCat(smpName) {
+  return SMP_CATS.find(c => c.test(smpName || '')) || { key: 'other', label: 'Otro', color: '#9ca89c' }
+}
+
 // ── Eventos de cobro ──────────────────────────────────────────────
 export const EVENTOS = [
   { key: 'acuerdo',  label: 'Acuerdo',   pctCol: 'acuerdo_liberacion',         color: '#f59e0b' },
@@ -83,24 +95,26 @@ function parseExcelRow(headers, row) {
 }
 
 export const useFactStore = create((set, get) => ({
-  ppa:      [],
-  uploads:  [],
-  invoices: [],
-  pos:      [],
-  calendar: [],
-  loading:  false,
-  uploading: false,
+  ppa:         [],
+  uploads:     [],
+  invoices:    [],
+  pos:         [],
+  calendar:    [],
+  rejectedPos: [],
+  loading:     false,
+  uploading:   false,
   currUploadId: null,
 
   // ── Cargar todo ─────────────────────────────────────────────────
   loadAll: async () => {
     set({ loading: true })
     try {
-      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }] = await Promise.all([
+      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
         supabase.from('fact_pos').select('*'),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
+        supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
       ])
 
       const latest = uploads?.[0]
@@ -111,10 +125,11 @@ export const useFactStore = create((set, get) => ({
       }
       set({
         ppa,
-        uploads:      uploads  || [],
-        invoices:     invoices || [],
-        pos:          pos      || [],
-        calendar:     cal      || [],
+        uploads:      uploads   || [],
+        invoices:     invoices  || [],
+        pos:          pos       || [],
+        calendar:     cal       || [],
+        rejectedPos:  rejected  || [],
         currUploadId: latest?.id || null,
         loading: false,
       })
@@ -168,7 +183,10 @@ export const useFactStore = create((set, get) => ({
       // Validar que el SPO exista en el PPA cargado
       const { ppa } = get()
       if (ppa.length > 0 && !ppa.some(r => r.spo_number === extracted.spo_number)) {
-        throw new Error(`SPO ${extracted.spo_number} no está en el PPA cargado`)
+        await supabase.from('fact_rejected_pos').insert({ filename: file.name, spo_number: extracted.spo_number })
+        const { data: rej } = await supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false })
+        set({ rejectedPos: rej || [] })
+        throw new Error(`SPO ${extracted.spo_number} no está en el PPA — guardado en registro de rechazados`)
       }
 
       // Subir archivo a Storage
@@ -245,6 +263,12 @@ export const useFactStore = create((set, get) => ({
   deleteCalendarPeriod: async (id) => {
     await supabase.from('fact_calendar').delete().eq('id', id)
     set(s => ({ calendar: s.calendar.filter(c => c.id !== id) }))
+  },
+
+  // ── Rechazados ───────────────────────────────────────────────────
+  deleteRejectedPo: async (id) => {
+    await supabase.from('fact_rejected_pos').delete().eq('id', id)
+    set(s => ({ rejectedPos: s.rejectedPos.filter(r => r.id !== id) }))
   },
 
   // ── Eliminar upload ──────────────────────────────────────────────

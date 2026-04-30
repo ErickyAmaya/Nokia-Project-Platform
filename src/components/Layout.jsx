@@ -44,9 +44,10 @@ const ROLLOUT_NAV = [
 ]
 
 const FACT_NAV = [
-  { to: '/facturacion',              label: 'Dashboard',       icon: '📊', id: 'fact-dashboard' },
+  { to: '/facturacion',              label: 'Dashboard',       icon: '📊', id: 'fact-dashboard', exact: true },
   { to: '/facturacion/por-facturar', label: 'Por Facturar',    icon: '📄', id: 'fact-pf'        },
   { to: '/facturacion/facturado',    label: 'Facturado',       icon: '✓',  id: 'fact-fc'        },
+  { to: '/facturacion/sitios',       label: 'Sitios',          icon: '📍', id: 'fact-sitios'    },
   { to: '/facturacion/pos',          label: 'POs',             icon: '📁', id: 'fact-pos'       },
   { to: '/facturacion/smps',         label: 'Todos los SMPs',  icon: '🗂', id: 'fact-smps'      },
 ]
@@ -381,7 +382,7 @@ export default function Layout({ children }) {
           {/* Módulo actual */}
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : '💰 Liquidador Nokia'}
+            {inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación Nokia' : '💰 Liquidador Nokia'}
           </div>
 
           {/* Cambiar módulo */}

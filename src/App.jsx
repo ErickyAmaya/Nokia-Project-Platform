@@ -37,6 +37,7 @@ import FactPorFacturar    from './pages/facturacion/FactPorFacturar'
 import FactFacturado      from './pages/facturacion/FactFacturado'
 import FactPOs            from './pages/facturacion/FactPOs'
 import FactSMPs           from './pages/facturacion/FactSMPs'
+import FactSitios         from './pages/facturacion/FactSitios'
 
 // Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -199,6 +200,7 @@ function AppRoutes() {
         <Route index                    element={<FactDashboard />} />
         <Route path="por-facturar"      element={<FactPorFacturar />} />
         <Route path="facturado"         element={<FactFacturado />} />
+        <Route path="sitios"            element={<FactSitios />} />
         <Route path="pos"               element={<FactPOs />} />
         <Route path="smps"              element={<FactSMPs />} />
       </Route>

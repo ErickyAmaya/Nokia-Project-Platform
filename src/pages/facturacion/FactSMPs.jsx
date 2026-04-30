@@ -10,21 +10,17 @@ const STATUS_STYLES = {
 
 function StatusChip({ status }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES.no_aplica
-  return (
-    <span style={{ background: s.bg, color: s.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>
-      {s.label}
-    </span>
-  )
+  return <span style={{ background: s.bg, color: s.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{s.label}</span>
 }
 
 export default function FactSMPs() {
   const ppa      = useFactStore(s => s.ppa)
   const invoices = useFactStore(s => s.invoices)
 
-  const [search, setSearch]   = useState('')
-  const [filtro, setFiltro]   = useState('todos')
-  const [sortCol, setSortCol] = useState('customer_site_name')
-  const [sortDir, setSortDir] = useState(1)
+  const [search,   setSearch]   = useState('')
+  const [filtro,   setFiltro]   = useState('todos')
+  const [sortCol,  setSortCol]  = useState('customer_site_name')
+  const [sortDir,  setSortDir]  = useState(1)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -55,16 +51,12 @@ export default function FactSMPs() {
   }
 
   const SH = ({ col, label }) => (
-    <th onClick={() => toggleSort(col)} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+    <th onClick={() => toggleSort(col)} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
       {label} {sortCol === col ? (sortDir === 1 ? '▲' : '▼') : ''}
     </th>
   )
 
-  if (!ppa.length) return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>
-      Sin datos. Carga el PPA Nokia desde el Dashboard.
-    </div>
-  )
+  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
     <>
@@ -84,21 +76,21 @@ export default function FactSMPs() {
         </div>
       </div>
 
-      <div className="card" style={{ overflow: 'auto' }}>
+      <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 900 }}>
           <thead>
             <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
               <SH col="customer_site_name" label="Sitio" />
-              <SH col="smp_id"   label="SMP ID" />
-              <SH col="spo_number" label="SPO" />
-              <SH col="ms_name"  label="MS Name" />
-              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10 }}>sGR</th>
+              <SH col="smp_id"             label="SMP ID" />
+              <SH col="spo_number"         label="SPO" />
+              <SH col="ms_name"            label="MS Name" />
+              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>sGR</th>
               {EVENTOS.map(ev => (
-                <th key={ev.key} style={{ padding: '8px 6px', fontWeight: 700, color: ev.color, fontSize: 9, textAlign: 'center', letterSpacing: .3 }}>
+                <th key={ev.key} style={{ padding: '8px 6px', fontWeight: 700, color: ev.color, fontSize: 9, textAlign: 'center', letterSpacing: .3, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
                   {ev.label}
                 </th>
               ))}
-              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10 }}>Estado</th>
+              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -112,11 +104,7 @@ export default function FactSMPs() {
                 {EVENTOS.map(ev => {
                   const evData = eventos.find(e => e.key === ev.key)
                   if (!evData) return <td key={ev.key} style={{ padding: '6px 6px', textAlign: 'center', color: '#e4e4e7', fontSize: 9 }}>—</td>
-                  return (
-                    <td key={ev.key} style={{ padding: '6px 6px', textAlign: 'center' }}>
-                      <StatusChip status={evData.status} />
-                    </td>
-                  )
+                  return <td key={ev.key} style={{ padding: '6px 6px', textAlign: 'center' }}><StatusChip status={evData.status} /></td>
                 })}
                 <td style={{ padding: '6px 10px' }}><StatusChip status={overallStatus} /></td>
               </tr>
