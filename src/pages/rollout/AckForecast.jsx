@@ -259,7 +259,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
                           background: '#fff',
                           border: '1px solid #e8e8e8',
                           fontSize: forPrint ? 7.5 : 9,
-                          cursor: (!forPrint && title) ? 'help' : 'default',
+                          cursor: (!forPrint && title) ? 'zoom-in' : 'default',
                         }}
                       >
                         {count || ''}
