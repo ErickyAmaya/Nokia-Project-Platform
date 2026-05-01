@@ -9,13 +9,13 @@ function RechazadosModal({ items, onClose, onDelete }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
           <div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700 }}>PDFs de PO rechazados</div>
-            <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>SPOs que no coincidieron con el PPA cargado. Revisa y elimina los que ya no apliquen.</div>
+            <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>SPOs que no coincidieron con el PPA cargado. Revisa y elimina los que ya no apliquen.</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#71717a', lineHeight: 1, padding: '0 0 0 12px' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#4b5563', lineHeight: 1, padding: '0 0 0 12px' }}>✕</button>
         </div>
 
         {items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca89c', fontSize: 13 }}>Sin registros rechazados.</div>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#617561', fontSize: 13 }}>Sin registros rechazados.</div>
         ) : (
           <div style={{ overflow: 'auto', flex: 1, marginTop: 12 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -31,7 +31,7 @@ function RechazadosModal({ items, onClose, onDelete }) {
                   <tr key={r.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                     <td style={{ padding: '8px 10px', fontSize: 10, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.filename}>{r.filename}</td>
                     <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{r.spo_number || '—'}</td>
-                    <td style={{ padding: '8px 10px', color: '#71717a', fontSize: 10 }}>{r.rejected_at ? new Date(r.rejected_at).toLocaleDateString('es-CO') : '—'}</td>
+                    <td style={{ padding: '8px 10px', color: '#4b5563', fontSize: 10 }}>{r.rejected_at ? new Date(r.rejected_at).toLocaleDateString('es-CO') : '—'}</td>
                     <td style={{ padding: '8px 10px' }}>
                       <button
                         onClick={() => onDelete(r.id)}
@@ -67,7 +67,7 @@ function PeriodoActual({ calendar }) {
   return (
     <div style={{ background: isOpen ? '#f0fdf4' : '#fef3c7', border: `1px solid ${isOpen ? '#86efac' : '#fcd34d'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#71717a' }}>Periodo de facturación</div>
+        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#4b5563' }}>Periodo de facturación</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{period.month_name} {period.year}</div>
         <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>Apertura: día {period.start_day} · Cierre: día {period.cutoff_day}</div>
       </div>
@@ -90,7 +90,7 @@ function CatProgressBar({ cat, pf, fc, sinGR, total }) {
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
         <span style={{ fontWeight: 700, color: cat.color }}>{cat.label}</span>
-        <span style={{ color: '#71717a', fontSize: 9 }}>
+        <span style={{ color: '#4b5563', fontSize: 9 }}>
           {fc > 0 && <span style={{ color: '#22c55e', marginRight: 8 }}>✓ {fc} facturado{fc !== 1 ? 's' : ''}</span>}
           {pf > 0 && <span style={{ color: '#ef4444', marginRight: 8 }}>⚠ {pf} pendiente{pf !== 1 ? 's' : ''}</span>}
           {sinGR > 0 && <span style={{ color: '#f59e0b' }}>○ {sinGR} sin sGR</span>}
@@ -200,14 +200,14 @@ export default function FactDashboard() {
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0 }}>Archivo PPA Nokia</h2>
             {lastUpload && (
-              <div style={{ fontSize: 11, color: '#71717a', marginTop: 3 }}>
+              <div style={{ fontSize: 11, color: '#4b5563', marginTop: 3 }}>
                 <span style={{ fontWeight: 700, color: '#09090b' }}>{lastUpload.filename}</span>
                 {' '}
                 <span>({lastUpload.row_count} SPOs · cargado {new Date(lastUpload.uploaded_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
               </div>
             )}
             {!lastUpload && (
-              <div style={{ fontSize: 11, color: '#9ca89c', marginTop: 3 }}>Sin archivo cargado</div>
+              <div style={{ fontSize: 11, color: '#617561', marginTop: 3 }}>Sin archivo cargado</div>
             )}
           </div>
           <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5, flexShrink: 0 }}>
@@ -257,17 +257,17 @@ export default function FactDashboard() {
               <div className="stat" style={{ borderLeftColor: '#ef4444', padding: '12px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Por Facturar</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorFacturar)}</div>
-                <div style={{ fontSize: 9, color: '#9ca89c' }}>Según valor de POs cargadas</div>
+                <div style={{ fontSize: 9, color: '#617561' }}>Según valor de POs cargadas</div>
               </div>
               <div className="stat" style={{ borderLeftColor: '#f59e0b', padding: '12px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Pendiente de Liberación</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorPendienteLib)}</div>
-                <div style={{ fontSize: 9, color: '#9ca89c' }}>SPOs sin GR y/o sin %</div>
+                <div style={{ fontSize: 9, color: '#617561' }}>SPOs sin GR y/o sin %</div>
               </div>
               <div className="stat" style={{ borderLeftColor: '#22c55e', padding: '12px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Facturado</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorFacturado)}</div>
-                <div style={{ fontSize: 9, color: '#9ca89c' }}>Según valor de POs cargadas</div>
+                <div style={{ fontSize: 9, color: '#617561' }}>Según valor de POs cargadas</div>
               </div>
             </div>
           )}
@@ -279,7 +279,7 @@ export default function FactDashboard() {
               {catStats.map(({ cat, pf, fc, sinGR, total }) => (
                 <CatProgressBar key={cat.key} cat={cat} pf={pf} fc={fc} sinGR={sinGR} total={total} />
               ))}
-              <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 9, color: '#71717a' }}>
+              <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 9, color: '#4b5563' }}>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4 }} />Facturado</span>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Por facturar</span>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#f0f0f0', borderRadius: 2, marginRight: 4 }} />Sin sGR / no aplica</span>
@@ -317,7 +317,7 @@ export default function FactDashboard() {
                         </td>
                         <td style={{ textAlign: 'center', color: pf > 0 ? '#ef4444' : '#ccc', fontWeight: pf > 0 ? 700 : 400 }}>{pf || '—'}</td>
                         <td style={{ textAlign: 'center', color: fc > 0 ? '#22c55e' : '#ccc', fontWeight: fc > 0 ? 700 : 400 }}>{fc || '—'}</td>
-                        <td style={{ textAlign: 'center', color: '#9ca89c' }}>{na || '—'}</td>
+                        <td style={{ textAlign: 'center', color: '#617561' }}>{na || '—'}</td>
                       </tr>
                     )
                   })}
@@ -343,7 +343,7 @@ export default function FactDashboard() {
                         </td>
                         <td style={{ textAlign: 'center', color: pf > 0 ? '#ef4444' : '#ccc', fontWeight: pf > 0 ? 700 : 400 }}>{pf || '—'}</td>
                         <td style={{ textAlign: 'center', color: fc > 0 ? '#22c55e' : '#ccc', fontWeight: fc > 0 ? 700 : 400 }}>{fc || '—'}</td>
-                        <td style={{ textAlign: 'center', color: '#9ca89c' }}>{na || '—'}</td>
+                        <td style={{ textAlign: 'center', color: '#617561' }}>{na || '—'}</td>
                       </tr>
                     )
                   })}

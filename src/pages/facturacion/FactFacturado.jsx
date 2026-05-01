@@ -52,7 +52,7 @@ export default function FactFacturado() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
-  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
+  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
     <>
@@ -62,7 +62,7 @@ export default function FactFacturado() {
             Facturado
             {totalFacturado > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{fmtCOP(totalFacturado)}</span>}
           </h1>
-          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} con facturas registradas</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} con facturas registradas</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 220 }} />
@@ -74,7 +74,7 @@ export default function FactFacturado() {
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#9ca89c', fontSize: 13 }}>Sin facturas registradas con los filtros actuales.</div>
+        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>Sin facturas registradas con los filtros actuales.</div>
       ) : (
         <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>

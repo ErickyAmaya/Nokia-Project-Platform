@@ -20,7 +20,7 @@ function EditModal({ po, onClose, onSave }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Editar PO</div>
-        <div style={{ fontSize: 11, color: '#71717a', marginBottom: 18 }}>SPO {po.spo_number} · {po.site_name || po.site_id}</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 18 }}>SPO {po.spo_number} · {po.site_name || po.site_id}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8 }}>
             <div className="fg" style={{ flex: 2 }}><label className="fl">Valor</label><input className="fc" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="4180241" /></div>
@@ -49,13 +49,13 @@ function RechazadosModal({ items, onClose, onDelete }) {
       <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,.2)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700 }}>PDFs Rechazados</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#71717a' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#4b5563' }}>✕</button>
         </div>
-        <div style={{ fontSize: 11, color: '#71717a', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 16 }}>
           SPOs que no coincidieron con el PPA cargado. Revísalos y elimina los que ya no apliquen.
         </div>
         {items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca89c', fontSize: 13 }}>Sin registros rechazados.</div>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#617561', fontSize: 13 }}>Sin registros rechazados.</div>
         ) : (
           <div style={{ overflow: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -71,7 +71,7 @@ function RechazadosModal({ items, onClose, onDelete }) {
                   <tr key={r.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                     <td style={{ padding: '7px 10px', fontSize: 10, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.filename}>{r.filename}</td>
                     <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{r.spo_number || '—'}</td>
-                    <td style={{ padding: '7px 10px', color: '#71717a', fontSize: 10 }}>{r.rejected_at ? new Date(r.rejected_at).toLocaleDateString('es-CO') : '—'}</td>
+                    <td style={{ padding: '7px 10px', color: '#4b5563', fontSize: 10 }}>{r.rejected_at ? new Date(r.rejected_at).toLocaleDateString('es-CO') : '—'}</td>
                     <td style={{ padding: '7px 10px' }}>
                       <button onClick={() => onDelete(r.id)} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Eliminar</button>
                     </td>
@@ -145,7 +145,7 @@ export default function FactPOs() {
               </span>
             )}
           </h1>
-          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>
             {pos.length} PO{pos.length !== 1 ? 's' : ''} cargada{pos.length !== 1 ? 's' : ''}
             {sinPO.length > 0 && <span style={{ marginLeft: 10, color: '#f59e0b', fontWeight: 600 }}>{sinPO.length} SPO{sinPO.length > 1 ? 's' : ''} sin PO</span>}
           </div>
@@ -171,7 +171,7 @@ export default function FactPOs() {
       )}
 
       {enriched.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#9ca89c', fontSize: 13 }}>
+        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>
           {pos.length === 0 ? 'Sube los PDFs de PO para registrar los valores.' : 'Sin resultados.'}
         </div>
       ) : (

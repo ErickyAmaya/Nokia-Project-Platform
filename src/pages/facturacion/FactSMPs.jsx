@@ -5,7 +5,7 @@ const STATUS_STYLES = {
   facturar:  { bg: '#fee2e2', color: '#991b1b', label: 'Facturar' },
   facturado: { bg: '#dcfce7', color: '#166534', label: 'Facturado' },
   sin_sgr:   { bg: '#fef3c7', color: '#92400e', label: 'Sin sGR' },
-  no_aplica: { bg: '#f4f4f5', color: '#71717a', label: '—' },
+  no_aplica: { bg: '#f4f4f5', color: '#4b5563', label: '—' },
 }
 
 function StatusChip({ status }) {
@@ -56,14 +56,14 @@ export default function FactSMPs() {
     </th>
   )
 
-  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
+  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
     <>
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Todos los SMPs</h1>
-          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{rows.length} de {ppa.length} SPOs</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} de {ppa.length} SPOs</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP, sGR…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 240 }} />

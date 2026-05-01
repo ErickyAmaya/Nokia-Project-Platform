@@ -42,7 +42,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
         {query && (
           <span
             onMouseDown={e => { e.preventDefault(); clear() }}
-            style={{ position: 'absolute', right: 7, cursor: 'pointer', color: '#71717a', fontSize: 14, lineHeight: 1, userSelect: 'none' }}
+            style={{ position: 'absolute', right: 7, cursor: 'pointer', color: '#4b5563', fontSize: 14, lineHeight: 1, userSelect: 'none' }}
           >×</span>
         )}
       </div>
@@ -54,7 +54,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
             </div>
           )}
           {filtered.length === 0
-            ? <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+            ? <div style={{ padding: '10px 14px', fontSize: 11, color: '#617561' }}>Sin resultados</div>
             : filtered.map(o => (
               <div
                 key={o}
@@ -122,7 +122,7 @@ export default function FactSitios() {
   function collapseAll() { setExpanded({}) }
 
   if (!ppa.length) return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>
       Sin datos. Carga el PPA Nokia desde el Dashboard.
     </div>
   )
@@ -132,7 +132,7 @@ export default function FactSitios() {
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Sitios</h1>
-          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchableSelect options={siteOptions} value={search} onChange={setSearch} placeholder="Buscar sitio…" />
@@ -177,7 +177,7 @@ export default function FactSitios() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 13, color: '#09090b' }}>{siteName}</span>
-                      <span style={{ fontSize: 10, color: '#71717a' }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</span>
+                      <span style={{ fontSize: 10, color: '#4b5563' }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</span>
                       <MiniBar pct={pctFc} />
                     </div>
                   </div>
@@ -213,7 +213,7 @@ export default function FactSitios() {
                           <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px 6px 30px', borderTop: '1px solid #f8f8f8', fontSize: 11 }}>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 }}>
                               <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#144E4A', fontWeight: 700, flexShrink: 0 }}>{row.smp_id}</span>
-                              <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#71717a', flexShrink: 0 }}>SPO {row.spo_number}</span>
+                              <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#4b5563', flexShrink: 0 }}>SPO {row.spo_number}</span>
                               <span style={{ fontSize: 10, color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.ms_name}</span>
                             </div>
                             <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
