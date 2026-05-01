@@ -145,12 +145,14 @@ export default function FactSitios() {
         {sites.map(([siteName, smps], idx) => {
           const isOpen = !!expanded[siteName]
 
-          let facturadoCnt = 0, pendienteCnt = 0, sinSGR = 0
+          let facturadoCnt = 0, pendientePF = 0, pendienteLib = 0
           for (const row of smps) {
-            if (!row.sgr) { sinSGR++; continue }
-            const evs = getEventosRow(row, invMap)
-            if (evs.some(e => e.status === 'facturar'))  pendienteCnt++
-            if (evs.some(e => e.status === 'facturado')) facturadoCnt++
+            const evs   = getEventosRow(row, invMap)
+            const hasPF = evs.some(e => e.status === 'facturar')
+            const hasFC = evs.some(e => e.status === 'facturado')
+            if (hasPF)       pendientePF++
+            else if (!hasFC) pendienteLib++
+            if (hasFC)       facturadoCnt++
           }
           const pctFc = smps.length > 0 ? Math.round((facturadoCnt / smps.length) * 100) : 0
 
@@ -175,17 +177,19 @@ export default function FactSitios() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 13, color: '#09090b' }}>{siteName}</span>
-                      <span style={{ fontSize: 10, color: '#71717a' }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</span>
+                      <span style={{ fontSize: 10, color: '#71717a' }}>
+                        {smps.length} SMP{smps.length !== 1 ? 's' : ''}
+                        {pendientePF > 0 && (
+                          <span style={{ color: '#ef4444', fontWeight: 700 }}> ({pendientePF} Pendiente{pendientePF !== 1 ? 's' : ''} por facturar)</span>
+                        )}
+                      </span>
                       <MiniBar pct={pctFc} />
-                      {pendienteCnt > 0 && (
-                        <span style={{ fontSize: 9, color: '#ef4444', fontWeight: 700 }}>{pendienteCnt} pendiente{pendienteCnt !== 1 ? 's' : ''}</span>
-                      )}
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                  {facturadoCnt > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{facturadoCnt} fc.</span>}
-                  {sinSGR > 0       && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{sinSGR} sin sGR</span>}
+                  {facturadoCnt > 0  && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{facturadoCnt} fc.</span>}
+                  {pendienteLib > 0  && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{pendienteLib} lib.</span>}
                 </div>
               </div>
 
@@ -203,6 +207,12 @@ export default function FactSitios() {
                         const evs   = getEventosRow(row, invMap)
                         const hasPF = evs.some(e => e.status === 'facturar')
                         const hasFC = evs.some(e => e.status === 'facturado')
+                        // Prioridad: rojo > verde > amarillo
+                        const badge = hasPF
+                          ? { bg: '#fee2e2', color: '#991b1b', label: 'Pendiente por facturar' }
+                          : hasFC
+                            ? { bg: '#dcfce7', color: '#166534', label: 'Facturado' }
+                            : { bg: '#fef3c7', color: '#92400e', label: 'Pendiente Liberación' }
                         return (
                           <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px 6px 30px', borderTop: '1px solid #f8f8f8', fontSize: 11 }}>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -211,10 +221,8 @@ export default function FactSitios() {
                               <span style={{ fontSize: 10, color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.ms_name}</span>
                             </div>
                             <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
-                              {!row.sgr && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Sin sGR</span>}
-                              {hasPF    && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Por facturar</span>}
-                              {!hasPF && hasFC && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Facturado</span>}
-                              {row.sgr && <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#9ca89c' }}>{row.sgr}</span>}
+                              <span style={{ background: badge.bg, color: badge.color, borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '2px 7px', whiteSpace: 'nowrap' }}>{badge.label}</span>
+                              {row.sgr && <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#b0b8b0' }}>{row.sgr}</span>}
                             </div>
                           </div>
                         )
