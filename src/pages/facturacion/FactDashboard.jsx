@@ -113,7 +113,6 @@ export default function FactDashboard() {
   const invoices         = useFactStore(s => s.invoices)
   const pos              = useFactStore(s => s.pos)
   const calendar         = useFactStore(s => s.calendar)
-  const deleteUpload     = useFactStore(s => s.deleteUpload)
   const rejectedPos      = useFactStore(s => s.rejectedPos)
   const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
 
@@ -197,29 +196,24 @@ export default function FactDashboard() {
 
       {/* Upload */}
       <div className="card">
-        <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>Archivo PPA Nokia</h2>
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>
+        <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0 }}>Archivo PPA Nokia</h2>
+            {lastUpload && (
+              <div style={{ fontSize: 11, color: '#71717a', marginTop: 3 }}>
+                <span style={{ fontWeight: 700, color: '#09090b' }}>{lastUpload.filename}</span>
+                {' '}
+                <span>({lastUpload.row_count} SPOs · cargado {new Date(lastUpload.uploaded_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })})</span>
+              </div>
+            )}
+            {!lastUpload && (
+              <div style={{ fontSize: 11, color: '#9ca89c', marginTop: 3 }}>Sin archivo cargado</div>
+            )}
+          </div>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5, flexShrink: 0 }}>
             {uploading ? '⏳ Cargando…' : '↑ Cargar PPA Nokia'}
           </button>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFile} />
-        </div>
-        <div className="card-b">
-          {lastUpload ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-              <div>
-                <div style={{ fontWeight: 700, color: '#09090b' }}>{lastUpload.filename}</div>
-                <div style={{ color: '#71717a', marginTop: 2 }}>
-                  {lastUpload.row_count} SPOs · cargado {new Date(lastUpload.uploaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-              <button onClick={() => { if (window.confirm('¿Quitar este archivo del historial?\n\nLos datos del PPA se ocultarán en la app pero las POs y facturas registradas no se pierden. Puedes volver a cargar el mismo archivo para restaurar la vista.')) deleteUpload(lastUpload.id) }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
-                Quitar
-              </button>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca89c', fontSize: 13 }}>Sin archivos cargados. Sube el PPA Nokia para comenzar.</div>
-          )}
         </div>
       </div>
 
