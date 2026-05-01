@@ -213,8 +213,8 @@ export default function FactDashboard() {
                   {lastUpload.row_count} SPOs · cargado {new Date(lastUpload.uploaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-              <button onClick={() => { if (window.confirm('¿Eliminar este upload?')) deleteUpload(lastUpload.id) }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
-                Eliminar
+              <button onClick={() => { if (window.confirm('¿Quitar este archivo del historial?\n\nLos datos del PPA se ocultarán en la app pero las POs y facturas registradas no se pierden. Puedes volver a cargar el mismo archivo para restaurar la vista.')) deleteUpload(lastUpload.id) }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                Quitar
               </button>
             </div>
           ) : (
