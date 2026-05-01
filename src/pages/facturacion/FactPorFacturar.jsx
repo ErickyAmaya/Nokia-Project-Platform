@@ -2,13 +2,37 @@ import { useState, useMemo } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
 
-const EMPTY_FORM = { numero_factura: '', fecha_factura: '', observaciones: '' }
+const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
+
+const TH = ({ children }) => (
+  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
+    {children}
+  </th>
+)
+
+function SpoCell({ spo, pos }) {
+  const pdf = pos.find(p => p.spo_number === spo)?.pdf_url
+  if (pdf) return (
+    <a href={pdf} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace', fontSize: 10, color: '#1d4ed8', fontWeight: 700, textDecoration: 'none' }} title="Ver PDF de PO">
+      {spo} ↗
+    </a>
+  )
+  return <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{spo}</span>
+}
 
 function EventoBadge({ ev }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
       {ev.label} · {ev.pct}%
+    </span>
+  )
+}
+
+function MissingBadge({ missing }) {
+  return (
+    <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      {missing}
     </span>
   )
 }
@@ -70,14 +94,14 @@ export default function FactPorFacturar() {
   const [filtroCat, setFiltroCat] = useState('todos')
   const [modal,     setModal]     = useState(null)
 
-  const invMap     = useMemo(() => buildInvoicesMap(invoices), [invoices])
-  const pendientes = useMemo(() => ppa.filter(r => r.sgr && getEventosRow(r, invMap).some(e => e.status === 'facturar')).length, [ppa, invMap])
+  const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
+  // Lista principal: tienen GR + % → pueden facturarse ahora
   const rows = useMemo(() => {
     const result = []
     for (const row of ppa) {
       if (!row.sgr) continue
-      const cat = getSmpCat(row.smp_name)
+      const cat    = getSmpCat(row.smp_name)
       if (filtroCat !== 'todos' && cat.key !== filtroCat) continue
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
       if (!eventos.length) continue
@@ -89,18 +113,46 @@ export default function FactPorFacturar() {
     return result
   }, [ppa, invMap, filtroEv, filtroCat, search])
 
+  // Lista secundaria: bloqueados por falta de GR y/o %
+  const libRows = useMemo(() => {
+    const result = []
+    for (const row of ppa) {
+      const evs   = getEventosRow(row, invMap)
+      const hasPF = evs.some(e => e.status === 'facturar')
+      const hasFC = evs.some(e => e.status === 'facturado')
+      if (hasPF) continue  // ya está en la lista principal
+
+      const hasGR     = !!row.sgr
+      const hasAnyPct = EVENTOS.some(ev => (row[ev.pctCol] || 0) > 0)
+      if (hasGR && hasAnyPct && hasFC) continue  // totalmente facturado
+      if (hasGR && hasAnyPct) continue            // debería estar en rows
+
+      const cat = getSmpCat(row.smp_name)
+      if (filtroCat !== 'todos' && cat.key !== filtroCat) continue
+      if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name}`.toLowerCase().includes(search.toLowerCase())) continue
+
+      const missing = !hasGR && !hasAnyPct ? 'Sin GR · Sin %'
+                    : !hasGR               ? 'Sin GR'
+                    :                        'Sin %'
+      result.push({ row, cat, missing })
+    }
+    return result
+  }, [ppa, invMap, filtroCat, search])
+
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca89c', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
     <>
       {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} onClose={() => setModal(null)} onSave={registrarFactura} />}
+
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Por Facturar
-            {pendientes > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{pendientes}</span>}
+            {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{rows.length}</span>}
+            {libRows.length > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{libRows.length} lib.</span>}
           </h1>
-          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} con eventos pendientes</div>
+          <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {libRows.length} pendientes de liberación</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
@@ -114,16 +166,17 @@ export default function FactPorFacturar() {
         </div>
       </div>
 
+      {/* ── Lista principal: Pendiente por facturar ───────────────── */}
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#22c55e', fontSize: 14, fontWeight: 600 }}>✓ Todo facturado — no hay pendientes con los filtros actuales</div>
+        <div style={{ textAlign: 'center', padding: '32px 20px', color: '#22c55e', fontSize: 14, fontWeight: 600 }}>
+          ✓ No hay SPOs facturables pendientes con los filtros actuales
+        </div>
       ) : (
-        <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
+        <div className="card" style={{ overflow: 'auto', maxHeight: '55vh', marginBottom: 16 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                {['Sitio', 'SMP ID', 'SPO', 'Categoría', 'Evento', 'sGR', 'Valor PO', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
-                ))}
+                <TH>Sitio</TH><TH>SMP ID</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>sGR</TH><TH>Valor PO</TH><TH></TH>
               </tr>
             </thead>
             <tbody>
@@ -136,7 +189,7 @@ export default function FactPorFacturar() {
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_id}</td>
-                          <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10 }} rowSpan={eventos.length}>{row.spo_number}</td>
+                          <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><SpoCell spo={row.spo_number} pos={pos} /></td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}>
                             <span style={{ background: `${cat.color}15`, color: cat.color, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{cat.label}</span>
                           </td>
@@ -145,7 +198,9 @@ export default function FactPorFacturar() {
                       <td style={{ padding: '7px 10px' }}><EventoBadge ev={ev} /></td>
                       <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#144E4A', fontWeight: 600 }}>{row.sgr}</td>
                       <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>
-                        {poData?.valor ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * ev.pct / 100) : <span style={{ color: '#d4d4d8' }}>Sin PO</span>}
+                        {poData?.valor
+                          ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * ev.pct / 100)
+                          : <span style={{ color: '#d4d4d8' }}>Sin PO</span>}
                       </td>
                       <td style={{ padding: '7px 10px' }}>
                         <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
@@ -157,6 +212,47 @@ export default function FactPorFacturar() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* ── Lista secundaria: Pendiente Liberación ────────────────── */}
+      {libRows.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#92400e' }}>Pendiente Liberación</div>
+            <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{libRows.length}</span>
+            <div style={{ fontSize: 11, color: '#71717a' }}>— SPOs bloqueados por falta de GR y/o %</div>
+          </div>
+          <div className="card" style={{ overflow: 'auto', maxHeight: '45vh' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 680 }}>
+              <thead>
+                <tr style={{ background: '#fffbeb', borderBottom: '2px solid #fcd34d' }}>
+                  <TH>Sitio</TH><TH>SMP ID</TH><TH>SPO</TH><TH>Categoría</TH><TH>Falta</TH><TH>Valor PO</TH>
+                </tr>
+              </thead>
+              <tbody>
+                {libRows.map(({ row, cat, missing }) => {
+                  const poData = pos.find(p => p.spo_number === row.spo_number)
+                  return (
+                    <tr key={row.id} style={{ borderTop: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '7px 10px', fontWeight: 600 }}>{row.customer_site_name || row.site_reference_id}</td>
+                      <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
+                      <td style={{ padding: '7px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
+                      <td style={{ padding: '7px 10px' }}>
+                        <span style={{ background: `${cat.color}15`, color: cat.color, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{cat.label}</span>
+                      </td>
+                      <td style={{ padding: '7px 10px' }}><MissingBadge missing={missing} /></td>
+                      <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>
+                        {poData?.valor
+                          ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor)
+                          : <span style={{ color: '#d4d4d8' }}>Sin PO</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </>
   )
