@@ -122,18 +122,29 @@ export default function FactDashboard() {
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
   const stats = useMemo(() => {
-    let totalSPOs = ppa.length, porFacturar = 0, facturado = 0, sinGR = 0, valorFacturar = 0, valorFacturado = 0
+    let totalSPOs = ppa.length, porFacturar = 0, facturado = 0, sinGR = 0
+    let valorFacturar = 0, valorFacturado = 0, valorPendienteLib = 0
     for (const row of ppa) {
-      const eventos = getEventosRow(row, invMap)
-      if (!row.sgr) { sinGR++; continue }
-      const poData = pos.find(p => p.spo_number === row.spo_number)
-      const valor  = poData?.valor || 0
+      const eventos   = getEventosRow(row, invMap)
+      const hasPF     = eventos.some(e => e.status === 'facturar')
+      const hasFC     = eventos.some(e => e.status === 'facturado')
+      const hasGR     = !!row.sgr
+      const hasAnyPct = EVENTOS.some(ev => (row[ev.pctCol] || 0) > 0)
+      const poData    = pos.find(p => p.spo_number === row.spo_number)
+      const valor     = poData?.valor || 0
+
+      if (!hasGR) sinGR++
+
       for (const ev of eventos) {
         if (ev.status === 'facturar')  { porFacturar++;  valorFacturar  += valor * (ev.pct / 100) }
         if (ev.status === 'facturado') { facturado++;    valorFacturado += valor * (ev.pct / 100) }
       }
+
+      if (!hasPF && !hasFC && (!hasGR || !hasAnyPct)) {
+        valorPendienteLib += valor
+      }
     }
-    return { totalSPOs, porFacturar, facturado, sinGR, valorFacturar, valorFacturado }
+    return { totalSPOs, porFacturar, facturado, sinGR, valorFacturar, valorFacturado, valorPendienteLib }
   }, [ppa, invMap, pos])
 
   // Stats por categoría SMP
@@ -247,12 +258,17 @@ export default function FactDashboard() {
             ))}
           </div>
 
-          {(stats.valorFacturar > 0 || stats.valorFacturado > 0) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {(stats.valorFacturar > 0 || stats.valorFacturado > 0 || stats.valorPendienteLib > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
               <div className="stat" style={{ borderLeftColor: '#ef4444', padding: '12px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Por Facturar</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorFacturar)}</div>
                 <div style={{ fontSize: 9, color: '#9ca89c' }}>Según valor de POs cargadas</div>
+              </div>
+              <div className="stat" style={{ borderLeftColor: '#f59e0b', padding: '12px 16px' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Pendiente de Liberación</div>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorPendienteLib)}</div>
+                <div style={{ fontSize: 9, color: '#9ca89c' }}>SPOs sin GR y/o sin %</div>
               </div>
               <div className="stat" style={{ borderLeftColor: '#22c55e', padding: '12px 16px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Facturado</div>
