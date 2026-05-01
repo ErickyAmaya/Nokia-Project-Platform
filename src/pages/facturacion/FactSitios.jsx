@@ -1,8 +1,89 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 
 const CAT_ORDER = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
 const CAT_MAP   = Object.fromEntries([...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }].map(c => [c.key, c]))
+
+function SearchableSelect({ options, value, onChange, placeholder }) {
+  const [open,  setOpen]  = useState(false)
+  const [query, setQuery] = useState(value)
+  const ref = useRef(null)
+
+  useEffect(() => { setQuery(value) }, [value])
+
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = useMemo(
+    () => options.filter(o => !query || o.toLowerCase().includes(query.toLowerCase())),
+    [options, query]
+  )
+
+  function select(opt) { setQuery(opt); onChange(opt); setOpen(false) }
+  function clear()     { setQuery('');  onChange('');  setOpen(false) }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <input
+          className="fc"
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          style={{ minWidth: 220, fontSize: 11, paddingRight: query ? 22 : 8 }}
+        />
+        {query && (
+          <span
+            onMouseDown={e => { e.preventDefault(); clear() }}
+            style={{ position: 'absolute', right: 7, cursor: 'pointer', color: '#71717a', fontSize: 14, lineHeight: 1, userSelect: 'none' }}
+          >×</span>
+        )}
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 3px)', left: 0, minWidth: 240, zIndex: 200, background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.13)', maxHeight: 300, overflowY: 'auto' }}>
+          {!query && (
+            <div onMouseDown={() => select('')} style={{ padding: '7px 14px', fontSize: 11, cursor: 'pointer', color: '#4b5563', borderBottom: '1px solid #f0f0f0' }}>
+              — Todos los sitios
+            </div>
+          )}
+          {filtered.length === 0
+            ? <div style={{ padding: '10px 14px', fontSize: 11, color: '#9ca89c' }}>Sin resultados</div>
+            : filtered.map(o => (
+              <div
+                key={o}
+                onMouseDown={() => select(o)}
+                style={{ padding: '7px 14px', fontSize: 11, cursor: 'pointer', background: o === value ? '#f0fdf4' : undefined, color: o === value ? '#144E4A' : '#374151', fontWeight: o === value ? 700 : 400, borderBottom: '1px solid #f8f9f8' }}
+                onMouseEnter={e => { if (o !== value) e.currentTarget.style.background = '#f8faf8' }}
+                onMouseLeave={e => { e.currentTarget.style.background = o === value ? '#f0fdf4' : '' }}
+              >
+                {o}
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MiniBar({ pct }) {
+  const color = pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{ width: 56, height: 4, background: '#e5e7eb', borderRadius: 2 }}>
+        <div style={{ height: 4, borderRadius: 2, background: color, width: `${Math.min(pct, 100)}%`, transition: 'width .3s' }} />
+      </div>
+      <span style={{ fontSize: 9, fontWeight: 700, color, minWidth: 26 }}>{pct}%</span>
+    </div>
+  )
+}
 
 export default function FactSitios() {
   const ppa      = useFactStore(s => s.ppa)
@@ -12,6 +93,11 @@ export default function FactSitios() {
   const [expanded, setExpanded] = useState({})
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
+
+  const siteOptions = useMemo(() => {
+    const names = [...new Set(ppa.map(r => r.customer_site_name || r.site_reference_id || 'Sin nombre'))]
+    return names.sort((a, b) => a.localeCompare(b))
+  }, [ppa])
 
   const sites = useMemo(() => {
     const map = {}
@@ -25,9 +111,7 @@ export default function FactSitios() {
       .sort(([a], [b]) => a.localeCompare(b))
   }, [ppa, search])
 
-  function toggle(name) {
-    setExpanded(e => ({ ...e, [name]: !e[name] }))
-  }
+  function toggle(name) { setExpanded(e => ({ ...e, [name]: !e[name] })) }
 
   function expandAll() {
     const all = {}
@@ -51,26 +135,25 @@ export default function FactSitios() {
           <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="fc" placeholder="Buscar sitio…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 240 }} />
+          <SearchableSelect options={siteOptions} value={search} onChange={setSearch} placeholder="Buscar sitio…" />
           <button onClick={expandAll}   style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Expandir todo</button>
           <button onClick={collapseAll} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Colapsar todo</button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {sites.map(([siteName, smps]) => {
+      <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
+        {sites.map(([siteName, smps], idx) => {
           const isOpen = !!expanded[siteName]
 
-          // Totales del sitio
-          let sitePF = 0, siteFC = 0, sinSGR = 0
+          let facturadoCnt = 0, pendienteCnt = 0, sinSGR = 0
           for (const row of smps) {
             if (!row.sgr) { sinSGR++; continue }
             const evs = getEventosRow(row, invMap)
-            if (evs.some(e => e.status === 'facturar'))  sitePF++
-            if (evs.some(e => e.status === 'facturado')) siteFC++
+            if (evs.some(e => e.status === 'facturar'))  pendienteCnt++
+            if (evs.some(e => e.status === 'facturado')) facturadoCnt++
           }
+          const pctFc = smps.length > 0 ? Math.round((facturadoCnt / smps.length) * 100) : 0
 
-          // Agrupar SMPs por categoría en el orden definido
           const byCat = {}
           for (const row of smps) {
             const cat = getSmpCat(row.smp_name)
@@ -81,47 +164,47 @@ export default function FactSitios() {
           const catGroups = CAT_ORDER.filter(k => byCat[k]).map(k => ({ cat: CAT_MAP[k], rows: byCat[k] }))
 
           return (
-            <div key={siteName} className="card" style={{ overflow: 'hidden', padding: 0 }}>
-              {/* Fila del sitio */}
+            <div key={siteName} style={{ borderTop: idx > 0 ? '1px solid #e8eae8' : 'none' }}>
+              {/* Header del sitio */}
               <div
                 onClick={() => toggle(siteName)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', cursor: 'pointer', background: isOpen ? '#f8faf8' : '#fff', borderBottom: isOpen ? '1px solid #e8eae8' : 'none', userSelect: 'none' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', cursor: 'pointer', background: isOpen ? '#f8faf8' : '#fff', userSelect: 'none' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 10, color: '#144E4A', display: 'inline-block', transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: '#09090b' }}>{siteName}</div>
-                    <div style={{ fontSize: 10, color: '#71717a', marginTop: 1 }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 10, color: '#144E4A', flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'none', display: 'inline-block' }}>▶</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#09090b' }}>{siteName}</span>
+                      <span style={{ fontSize: 10, color: '#71717a' }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</span>
+                      <MiniBar pct={pctFc} />
+                      {pendienteCnt > 0 && (
+                        <span style={{ fontSize: 9, color: '#ef4444', fontWeight: 700 }}>{pendienteCnt} pendiente{pendienteCnt !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {sitePF > 0  && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{sitePF} por facturar</span>}
-                  {siteFC > 0  && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{siteFC} facturado{siteFC !== 1 ? 's' : ''}</span>}
-                  {sinSGR > 0  && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{sinSGR} sin sGR</span>}
+                <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
+                  {facturadoCnt > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{facturadoCnt} fc.</span>}
+                  {sinSGR > 0       && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{sinSGR} sin sGR</span>}
                 </div>
               </div>
 
               {/* Contenido expandido */}
               {isOpen && (
-                <div>
+                <div style={{ borderTop: '1px solid #e8eae8' }}>
                   {catGroups.map(({ cat, rows }, gi) => (
                     <div key={cat.key}>
-                      {/* Separador sutil entre categorías */}
-                      {gi > 0 && <div style={{ height: 1, background: '#e8eae8', margin: '0 16px' }} />}
-
-                      {/* Etiqueta de categoría */}
-                      <div style={{ padding: '5px 16px 3px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: cat.color, background: `${cat.color}08`, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {gi > 0 && <div style={{ height: 1, background: '#f0f0f0', margin: '0 16px' }} />}
+                      <div style={{ padding: '4px 16px 3px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: cat.color, background: `${cat.color}08`, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
                         {cat.label}
                       </div>
-
-                      {/* SMPs de esta categoría */}
                       {rows.map(row => {
-                        const evs  = getEventosRow(row, invMap)
+                        const evs   = getEventosRow(row, invMap)
                         const hasPF = evs.some(e => e.status === 'facturar')
                         const hasFC = evs.some(e => e.status === 'facturado')
                         return (
-                          <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 16px 7px 30px', borderTop: '1px solid #f8f8f8', fontSize: 11 }}>
+                          <div key={row.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 16px 6px 30px', borderTop: '1px solid #f8f8f8', fontSize: 11 }}>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 }}>
                               <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#144E4A', fontWeight: 700, flexShrink: 0 }}>{row.smp_id}</span>
                               <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#71717a', flexShrink: 0 }}>SPO {row.spo_number}</span>
@@ -129,7 +212,7 @@ export default function FactSitios() {
                             </div>
                             <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
                               {!row.sgr && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Sin sGR</span>}
-                              {hasPF   && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Por facturar</span>}
+                              {hasPF    && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Por facturar</span>}
                               {!hasPF && hasFC && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, fontSize: 8, fontWeight: 700, padding: '1px 6px' }}>Facturado</span>}
                               {row.sgr && <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#9ca89c' }}>{row.sgr}</span>}
                             </div>

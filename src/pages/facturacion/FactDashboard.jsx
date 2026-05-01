@@ -1,6 +1,59 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
+
+function RechazadosModal({ items, onClose, onDelete }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,.2)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700 }}>PDFs de PO rechazados</div>
+            <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>SPOs que no coincidieron con el PPA cargado. Revisa y elimina los que ya no apliquen.</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#71717a', lineHeight: 1, padding: '0 0 0 12px' }}>✕</button>
+        </div>
+
+        {items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca89c', fontSize: 13 }}>Sin registros rechazados.</div>
+        ) : (
+          <div style={{ overflow: 'auto', flex: 1, marginTop: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr style={{ background: '#f8faf8' }}>
+                  {['Archivo PDF', 'SPO extraído', 'Fecha', ''].map(h => (
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(r => (
+                  <tr key={r.id} style={{ borderTop: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '8px 10px', fontSize: 10, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.filename}>{r.filename}</td>
+                    <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{r.spo_number || '—'}</td>
+                    <td style={{ padding: '8px 10px', color: '#71717a', fontSize: 10 }}>{r.rejected_at ? new Date(r.rejected_at).toLocaleDateString('es-CO') : '—'}</td>
+                    <td style={{ padding: '8px 10px' }}>
+                      <button
+                        onClick={() => onDelete(r.id)}
+                        style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={{ padding: '7px 20px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function PeriodoActual({ calendar }) {
   const now    = new Date()
@@ -52,15 +105,19 @@ function CatProgressBar({ cat, pf, fc, sinGR, total }) {
 }
 
 export default function FactDashboard() {
-  const fileRef      = useRef(null)
-  const uploadPPA    = useFactStore(s => s.uploadPPA)
-  const uploading    = useFactStore(s => s.uploading)
-  const uploads      = useFactStore(s => s.uploads)
-  const ppa          = useFactStore(s => s.ppa)
-  const invoices     = useFactStore(s => s.invoices)
-  const pos          = useFactStore(s => s.pos)
-  const calendar     = useFactStore(s => s.calendar)
-  const deleteUpload = useFactStore(s => s.deleteUpload)
+  const fileRef          = useRef(null)
+  const uploadPPA        = useFactStore(s => s.uploadPPA)
+  const uploading        = useFactStore(s => s.uploading)
+  const uploads          = useFactStore(s => s.uploads)
+  const ppa              = useFactStore(s => s.ppa)
+  const invoices         = useFactStore(s => s.invoices)
+  const pos              = useFactStore(s => s.pos)
+  const calendar         = useFactStore(s => s.calendar)
+  const deleteUpload     = useFactStore(s => s.deleteUpload)
+  const rejectedPos      = useFactStore(s => s.rejectedPos)
+  const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
+
+  const [showRejected, setShowRejected] = useState(false)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -117,6 +174,14 @@ export default function FactDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {showRejected && (
+        <RechazadosModal
+          items={rejectedPos}
+          onClose={() => setShowRejected(false)}
+          onDelete={async id => { try { await deleteRejectedPo(id) } catch (e) { showToast('Error: ' + e.message, 'err') } }}
+        />
+      )}
+
       <PeriodoActual calendar={calendar} />
 
       {/* Upload */}
@@ -146,6 +211,24 @@ export default function FactDashboard() {
           )}
         </div>
       </div>
+
+      {/* POs rechazadas */}
+      {rejectedPos.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#92400e', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 2 }}>PDFs de PO rechazados</div>
+            <div style={{ fontSize: 12, color: '#78350f' }}>
+              {rejectedPos.length} archivo{rejectedPos.length !== 1 ? 's' : ''} no coincidieron con el PPA — revísalos y elimina los que no apliquen.
+            </div>
+          </div>
+          <button
+            onClick={() => setShowRejected(true)}
+            style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}
+          >
+            Ver {rejectedPos.length} rechazado{rejectedPos.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      )}
 
       {ppa.length > 0 && (
         <>
