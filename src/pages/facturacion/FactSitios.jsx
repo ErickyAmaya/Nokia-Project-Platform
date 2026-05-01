@@ -177,19 +177,15 @@ export default function FactSitios() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 13, color: '#09090b' }}>{siteName}</span>
-                      <span style={{ fontSize: 10, color: '#71717a' }}>
-                        {smps.length} SMP{smps.length !== 1 ? 's' : ''}
-                        {pendientePF > 0 && (
-                          <span style={{ color: '#ef4444', fontWeight: 700 }}> ({pendientePF} Pendiente{pendientePF !== 1 ? 's' : ''} por facturar)</span>
-                        )}
-                      </span>
+                      <span style={{ fontSize: 10, color: '#71717a' }}>{smps.length} SMP{smps.length !== 1 ? 's' : ''}</span>
                       <MiniBar pct={pctFc} />
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0, marginLeft: 8 }}>
-                  {facturadoCnt > 0  && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{facturadoCnt} fc.</span>}
-                  {pendienteLib > 0  && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{pendienteLib} lib.</span>}
+                  {pendientePF > 0  && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{pendientePF} pend.</span>}
+                  {pendienteLib > 0 && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{pendienteLib} lib.</span>}
+                  {facturadoCnt > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>{facturadoCnt} fc.</span>}
                 </div>
               </div>
 
