@@ -3,7 +3,7 @@ import { useFactStore } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
 
 function EditModal({ po, onClose, onSave }) {
-  const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '' })
+  const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', smp_id: po.smp_id || '', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '' })
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -25,6 +25,10 @@ function EditModal({ po, onClose, onSave }) {
           <div style={{ display: 'flex', gap: 8 }}>
             <div className="fg" style={{ flex: 2 }}><label className="fl">Valor</label><input className="fc" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="4180241" /></div>
             <div className="fg" style={{ flex: 1 }}><label className="fl">Moneda</label><select className="fc" value={form.moneda} onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}><option>COP</option><option>USD</option><option>EUR</option></select></div>
+          </div>
+          <div className="fg">
+            <label className="fl">SMP ID {!po.smp_id && <span style={{ color: '#ef4444', fontSize: 9, fontWeight: 700, marginLeft: 4 }}>Sin dato del PDF</span>}</label>
+            <input className="fc" value={form.smp_id} onChange={e => setForm(f => ({ ...f, smp_id: e.target.value }))} placeholder="SMP-WO-0000000" />
           </div>
           <div className="fg"><label className="fl">Proveedor</label><input className="fc" value={form.supplier_name} onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Condición de pago</label><input className="fc" value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))} /></div>
