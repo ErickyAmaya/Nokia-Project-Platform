@@ -5,16 +5,26 @@ import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/fact
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
-const EV_FILTERS  = [
-  { key: 'todos', label: 'Todos los eventos' },
-  ...EVENTOS.filter(e => e.key !== 'servicio').map(e => ({ key: e.key, label: e.label })),
-  ...SMP_CATS.map(cat => ({ key: `servicio|${cat.key}`, label: `Servicio · ${cat.label}` })),
+const EV_FILTERS = [
+  { key: 'todos',         label: 'Todos los eventos' },
+  { key: 'acuerdo',       label: 'Acuerdo' },
+  { key: 'servicio|impl', label: 'Servicio · Implementación' },
+  { key: 'servicio|adj',  label: 'Servicio · ADJ' },
+  { key: 'servicio|cr',   label: 'Servicio · CR' },
+  { key: 'servicio|cw',   label: 'Servicio · CW' },
+  { key: 'servicio|tss',  label: 'Servicio · TSS' },
 ]
 
 function applyEvFilter(eventos, row, filtroEv) {
   if (filtroEv === 'todos') return eventos
-  const [evKey, catKey] = filtroEv.split('|')
-  return eventos.filter(e => e.key === evKey && (!catKey || getSmpCat(row.smp_name).key === catKey))
+  const cat = getSmpCat(row.smp_name).key
+  if (filtroEv === 'acuerdo')         return eventos.filter(e => e.key === 'acuerdo')
+  if (filtroEv === 'servicio|impl')   return eventos.filter(e => e.key === 'servicio'              && cat === 'impl')
+  if (filtroEv === 'servicio|adj')    return eventos.filter(e => e.key === 'servicio'              && cat === 'adj')
+  if (filtroEv === 'servicio|cr')     return eventos.filter(e => e.key === 'servicio'              && cat === 'cr')
+  if (filtroEv === 'servicio|cw')     return eventos.filter(e => (e.key === 'cw_1' || e.key === 'cw_2')   && cat === 'cw')
+  if (filtroEv === 'servicio|tss')    return eventos.filter(e => (e.key === 'tss_1' || e.key === 'tss_2') && cat === 'tss')
+  return eventos
 }
 
 const TH = ({ children }) => (
