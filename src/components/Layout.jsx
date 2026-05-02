@@ -195,7 +195,7 @@ export default function Layout({ children }) {
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'ACK' : inFacturacion ? 'Facturación' : 'Liquidador de Actividades'}
+          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'ACK' : inFacturacion ? 'Facturación' : location.pathname === '/modulos' || location.pathname === '/' ? 'Project Modules' : 'Liquidador de Actividades'}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
