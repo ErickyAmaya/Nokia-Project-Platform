@@ -36,7 +36,7 @@ const MODULOS = [
   },
   {
     id:          'facturacion',
-    nombre:      'Facturación Nokia',
+    nombre:      'Facturación',
     corto:       'Facturación',
     descripcion: 'Seguimiento de hitos de facturación, POs y estados por evento y SMP.',
     icon:        '🧾',
