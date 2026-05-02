@@ -3,7 +3,7 @@ import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_
 import { showToast } from '../../components/Toast'
 
 const EV_FILTERS = [
-  { key: 'todos',         label: 'Todos los eventos' },
+  { key: 'todos',         label: 'Todos los servicios' },
   { key: 'acuerdo',       label: 'Acuerdo' },
   { key: 'servicio|impl', label: 'Servicio · Implementación' },
   { key: 'servicio|adj',  label: 'Servicio · ADJ' },

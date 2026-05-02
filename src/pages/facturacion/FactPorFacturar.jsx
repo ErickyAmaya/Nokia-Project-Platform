@@ -6,7 +6,7 @@ import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/fact
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
 const EV_FILTERS = [
-  { key: 'todos',         label: 'Todos los eventos' },
+  { key: 'todos',         label: 'Todos los servicios' },
   { key: 'acuerdo',       label: 'Acuerdo' },
   { key: 'servicio|impl', label: 'Servicio · Implementación' },
   { key: 'servicio|adj',  label: 'Servicio · ADJ' },
@@ -112,10 +112,9 @@ export default function FactPorFacturar() {
   const registrarFactura = useFactStore(s => s.registrarFactura)
   const importarFacturas = useFactStore(s => s.importarFacturas)
 
-  const [search,     setSearch]     = useState('')
-  const [filtroEv,   setFiltroEv]   = useState('todos')
-  const [filtroCat,  setFiltroCat]  = useState('todos')
-  const [modal,      setModal]      = useState(null)
+  const [search,    setSearch]    = useState('')
+  const [filtroEv,  setFiltroEv]  = useState('todos')
+  const [modal,     setModal]     = useState(null)
   const [importing,  setImporting]  = useState(false)
   const importRef = useRef(null)
 
@@ -163,7 +162,6 @@ export default function FactPorFacturar() {
     for (const row of ppa) {
       if (!row.sgr) continue
       const cat    = getSmpCat(row.smp_name)
-      if (filtroCat !== 'todos' && cat.key !== filtroCat) continue
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
       if (!eventos.length) continue
       const filtered = applyEvFilter(eventos, row, filtroEv)
@@ -172,7 +170,7 @@ export default function FactPorFacturar() {
       result.push({ row, eventos: filtered, cat })
     }
     return result
-  }, [ppa, invMap, filtroEv, filtroCat, search])
+  }, [ppa, invMap, filtroEv, search])
 
   // Lista secundaria: bloqueados por falta de GR y/o %
   const libRows = useMemo(() => {
@@ -189,7 +187,6 @@ export default function FactPorFacturar() {
       if (hasGR && hasAnyPct) continue            // debería estar en rows
 
       const cat = getSmpCat(row.smp_name)
-      if (filtroCat !== 'todos' && cat.key !== filtroCat) continue
       if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name}`.toLowerCase().includes(search.toLowerCase())) continue
 
       const missing = !hasGR && !hasAnyPct ? 'Sin GR · Sin %'
@@ -198,7 +195,7 @@ export default function FactPorFacturar() {
       result.push({ row, cat, missing })
     }
     return result
-  }, [ppa, invMap, filtroCat, search])
+  }, [ppa, invMap, search])
 
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
@@ -219,9 +216,6 @@ export default function FactPorFacturar() {
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
             {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
-          <select className="fc" value={filtroCat} onChange={e => setFiltroCat(e.target.value)} style={{ fontSize: 11 }}>
-            {SMP_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
           <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />
           <button
