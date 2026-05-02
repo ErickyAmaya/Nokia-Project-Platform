@@ -240,6 +240,18 @@ export const useFactStore = create((set, get) => ({
     }))
   },
 
+  // ── Importar facturas en bloque ──────────────────────────────────
+  importarFacturas: async (items) => {
+    const { data, error } = await supabase
+      .from('fact_invoices')
+      .upsert(items, { onConflict: 'spo_number,evento' })
+      .select()
+    if (error) throw error
+    const { data: all } = await supabase.from('fact_invoices').select('*')
+    set({ invoices: all || [] })
+    return (data || []).length
+  },
+
   // ── Eliminar factura ─────────────────────────────────────────────
   eliminarFactura: async (id) => {
     await supabase.from('fact_invoices').delete().eq('id', id)

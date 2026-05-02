@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
+import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
@@ -88,13 +89,52 @@ export default function FactPorFacturar() {
   const invoices         = useFactStore(s => s.invoices)
   const pos              = useFactStore(s => s.pos)
   const registrarFactura = useFactStore(s => s.registrarFactura)
+  const importarFacturas = useFactStore(s => s.importarFacturas)
 
-  const [search,    setSearch]    = useState('')
-  const [filtroEv,  setFiltroEv]  = useState('todos')
-  const [filtroCat, setFiltroCat] = useState('todos')
-  const [modal,     setModal]     = useState(null)
+  const [search,     setSearch]     = useState('')
+  const [filtroEv,   setFiltroEv]   = useState('todos')
+  const [filtroCat,  setFiltroCat]  = useState('todos')
+  const [modal,      setModal]      = useState(null)
+  const [importing,  setImporting]  = useState(false)
+  const importRef = useRef(null)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
+
+  // Todos los pendientes sin filtros — para la plantilla
+  const allPendingRows = useMemo(() => {
+    const result = []
+    for (const row of ppa) {
+      if (!row.sgr) continue
+      const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
+      if (!eventos.length) continue
+      result.push({ row, eventos })
+    }
+    return result
+  }, [ppa, invMap])
+
+  async function handleDescargarPlantilla() {
+    if (!allPendingRows.length) { showToast('No hay facturas pendientes', 'err'); return }
+    try { await descargarPlantillaFacturas(allPendingRows) }
+    catch (e) { showToast('Error al generar plantilla: ' + e.message, 'err') }
+  }
+
+  async function handleImportar(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    try {
+      const { items, errors } = await parsearExcelFacturas(file)
+      if (errors.length) errors.forEach(err => showToast(err, 'err'))
+      if (!items.length) { showToast('No se encontraron facturas para importar', 'err'); return }
+      const n = await importarFacturas(items)
+      showToast(`${n} factura${n !== 1 ? 's' : ''} importada${n !== 1 ? 's' : ''} correctamente`)
+    } catch (e) {
+      showToast('Error al importar: ' + e.message, 'err')
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
 
   // Lista principal: tienen GR + % → pueden facturarse ahora
   const rows = useMemo(() => {
@@ -154,7 +194,7 @@ export default function FactPorFacturar() {
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {libRows.length} pendientes de liberación</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
             <option value="todos">Todos los eventos</option>
@@ -163,6 +203,22 @@ export default function FactPorFacturar() {
           <select className="fc" value={filtroCat} onChange={e => setFiltroCat(e.target.value)} style={{ fontSize: 11 }}>
             {SMP_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
+          <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />
+          <button
+            onClick={handleDescargarPlantilla}
+            disabled={!allPendingRows.length}
+            style={{ fontSize: 11, color: '#144E4A', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '6px 13px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
+          >
+            ↓ Plantilla
+          </button>
+          <button
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            style={{ fontSize: 11, color: '#fff', background: '#144E4A', border: 'none', borderRadius: 8, padding: '6px 13px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .4 }}
+          >
+            {importing ? '⏳ Importando…' : '↑ Importar facturas'}
+          </button>
+          <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportar} />
         </div>
       </div>
 
