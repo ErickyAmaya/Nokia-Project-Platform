@@ -5,6 +5,17 @@ import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/fact
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
+const EV_FILTERS  = [
+  { key: 'todos', label: 'Todos los eventos' },
+  ...EVENTOS.filter(e => e.key !== 'servicio').map(e => ({ key: e.key, label: e.label })),
+  ...SMP_CATS.map(cat => ({ key: `servicio|${cat.key}`, label: `Servicio · ${cat.label}` })),
+]
+
+function applyEvFilter(eventos, row, filtroEv) {
+  if (filtroEv === 'todos') return eventos
+  const [evKey, catKey] = filtroEv.split('|')
+  return eventos.filter(e => e.key === evKey && (!catKey || getSmpCat(row.smp_name).key === catKey))
+}
 
 const TH = ({ children }) => (
   <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
@@ -145,7 +156,7 @@ export default function FactPorFacturar() {
       if (filtroCat !== 'todos' && cat.key !== filtroCat) continue
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
       if (!eventos.length) continue
-      const filtered = filtroEv === 'todos' ? eventos : eventos.filter(e => e.key === filtroEv)
+      const filtered = applyEvFilter(eventos, row, filtroEv)
       if (!filtered.length) continue
       if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name} ${row.smp_name}`.toLowerCase().includes(search.toLowerCase())) continue
       result.push({ row, eventos: filtered, cat })
@@ -197,8 +208,7 @@ export default function FactPorFacturar() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
-            <option value="todos">Todos los eventos</option>
-            {EVENTOS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+            {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
           <select className="fc" value={filtroCat} onChange={e => setFiltroCat(e.target.value)} style={{ fontSize: 11 }}>
             {SMP_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}

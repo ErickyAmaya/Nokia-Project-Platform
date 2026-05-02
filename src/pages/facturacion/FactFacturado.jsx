@@ -1,6 +1,18 @@
 import { useState, useMemo } from 'react'
-import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS } from '../../store/useFactStore'
+import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
+
+const EV_FILTERS = [
+  { key: 'todos', label: 'Todos los eventos' },
+  ...EVENTOS.filter(e => e.key !== 'servicio').map(e => ({ key: e.key, label: e.label })),
+  ...SMP_CATS.map(cat => ({ key: `servicio|${cat.key}`, label: `Servicio · ${cat.label}` })),
+]
+
+function applyEvFilter(eventos, row, filtroEv) {
+  if (filtroEv === 'todos') return eventos
+  const [evKey, catKey] = filtroEv.split('|')
+  return eventos.filter(e => e.key === evKey && (!catKey || getSmpCat(row.smp_name).key === catKey))
+}
 
 function EventoBadge({ color, label, pct }) {
   return (
@@ -26,7 +38,7 @@ export default function FactFacturado() {
     for (const row of ppa) {
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturado')
       if (!eventos.length) continue
-      const filtered = filtroEv === 'todos' ? eventos : eventos.filter(e => e.key === filtroEv)
+      const filtered = applyEvFilter(eventos, row, filtroEv)
       if (!filtered.length) continue
       if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name}`.toLowerCase().includes(search.toLowerCase())) continue
       result.push({ row, eventos: filtered })
@@ -67,8 +79,7 @@ export default function FactFacturado() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 220 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
-            <option value="todos">Todos los eventos</option>
-            {EVENTOS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+            {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
         </div>
       </div>
