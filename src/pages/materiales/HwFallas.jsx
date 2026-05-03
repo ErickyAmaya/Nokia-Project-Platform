@@ -400,8 +400,8 @@ async function exportarExcelNokia(falla) {
     showToast('Generando Excel…')
     const ExcelJS = (await import('exceljs')).default
     const wb = new ExcelJS.Workbook()
-    const response = await fetch('/nokia_fr_template.xlsx')
-    if (!response.ok) throw new Error('Template no encontrado en /nokia_fr_template.xlsx')
+    const response = await fetch(import.meta.env.BASE_URL + 'nokia_fr_template.xlsx')
+    if (!response.ok) throw new Error('Template no encontrado')
     const buffer = await response.arrayBuffer()
     await wb.xlsx.load(buffer)
     const ws = wb.getWorksheet('Nokia Failure Report')
