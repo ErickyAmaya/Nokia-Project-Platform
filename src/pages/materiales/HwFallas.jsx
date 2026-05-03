@@ -165,7 +165,15 @@ function FallaModal({ falla, onClose, onSave }) {
   async function handleSave() {
     if (!form.serial_falla?.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
     setSaving(true)
-    try { await onSave(form); onClose() }
+    try {
+      const NUM_FIELDS = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
+      const clean = { ...form }
+      NUM_FIELDS.forEach(k => {
+        clean[k] = clean[k] !== '' && clean[k] != null ? (Number(clean[k]) || null) : null
+      })
+      await onSave(clean)
+      onClose()
+    }
     catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
   }
