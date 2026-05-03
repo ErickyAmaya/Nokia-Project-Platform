@@ -187,13 +187,9 @@ function FallaModal({ falla, onClose, onSave }) {
 
         {/* ── Header FR ── */}
         <Section title="Header">
-          <Row cols={3}>
+          <Row cols={2}>
             <Field label="File ID"><input {...inp('file_id')} placeholder="DH211160552" /></Field>
             <Field label="RMA"><input {...inp('rma')} /></Field>
-            <Field label="Día del Envío"><input type="date" {...inp('fecha_envio')} /></Field>
-          </Row>
-          <Row cols={1}>
-            <Field label="Diligenciado por"><input {...inp('diligenciado_por')} placeholder="Nombre del responsable" /></Field>
           </Row>
         </Section>
 
@@ -211,6 +207,10 @@ function FallaModal({ falla, onClose, onSave }) {
             <Field label="Teléfono">
               <input {...inp('empresa_telefono')} placeholder="3107245382" />
             </Field>
+          </Row>
+          <Row cols={2}>
+            <Field label="Diligenciado por"><input {...inp('diligenciado_por')} placeholder="Nombre del responsable" /></Field>
+            <Field label="Día del Envío"><input type="date" {...inp('fecha_envio')} /></Field>
           </Row>
         </Section>
 
