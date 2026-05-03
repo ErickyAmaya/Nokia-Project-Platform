@@ -26,6 +26,7 @@ import HwInventario       from './pages/materiales/HwInventario'
 import HwMovimientos      from './pages/materiales/HwMovimientos'
 import HwCatalogo         from './pages/materiales/HwCatalogo'
 import HwFallas           from './pages/materiales/HwFallas'
+import HwFrConfig         from './pages/materiales/HwFrConfig'
 import MatReportes        from './pages/materiales/MatReportes'
 import AckWrapper         from './pages/rollout/AckWrapper'
 import AckDashboard       from './pages/rollout/AckDashboard'
@@ -143,6 +144,7 @@ function AppRoutes() {
         <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwMovimientos /></ProtectedRoute>} />
         <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwCatalogo /></ProtectedRoute>} />
         <Route path="hw/fallas"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwFallas /></ProtectedRoute>} />
+        <Route path="hw/fr-config"   element={<ProtectedRoute allowedRoles={['admin']}><HwFrConfig /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={

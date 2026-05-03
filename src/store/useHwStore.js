@@ -17,6 +17,14 @@ export const useHwStore = create((set, get) => ({
   hwServiceSuppliers:[],
   hwTipoUnidades:    [],
   hwFallas:          [],
+  // FR reference tables
+  frEmpresas:        [],
+  frRegionales:      [],
+  frCiudades:        [],
+  frSitios:          [],
+  frTecnicos:        [],
+  frEquipos:         [],
+  frWbs:             [],
   loading:           false,
   _syncChannel:      null,
 
@@ -26,7 +34,7 @@ export const useHwStore = create((set, get) => ({
     const firstLoad = get().hwCatalogo.length === 0
     if (firstLoad) set({ loading: true })
     try {
-      const [cat, equ, mov, bod, ss, tu, fal] = await Promise.all([
+      const [cat, equ, mov, bod, ss, tu, fal, emp, reg, ciu, sit, tec, feq, wbs] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
         db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
@@ -34,6 +42,13 @@ export const useHwStore = create((set, get) => ({
         db().from('hw_service_suppliers').select('*').order('nombre'),
         db().from('hw_tipo_unidades').select('*').order('nombre'),
         db().from('hw_fallas').select('*').order('created_at', { ascending: false }),
+        db().from('hw_fr_empresas').select('*').order('nombre'),
+        db().from('hw_fr_regionales').select('*').order('nombre'),
+        db().from('hw_fr_ciudades').select('*').order('nombre'),
+        db().from('hw_fr_sitios').select('*').order('nombre'),
+        db().from('hw_fr_tecnicos').select('*').order('nombre'),
+        db().from('hw_fr_equipos').select('*').order('nombre'),
+        db().from('hw_fr_wbs').select('*').order('nombre'),
       ])
       set({
         hwCatalogo:         cat.data  || [],
@@ -43,6 +58,13 @@ export const useHwStore = create((set, get) => ({
         hwServiceSuppliers: ss.data   || [],
         hwTipoUnidades:     tu.data   || [],
         hwFallas:           fal.data  || [],
+        frEmpresas:         emp.data  || [],
+        frRegionales:       reg.data  || [],
+        frCiudades:         ciu.data  || [],
+        frSitios:           sit.data  || [],
+        frTecnicos:         tec.data  || [],
+        frEquipos:          feq.data  || [],
+        frWbs:              wbs.data  || [],
       })
     } finally {
       if (firstLoad) set({ loading: false })
@@ -230,6 +252,25 @@ export const useHwStore = create((set, get) => ({
     const { error } = await db().from('hw_tipo_unidades').delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwTipoUnidades: s.hwTipoUnidades.filter(x => x.id !== id) }))
+  },
+
+  // ── Tablas de referencia FR ──────────────────────────────────────
+  saveFrItem: async (tabla, item) => {
+    const stateKey = { hw_fr_empresas:'frEmpresas', hw_fr_regionales:'frRegionales', hw_fr_ciudades:'frCiudades', hw_fr_sitios:'frSitios', hw_fr_tecnicos:'frTecnicos', hw_fr_equipos:'frEquipos', hw_fr_wbs:'frWbs' }[tabla]
+    const { id, created_at, ...payload } = item
+    const { data, error } = id
+      ? await db().from(tabla).update(payload).eq('id', id).select().single()
+      : await db().from(tabla).insert(payload).select().single()
+    if (error) throw error
+    set(s => ({ [stateKey]: id ? s[stateKey].map(x => x.id === id ? data : x) : [...s[stateKey], data] }))
+    return data
+  },
+
+  deleteFrItem: async (tabla, id) => {
+    const stateKey = { hw_fr_empresas:'frEmpresas', hw_fr_regionales:'frRegionales', hw_fr_ciudades:'frCiudades', hw_fr_sitios:'frSitios', hw_fr_tecnicos:'frTecnicos', hw_fr_equipos:'frEquipos', hw_fr_wbs:'frWbs' }[tabla]
+    const { error } = await db().from(tabla).delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ [stateKey]: s[stateKey].filter(x => x.id !== id) }))
   },
 
   // ── Fallas HW ────────────────────────────────────────────────────

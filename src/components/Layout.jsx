@@ -31,10 +31,11 @@ const MAT_NAV = [
 ]
 
 const HW_NAV = [
-  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡' },
-  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁' },
-  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂' },
-  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠' },
+  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡', roles: null },
+  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁', roles: null },
+  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂', roles: null },
+  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠',  roles: null },
+  { to: '/materiales/hw/fr-config',   label: 'Config FR',      icon: '⚙',  roles: ['admin'] },
 ]
 
 const ROLLOUT_NAV = [
@@ -327,7 +328,7 @@ export default function Layout({ children }) {
             border: '1.5px solid #e0e4e0', overflow: 'hidden',
           }}
         >
-          {HW_NAV.map(item => (
+          {HW_NAV.filter(item => !item.roles || item.roles.includes(role)).map(item => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -422,7 +423,7 @@ export default function Layout({ children }) {
                 color: 'rgba(255,255,255,.3)', textTransform: 'uppercase', borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 }}>
                 HW Nokia
               </div>
-              {HW_NAV.map(item => (
+              {HW_NAV.filter(item => !item.roles || item.roles.includes(role)).map(item => (
                 <NavLink
                   key={item.to}
                   to={item.to}

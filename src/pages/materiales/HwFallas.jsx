@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
@@ -70,7 +70,7 @@ const EMPTY = {
   // Retornar para
   retornar_nombre: '', retornar_direccion: '', retornar_email: '',
   // Info general
-  regional: '', ciudad: '', sitio: '', fecha_deteccion: '',
+  regional_id: '', regional: '', ciudad_id: '', ciudad: '', sitio: '', fecha_deteccion: '',
   ocurrencia: 'permanente',
   duracion_dias: '', duracion_horas: '', duracion_minutos: '',
   falla_detectada_en: 'senal_hw',
@@ -133,11 +133,36 @@ function Field({ label, children, span }) {
 
 // ── Modal ────────────────────────────────────────────────────────
 function FallaModal({ falla, onClose, onSave }) {
-  const [form,        setForm]        = useState(falla ? { ...falla } : { ...EMPTY })
-  const [saving,      setSaving]      = useState(false)
-  const [uploading,   setUploading]   = useState(false)
-  const [imgPreview,  setImgPreview]  = useState(falla?.imagen_url || null)
+  const frEmpresas   = useHwStore(s => s.frEmpresas)
+  const frRegionales = useHwStore(s => s.frRegionales)
+  const frCiudades   = useHwStore(s => s.frCiudades)
+  const frSitios     = useHwStore(s => s.frSitios)
+  const frTecnicos   = useHwStore(s => s.frTecnicos)
+  const frEquipos    = useHwStore(s => s.frEquipos)
+  const frWbs        = useHwStore(s => s.frWbs)
+
+  const [form,       setForm]       = useState(falla ? { ...falla } : { ...EMPTY })
+  const [saving,     setSaving]     = useState(false)
+  const [uploading,  setUploading]  = useState(false)
+  const [imgPreview, setImgPreview] = useState(falla?.imagen_url || null)
   const imgRef = useRef(null)
+
+  // Cascada regional → ciudad → sitio
+  const ciudadesFiltradas = useMemo(() =>
+    frCiudades.filter(c => String(c.regional_id) === String(form.regional_id)),
+    [frCiudades, form.regional_id])
+
+  const sitiosFiltrados = useMemo(() =>
+    frSitios.filter(s => String(s.ciudad_id) === String(form.ciudad_id)),
+    [frSitios, form.ciudad_id])
+
+  useEffect(() => {
+    setForm(f => ({ ...f, ciudad_id: '', sitio: '', ciudad: '' }))
+  }, [form.regional_id])
+
+  useEffect(() => {
+    setForm(f => ({ ...f, sitio: '' }))
+  }, [form.ciudad_id])
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const inp  = (k)    => ({ className: 'fc', value: form[k] ?? '', onChange: e => setF(k, e.target.value) })
@@ -166,7 +191,7 @@ function FallaModal({ falla, onClose, onSave }) {
     if (!form.serial_falla?.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
     setSaving(true)
     try {
-      const NUM_FIELDS  = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
+      const NUM_FIELDS  = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id','regional_id','ciudad_id']
       const DATE_FIELDS = ['fecha_envio','fecha_deteccion']
       const clean = { ...form }
       NUM_FIELDS.forEach(k  => { clean[k] = clean[k] !== '' && clean[k] != null ? (Number(clean[k]) || null) : null })
@@ -205,7 +230,10 @@ function FallaModal({ falla, onClose, onSave }) {
         <Section title="1. Remitente">
           <Row cols={1}>
             <Field label="Nombre de la Empresa">
-              <input {...inp('empresa_nombre')} placeholder="Nokia Solutions and Networks Commissioning" />
+              <select {...sel('empresa_nombre')}>
+                <option value="">— Seleccionar —</option>
+                {frEmpresas.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+              </select>
             </Field>
           </Row>
           <Row cols={2}>
@@ -217,7 +245,12 @@ function FallaModal({ falla, onClose, onSave }) {
             </Field>
           </Row>
           <Row cols={2}>
-            <Field label="Diligenciado por"><input {...inp('diligenciado_por')} placeholder="Nombre del responsable" /></Field>
+            <Field label="Diligenciado por">
+              <select {...sel('diligenciado_por')}>
+                <option value="">— Seleccionar —</option>
+                {frTecnicos.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+              </select>
+            </Field>
             <Field label="Día del Envío"><input type="date" {...inp('fecha_envio')} /></Field>
           </Row>
         </Section>
@@ -236,9 +269,34 @@ function FallaModal({ falla, onClose, onSave }) {
         {/* ── 2. Información General ── */}
         <Section title="2. Información General">
           <Row cols={3}>
-            <Field label="Regional"><input {...inp('regional')} placeholder="SUROCCIDENTE" /></Field>
-            <Field label="Ciudad"><input {...inp('ciudad')} placeholder="CALI" /></Field>
-            <Field label="Sitio"><input {...inp('sitio')} placeholder="CAL.Gaitan" /></Field>
+            <Field label="Regional">
+              <select className="fc" value={form.regional_id ?? ''} onChange={e => {
+                const reg = frRegionales.find(r => String(r.id) === e.target.value)
+                setF('regional_id', e.target.value)
+                setF('regional', reg?.nombre || '')
+              }}>
+                <option value="">— Seleccionar —</option>
+                {frRegionales.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+              </select>
+            </Field>
+            <Field label="Ciudad">
+              <select className="fc" value={form.ciudad_id ?? ''} disabled={!form.regional_id}
+                onChange={e => {
+                  const ciu = frCiudades.find(c => String(c.id) === e.target.value)
+                  setF('ciudad_id', e.target.value)
+                  setF('ciudad', ciu?.nombre || '')
+                }}>
+                <option value="">— Seleccionar —</option>
+                {ciudadesFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </Field>
+            <Field label="Sitio">
+              <select className="fc" value={form.sitio ?? ''} disabled={!form.ciudad_id}
+                onChange={e => setF('sitio', e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {sitiosFiltrados.map(s => <option key={s.id} value={s.nombre}>{s.nombre}</option>)}
+              </select>
+            </Field>
           </Row>
           <Row cols={3}>
             <Field label="Fecha de Detección"><input type="date" {...inp('fecha_deteccion')} /></Field>
@@ -291,7 +349,12 @@ function FallaModal({ falla, onClose, onSave }) {
           <Row cols={4}>
             <Field label="Código Equipo 1"><input {...inp('cod_equipo_1')} placeholder="473764A" /></Field>
             <Field label="Código Equipo 2"><input {...inp('cod_equipo_2')} placeholder="473095A" /></Field>
-            <Field label="Nombre Equipo"><input {...inp('nombre_equipo')} placeholder="ASIA" /></Field>
+            <Field label="Nombre Equipo">
+              <select {...sel('nombre_equipo')}>
+                <option value="">— Seleccionar —</option>
+                {frEquipos.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
+              </select>
+            </Field>
             <Field label="Versión"><input {...inp('version_equipo')} placeholder="204" /></Field>
           </Row>
           <Row cols={1}>
@@ -327,7 +390,10 @@ function FallaModal({ falla, onClose, onSave }) {
         <Section title="Unidad de Reemplazo">
           <Row cols={1}>
             <Field label="Origen">
-              <input {...inp('reemplazo_origen')} placeholder="Comcel Instalaciones Cali - WBS: W-0403-RE-30" />
+              <select {...sel('reemplazo_origen')}>
+                <option value="">— Seleccionar —</option>
+                {frWbs.map(w => <option key={w.id} value={w.nombre}>{w.nombre}</option>)}
+              </select>
             </Field>
           </Row>
           <Row cols={3}>
