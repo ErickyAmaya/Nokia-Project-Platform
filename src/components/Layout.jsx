@@ -34,6 +34,7 @@ const HW_NAV = [
   { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡' },
   { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁' },
   { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂' },
+  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠' },
 ]
 
 const ROLLOUT_NAV = [

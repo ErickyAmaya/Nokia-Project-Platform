@@ -16,6 +16,7 @@ export const useHwStore = create((set, get) => ({
   hwBodegasNokia:    [],
   hwServiceSuppliers:[],
   hwTipoUnidades:    [],
+  hwFallas:          [],
   loading:           false,
   _syncChannel:      null,
 
@@ -25,13 +26,14 @@ export const useHwStore = create((set, get) => ({
     const firstLoad = get().hwCatalogo.length === 0
     if (firstLoad) set({ loading: true })
     try {
-      const [cat, equ, mov, bod, ss, tu] = await Promise.all([
+      const [cat, equ, mov, bod, ss, tu, fal] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
         db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
         db().from('hw_bodegas_nokia').select('*').order('nombre'),
         db().from('hw_service_suppliers').select('*').order('nombre'),
         db().from('hw_tipo_unidades').select('*').order('nombre'),
+        db().from('hw_fallas').select('*').order('created_at', { ascending: false }),
       ])
       set({
         hwCatalogo:         cat.data  || [],
@@ -40,6 +42,7 @@ export const useHwStore = create((set, get) => ({
         hwBodegasNokia:     bod.data  || [],
         hwServiceSuppliers: ss.data   || [],
         hwTipoUnidades:     tu.data   || [],
+        hwFallas:           fal.data  || [],
       })
     } finally {
       if (firstLoad) set({ loading: false })
@@ -227,5 +230,27 @@ export const useHwStore = create((set, get) => ({
     const { error } = await db().from('hw_tipo_unidades').delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwTipoUnidades: s.hwTipoUnidades.filter(x => x.id !== id) }))
+  },
+
+  // ── Fallas HW ────────────────────────────────────────────────────
+  saveFalla: async (falla) => {
+    const { id, created_at, ...payload } = falla
+    payload.updated_at = new Date().toISOString()
+    const { data, error } = id
+      ? await db().from('hw_fallas').update(payload).eq('id', id).select().single()
+      : await db().from('hw_fallas').insert(payload).select().single()
+    if (error) throw error
+    set(s => ({
+      hwFallas: id
+        ? s.hwFallas.map(f => f.id === id ? data : f)
+        : [data, ...s.hwFallas],
+    }))
+    return data
+  },
+
+  deleteFalla: async (id) => {
+    const { error } = await db().from('hw_fallas').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ hwFallas: s.hwFallas.filter(f => f.id !== id) }))
   },
 }))
