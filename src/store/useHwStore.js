@@ -235,6 +235,8 @@ export const useHwStore = create((set, get) => ({
   // ── Fallas HW ────────────────────────────────────────────────────
   saveFalla: async (falla) => {
     const { id, created_at, ...payload } = falla
+    const NUM = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
+    NUM.forEach(k => { payload[k] = payload[k] !== '' && payload[k] != null ? Number(payload[k]) || null : null })
     payload.updated_at = new Date().toISOString()
     const { data, error } = id
       ? await db().from('hw_fallas').update(payload).eq('id', id).select().single()
