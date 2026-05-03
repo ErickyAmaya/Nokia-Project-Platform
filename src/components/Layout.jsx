@@ -35,7 +35,6 @@ const HW_NAV = [
   { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁', roles: null },
   { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂', roles: null },
   { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠',  roles: null },
-  { to: '/materiales/hw/fr-config',   label: 'Config FR',      icon: '⚙',  roles: ['admin'] },
 ]
 
 const ROLLOUT_NAV = [

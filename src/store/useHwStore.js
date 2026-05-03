@@ -17,14 +17,6 @@ export const useHwStore = create((set, get) => ({
   hwServiceSuppliers:[],
   hwTipoUnidades:    [],
   hwFallas:          [],
-  // FR reference tables
-  frEmpresas:        [],
-  frRegionales:      [],
-  frCiudades:        [],
-  frSitios:          [],
-  frTecnicos:        [],
-  frEquipos:         [],
-  frWbs:             [],
   loading:           false,
   _syncChannel:      null,
 
@@ -34,7 +26,7 @@ export const useHwStore = create((set, get) => ({
     const firstLoad = get().hwCatalogo.length === 0
     if (firstLoad) set({ loading: true })
     try {
-      const [cat, equ, mov, bod, ss, tu, fal, emp, reg, ciu, sit, tec, feq, wbs] = await Promise.all([
+      const [cat, equ, mov, bod, ss, tu, fal] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
         db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
@@ -42,13 +34,6 @@ export const useHwStore = create((set, get) => ({
         db().from('hw_service_suppliers').select('*').order('nombre'),
         db().from('hw_tipo_unidades').select('*').order('nombre'),
         db().from('hw_fallas').select('*').order('created_at', { ascending: false }),
-        db().from('hw_fr_empresas').select('*').order('nombre'),
-        db().from('hw_fr_regionales').select('*').order('nombre'),
-        db().from('hw_fr_ciudades').select('*').order('nombre'),
-        db().from('hw_fr_sitios').select('*').order('nombre'),
-        db().from('hw_fr_tecnicos').select('*').order('nombre'),
-        db().from('hw_fr_equipos').select('*').order('nombre'),
-        db().from('hw_fr_wbs').select('*').order('nombre'),
       ])
       set({
         hwCatalogo:         cat.data  || [],
@@ -58,13 +43,6 @@ export const useHwStore = create((set, get) => ({
         hwServiceSuppliers: ss.data   || [],
         hwTipoUnidades:     tu.data   || [],
         hwFallas:           fal.data  || [],
-        frEmpresas:         emp.data  || [],
-        frRegionales:       reg.data  || [],
-        frCiudades:         ciu.data  || [],
-        frSitios:           sit.data  || [],
-        frTecnicos:         tec.data  || [],
-        frEquipos:          feq.data  || [],
-        frWbs:              wbs.data  || [],
       })
     } finally {
       if (firstLoad) set({ loading: false })

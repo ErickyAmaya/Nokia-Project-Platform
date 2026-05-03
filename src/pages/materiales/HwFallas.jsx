@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
@@ -65,12 +65,11 @@ const EMPTY = {
   // Header
   file_id: '', rma: '', fecha_envio: '', diligenciado_por: '',
   // Remitente
-  empresa_nombre: 'Nokia Solutions and Networks Commissioning',
-  empresa_direccion: '', empresa_telefono: '',
+  empresa_nombre: '', empresa_direccion: '', empresa_telefono: '',
   // Retornar para
   retornar_nombre: '', retornar_direccion: '', retornar_email: '',
   // Info general
-  regional_id: '', regional: '', ciudad_id: '', ciudad: '', sitio: '', fecha_deteccion: '',
+  regional: '', ciudad: '', sitio: '', fecha_deteccion: '',
   ocurrencia: 'permanente',
   duracion_dias: '', duracion_horas: '', duracion_minutos: '',
   falla_detectada_en: 'senal_hw',
@@ -133,36 +132,11 @@ function Field({ label, children, span }) {
 
 // ── Modal ────────────────────────────────────────────────────────
 function FallaModal({ falla, onClose, onSave }) {
-  const frEmpresas   = useHwStore(s => s.frEmpresas)
-  const frRegionales = useHwStore(s => s.frRegionales)
-  const frCiudades   = useHwStore(s => s.frCiudades)
-  const frSitios     = useHwStore(s => s.frSitios)
-  const frTecnicos   = useHwStore(s => s.frTecnicos)
-  const frEquipos    = useHwStore(s => s.frEquipos)
-  const frWbs        = useHwStore(s => s.frWbs)
-
   const [form,       setForm]       = useState(falla ? { ...falla } : { ...EMPTY })
   const [saving,     setSaving]     = useState(false)
   const [uploading,  setUploading]  = useState(false)
   const [imgPreview, setImgPreview] = useState(falla?.imagen_url || null)
   const imgRef = useRef(null)
-
-  // Cascada regional → ciudad → sitio
-  const ciudadesFiltradas = useMemo(() =>
-    frCiudades.filter(c => String(c.regional_id) === String(form.regional_id)),
-    [frCiudades, form.regional_id])
-
-  const sitiosFiltrados = useMemo(() =>
-    frSitios.filter(s => String(s.ciudad_id) === String(form.ciudad_id)),
-    [frSitios, form.ciudad_id])
-
-  useEffect(() => {
-    setForm(f => ({ ...f, ciudad_id: '', sitio: '', ciudad: '' }))
-  }, [form.regional_id])
-
-  useEffect(() => {
-    setForm(f => ({ ...f, sitio: '' }))
-  }, [form.ciudad_id])
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const inp  = (k)    => ({ className: 'fc', value: form[k] ?? '', onChange: e => setF(k, e.target.value) })
@@ -191,9 +165,9 @@ function FallaModal({ falla, onClose, onSave }) {
     if (!form.serial_falla?.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
     setSaving(true)
     try {
-      const NUM_FIELDS  = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id','regional_id','ciudad_id']
+      const NUM_FIELDS  = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
       const DATE_FIELDS = ['fecha_envio','fecha_deteccion']
-      const clean = { ...form }
+      const clean = { ...form, regional_id: null, ciudad_id: null }
       NUM_FIELDS.forEach(k  => { clean[k] = clean[k] !== '' && clean[k] != null ? (Number(clean[k]) || null) : null })
       DATE_FIELDS.forEach(k => { clean[k] = clean[k] || null })
       await onSave(clean)
@@ -210,7 +184,6 @@ function FallaModal({ falla, onClose, onSave }) {
       <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 760,
         boxShadow: '0 8px 32px rgba(0,0,0,.18)', padding: 24, marginBottom: 24 }}>
 
-        {/* Título */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 700 }}>
             {falla ? 'Editar Failure Report' : 'Nuevo Failure Report'}
@@ -230,10 +203,7 @@ function FallaModal({ falla, onClose, onSave }) {
         <Section title="1. Remitente">
           <Row cols={1}>
             <Field label="Nombre de la Empresa">
-              <select {...sel('empresa_nombre')}>
-                <option value="">— Seleccionar —</option>
-                {frEmpresas.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-              </select>
+              <input {...inp('empresa_nombre')} placeholder="Nokia Solutions and Networks Commissioning" />
             </Field>
           </Row>
           <Row cols={2}>
@@ -246,10 +216,7 @@ function FallaModal({ falla, onClose, onSave }) {
           </Row>
           <Row cols={2}>
             <Field label="Diligenciado por">
-              <select {...sel('diligenciado_por')}>
-                <option value="">— Seleccionar —</option>
-                {frTecnicos.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
-              </select>
+              <input {...inp('diligenciado_por')} placeholder="Nombre del técnico" />
             </Field>
             <Field label="Día del Envío"><input type="date" {...inp('fecha_envio')} /></Field>
           </Row>
@@ -269,34 +236,9 @@ function FallaModal({ falla, onClose, onSave }) {
         {/* ── 2. Información General ── */}
         <Section title="2. Información General">
           <Row cols={3}>
-            <Field label="Regional">
-              <select className="fc" value={form.regional_id ?? ''} onChange={e => {
-                const reg = frRegionales.find(r => String(r.id) === e.target.value)
-                setF('regional_id', e.target.value)
-                setF('regional', reg?.nombre || '')
-              }}>
-                <option value="">— Seleccionar —</option>
-                {frRegionales.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-              </select>
-            </Field>
-            <Field label="Ciudad">
-              <select className="fc" value={form.ciudad_id ?? ''} disabled={!form.regional_id}
-                onChange={e => {
-                  const ciu = frCiudades.find(c => String(c.id) === e.target.value)
-                  setF('ciudad_id', e.target.value)
-                  setF('ciudad', ciu?.nombre || '')
-                }}>
-                <option value="">— Seleccionar —</option>
-                {ciudadesFiltradas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </Field>
-            <Field label="Sitio">
-              <select className="fc" value={form.sitio ?? ''} disabled={!form.ciudad_id}
-                onChange={e => setF('sitio', e.target.value)}>
-                <option value="">— Seleccionar —</option>
-                {sitiosFiltrados.map(s => <option key={s.id} value={s.nombre}>{s.nombre}</option>)}
-              </select>
-            </Field>
+            <Field label="Regional"><input {...inp('regional')} placeholder="Ej: Suroccidente" /></Field>
+            <Field label="Ciudad"><input {...inp('ciudad')} placeholder="Ej: Cali" /></Field>
+            <Field label="Sitio"><input {...inp('sitio')} placeholder="Ej: CAL.Gaitan" /></Field>
           </Row>
           <Row cols={3}>
             <Field label="Fecha de Detección"><input type="date" {...inp('fecha_deteccion')} /></Field>
@@ -325,7 +267,7 @@ function FallaModal({ falla, onClose, onSave }) {
               </select>
             </Field>
             <Field label="Efecto o Extensión de Falla">
-              <select {...sel('efecto_falla')} value={form.efecto_falla ?? ''} onChange={e => setF('efecto_falla', e.target.value ? Number(e.target.value) : '')}>
+              <select className="fc" value={form.efecto_falla ?? ''} onChange={e => setF('efecto_falla', e.target.value ? Number(e.target.value) : '')}>
                 <option value="">— Seleccionar —</option>
                 {EFECTOS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
               </select>
@@ -333,7 +275,7 @@ function FallaModal({ falla, onClose, onSave }) {
           </Row>
           <Row cols={2}>
             <Field label="Gravedad de la Falla">
-              <select {...sel('gravedad')} value={form.gravedad ?? ''} onChange={e => setF('gravedad', e.target.value ? Number(e.target.value) : '')}>
+              <select className="fc" value={form.gravedad ?? ''} onChange={e => setF('gravedad', e.target.value ? Number(e.target.value) : '')}>
                 <option value="">— Seleccionar —</option>
                 {GRAVEDADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
               </select>
@@ -350,10 +292,7 @@ function FallaModal({ falla, onClose, onSave }) {
             <Field label="Código Equipo 1"><input {...inp('cod_equipo_1')} placeholder="473764A" /></Field>
             <Field label="Código Equipo 2"><input {...inp('cod_equipo_2')} placeholder="473095A" /></Field>
             <Field label="Nombre Equipo">
-              <select {...sel('nombre_equipo')}>
-                <option value="">— Seleccionar —</option>
-                {frEquipos.map(e => <option key={e.id} value={e.nombre}>{e.nombre}</option>)}
-              </select>
+              <input {...inp('nombre_equipo')} placeholder="Ej: ASIA, AQQA…" />
             </Field>
             <Field label="Versión"><input {...inp('version_equipo')} placeholder="204" /></Field>
           </Row>
@@ -390,10 +329,7 @@ function FallaModal({ falla, onClose, onSave }) {
         <Section title="Unidad de Reemplazo">
           <Row cols={1}>
             <Field label="Origen">
-              <select {...sel('reemplazo_origen')}>
-                <option value="">— Seleccionar —</option>
-                {frWbs.map(w => <option key={w.id} value={w.nombre}>{w.nombre}</option>)}
-              </select>
+              <input {...inp('reemplazo_origen')} placeholder="Ej: Comcel Instalaciones Cali — WBS: W-0403-RE-30" />
             </Field>
           </Row>
           <Row cols={3}>
@@ -417,7 +353,6 @@ function FallaModal({ falla, onClose, onSave }) {
               placeholder="Describe el comportamiento observado…" />
           </div>
 
-          {/* Upload imagen */}
           <div className="fg">
             <label className="fl">Imagen / Evidencia fotográfica</label>
             <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }}
@@ -429,14 +364,10 @@ function FallaModal({ falla, onClose, onSave }) {
                 <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                   <button type="button" onClick={() => imgRef.current?.click()}
                     style={{ fontSize: 10, color: '#144E4A', background: 'none', border: '1px solid #a7c4a7',
-                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
-                    Cambiar
-                  </button>
+                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>Cambiar</button>
                   <button type="button" onClick={() => { setF('imagen_url', ''); setImgPreview(null) }}
                     style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca',
-                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
-                    Quitar
-                  </button>
+                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>Quitar</button>
                 </div>
               </div>
             ) : (
@@ -461,6 +392,140 @@ function FallaModal({ falla, onClose, onSave }) {
       </div>
     </div>
   )
+}
+
+// ── Export Excel Nokia FR ────────────────────────────────────────
+async function exportarExcelNokia(falla) {
+  try {
+    showToast('Generando Excel…')
+    const ExcelJS = (await import('exceljs')).default
+    const wb = new ExcelJS.Workbook()
+    const response = await fetch('/nokia_fr_template.xlsx')
+    if (!response.ok) throw new Error('Template no encontrado en /nokia_fr_template.xlsx')
+    const buffer = await response.arrayBuffer()
+    await wb.xlsx.load(buffer)
+    const ws = wb.getWorksheet('Nokia Failure Report')
+    if (!ws) throw new Error('Hoja "Nokia Failure Report" no encontrada en el template')
+
+    const set = (addr, val) => {
+      ws.getCell(addr).value = (val !== undefined && val !== '' && val !== null) ? val : null
+    }
+
+    const xGroup = (pairs, selected) => {
+      pairs.forEach(([addr, val]) => set(addr, selected === val ? 'X' : null))
+    }
+
+    // Header
+    set('Q7', falla.file_id || null)
+    set('Q8', falla.rma || null)
+
+    // 1. Remitente
+    set('C11', falla.empresa_nombre || 'Nokia Solutions and Networks Commissioning')
+    set('M11', falla.diligenciado_por || null)
+    set('C13', falla.empresa_direccion || null)
+    set('M13', falla.empresa_telefono || null)
+    if (falla.fecha_envio) set('Q15', new Date(falla.fecha_envio + 'T12:00:00'))
+    else set('Q15', null)
+
+    // Retornar para
+    set('C17', falla.retornar_nombre || null)
+    set('M17', falla.retornar_email || null)
+    set('C19', falla.retornar_direccion || null)
+
+    // 2. Información General
+    set('D21', falla.regional || null)
+    set('E21', falla.ciudad   || null)
+    set('F21', falla.sitio    || null)
+    set('M21', falla.pct_efecto ? Number(falla.pct_efecto) : null)
+
+    // Efecto de falla — X en columna G (opción 6 va en fila 27)
+    const efectoRows = { 1: 21, 2: 22, 3: 23, 4: 24, 5: 25, 6: 27 }
+    Object.entries(efectoRows).forEach(([n, row]) =>
+      set('G' + row, Number(falla.efecto_falla) === Number(n) ? 'X' : null))
+
+    // Falla detectada basada en — X en columna C
+    xGroup([
+      ['C23', 'error_printout'],
+      ['C24', 'senal_hw'],
+      ['C25', 'suscriptor'],
+      ['C26', 'otros'],
+    ], falla.falla_detectada_en)
+
+    // Ocurrencia
+    xGroup([
+      ['C31', 'permanente'],
+      ['E30', 'reproducible'],
+      ['E31', 'aleatorio'],
+    ], falla.ocurrencia)
+
+    // Fechas y duración
+    if (falla.fecha_deteccion) set('G31', new Date(falla.fecha_deteccion + 'T12:00:00'))
+    else set('G31', null)
+    set('I31', falla.duracion_dias    ? Number(falla.duracion_dias)    : null)
+    set('K31', falla.duracion_horas   ? Number(falla.duracion_horas)   : null)
+    set('M31', falla.duracion_minutos ? Number(falla.duracion_minutos) : null)
+
+    // Gravedad — X en columna O, filas 22-26
+    const gravedadRows = { 1: 22, 2: 23, 3: 24, 4: 25, 5: 26 }
+    Object.entries(gravedadRows).forEach(([n, row]) =>
+      set('O' + row, Number(falla.gravedad) === Number(n) ? 'X' : null))
+
+    // 3a. Hardware
+    set('C36', falla.cod_equipo_1  || null)
+    set('D36', falla.cod_equipo_2  || null)
+    set('G36', falla.nombre_equipo || null)
+    set('L36', falla.version_equipo || null)
+    set('O36', falla.serial_falla  || null)
+
+    // Motivo de mantenimiento — X en columna C
+    xGroup([
+      ['C38', 'falla_funcional'],
+      ['C40', 'falla_mecanica'],
+      ['C42', 'mod_sw'],
+      ['C44', 'mod_hw'],
+    ], falla.motivo_mantenimiento)
+
+    // Situación de detección — X en columna G
+    xGroup([
+      ['G38', 'comisionamiento'],
+      ['G40', 'upgrade'],
+      ['G42', 'tormenta'],
+      ['G44', 'uso_normal'],
+    ], falla.situacion_deteccion)
+
+    // Precisión del diagnóstico — X en columna L
+    xGroup([
+      ['L38', 'sobrecarga'],
+      ['L40', 'error_humano'],
+      ['L42', 'no_especificado'],
+    ], falla.precision_diagnostico)
+
+    // Posición de la unidad
+    set('O44', falla.posicion_unidad || null)
+
+    // Unidad de reemplazo
+    set('D45', falla.reemplazo_origen  || null)
+    set('G46', falla.reemplazo_nombre  || null)
+    set('L46', falla.reemplazo_version || null)
+    set('O46', falla.reemplazo_serial  || null)
+
+    // 4. Descripción
+    set('D53', falla.titulo      || null)
+    set('E54', falla.descripcion || null)
+
+    // Descargar
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `FR_Nokia_${falla.serial_falla || falla.file_id || 'sin-serial'}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('Excel descargado')
+  } catch (e) {
+    showToast('Error generando Excel: ' + e.message, 'err')
+  }
 }
 
 // ── Generar PDF Nokia FR ─────────────────────────────────────────
@@ -584,22 +649,19 @@ async function generarPDF(falla) {
     y += lines.length * 5 + 4
   }
 
-  // Imagen (si cabe)
   if (falla.imagen_url && y < 220) {
     try {
-      const img   = new Image(); img.crossOrigin = 'anonymous'
+      const img = new Image(); img.crossOrigin = 'anonymous'
       await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = falla.imagen_url })
       const maxW = W - 24, maxH = 60
       const ratio = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
       const iw = img.naturalWidth * ratio, ih = img.naturalHeight * ratio
       doc.addImage(img, 'JPEG', 12, y, iw, ih)
-      y += ih + 4
-    } catch { /* imagen no disponible, se omite */ }
+    } catch { /* imagen no disponible */ }
   }
 
   doc.setFontSize(7); doc.setTextColor(160, 160, 160)
   doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} · Copyright © 2026 Scytel Networks`, W / 2, 272, { align: 'center' })
-
   doc.save(`FR_${falla.serial_falla || 'sin-serial'}_${falla.sitio || ''}.pdf`)
 }
 
@@ -716,6 +778,11 @@ export default function HwFallas() {
                         style={{ fontSize: 10, color: '#144E4A', background: 'none',
                           border: '1px solid #a7c4a7', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
                         Editar
+                      </button>
+                      <button onClick={() => exportarExcelNokia(f)}
+                        style={{ fontSize: 10, color: '#166534', background: 'none',
+                          border: '1px solid #bbf7d0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>
+                        Excel
                       </button>
                       <button onClick={() => generarPDF(f)}
                         style={{ fontSize: 10, color: '#1e40af', background: 'none',
