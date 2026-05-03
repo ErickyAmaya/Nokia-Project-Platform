@@ -166,11 +166,11 @@ function FallaModal({ falla, onClose, onSave }) {
     if (!form.serial_falla?.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
     setSaving(true)
     try {
-      const NUM_FIELDS = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
+      const NUM_FIELDS  = ['efecto_falla','gravedad','pct_efecto','duracion_dias','duracion_horas','duracion_minutos','equipo_id']
+      const DATE_FIELDS = ['fecha_envio','fecha_deteccion']
       const clean = { ...form }
-      NUM_FIELDS.forEach(k => {
-        clean[k] = clean[k] !== '' && clean[k] != null ? (Number(clean[k]) || null) : null
-      })
+      NUM_FIELDS.forEach(k  => { clean[k] = clean[k] !== '' && clean[k] != null ? (Number(clean[k]) || null) : null })
+      DATE_FIELDS.forEach(k => { clean[k] = clean[k] || null })
       await onSave(clean)
       onClose()
     }
