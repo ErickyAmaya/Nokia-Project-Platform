@@ -1,20 +1,21 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
+import { getSupabaseClient } from '../../lib/supabase'
 
 // ── Constantes ───────────────────────────────────────────────────
 const ESTADO_CFG = {
-  abierto: { label: 'Abierto',  bg: '#fef3cd', color: '#856404' },
-  enviado: { label: 'Enviado',  bg: '#dbeafe', color: '#1e40af' },
-  cerrado: { label: 'Cerrado',  bg: '#d4edda', color: '#1a6130' },
+  abierto: { label: 'Abierto', bg: '#fef3cd', color: '#856404' },
+  enviado: { label: 'Enviado', bg: '#dbeafe', color: '#1e40af' },
+  cerrado: { label: 'Cerrado', bg: '#d4edda', color: '#1a6130' },
 }
 
 const MOTIVOS = [
-  { value: 'falla_funcional',  label: '1. Falla Funcional' },
-  { value: 'falla_mecanica',   label: '2. Falla Mecánica' },
-  { value: 'mod_sw',           label: '3. Modificación de SW' },
-  { value: 'mod_hw',           label: '4. Modificación de HW' },
+  { value: 'falla_funcional', label: '1. Falla Funcional' },
+  { value: 'falla_mecanica',  label: '2. Falla Mecánica' },
+  { value: 'mod_sw',          label: '3. Modificación de SW' },
+  { value: 'mod_hw',          label: '4. Modificación de HW' },
 ]
 
 const SITUACIONES = [
@@ -25,9 +26,9 @@ const SITUACIONES = [
 ]
 
 const PRECISIONES = [
-  { value: 'sobrecarga',     label: '1. Sobrecarga' },
-  { value: 'error_humano',   label: '2. Error humano (mal uso, quebrado)' },
-  { value: 'no_especificado',label: '3. No se puede especificar' },
+  { value: 'sobrecarga',      label: '1. Sobrecarga' },
+  { value: 'error_humano',    label: '2. Error humano (mal uso, quebrado)' },
+  { value: 'no_especificado', label: '3. No se puede especificar' },
 ]
 
 const OCURRENCIAS = [
@@ -36,24 +37,60 @@ const OCURRENCIAS = [
   { value: 'aleatorio',    label: 'Aleatorio' },
 ]
 
+const EFECTOS = [
+  { value: 1, label: '1. Capacidad de Tráfico disminuida' },
+  { value: 2, label: '2. PCM Circuitos o Radio Carriers indisponibles' },
+  { value: 3, label: '3. Suscriptores desconectados' },
+  { value: 4, label: '4. Facilidades del usuario indisponibles' },
+  { value: 5, label: '5. Facilidades usadas por funcionarios indisponibles' },
+  { value: 6, label: '6. No puede ser accesado' },
+]
+
+const GRAVEDADES = [
+  { value: 1, label: '1. Significativamente disminuido' },
+  { value: 2, label: '2. Claramente disminuido' },
+  { value: 3, label: '3. Disminuido' },
+  { value: 4, label: '4. Levemente disminuido' },
+  { value: 5, label: '5. Propuesta de modificación o mejora (no falla)' },
+]
+
+const FALLA_BASADA = [
+  { value: 'error_printout',  label: '1. Error printout' },
+  { value: 'senal_hw',        label: '2. Señal HW' },
+  { value: 'suscriptor',      label: '3. Notificación del Suscriptor' },
+  { value: 'otros',           label: '4. Otros' },
+]
+
 const EMPTY = {
+  // Header
   file_id: '', rma: '', fecha_envio: '', diligenciado_por: '',
+  // Remitente
+  empresa_nombre: 'Nokia Solutions and Networks Commissioning',
+  empresa_direccion: '', empresa_telefono: '',
+  // Retornar para
+  retornar_nombre: '', retornar_direccion: '', retornar_email: '',
+  // Info general
   regional: '', ciudad: '', sitio: '', fecha_deteccion: '',
-  ocurrencia: 'permanente', duracion_dias: '', duracion_horas: '', duracion_minutos: '',
-  efecto_falla: '', pct_efecto: '', gravedad: '',
+  ocurrencia: 'permanente',
+  duracion_dias: '', duracion_horas: '', duracion_minutos: '',
   falla_detectada_en: 'senal_hw',
+  efecto_falla: '', pct_efecto: '', gravedad: '',
+  // HW
   cod_equipo_1: '', cod_equipo_2: '', nombre_equipo: '',
   version_equipo: '', serial_falla: '',
   motivo_mantenimiento: 'falla_funcional',
   situacion_deteccion: 'uso_normal',
   precision_diagnostico: 'no_especificado',
   posicion_unidad: '',
+  // Reemplazo
   reemplazo_origen: '', reemplazo_nombre: '', reemplazo_version: '', reemplazo_serial: '',
-  titulo: '', descripcion: '',
+  // Descripción
+  titulo: '', descripcion: '', imagen_url: '',
+  // Estado
   estado: 'abierto', equipo_id: '',
 }
 
-// ── Badge estado ─────────────────────────────────────────────────
+// ── Helpers UI ───────────────────────────────────────────────────
 function EstadoBadge({ estado }) {
   const cfg = ESTADO_CFG[estado] || ESTADO_CFG.abierto
   return (
@@ -64,13 +101,13 @@ function EstadoBadge({ estado }) {
   )
 }
 
-// ── Sección del modal ────────────────────────────────────────────
-function Section({ title, children }) {
+function Section({ title, subtitle, children }) {
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: '#144E4A', letterSpacing: .8,
         textTransform: 'uppercase', borderBottom: '1px solid #e8eae8', paddingBottom: 4, marginBottom: 10 }}>
         {title}
+        {subtitle && <span style={{ fontSize: 9, fontWeight: 400, color: '#9ca3af', marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>{subtitle}</span>}
       </div>
       {children}
     </div>
@@ -85,63 +122,110 @@ function Row({ children, cols = 2 }) {
   )
 }
 
-function Field({ label, children }) {
+function Field({ label, children, span }) {
   return (
-    <div className="fg">
+    <div className="fg" style={span ? { gridColumn: `span ${span}` } : {}}>
       <label className="fl">{label}</label>
       {children}
     </div>
   )
 }
 
-// ── Modal crear / editar ─────────────────────────────────────────
+// ── Modal ────────────────────────────────────────────────────────
 function FallaModal({ falla, onClose, onSave }) {
-  const [form, setForm] = useState(falla ? { ...falla } : { ...EMPTY })
-  const [saving, setSaving] = useState(false)
+  const [form,        setForm]        = useState(falla ? { ...falla } : { ...EMPTY })
+  const [saving,      setSaving]      = useState(false)
+  const [uploading,   setUploading]   = useState(false)
+  const [imgPreview,  setImgPreview]  = useState(falla?.imagen_url || null)
+  const imgRef = useRef(null)
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const inp = (k) => ({ className: 'fc', value: form[k] ?? '', onChange: e => set(k, e.target.value) })
-  const sel = (k) => ({ className: 'fc', value: form[k] ?? '', onChange: e => set(k, e.target.value) })
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const inp  = (k)    => ({ className: 'fc', value: form[k] ?? '', onChange: e => setF(k, e.target.value) })
+  const sel  = (k)    => ({ className: 'fc', value: form[k] ?? '', onChange: e => setF(k, e.target.value) })
+
+  async function handleImgUpload(file) {
+    if (!file) return
+    setUploading(true)
+    try {
+      const db   = getSupabaseClient()
+      const path = `fallas/${Date.now()}_${file.name.replace(/\s/g, '_')}`
+      const { error } = await db.storage.from('facturacion').upload(path, file, { upsert: true })
+      if (error) throw error
+      const { data } = db.storage.from('facturacion').getPublicUrl(path)
+      setF('imagen_url', data.publicUrl)
+      setImgPreview(data.publicUrl)
+      showToast('Imagen cargada')
+    } catch (e) {
+      showToast('Error subiendo imagen: ' + e.message, 'err')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function handleSave() {
-    if (!form.serial_falla.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
+    if (!form.serial_falla?.trim()) { showToast('El número de serie es obligatorio', 'err'); return }
     setSaving(true)
-    try {
-      await onSave(form)
-      onClose()
-    } catch (e) {
-      showToast('Error: ' + e.message, 'err')
-    } finally {
-      setSaving(false)
-    }
+    try { await onSave(form); onClose() }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 600,
-      display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-      <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 720,
-        boxShadow: '0 8px 32px rgba(0,0,0,.18)', padding: 24 }}>
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '24px 16px', overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 760,
+        boxShadow: '0 8px 32px rgba(0,0,0,.18)', padding: 24, marginBottom: 24 }}>
 
+        {/* Título */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 700 }}>
             {falla ? 'Editar Failure Report' : 'Nuevo Failure Report'}
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af' }}>×</button>
         </div>
 
-        {/* 1. Header FR */}
+        {/* ── Header FR ── */}
         <Section title="Header">
           <Row cols={3}>
             <Field label="File ID"><input {...inp('file_id')} placeholder="DH211160552" /></Field>
             <Field label="RMA"><input {...inp('rma')} /></Field>
-            <Field label="Fecha de Envío"><input type="date" {...inp('fecha_envio')} /></Field>
+            <Field label="Día del Envío"><input type="date" {...inp('fecha_envio')} /></Field>
           </Row>
           <Row cols={1}>
             <Field label="Diligenciado por"><input {...inp('diligenciado_por')} placeholder="Nombre del responsable" /></Field>
           </Row>
         </Section>
 
-        {/* 2. Info General */}
+        {/* ── 1. Remitente ── */}
+        <Section title="1. Remitente">
+          <Row cols={1}>
+            <Field label="Nombre de la Empresa">
+              <input {...inp('empresa_nombre')} placeholder="Nokia Solutions and Networks Commissioning" />
+            </Field>
+          </Row>
+          <Row cols={2}>
+            <Field label="Dirección">
+              <input {...inp('empresa_direccion')} placeholder="MICROLINK KM 2.5 vía Siberia…" />
+            </Field>
+            <Field label="Teléfono">
+              <input {...inp('empresa_telefono')} placeholder="3107245382" />
+            </Field>
+          </Row>
+        </Section>
+
+        {/* ── Retornar para ── */}
+        <Section title="Retornar para" subtitle="(completar solo si difiere del remitente)">
+          <Row cols={1}>
+            <Field label="Nombre"><input {...inp('retornar_nombre')} /></Field>
+          </Row>
+          <Row cols={2}>
+            <Field label="Dirección"><input {...inp('retornar_direccion')} /></Field>
+            <Field label="E-mail"><input type="email" {...inp('retornar_email')} placeholder="nombre@empresa.com" /></Field>
+          </Row>
+        </Section>
+
+        {/* ── 2. Información General ── */}
         <Section title="2. Información General">
           <Row cols={3}>
             <Field label="Regional"><input {...inp('regional')} placeholder="SUROCCIDENTE" /></Field>
@@ -168,9 +252,33 @@ function FallaModal({ falla, onClose, onSave }) {
             <Field label="Duración (horas)"><input type="number" {...inp('duracion_horas')} min={0} /></Field>
             <Field label="Duración (min)"><input type="number" {...inp('duracion_minutos')} min={0} /></Field>
           </Row>
+          <Row cols={2}>
+            <Field label="Falla detectada basada en">
+              <select {...sel('falla_detectada_en')}>
+                {FALLA_BASADA.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Efecto o Extensión de Falla">
+              <select {...sel('efecto_falla')} value={form.efecto_falla ?? ''} onChange={e => setF('efecto_falla', e.target.value ? Number(e.target.value) : '')}>
+                <option value="">— Seleccionar —</option>
+                {EFECTOS.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </Field>
+          </Row>
+          <Row cols={2}>
+            <Field label="Gravedad de la Falla">
+              <select {...sel('gravedad')} value={form.gravedad ?? ''} onChange={e => setF('gravedad', e.target.value ? Number(e.target.value) : '')}>
+                <option value="">— Seleccionar —</option>
+                {GRAVEDADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+              </select>
+            </Field>
+            <Field label="% Efecto">
+              <input type="number" {...inp('pct_efecto')} min={0} max={100} placeholder="100" />
+            </Field>
+          </Row>
         </Section>
 
-        {/* 3a. HW */}
+        {/* ── 3a. Hardware ── */}
         <Section title="3a. Información de Hardware">
           <Row cols={4}>
             <Field label="Código Equipo 1"><input {...inp('cod_equipo_1')} placeholder="473764A" /></Field>
@@ -207,10 +315,12 @@ function FallaModal({ falla, onClose, onSave }) {
           </Row>
         </Section>
 
-        {/* Unidad de Reemplazo */}
+        {/* ── Unidad de Reemplazo ── */}
         <Section title="Unidad de Reemplazo">
           <Row cols={1}>
-            <Field label="Origen"><input {...inp('reemplazo_origen')} placeholder="Comcel Instalaciones Cali - WBS: W-0403-RE-30" /></Field>
+            <Field label="Origen">
+              <input {...inp('reemplazo_origen')} placeholder="Comcel Instalaciones Cali - WBS: W-0403-RE-30" />
+            </Field>
           </Row>
           <Row cols={3}>
             <Field label="Nombre"><input {...inp('reemplazo_nombre')} /></Field>
@@ -219,24 +329,58 @@ function FallaModal({ falla, onClose, onSave }) {
           </Row>
         </Section>
 
-        {/* 4. Descripción */}
+        {/* ── 4. Descripción ── */}
         <Section title="4. Descripción">
           <Row cols={1}>
-            <Field label="Título"><input {...inp('titulo')} placeholder="Hw no reconocido por Sistema" /></Field>
+            <Field label="Título">
+              <input {...inp('titulo')} placeholder="Hw no reconocido por Sistema" />
+            </Field>
           </Row>
-          <div className="fg">
+          <div className="fg" style={{ marginBottom: 8 }}>
             <label className="fl">Descripción detallada</label>
             <textarea className="fc" rows={3} value={form.descripcion ?? ''}
-              onChange={e => set('descripcion', e.target.value)}
+              onChange={e => setF('descripcion', e.target.value)}
               placeholder="Describe el comportamiento observado…" />
+          </div>
+
+          {/* Upload imagen */}
+          <div className="fg">
+            <label className="fl">Imagen / Evidencia fotográfica</label>
+            <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={e => handleImgUpload(e.target.files[0])} />
+            {imgPreview ? (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img src={imgPreview} alt="evidencia"
+                  style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, border: '1px solid #e8eae8', display: 'block' }} />
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <button type="button" onClick={() => imgRef.current?.click()}
+                    style={{ fontSize: 10, color: '#144E4A', background: 'none', border: '1px solid #a7c4a7',
+                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                    Cambiar
+                  </button>
+                  <button type="button" onClick={() => { setF('imagen_url', ''); setImgPreview(null) }}
+                    style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca',
+                      borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => imgRef.current?.click()} disabled={uploading}
+                style={{ fontSize: 11, color: '#4b5563', background: '#f9fafb',
+                  border: '2px dashed #d1d5db', borderRadius: 8, padding: '14px 24px',
+                  cursor: uploading ? 'not-allowed' : 'pointer', width: '100%', textAlign: 'center' }}>
+                {uploading ? 'Subiendo…' : '+ Subir imagen de evidencia'}
+              </button>
+            )}
           </div>
         </Section>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
           <button onClick={onClose} className="btn-sec" style={{ fontSize: 12 }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving}
+          <button onClick={handleSave} disabled={saving || uploading}
             style={{ fontSize: 12, background: '#144E4A', color: '#fff', border: 'none',
-              borderRadius: 8, padding: '8px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+              borderRadius: 8, padding: '8px 20px', cursor: (saving || uploading) ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -249,112 +393,136 @@ function FallaModal({ falla, onClose, onSave }) {
 async function generarPDF(falla) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
-
   const W = 215.9
-  const green = '#144E4A'
 
-  // Header
   doc.setFillColor(20, 78, 74)
   doc.rect(0, 0, W, 22, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
-  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold')
   doc.text('FAILURE REPORT', W / 2, 14, { align: 'center' })
-
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  if (falla.file_id) doc.text(`File ID: ${falla.file_id}`, W - 10, 8, { align: 'right' })
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal')
+  if (falla.file_id) doc.text(`File ID: ${falla.file_id}`, W - 10, 8,  { align: 'right' })
   if (falla.rma)     doc.text(`RMA: ${falla.rma}`,         W - 10, 14, { align: 'right' })
 
   let y = 30
 
-  function label(text, x, yy) {
+  const lbl = (text, x, yy) => {
     doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 80, 80)
     doc.text(text.toUpperCase(), x, yy)
   }
-  function value(text, x, yy, opts = {}) {
+  const val = (text, x, yy) => {
     doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20)
-    doc.text(String(text || '—'), x, yy, opts)
+    doc.text(String(text || '—'), x, yy)
   }
-  function sectionTitle(text, yy) {
+  const sec = (text, yy) => {
     doc.setFillColor(240, 242, 240)
     doc.rect(10, yy - 5, W - 20, 7, 'F')
     doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(20, 78, 74)
     doc.text(text, 13, yy)
-    return yy + 6
+    return yy + 7
   }
 
-  // Sección 1 - Remitente
-  y = sectionTitle('1. REMITENTE', y)
-  label('Empresa', 12, y); value('Nokia Solutions and Networks Commissioning', 40, y)
-  label('Diligenciado por', 130, y); value(falla.diligenciado_por, 165, y)
-  y += 7
-  label('Fecha de envío', 12, y); value(falla.fecha_envio || '—', 50, y)
-  y += 10
+  // 1. Remitente
+  y = sec('1. REMITENTE', y)
+  lbl('Empresa', 12, y);           val(falla.empresa_nombre || 'Nokia Solutions and Networks Commissioning', 35, y)
+  lbl('Diligenciado por', 130, y); val(falla.diligenciado_por, 165, y)
+  y += 6
+  lbl('Dirección', 12, y); val(falla.empresa_direccion, 35, y)
+  y += 6
+  lbl('Teléfono', 12, y);    val(falla.empresa_telefono, 35, y)
+  lbl('Día del envío', 80, y); val(falla.fecha_envio || '—', 110, y)
+  y += 8
 
-  // Sección 2 - Info General
-  y = sectionTitle('2. INFORMACIÓN GENERAL', y)
-  label('Regional', 12, y);      value(falla.regional, 40, y)
-  label('Ciudad', 80, y);        value(falla.ciudad, 100, y)
-  label('Sitio', 140, y);        value(falla.sitio, 158, y)
-  y += 7
-  label('Fecha detección', 12, y); value(falla.fecha_deteccion || '—', 50, y)
-  label('Ocurrencia', 80, y);      value(falla.ocurrencia || '—', 110, y)
-  y += 7
+  if (falla.retornar_nombre || falla.retornar_email) {
+    y = sec('RETORNAR PARA', y)
+    lbl('Nombre', 12, y); val(falla.retornar_nombre, 35, y)
+    lbl('E-mail', 100, y); val(falla.retornar_email, 120, y)
+    y += 6
+    lbl('Dirección', 12, y); val(falla.retornar_direccion, 35, y)
+    y += 8
+  }
+
+  // 2. Info General
+  y = sec('2. INFORMACIÓN GENERAL', y)
+  lbl('Regional', 12, y);  val(falla.regional, 35, y)
+  lbl('Ciudad',   70, y);  val(falla.ciudad,   90, y)
+  lbl('Sitio',   130, y);  val(falla.sitio,   148, y)
+  y += 6
+  lbl('Fecha detección', 12, y); val(falla.fecha_deteccion || '—', 50, y)
+  lbl('Ocurrencia',      80, y); val(falla.ocurrencia || '—',      115, y)
+  y += 6
   const dur = [
     falla.duracion_dias    ? `${falla.duracion_dias}d`    : '',
     falla.duracion_horas   ? `${falla.duracion_horas}h`   : '',
     falla.duracion_minutos ? `${falla.duracion_minutos}m` : '',
   ].filter(Boolean).join(' ')
-  label('Duración del efecto', 12, y); value(dur || '—', 55, y)
+  lbl('Duración del efecto', 12, y); val(dur || '—', 58, y)
+  y += 6
+  lbl('Falla detectada basada en', 12, y)
+  val(FALLA_BASADA.find(f => f.value === falla.falla_detectada_en)?.label || '—', 68, y)
+  y += 6
+  lbl('Efecto de falla', 12, y)
+  val(EFECTOS.find(e => e.value === falla.efecto_falla)?.label || '—', 50, y)
+  if (falla.pct_efecto) { lbl('%', 140, y); val(`${falla.pct_efecto}%`, 148, y) }
+  y += 6
+  lbl('Gravedad', 12, y)
+  val(GRAVEDADES.find(g => g.value === falla.gravedad)?.label || '—', 35, y)
   y += 10
 
-  // Sección 3a - HW
-  y = sectionTitle('3a. INFORMACIÓN DE HARDWARE', y)
-  label('Cód. Equipo 1', 12, y);   value(falla.cod_equipo_1, 40, y)
-  label('Cód. Equipo 2', 65, y);   value(falla.cod_equipo_2, 93, y)
-  label('Nombre Equipo', 120, y);  value(falla.nombre_equipo, 150, y)
-  label('Versión', 175, y);        value(falla.version_equipo, 190, y)
-  y += 7
-  label('Número de Serie (en falla)', 12, y)
+  // 3a. HW
+  y = sec('3a. INFORMACIÓN DE HARDWARE', y)
+  lbl('Cód. Equipo 1', 12, y);  val(falla.cod_equipo_1,   40, y)
+  lbl('Cód. Equipo 2', 65, y);  val(falla.cod_equipo_2,   93, y)
+  lbl('Nombre',       120, y);  val(falla.nombre_equipo,  138, y)
+  lbl('Versión',      170, y);  val(falla.version_equipo, 185, y)
+  y += 6
+  lbl('Número de Serie (en falla)', 12, y)
   doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(20, 78, 74)
-  doc.text(falla.serial_falla || '—', 75, y)
+  doc.text(falla.serial_falla || '—', 78, y)
   y += 8
-
-  label('Motivo de Mantenimiento', 12, y)
-  value(MOTIVOS.find(m => m.value === falla.motivo_mantenimiento)?.label || falla.motivo_mantenimiento || '—', 65, y)
+  lbl('Motivo de Mantenimiento', 12, y)
+  val(MOTIVOS.find(m => m.value === falla.motivo_mantenimiento)?.label || '—', 68, y)
   y += 6
-  label('Situación de Detección', 12, y)
-  value(SITUACIONES.find(s => s.value === falla.situacion_deteccion)?.label || falla.situacion_deteccion || '—', 65, y)
+  lbl('Situación de Detección', 12, y)
+  val(SITUACIONES.find(s => s.value === falla.situacion_deteccion)?.label || '—', 66, y)
   y += 6
-  label('Precisión del Diagnóstico', 12, y)
-  value(PRECISIONES.find(p => p.value === falla.precision_diagnostico)?.label || falla.precision_diagnostico || '—', 65, y)
+  lbl('Precisión del Diagnóstico', 12, y)
+  val(PRECISIONES.find(p => p.value === falla.precision_diagnostico)?.label || '—', 68, y)
   y += 8
 
   if (falla.reemplazo_origen || falla.reemplazo_serial) {
-    y = sectionTitle('UNIDAD DE REEMPLAZO', y)
-    label('Origen', 12, y); value(falla.reemplazo_origen, 30, y)
-    y += 6
-    label('Nombre', 12, y);  value(falla.reemplazo_nombre,  30, y)
-    label('Versión', 80, y); value(falla.reemplazo_version, 100, y)
-    label('Serie',  130, y); value(falla.reemplazo_serial,  148, y)
+    y = sec('UNIDAD DE REEMPLAZO', y)
+    lbl('Origen',  12, y); val(falla.reemplazo_origen,  30, y); y += 6
+    lbl('Nombre',  12, y); val(falla.reemplazo_nombre,  30, y)
+    lbl('Versión', 80, y); val(falla.reemplazo_version, 100, y)
+    lbl('Serie',  130, y); val(falla.reemplazo_serial,  148, y)
     y += 10
   }
 
-  // Sección 4 - Descripción
-  y = sectionTitle('4. DESCRIPCIÓN', y)
-  label('Título', 12, y); value(falla.titulo, 28, y)
-  y += 8
+  // 4. Descripción
+  y = sec('4. DESCRIPCIÓN', y)
+  lbl('Título', 12, y); val(falla.titulo, 28, y); y += 8
   if (falla.descripcion) {
-    label('Descripción detallada', 12, y)
-    y += 5
+    lbl('Descripción detallada', 12, y); y += 5
     const lines = doc.splitTextToSize(falla.descripcion, W - 24)
     doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20)
     doc.text(lines, 12, y)
-    y += lines.length * 5
+    y += lines.length * 5 + 4
   }
 
-  // Footer
+  // Imagen (si cabe)
+  if (falla.imagen_url && y < 220) {
+    try {
+      const img   = new Image(); img.crossOrigin = 'anonymous'
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = falla.imagen_url })
+      const maxW = W - 24, maxH = 60
+      const ratio = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight)
+      const iw = img.naturalWidth * ratio, ih = img.naturalHeight * ratio
+      doc.addImage(img, 'JPEG', 12, y, iw, ih)
+      y += ih + 4
+    } catch { /* imagen no disponible, se omite */ }
+  }
+
   doc.setFontSize(7); doc.setTextColor(160, 160, 160)
   doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} · Copyright © 2026 Scytel Networks`, W / 2, 272, { align: 'center' })
 
@@ -368,9 +536,9 @@ export default function HwFallas() {
   const deleteFalla = useHwStore(s => s.deleteFalla)
   const confirm     = useConfirm()
 
-  const [modal,   setModal]   = useState(null) // null | 'new' | falla object
-  const [search,  setSearch]  = useState('')
-  const [filtro,  setFiltro]  = useState('todos')
+  const [modal,  setModal]  = useState(null)
+  const [search, setSearch] = useState('')
+  const [filtro, setFiltro] = useState('todos')
 
   const rows = useMemo(() => {
     let list = hwFallas
@@ -378,10 +546,10 @@ export default function HwFallas() {
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(f =>
-        (f.serial_falla || '').toLowerCase().includes(q) ||
-        (f.sitio        || '').toLowerCase().includes(q) ||
-        (f.nombre_equipo|| '').toLowerCase().includes(q) ||
-        (f.titulo       || '').toLowerCase().includes(q)
+        (f.serial_falla  || '').toLowerCase().includes(q) ||
+        (f.sitio         || '').toLowerCase().includes(q) ||
+        (f.nombre_equipo || '').toLowerCase().includes(q) ||
+        (f.titulo        || '').toLowerCase().includes(q)
       )
     }
     return list
@@ -403,7 +571,6 @@ export default function HwFallas() {
 
   return (
     <>
-      {/* Header */}
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
@@ -425,8 +592,7 @@ export default function HwFallas() {
             <option value="enviado">Enviados</option>
             <option value="cerrado">Cerrados</option>
           </select>
-          <button
-            onClick={() => setModal('new')}
+          <button onClick={() => setModal('new')}
             style={{ fontSize: 11, background: '#144E4A', color: '#fff', border: 'none',
               borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}>
             + Nuevo FR
@@ -434,7 +600,6 @@ export default function HwFallas() {
         </div>
       </div>
 
-      {/* Tabla */}
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>
           {hwFallas.length === 0 ? 'Sin registros. Crea el primer Failure Report.' : 'Sin resultados con los filtros actuales.'}
@@ -497,7 +662,6 @@ export default function HwFallas() {
         </div>
       )}
 
-      {/* Modal */}
       {modal !== null && (
         <FallaModal
           falla={modal === 'new' ? null : modal}
