@@ -513,6 +513,27 @@ async function exportarExcelNokia(falla) {
     set('D53', falla.titulo      || null)
     set('E54', falla.descripcion || null)
 
+    // Imagen de evidencia en C55:I69
+    if (falla.imagen_url) {
+      try {
+        const imgResp  = await fetch(falla.imagen_url)
+        const imgBlob  = await imgResp.blob()
+        const imgB64   = await new Promise((res, rej) => {
+          const reader = new FileReader()
+          reader.onload = () => res(reader.result.split(',')[1])
+          reader.onerror = rej
+          reader.readAsDataURL(imgBlob)
+        })
+        const ext = falla.imagen_url.toLowerCase().includes('.png') ? 'png' : 'jpeg'
+        const imageId = wb.addImage({ base64: imgB64, extension: ext })
+        ws.addImage(imageId, {
+          tl: { col: 2, row: 54 },
+          br: { col: 9, row: 69 },
+          editAs: 'oneCell',
+        })
+      } catch { /* imagen no disponible, continuar sin ella */ }
+    }
+
     // Descargar
     const buf  = await wb.xlsx.writeBuffer()
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
