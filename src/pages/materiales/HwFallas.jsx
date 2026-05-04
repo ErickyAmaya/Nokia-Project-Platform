@@ -682,7 +682,7 @@ async function generarPDF(falla) {
   }
 
   doc.setFontSize(7); doc.setTextColor(160, 160, 160)
-  doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} · Copyright © 2026 Scytel Networks`, W / 2, 272, { align: 'center' })
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-CO')} · Copyright © 2026 Scytel Networks`, W - 8, 285, { align: 'right' })
   doc.save(`FR_${falla.serial_falla || 'sin-serial'}_${falla.sitio || ''}.pdf`)
 }
 
