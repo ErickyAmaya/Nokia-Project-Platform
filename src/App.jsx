@@ -25,6 +25,7 @@ import MatConfig          from './pages/materiales/MatConfig'
 import HwInventario       from './pages/materiales/HwInventario'
 import HwMovimientos      from './pages/materiales/HwMovimientos'
 import HwCatalogo         from './pages/materiales/HwCatalogo'
+import HwDashboard        from './pages/materiales/HwDashboard'
 import HwFallas           from './pages/materiales/HwFallas'
 import HwFrConfig         from './pages/materiales/HwFrConfig'
 import MatReportes        from './pages/materiales/MatReportes'
@@ -140,6 +141,7 @@ function AppRoutes() {
         <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
         <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','coordinador','logistica']}><MatConfig /></ProtectedRoute>} />
         <Route path="reportes"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatReportes /></ProtectedRoute>} />
+        <Route path="hw/dashboard"   element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwDashboard /></ProtectedRoute>} />
         <Route path="hw/inventario"  element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwInventario /></ProtectedRoute>} />
         <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwMovimientos /></ProtectedRoute>} />
         <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwCatalogo /></ProtectedRoute>} />

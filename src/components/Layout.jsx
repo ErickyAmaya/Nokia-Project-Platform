@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -31,69 +31,63 @@ const MAT_NAV = [
 ]
 
 const HW_NAV = [
-  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡', roles: null },
-  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁', roles: null },
-  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂', roles: null },
-  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠',  roles: null },
+  { to: '/materiales/hw/dashboard',   label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',   roles: null },
+  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
+  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos', roles: null },
+  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',    roles: null },
+  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',      roles: null },
 ]
 
 const ROLLOUT_NAV = [
-  { to: '/rollout/ack',          label: 'Dashboard',     icon: '📊', id: 'ack-dashboard' },
-  { to: '/rollout/ack/tablas',   label: 'Tablas',        icon: '📋', id: 'ack-tablas'    },
-  { to: '/rollout/ack/sitios',   label: 'Por Sitio',     icon: '📍', id: 'ack-sitios'    },
-  { to: '/rollout/ack/forecast', label: 'Reportes',      icon: '🖨', id: 'ack-forecast'  },
+  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard' },
+  { to: '/rollout/ack/tablas',   label: 'Tablas',     icon: '📋', id: 'ack-tablas'    },
+  { to: '/rollout/ack/sitios',   label: 'Por Sitio',  icon: '📍', id: 'ack-sitios'    },
+  { to: '/rollout/ack/forecast', label: 'Reportes',   icon: '🖨', id: 'ack-forecast'  },
 ]
 
 const FACT_NAV = [
-  { to: '/facturacion',              label: 'Dashboard',       icon: '📊', id: 'fact-dashboard', exact: true },
-  { to: '/facturacion/por-facturar', label: 'Por Facturar',    icon: '📄', id: 'fact-pf'        },
-  { to: '/facturacion/facturado',    label: 'Facturado',       icon: '✓',  id: 'fact-fc'        },
-  { to: '/facturacion/sitios',       label: 'Sitios',          icon: '📍', id: 'fact-sitios'    },
-  { to: '/facturacion/pos',          label: 'POs',             icon: '📁', id: 'fact-pos'       },
-  { to: '/facturacion/smps',         label: 'Todos los SMPs',  icon: '🗂', id: 'fact-smps'      },
+  { to: '/facturacion',              label: 'Dashboard',      icon: '📊', id: 'fact-dashboard', exact: true },
+  { to: '/facturacion/por-facturar', label: 'Por Facturar',   icon: '📄', id: 'fact-pf'        },
+  { to: '/facturacion/facturado',    label: 'Facturado',      icon: '✓',  id: 'fact-fc'        },
+  { to: '/facturacion/sitios',       label: 'Sitios',         icon: '📍', id: 'fact-sitios'    },
+  { to: '/facturacion/pos',          label: 'POs',            icon: '📁', id: 'fact-pos'       },
+  { to: '/facturacion/smps',         label: 'Todos los SMPs', icon: '🗂', id: 'fact-smps'      },
 ]
 
-// Badge de rol
 const BADGE = {
-  admin:       { label: '⚙ Admin',   cls: 'ub-admin' },
-  coordinador: { label: '🏢 Coord',  cls: 'ub-coord' },
-  TI:          { label: '📡 TI',     cls: 'ub-op'    },
-  TSS:         { label: '📡 TSS',    cls: 'ub-op'    },
-  CW:          { label: '🔧 CW',     cls: 'ub-op'    },
+  admin:       { label: '⚙ Admin',      cls: 'ub-admin' },
+  coordinador: { label: '🏢 Coord',     cls: 'ub-coord' },
+  TI:          { label: '📡 TI',        cls: 'ub-op'    },
+  TSS:         { label: '📡 TSS',       cls: 'ub-op'    },
+  CW:          { label: '🔧 CW',        cls: 'ub-op'    },
   viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
-  logistica:   { label: '📦 Logística', cls: 'ub-op'     },
+  logistica:   { label: '📦 Logística', cls: 'ub-op'    },
 }
 
 export default function Layout({ children }) {
-  const [drawerOpen,  setDrawerOpen]  = useState(false)
-  const [hwDropdown,  setHwDropdown]  = useState(false)
-  const [hwDropPos,   setHwDropPos]   = useState({ top: 0, left: 0 })
-  const [rtStatus,    setRtStatus]    = useState(window.__rtStatus || 'connecting')
-  const hwDropRef = useRef(null)
-  const hwBtnRef  = useRef(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [rtStatus,   setRtStatus]   = useState(window.__rtStatus || 'connecting')
 
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)
   const empresaConfig = useAppStore(s => s.empresaConfig)
-  const sitios        = useAppStore(s => s.sitios)
-  const logout        = useAuthStore(s => s.logout)
   const logoutApp     = useAppStore(s => s.logout)
   const navigate      = useNavigate()
   const location      = useLocation()
 
-  const inMateriales   = location.pathname.startsWith('/materiales')
-  const inRollout      = location.pathname.startsWith('/rollout')
-  const inFacturacion  = location.pathname.startsWith('/facturacion')
+  const inMateriales  = location.pathname.startsWith('/materiales')
+  const inHw          = location.pathname.startsWith('/materiales/hw')
+  const inRollout     = location.pathname.startsWith('/rollout')
+  const inFacturacion = location.pathname.startsWith('/facturacion')
 
-  // Fusión: los valores dinámicos (ConfigPage) tienen prioridad sobre los estáticos
   const empresa = {
     ...empresaBase,
-    nombre:          empresaConfig?.nombre          || empresaBase?.nombre,
-    nombre_corto:    empresaConfig?.nombre_corto    || empresaBase?.nombre_corto,
-    logoUrl:         empresaConfig?.logo_url        || empresaBase?.logoUrl,
-    color:           empresaConfig?.color_primario  || empresaBase?.color,
-    clienteNombre:   empresaConfig?.cliente_nombre   || '',
-    clienteLogoUrl:  empresaConfig?.cliente_logo_url || '',
+    nombre:         empresaConfig?.nombre          || empresaBase?.nombre,
+    nombre_corto:   empresaConfig?.nombre_corto    || empresaBase?.nombre_corto,
+    logoUrl:        empresaConfig?.logo_url        || empresaBase?.logoUrl,
+    color:          empresaConfig?.color_primario  || empresaBase?.color,
+    clienteNombre:  empresaConfig?.cliente_nombre   || '',
+    clienteLogoUrl: empresaConfig?.cliente_logo_url || '',
   }
 
   useEffect(() => {
@@ -102,18 +96,6 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('rt-status', handler)
   }, [])
 
-  // Cerrar dropdown HW al hacer clic fuera
-  useEffect(() => {
-    function handleClick(e) {
-      const inBtn   = hwBtnRef.current  && hwBtnRef.current.contains(e.target)
-      const inPanel = hwDropRef.current && hwDropRef.current.contains(e.target)
-      if (!inBtn && !inPanel) setHwDropdown(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  // Aplica color primario de la empresa al CSS custom property
   useEffect(() => {
     if (empresa?.color) {
       document.documentElement.style.setProperty('--g', empresa.color)
@@ -128,25 +110,42 @@ export default function Layout({ children }) {
     return item.roles.includes(role)
   }
 
-  // Nav según módulo activo
   const allVisible = inMateriales
-    ? MAT_NAV.filter(canSee)
+    ? (inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
     : inRollout
       ? ROLLOUT_NAV
       : inFacturacion
         ? FACT_NAV
         : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
-  // Botón cambiar módulo (solo admin/coord y solo cuando hay varios módulos)
   const canSwitchModule = user?.modulo === 'all'
-
   const badge = BADGE[role] || BADGE.viewer
+
+  const brand = empresa?.color || '#1a9c1a'
 
   async function handleLogout() {
     if (!confirm('¿Cerrar sesión?')) return
     await logoutApp()
     navigate('/login')
   }
+
+  const pillBase = {
+    padding: '3px 13px', borderRadius: 20, border: 'none', cursor: 'pointer',
+    fontSize: 10, fontWeight: 700, letterSpacing: .5, transition: 'all .15s',
+    fontFamily: "'Barlow', sans-serif",
+  }
+
+  const headerTitle = inHw
+    ? 'HW Nokia'
+    : inMateriales
+      ? 'Gestión de Inventarios'
+      : inRollout
+        ? 'ACK'
+        : inFacturacion
+          ? 'Facturación'
+          : location.pathname === '/modulos' || location.pathname === '/'
+            ? 'Project Modules'
+            : 'Liquidador de Actividades'
 
   return (
     <div style={{ minHeight: '100svh', background: '#f0f2f0' }}>
@@ -157,7 +156,7 @@ export default function Layout({ children }) {
         padding: 'calc(env(safe-area-inset-top) + 20px) 18px 8px',
         minHeight: 'calc(58px + env(safe-area-inset-top))',
         position: 'sticky', top: 0, zIndex: 200,
-        borderBottom: `3px solid ${empresa?.color || '#1a9c1a'}`,
+        borderBottom: `3px solid ${brand}`,
         boxShadow: '0 1px 4px rgba(0,0,0,.08)',
       }}>
         {/* Mobile hamburger */}
@@ -196,7 +195,7 @@ export default function Layout({ children }) {
           color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
           fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
         }}>
-          {inMateriales ? 'Gestión de Inventarios' : inRollout ? 'ACK' : inFacturacion ? 'Facturación' : location.pathname === '/modulos' || location.pathname === '/' ? 'Project Modules' : 'Liquidador de Actividades'}
+          {headerTitle}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -215,7 +214,6 @@ export default function Layout({ children }) {
             </button>
           )}
 
-          {/* Chip cliente (Nokia, Ericsson, etc.) */}
           {(empresa.clienteLogoUrl || empresa.clienteNombre) && (
             <div
               className="desk-only"
@@ -259,94 +257,67 @@ export default function Layout({ children }) {
 
       {/* ── Desktop Nav ────────────────────────────────────────── */}
       <nav className="desk-nav" style={{
-        background: '#fff', display: 'flex', gap: 1, padding: '0 18px',
+        background: '#fff',
         borderBottom: '1.5px solid #e0e4e0',
-        overflowX: 'auto', WebkitOverflowScrolling: 'touch',
         position: 'sticky', top: 'calc(58px + env(safe-area-inset-top))', zIndex: 199,
         boxShadow: '0 1px 3px rgba(0,0,0,.06)',
       }}>
-        {allVisible.map((item, idx) => {
-          // Insertar el dropdown HW Nokia entre Catálogo y Config
-          const isConfig   = item.id === 'mat-config'
-          const hwTrigger  = inMateriales && isConfig
-          const hwActive   = location.pathname.startsWith('/materiales/hw')
-          return (
-            <React.Fragment key={item.id}>
-              {hwTrigger && (
-                <div ref={hwDropRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'stretch' }}>
-                  <button
-                    ref={hwBtnRef}
-                    onClick={() => {
-                      const rect = hwBtnRef.current?.getBoundingClientRect()
-                      if (rect) setHwDropPos({ top: rect.bottom, left: rect.left })
-                      setHwDropdown(p => !p)
-                    }}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontFamily: "'Barlow', sans-serif", fontSize: 11, fontWeight: 600,
-                      letterSpacing: .6, textTransform: 'uppercase', padding: '8px 12px',
-                      color: hwActive ? (empresa?.color || '#0d6e0d') : '#555f55',
-                      borderBottom: hwActive ? `2px solid ${empresa?.color || '#1a9c1a'}` : '2px solid transparent',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    HW Nokia {hwDropdown ? '▴' : '▾'}
-                  </button>
-                </div>
-              )}
-              <NavLink
-                end
-                to={item.to}
-                style={({ isActive }) => ({
-                  background: 'none', border: 'none',
-                  color: isActive ? (empresa?.color || '#0d6e0d') : '#555f55',
-                  fontFamily: "'Barlow', sans-serif",
-                  fontSize: 11, fontWeight: 600, letterSpacing: .6,
-                  textTransform: 'uppercase',
-                  padding: '8px 12px', cursor: 'pointer',
-                  borderBottom: isActive ? `2px solid ${empresa?.color || '#1a9c1a'}` : '2px solid transparent',
-                  transition: 'all .15s', whiteSpace: 'nowrap',
-                  textDecoration: 'none', display: 'inline-block',
-                })}
-              >
-                {item.label}
-              </NavLink>
-            </React.Fragment>
-          )
-        })}
-      </nav>
+        {/* Toggle Materiales / HW Nokia */}
+        {inMateriales && (
+          <div style={{
+            display: 'flex', gap: 4, padding: '5px 18px 4px',
+            borderBottom: '1px solid #f0f2f0',
+          }}>
+            <button
+              onClick={() => navigate('/materiales')}
+              style={{
+                ...pillBase,
+                background: !inHw ? brand : 'transparent',
+                color: !inHw ? '#fff' : '#6b7280',
+              }}
+            >
+              📦 Materiales
+            </button>
+            <button
+              onClick={() => navigate('/materiales/hw/dashboard')}
+              style={{
+                ...pillBase,
+                background: inHw ? brand : 'transparent',
+                color: inHw ? '#fff' : '#6b7280',
+              }}
+            >
+              📡 HW Nokia
+            </button>
+          </div>
+        )}
 
-      {/* Dropdown panel HW Nokia — fuera del nav para escapar overflow */}
-      {hwDropdown && (
-        <div
-          ref={hwDropRef}
-          style={{
-            position: 'fixed', top: hwDropPos.top, left: hwDropPos.left, zIndex: 400,
-            background: '#fff', borderRadius: 8, minWidth: 190,
-            boxShadow: '0 6px 24px rgba(0,0,0,.14)',
-            border: '1.5px solid #e0e4e0', overflow: 'hidden',
-          }}
-        >
-          {HW_NAV.filter(item => !item.roles || item.roles.includes(role)).map(item => (
+        {/* Sub-nav items */}
+        <div style={{
+          display: 'flex', gap: 1, padding: '0 18px',
+          overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+        }}>
+          {allVisible.map(item => (
             <NavLink
-              key={item.to}
+              end
+              key={item.id || item.to}
               to={item.to}
-              onClick={() => setHwDropdown(false)}
               style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 16px', textDecoration: 'none',
-                fontFamily: "'Barlow', sans-serif", fontSize: 11, fontWeight: 600,
-                letterSpacing: .4, color: isActive ? (empresa?.color || '#0d6e0d') : '#555f55',
-                background: isActive ? '#f0fdf4' : '#fff',
-                borderLeft: isActive ? `3px solid ${empresa?.color || '#1a9c1a'}` : '3px solid transparent',
+                background: 'none', border: 'none',
+                color: isActive ? brand : '#555f55',
+                fontFamily: "'Barlow', sans-serif",
+                fontSize: 11, fontWeight: 600, letterSpacing: .6,
+                textTransform: 'uppercase',
+                padding: '8px 12px', cursor: 'pointer',
+                borderBottom: isActive ? `2px solid ${brand}` : '2px solid transparent',
+                transition: 'all .15s', whiteSpace: 'nowrap',
+                textDecoration: 'none', display: 'inline-block',
               })}
             >
-              <span>{item.icon}</span> {item.label}
+              {item.label}
             </NavLink>
           ))}
         </div>
-      )}
-
+      </nav>
 
       {/* ── Mobile Nav Drawer ──────────────────────────────────── */}
       {drawerOpen && (
@@ -357,7 +328,7 @@ export default function Layout({ children }) {
       )}
       <div className={`nav-drawer ${drawerOpen ? 'open' : ''}`}>
 
-        {/* ── Drawer header: usuario + cerrar ── */}
+        {/* Drawer header */}
         <div style={{
           padding: 'max(env(safe-area-inset-top), 16px) 16px 14px',
           borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
@@ -380,13 +351,11 @@ export default function Layout({ children }) {
             >×</button>
           </div>
 
-          {/* Módulo actual */}
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
+            {inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
           </div>
 
-          {/* Cambiar módulo */}
           {canSwitchModule && (
             <button
               onClick={() => { navigate('/modulos'); setDrawerOpen(false) }}
@@ -399,14 +368,42 @@ export default function Layout({ children }) {
               ⊞ Cambiar Módulo
             </button>
           )}
+
+          {/* Toggle pills en drawer (solo en Materiales) */}
+          {inMateriales && (
+            <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
+              <button
+                onClick={() => { navigate('/materiales'); setDrawerOpen(false) }}
+                style={{
+                  flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  fontSize: 10, fontWeight: 700,
+                  background: !inHw ? brand : 'rgba(255,255,255,.12)',
+                  color: !inHw ? '#fff' : 'rgba(255,255,255,.6)',
+                }}
+              >
+                📦 Materiales
+              </button>
+              <button
+                onClick={() => { navigate('/materiales/hw/dashboard'); setDrawerOpen(false) }}
+                style={{
+                  flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  fontSize: 10, fontWeight: 700,
+                  background: inHw ? brand : 'rgba(255,255,255,.12)',
+                  color: inHw ? '#fff' : 'rgba(255,255,255,.6)',
+                }}
+              >
+                📡 HW Nokia
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* ── Nav items ── */}
+        {/* Nav items */}
         <div style={{ flex: 1, overflowY: 'auto', paddingTop: 6 }}>
           {allVisible.map(item => (
             <NavLink
               end
-              key={item.id}
+              key={item.id || item.to}
               to={item.to}
               className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
               onClick={() => setDrawerOpen(false)}
@@ -416,29 +413,9 @@ export default function Layout({ children }) {
               {item.label}
             </NavLink>
           ))}
-          {inMateriales && (
-            <>
-              <div style={{ padding: '10px 16px 4px', fontSize: 9, fontWeight: 700, letterSpacing: 1.2,
-                color: 'rgba(255,255,255,.3)', textTransform: 'uppercase', borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 }}>
-                HW Nokia
-              </div>
-              {HW_NAV.filter(item => !item.roles || item.roles.includes(role)).map(item => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `nav-drawer-item${isActive ? ' active' : ''}`}
-                  onClick={() => setDrawerOpen(false)}
-                  style={{ textDecoration: 'none', paddingLeft: 28 }}
-                >
-                  <span style={{ fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
         </div>
 
-        {/* ── Drawer footer: logout ── */}
+        {/* Drawer footer */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,.07)',
           paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
           <button
