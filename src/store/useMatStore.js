@@ -20,6 +20,8 @@ export const useMatStore = create((set, get) => ({
   sitiosError:  null,
   movimientos:  [],
   despachos:    [],
+  proveedores:  [],   // mat_proveedores
+  precios:      [],   // mat_precios_proveedor
   loading:      false,
   error:        null,
   _syncChannel: null,
@@ -30,21 +32,24 @@ export const useMatStore = create((set, get) => ({
     const firstLoad = get().catalogo.length === 0
     if (firstLoad) set({ loading: true, error: null })
     try {
-      const [cat, stk, bod, sit, mov, dep] = await Promise.all([
+      const [cat, stk, bod, sit, mov, dep, prov, prec] = await Promise.all([
         db().from('mat_catalogo').select('*').order('categoria').order('nombre'),
         db().from('mat_stock').select('*'),
         db().from('bodegas').select('*').order('nombre'),
         db().from('mat_sitios').select('*').order('nombre'),
         db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
         db().from('despachos').select('*').order('created_at', { ascending: false }),
+        db().from('mat_proveedores').select('*').order('nombre'),
+        db().from('mat_precios_proveedor').select('*'),
       ])
-      // Log any per-query errors so they're visible in the console
-      if (cat.error) console.error('[mat] catalogo:', cat.error.message)
-      if (stk.error) console.error('[mat] stock:',    stk.error.message)
-      if (bod.error) console.error('[mat] bodegas:',  bod.error.message)
-      if (sit.error) console.error('[mat] sitios:',   sit.error.message)
-      if (mov.error) console.error('[mat] movimientos:', mov.error.message)
-      if (dep.error) console.error('[mat] despachos:', dep.error.message)
+      if (cat.error)  console.error('[mat] catalogo:',     cat.error.message)
+      if (stk.error)  console.error('[mat] stock:',        stk.error.message)
+      if (bod.error)  console.error('[mat] bodegas:',      bod.error.message)
+      if (sit.error)  console.error('[mat] sitios:',       sit.error.message)
+      if (mov.error)  console.error('[mat] movimientos:',  mov.error.message)
+      if (dep.error)  console.error('[mat] despachos:',    dep.error.message)
+      if (prov.error) console.error('[mat] proveedores:',  prov.error.message)
+      if (prec.error) console.error('[mat] precios:',      prec.error.message)
       set({
         catalogo:    cat.data  || [],
         stock:       stk.data  || [],
@@ -52,6 +57,8 @@ export const useMatStore = create((set, get) => ({
         sitios:      sit.data  || [],
         movimientos: mov.data  || [],
         despachos:   dep.data  || [],
+        proveedores: prov.data || [],
+        precios:     prec.data || [],
         sitiosError: sit.error?.message || null,
         loading: false,
       })
@@ -356,5 +363,64 @@ export const useMatStore = create((set, get) => ({
     const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     get()._broadcastChange()
+  },
+
+  // ── PROVEEDORES (mat_proveedores) ────────────────────────────────
+  saveProveedor: async (prov) => {
+    const isNew = !prov.id
+    const payload = {
+      nombre:    prov.nombre,
+      contacto:  prov.contacto  || null,
+      email:     prov.email     || null,
+      telefono:  prov.telefono  || null,
+      direccion: prov.direccion || null,
+      activo:    prov.activo    ?? true,
+    }
+    const { data, error } = isNew
+      ? await db().from('mat_proveedores').insert(payload).select().single()
+      : await db().from('mat_proveedores').update(payload).eq('id', prov.id).select().single()
+    if (error) throw error
+    set(s => ({
+      proveedores: isNew ? [...s.proveedores, data] : s.proveedores.map(p => p.id === data.id ? data : p),
+    }))
+    return data
+  },
+
+  deleteProveedor: async (id) => {
+    const { error } = await db().from('mat_proveedores').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({
+      proveedores: s.proveedores.filter(p => p.id !== id),
+      precios:     s.precios.filter(p => p.proveedor_id !== id),
+    }))
+  },
+
+  // ── PRECIOS POR PROVEEDOR (mat_precios_proveedor) ────────────────
+  getPrecioProveedor: (catalogo_id, proveedor_id) => {
+    const p = get().precios.find(p => p.catalogo_id === catalogo_id && p.proveedor_id === proveedor_id)
+    return p?.precio ?? null
+  },
+
+  upsertPrecio: async (catalogo_id, proveedor_id, precio) => {
+    const { data, error } = await db().from('mat_precios_proveedor')
+      .upsert({ catalogo_id, proveedor_id, precio, updated_at: new Date().toISOString() },
+               { onConflict: 'catalogo_id,proveedor_id' })
+      .select().single()
+    if (error) throw error
+    set(s => {
+      const exists = s.precios.find(p => p.catalogo_id === catalogo_id && p.proveedor_id === proveedor_id)
+      return {
+        precios: exists
+          ? s.precios.map(p => (p.catalogo_id === catalogo_id && p.proveedor_id === proveedor_id) ? data : p)
+          : [...s.precios, data],
+      }
+    })
+    return data
+  },
+
+  deletePrecio: async (id) => {
+    const { error } = await db().from('mat_precios_proveedor').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ precios: s.precios.filter(p => p.id !== id) }))
   },
 }))

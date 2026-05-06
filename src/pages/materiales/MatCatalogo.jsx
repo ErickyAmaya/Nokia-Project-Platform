@@ -50,6 +50,12 @@ export default function MatCatalogo() {
   const saveCatItem         = useMatStore(s => s.saveCatItem)
   const deleteCatItem       = useMatStore(s => s.deleteCatItem)
   const bulkUpdateMatPrices = useMatStore(s => s.bulkUpdateMatPrices)
+  const proveedores         = useMatStore(s => s.proveedores)
+  const precios             = useMatStore(s => s.precios)
+  const saveProveedor       = useMatStore(s => s.saveProveedor)
+  const deleteProveedor     = useMatStore(s => s.deleteProveedor)
+  const upsertPrecio        = useMatStore(s => s.upsertPrecio)
+  const deletePrecio        = useMatStore(s => s.deletePrecio)
   const user                = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -120,16 +126,24 @@ export default function MatCatalogo() {
     setMatForm(p => ({ ...p, imagen_url: '' }))
   }
 
-  const filtered = useMemo(() => {
+  const filteredMat = useMemo(() => {
     const q = search.toLowerCase()
     return catalogo.filter(c => {
-      // En vista materiales (Todos/TI/CW) nunca mostrar proveedores
-      if (!isProveedoresTab && c.categoria === 'PROVEEDORES') return false
-      if (filCat && c.categoria !== filCat) return false
-      if (q && !`${c.nombre} ${c.codigo} ${c.unidad || ''} ${c.contacto || ''}`.toLowerCase().includes(q)) return false
+      if (c.categoria === 'PROVEEDORES') return false   // legacy, nunca mostrar
+      if (filCat && filCat !== 'PROVEEDORES' && c.categoria !== filCat) return false
+      if (q && !`${c.nombre} ${c.codigo} ${c.unidad || ''}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [catalogo, search, filCat, isProveedoresTab])
+  }, [catalogo, search, filCat])
+
+  const filteredProv = useMemo(() => {
+    const q = search.toLowerCase()
+    return proveedores.filter(p =>
+      !q || `${p.nombre} ${p.contacto || ''} ${p.email || ''}`.toLowerCase().includes(q)
+    )
+  }, [proveedores, search])
+
+  const filtered = isProveedoresTab ? filteredProv : filteredMat
 
   function openMatModal(item = null) {
     setMatForm(item ? { ...item } : { ...MAT_FORM_DEFAULT })
@@ -142,8 +156,12 @@ export default function MatCatalogo() {
   }
 
   function openEdit(item) {
-    if (item.categoria === 'PROVEEDORES') openProvModal(item)
-    else openMatModal(item)
+    openEditWithPrecios(item)
+  }
+
+  function openEditProv(prov) {
+    setProvForm({ ...prov })
+    setProvMod(true)
   }
 
   async function handleSave() {
@@ -158,18 +176,56 @@ export default function MatCatalogo() {
   async function handleProvSave() {
     if (!provForm.nombre) { showToast('El nombre es requerido', 'err'); return }
     try {
-      await saveCatItem({ ...provForm, categoria: 'PROVEEDORES', codigo: provForm.codigo || provForm.nombre.slice(0,8).toUpperCase().replace(/ /g,'_') })
+      await saveProveedor(provForm)
       showToast(provForm.id ? 'Proveedor actualizado' : 'Proveedor creado')
       setProvMod(false)
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
   async function handleDelete(item) {
-    const label = item.categoria === 'PROVEEDORES' ? 'proveedor' : 'material'
-    const ok = await confirm(`Eliminar ${label}`, `¿Eliminar "${item.nombre}"?`)
+    const ok = await confirm('Eliminar material', `¿Eliminar "${item.nombre}"?`)
     if (!ok) return
     try { await deleteCatItem(item.id); showToast('Eliminado') }
     catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  async function handleDeleteProv(prov) {
+    const ok = await confirm('Eliminar proveedor', `¿Eliminar "${prov.nombre}"? También se borrarán sus precios asociados.`)
+    if (!ok) return
+    try { await deleteProveedor(prov.id); showToast('Proveedor eliminado') }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  // Precios en el modal de edición de material
+  const [precioEdit, setPrecioEdit] = useState({})   // { proveedor_id: precio_string }
+  const [precioSaving, setPrecioSaving] = useState(false)
+
+  function openEditWithPrecios(item) {
+    openMatModal(item)
+    const map = {}
+    precios.filter(p => p.catalogo_id === item.id).forEach(p => { map[p.proveedor_id] = String(p.precio) })
+    setPrecioEdit(map)
+  }
+
+  async function handleSavePrecio(proveedor_id) {
+    const val = parseFloat(precioEdit[proveedor_id])
+    if (!matForm.id || isNaN(val)) return
+    setPrecioSaving(true)
+    try {
+      await upsertPrecio(matForm.id, proveedor_id, val)
+      showToast('Precio guardado')
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setPrecioSaving(false) }
+  }
+
+  async function handleDeletePrecio(proveedor_id) {
+    const rec = precios.find(p => p.catalogo_id === matForm.id && p.proveedor_id === proveedor_id)
+    if (!rec) return
+    try {
+      await deletePrecio(rec.id)
+      setPrecioEdit(p => { const n = { ...p }; delete n[proveedor_id]; return n })
+      showToast('Precio eliminado')
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
   return (
@@ -213,37 +269,37 @@ export default function MatCatalogo() {
               <table className="tbl">
                 <thead><tr>
                   <th>Nombre</th><th>Dirección</th><th>Contacto</th>
-                  <th>Email</th><th>Teléfono</th><th>Categoría</th>
+                  <th>Email</th><th>Teléfono</th><th>Ítems con precio</th>
                   {canEdit && <th></th>}
                 </tr></thead>
                 <tbody>
-                  {filtered.length === 0 && (
+                  {filteredProv.length === 0 && (
                     <tr><td colSpan={7} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin proveedores</td></tr>
                   )}
-                  {filtered.map(c => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight:600 }}>
-                        <div>{c.nombre}</div>
-                        {c.badge && <div style={{ marginTop:3 }}><BadgePill value={c.badge} /></div>}
-                      </td>
-                      <td style={{ fontSize:11, color:'#9ca89c' }}>{c.direccion || '—'}</td>
-                      <td style={{ fontSize:11 }}>{c.contacto || '—'}</td>
-                      <td style={{ fontSize:11, color:'#1d4ed8' }}>{c.email || '—'}</td>
-                      <td style={{ fontSize:11 }}>{c.telefono || '—'}</td>
-                      <td>
-                        <span className="badge" style={{ background:CAT_COLORS.PROVEEDORES.bg, color:CAT_COLORS.PROVEEDORES.color }}>
-                          PROVEEDOR
-                        </span>
-                      </td>
-                      {canEdit && (
-                        <td style={{ whiteSpace:'nowrap' }}>
-                          <button className="btn-edit" onClick={() => openEdit(c)}><IconEdit /></button>
-                          {' '}
-                          <button className="btn-del" onClick={() => handleDelete(c)}>✕</button>
+                  {filteredProv.map(p => {
+                    const nPrecios = precios.filter(x => x.proveedor_id === p.id).length
+                    return (
+                      <tr key={p.id}>
+                        <td style={{ fontWeight:600 }}>{p.nombre}</td>
+                        <td style={{ fontSize:11, color:'#9ca89c' }}>{p.direccion || '—'}</td>
+                        <td style={{ fontSize:11 }}>{p.contacto || '—'}</td>
+                        <td style={{ fontSize:11, color:'#1d4ed8' }}>{p.email || '—'}</td>
+                        <td style={{ fontSize:11 }}>{p.telefono || '—'}</td>
+                        <td>
+                          <span className="badge" style={{ background:'#f0fdf4', color:'#166534' }}>
+                            {nPrecios} ítem{nPrecios !== 1 ? 's' : ''}
+                          </span>
                         </td>
-                      )}
-                    </tr>
-                  ))}
+                        {canEdit && (
+                          <td style={{ whiteSpace:'nowrap' }}>
+                            <button className="btn-edit" onClick={() => openEditProv(p)}><IconEdit /></button>
+                            {' '}
+                            <button className="btn-del" onClick={() => handleDeleteProv(p)}>✕</button>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             ) : (
@@ -346,6 +402,41 @@ export default function MatCatalogo() {
                   onChange={e => setMatForm(p => ({ ...p, descripcion:e.target.value }))}
                   style={{ resize:'vertical', fontFamily:"'Barlow', sans-serif", fontSize:12 }} />
               </div>
+              {/* ── Precios por Proveedor ── */}
+              {matForm.id && proveedores.length > 0 && (
+                <div style={{ border:'1.5px solid #e0e4e0', borderRadius:8, padding:12 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#555f55', letterSpacing:.5, marginBottom:10 }}>PRECIOS POR PROVEEDOR</div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {proveedores.map(pv => {
+                      const rec = precios.find(p => p.catalogo_id === matForm.id && p.proveedor_id === pv.id)
+                      const val = precioEdit[pv.id] ?? (rec ? String(rec.precio) : '')
+                      return (
+                        <div key={pv.id} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ fontSize:11, fontWeight:600, flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pv.nombre}</span>
+                          <input type="number" min="0" className="fc"
+                            style={{ width:110, fontSize:11 }}
+                            placeholder="Precio"
+                            value={val}
+                            onChange={e => setPrecioEdit(p => ({ ...p, [pv.id]: e.target.value }))}
+                          />
+                          <button disabled={precioSaving || !val}
+                            onClick={() => handleSavePrecio(pv.id)}
+                            style={{ fontSize:10, padding:'3px 8px', borderRadius:5, border:'none', background:'#144E4A', color:'#fff', cursor:'pointer', whiteSpace:'nowrap' }}>
+                            Guardar
+                          </button>
+                          {rec && (
+                            <button onClick={() => handleDeletePrecio(pv.id)}
+                              style={{ fontSize:10, padding:'3px 6px', borderRadius:5, border:'none', background:'#fee2e2', color:'#c0392b', cursor:'pointer' }}>
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="fl">Imagen</label>
                 <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImageUpload} />

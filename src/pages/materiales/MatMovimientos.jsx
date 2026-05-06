@@ -5,6 +5,7 @@ import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { useNavigate } from 'react-router-dom'
 import DespachoModal from '../../components/materiales/DespachoModal'
+import MatEntradaModal from '../../components/materiales/MatEntradaModal'
 
 export default function MatMovimientos() {
   const catalogo         = useMatStore(s => s.catalogo)
@@ -18,6 +19,8 @@ export default function MatMovimientos() {
   const navigate = useNavigate()
 
   const [despachoOpen, setDespachoOpen]   = useState(false)
+  const [entradaOpen,  setEntradaOpen]    = useState(false)
+  const [pickerOpen,   setPickerOpen]     = useState(false)
   const [filTipo,      setFilTipo]        = useState('')
   const [filBod,       setFilBod]         = useState('')
   const [search,       setSearch]         = useState('')
@@ -64,14 +67,36 @@ export default function MatMovimientos() {
     <div>
       <ConfirmModalUI />
       {despachoOpen && <DespachoModal onClose={() => setDespachoOpen(false)} />}
+      {entradaOpen  && <MatEntradaModal onClose={() => setEntradaOpen(false)} />}
+
+      {/* Picker de tipo de movimiento */}
+      {pickerOpen && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:750, display:'flex', alignItems:'center', justifyContent:'center' }}
+          onClick={() => setPickerOpen(false)}>
+          <div style={{ background:'#fff', borderRadius:12, padding:24, width:320, display:'flex', flexDirection:'column', gap:10 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:15, letterSpacing:1, marginBottom:4 }}>NUEVO MOVIMIENTO</div>
+            <button onClick={() => { setPickerOpen(false); setEntradaOpen(true) }}
+              style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #a3e6a3', background:'#f0fdf4', textAlign:'left', cursor:'pointer' }}>
+              <div style={{ fontWeight:700, fontSize:13, color:'#166534' }}>↑ Entrada de Materiales</div>
+              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Registrar llegada de material a bodega</div>
+            </button>
+            <button onClick={() => { setPickerOpen(false); setDespachoOpen(true) }}
+              style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #f5c6cb', background:'#fff5f5', textAlign:'left', cursor:'pointer' }}>
+              <div style={{ fontWeight:700, fontSize:13, color:'#c0392b' }}>↓ Despacho a Sitio</div>
+              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Despachar materiales desde bodega a un sitio Nokia</div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── DESPACHOS ── */}
       <div className="card" style={{ marginBottom:16 }}>
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Despachos</h2>
           {canEdit && (
-            <button className="btn bd btn-sm" onClick={() => setDespachoOpen(true)}>
-              + Nuevo Despacho
+            <button className="btn bd btn-sm" onClick={() => setPickerOpen(true)}>
+              + Nuevo Movimiento
             </button>
           )}
         </div>
