@@ -7,6 +7,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwDespachoModal from '../../components/materiales/HwDespachoModal'
+import HwMassDespachoModal from '../../components/materiales/HwMassDespachoModal'
 
 const TIPO_LUGAR = [
   { value:'nokia',  label:'Nokia' },
@@ -17,7 +18,7 @@ const TIPO_LUGAR = [
 
 function nextHwDoc(movimientos, tipo) {
   const year   = new Date().getFullYear()
-  const prefix = tipo === 'ENTRADA' ? 'HW-IN' : 'HW-OUT'
+  const prefix = tipo === 'ENTRADA' ? 'HW-IN' : 'HW-DS'
   const re     = new RegExp(`^${prefix}-${year}-(\\d+)$`)
   const nums   = movimientos.map(m => { const x = m.so?.match(re); return x ? parseInt(x[1]) : 0 }).filter(Boolean)
   return `${prefix}-${year}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3,'0')}`
@@ -227,8 +228,13 @@ export default function HwMovimientos() {
   const [filDate,      setFilDate]      = useState('')
   const [form,         setForm]         = useState(null)
   const [altModal,     setAltModal]     = useState(null)
-  const [despachoOpen, setDespachoOpen] = useState(false) // { requestedQty, currentBodega, currentStock, alternatives }
+  const [despachoOpen,       setDespachoOpen]       = useState(false)
+  const [massDespachoOpen,   setMassDespachoOpen]   = useState(false)
+  const [despachoPickerOpen, setDespachoPickerOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(100)
+  const [soDetail,     setSoDetail]     = useState(null) // sales order string to show detail
   const prevOrigenRef = useRef(null)
+  const sentinelRef   = useRef(null)
 
   const navigate     = useNavigate()
   const location     = useLocation()
@@ -237,6 +243,16 @@ export default function HwMovimientos() {
   const canDelete = ['admin'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
+  useEffect(() => { setVisibleCount(100) }, [search, filTipo, filDate])
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleCount(c => c + 100)
+    }, { rootMargin: '150px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [visibleCount])
 
   // Auto-abrir modal si viene desde Inventario HW
   useEffect(() => {
@@ -563,7 +579,7 @@ export default function HwMovimientos() {
     return hwMovimientos.filter(m => {
       if (filTipo && m.tipo !== filTipo) return false
       if (filDate && !m.fecha?.startsWith(filDate)) return false
-      if (q && !`${m.serial} ${m.so || ''} ${m.origen || ''} ${m.destino || ''}`.toLowerCase().includes(q)) return false
+      if (q && !`${m.serial} ${m.so || ''} ${m.sales_order || ''} ${m.origen || ''} ${m.destino || ''}`.toLowerCase().includes(q)) return false
       return true
     })
   }, [hwMovimientos, search, filTipo, filDate])
@@ -573,13 +589,139 @@ export default function HwMovimientos() {
   return (
     <div>
       <ConfirmModalUI />
-      {despachoOpen && <HwDespachoModal onClose={() => setDespachoOpen(false)} />}
+      {despachoOpen     && <HwDespachoModal     onClose={() => setDespachoOpen(false)} />}
+      {massDespachoOpen && <HwMassDespachoModal onClose={() => setMassDespachoOpen(false)} />}
+
+      {/* ── Picker: tipo de despacho ── */}
+      {despachoPickerOpen && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:750,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+          onClick={() => setDespachoPickerOpen(false)}>
+          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:340,
+            boxShadow:'0 20px 60px rgba(0,0,0,.28)', overflow:'hidden' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 18px',
+              borderBottom:'3px solid #1d4ed8', display:'flex', justifyContent:'space-between',
+              alignItems:'center', borderRadius:'12px 12px 0 0' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:15, letterSpacing:1 }}>
+                NUEVO DESPACHO
+              </span>
+              <button onClick={() => setDespachoPickerOpen(false)}
+                style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:16, display:'flex', flexDirection:'column', gap:10 }}>
+              <button onClick={() => { setDespachoPickerOpen(false); setDespachoOpen(true) }}
+                style={{ padding:'14px 16px', borderRadius:8, border:'1.5px solid #e0e4e0',
+                  background:'#fff', cursor:'pointer', textAlign:'left', width:'100%' }}>
+                <div style={{ fontWeight:700, fontSize:13, color:'#144E4A', marginBottom:3 }}>Despacho Normal</div>
+                <div style={{ fontSize:11, color:'#9ca89c' }}>Registrar salida con seriales y destino</div>
+              </button>
+              <button onClick={() => { setDespachoPickerOpen(false); setMassDespachoOpen(true) }}
+                style={{ padding:'14px 16px', borderRadius:8, border:'1.5px solid #e0e4e0',
+                  background:'#fff', cursor:'pointer', textAlign:'left', width:'100%' }}>
+                <div style={{ fontWeight:700, fontSize:13, color:'#1e40af', marginBottom:3 }}>Por Lote (Excel)</div>
+                <div style={{ fontSize:11, color:'#9ca89c' }}>Carga masiva de despachos desde archivo Excel</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal detalle Sales Order ── */}
+      {soDetail && (() => {
+        const soMovs = hwMovimientos.filter(m => m.so === soDetail || m.sales_order === soDetail)
+        const entradas = soMovs.filter(m => m.tipo === 'ENTRADA')
+        const salidas  = soMovs.filter(m => m.tipo === 'SALIDA')
+        const section = (label, color, bg, movs) => movs.length === 0 ? null : (
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:.6, textTransform:'uppercase',
+              color, borderBottom:`2px solid ${bg}`, paddingBottom:4, marginBottom:8 }}>
+              {label} ({movs.length})
+            </div>
+            <table className="tbl" style={{ fontSize:11 }}>
+              <thead><tr>
+                <th>Serial</th><th>Descripción</th><th>Fecha</th>
+                <th>Cant.</th><th>Origen</th><th>Destino</th>
+              </tr></thead>
+              <tbody>
+                {movs.map((m, i) => {
+                  const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+                  return (
+                    <tr key={i}>
+                      <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11, color:'#144E4A' }}>
+                        {m.serial || <span style={{ color:'#9ca89c', fontSize:9 }}>sin serial</span>}
+                      </td>
+                      <td style={{ maxWidth:180, fontSize:10 }}>{cat?.descripcion || '—'}</td>
+                      <td style={{ color:'#9ca89c', whiteSpace:'nowrap', fontSize:10 }}>{m.fecha}</td>
+                      <td style={{ textAlign:'center', fontWeight:700 }}>{m.cantidad ?? 1}</td>
+                      <td style={{ fontSize:10 }}>
+                        <span style={{ color:'#9ca89c', fontSize:9, marginRight:2 }}>{m.origen_tipo}</span>
+                        {m.origen}
+                      </td>
+                      <td style={{ fontSize:10, fontWeight:600 }}>
+                        <span style={{ color:'#9ca89c', fontSize:9, marginRight:2 }}>{m.destino_tipo}</span>
+                        {m.destino}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:800,
+            display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+            onClick={() => setSoDetail(null)}>
+            <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:760,
+              maxHeight:'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 18px',
+                display:'flex', justifyContent:'space-between', alignItems:'center',
+                borderBottom:'3px solid #1d4ed8', borderRadius:'12px 12px 0 0', flexShrink:0 }}>
+                <div>
+                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:16, letterSpacing:1 }}>
+                    SALES ORDER
+                  </div>
+                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:900, color:'#60a5fa', marginTop:1 }}>
+                    {soDetail}
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:16, alignItems:'center' }}>
+                  <div style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:20, fontWeight:800, color:'#d4edda' }}>{entradas.length}</div>
+                    <div style={{ fontSize:9, color:'#9ca89c', textTransform:'uppercase' }}>Entradas</div>
+                  </div>
+                  <div style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:20, fontWeight:800, color:'#dbeafe' }}>{salidas.length}</div>
+                    <div style={{ fontSize:9, color:'#9ca89c', textTransform:'uppercase' }}>Salidas</div>
+                  </div>
+                  <button onClick={() => setSoDetail(null)}
+                    style={{ background:'none', border:'none', color:'#9ca89c', fontSize:22, cursor:'pointer', marginLeft:8 }}>×</button>
+                </div>
+              </div>
+              <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:16 }}>
+                {soMovs.length === 0
+                  ? <div style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin movimientos para esta SO.</div>
+                  : <>
+                      {section('Entradas', '#1a6130', '#d4edda', entradas)}
+                      {section('Salidas a sitio', '#1e40af', '#dbeafe', salidas)}
+                    </>
+                }
+              </div>
+              <div style={{ padding:'10px 18px', borderTop:'1px solid #e8f0e8', textAlign:'right', flexShrink:0 }}>
+                <button className="btn bou" onClick={() => setSoDetail(null)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="card" style={{ marginBottom:14 }}>
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2>Movimientos HW Nokia ({rows.length})</h2>
           {canEdit && (
-            <button className="btn bp btn-sm" onClick={() => setDespachoOpen(true)}>
+            <button className="btn bp btn-sm" onClick={() => setDespachoPickerOpen(true)}>
               + Nuevo Despacho
             </button>
           )}
@@ -600,9 +742,9 @@ export default function HwMovimientos() {
       </div>
 
       <div className="card">
-        <div className="card-b" style={{ padding:0, overflowX:'auto' }}>
+        <div className="card-b" style={{ padding:0, overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 220px)' }}>
           <table className="tbl">
-            <thead><tr>
+            <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}><tr>
               <th>Fecha</th><th>Tipo</th><th>Cant.</th><th>Serial</th><th>Equipo</th>
               <th>Origen</th><th>Destino</th><th>SO / Doc</th>
               {canDelete && <th></th>}
@@ -611,7 +753,7 @@ export default function HwMovimientos() {
               {rows.length === 0 && (
                 <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin movimientos registrados</td></tr>
               )}
-              {rows.map(m => {
+              {rows.slice(0, visibleCount).map(m => {
                 const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
                 return (
                   <tr key={m.id}>
@@ -638,13 +780,29 @@ export default function HwMovimientos() {
                         </button>
                       ) : m.destino}
                     </td>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700 }}>{m.so || '—'}</td>
+                    <td>
+                      {(m.so || m.sales_order)
+                        ? <button onClick={() => setSoDetail(m.so || m.sales_order)}
+                            style={{ background:'none', border:'none', padding:0, cursor:'pointer',
+                              fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700,
+                              color:'#1e40af', textDecoration:'underline' }}>
+                            {m.so || m.sales_order}
+                          </button>
+                        : <span style={{ color:'#9ca89c' }}>—</span>
+                      }
+                    </td>
                     {canDelete && (
                       <td><button className="btn-del" onClick={() => handleDelete(m)}>✕</button></td>
                     )}
                   </tr>
                 )
               })}
+              {visibleCount < rows.length && (
+                <tr><td ref={sentinelRef} colSpan={canDelete ? 9 : 8}
+                  style={{ padding:'10px', textAlign:'center', color:'#9ca89c', fontSize:10 }}>
+                  Mostrando {visibleCount} de {rows.length} — cargando más…
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>

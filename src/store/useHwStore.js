@@ -51,7 +51,11 @@ export const useHwStore = create((set, get) => ({
 
   // ── Realtime sync ────────────────────────────────────────────────
   initRealtimeSync: () => {
-    const reload = () => get().loadAll()
+    let _debounceTimer = null
+    const reload = () => {
+      clearTimeout(_debounceTimer)
+      _debounceTimer = setTimeout(() => get().loadAll(), 2000)
+    }
 
     const syncChannel = db()
       .channel('hw-sync')
@@ -82,9 +86,7 @@ export const useHwStore = create((set, get) => ({
   saveHwCatItem: async (item) => {
     const payload = {
       cod_material:  item.cod_material  || null,
-      id_parte:      item.id_parte      || null,
       descripcion:   item.descripcion,
-      tipo_material: item.tipo_material || 'Partes',
       aplica_serial: item.aplica_serial ?? true,
       notas:         item.notas         || null,
       activo:        item.activo ?? true,
@@ -116,6 +118,7 @@ export const useHwStore = create((set, get) => ({
       estado:              equipo.estado || 'en_bodega',
       ubicacion_actual:    equipo.ubicacion_actual || null,
       condicion:           equipo.condicion || 'nuevo',
+      bulk:                equipo.bulk || null,
       log_inv_tipo_unidad: equipo.log_inv_tipo_unidad || null,
       notas:               equipo.notas || null,
     }

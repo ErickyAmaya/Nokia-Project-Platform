@@ -9,7 +9,7 @@ const BUCKET = 'material-images'
 const FOLDER = 'hw'
 
 const FORM_DEFAULT = {
-  cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes',
+  cod_material:'', descripcion:'',
   aplica_serial:true, notas:'', activo:true, imagen_url:'',
 }
 
@@ -32,7 +32,6 @@ export default function HwCatalogo() {
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,   setSearch]   = useState('')
-  const [filTipo,  setFilTipo]  = useState('')
   const [modal,    setModal]    = useState(false)
   const [form,     setForm]     = useState(FORM_DEFAULT)
   const [hoverImg, setHoverImg] = useState(null)
@@ -92,11 +91,10 @@ export default function HwCatalogo() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return hwCatalogo.filter(c => {
-      if (filTipo && c.tipo_material !== filTipo) return false
       if (q && !`${c.descripcion} ${c.cod_material} ${c.id_parte}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [hwCatalogo, search, filTipo])
+  }, [hwCatalogo, search])
 
   function openModal(item = null) {
     setForm(item ? { ...item, imagen_url: item.imagen_url || '' } : { ...FORM_DEFAULT })
@@ -131,22 +129,16 @@ export default function HwCatalogo() {
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
             <input className="fc" placeholder="Buscar descripción, código…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:180 }} />
-            <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:140 }}>
-              <option value="">Todos</option>
-              <option value="Partes">Partes</option>
-              <option value="Grupos">Grupos</option>
-              <option value="HWS">HWS</option>
-            </select>
           </div>
-          <div style={{ overflowX:'auto' }}>
+          <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 220px)' }}>
             <table className="tbl">
-              <thead><tr>
-                <th>Descripción</th><th>Cód. Equipo</th><th>ID Parte</th>
-                <th>Tipo</th><th>Serial</th><th>Activo</th>{canEdit && <th></th>}
+              <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}><tr>
+                <th>Descripción</th><th>Cód. Equipo</th>
+                <th>Serial</th><th>Activo</th>{canEdit && <th></th>}
               </tr></thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                  <tr><td colSpan={5} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                 )}
                 {filtered.map(c => (
                   <tr key={c.id}>
@@ -167,12 +159,6 @@ export default function HwCatalogo() {
                       )}
                     </td>
                     <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>{c.cod_material || '—'}</td>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11 }}>{c.id_parte || '—'}</td>
-                    <td>
-                      <span className="badge" style={{ background: c.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: c.tipo_material==='Grupos'?'#1e40af':'#166534' }}>
-                        {c.tipo_material}
-                      </span>
-                    </td>
                     <td>
                       <span className="badge" style={{ background: c.aplica_serial===false?'#fef3cd':'#e0f2fe', color: c.aplica_serial===false?'#92400e':'#0369a1', fontSize:9 }}>
                         {c.aplica_serial === false ? 'No Aplica' : 'Aplica'}
@@ -211,7 +197,6 @@ export default function HwCatalogo() {
               {[
                 { label:'Descripción *', key:'descripcion',  type:'text' },
                 { label:'Cód. Equipo',   key:'cod_material', type:'text' },
-                { label:'ID Parte',      key:'id_parte',     type:'text' },
               ].map(f => (
                 <div key={f.key}>
                   <label className="fl">{f.label}</label>
@@ -219,14 +204,6 @@ export default function HwCatalogo() {
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
                 </div>
               ))}
-              <div>
-                <label className="fl">Tipo Material</label>
-                <select className="fc" value={form.tipo_material} onChange={e => setForm(p => ({ ...p, tipo_material: e.target.value }))}>
-                  <option value="Partes">Partes</option>
-                  <option value="Grupos">Grupos</option>
-                  <option value="HWS">HWS</option>
-                </select>
-              </div>
               <div>
                 <label className="fl">Notas</label>
                 <textarea className="fc" rows={2} value={form.notas || ''}

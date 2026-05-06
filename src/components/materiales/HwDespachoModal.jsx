@@ -1,10 +1,43 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useHwStore }  from '../../store/useHwStore'
 import { useMatStore } from '../../store/useMatStore'
 import { useAppStore } from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../Toast'
 import SearchableSelect from './SearchableSelect'
+
+function SitioCombobox({ value, onChange, opciones, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const sugs = opciones.filter(n => n.toLowerCase().includes((value || '').toLowerCase())).slice(0, 25)
+  useEffect(() => {
+    const fn = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
+  }, [])
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <input className="fc" placeholder={placeholder || 'Escribir nombre del sitio…'}
+        value={value} onFocus={() => setOpen(true)}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+      />
+      {open && sugs.length > 0 && (
+        <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:700,
+          background:'#fff', border:'1.5px solid #e0e4e0', borderRadius:6,
+          maxHeight:220, overflowY:'auto', boxShadow:'0 6px 20px rgba(0,0,0,.12)' }}>
+          {sugs.map(n => (
+            <div key={n} onMouseDown={() => { onChange(n); setOpen(false) }}
+              style={{ padding:'8px 12px', cursor:'pointer', fontSize:11,
+                background: n === value ? '#f0fdf4' : '#fff',
+                borderBottom:'1px solid #f0f2f0', fontWeight: n === value ? 700 : 400 }}>
+              {n}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const STEPS = ['Datos del Despacho', 'Agregar Equipos', 'Confirmar y Guardar']
 
@@ -48,10 +81,8 @@ export default function HwDespachoModal({ onClose }) {
   const [selCat,  setSelCat]  = useState('')
   const [selCant, setSelCant] = useState(1)
 
-  const sitiosOptions = useMemo(() =>
-    liquidadorSitios.filter(s => s.nombre)
-      .map(s => ({ value: s.nombre, label: s.nombre }))
-      .sort((a, b) => a.label.localeCompare(b.label))
+  const sitiosNombres = useMemo(() =>
+    liquidadorSitios.filter(s => s.nombre).map(s => s.nombre).sort()
   , [liquidadorSitios])
 
   const catOptions = useMemo(() =>
@@ -319,11 +350,11 @@ export default function HwDespachoModal({ onClose }) {
                 </div>
                 <div>
                   <label className="fl">Sitio Destino *</label>
-                  <SearchableSelect
-                    options={sitiosOptions}
+                  <SitioCombobox
                     value={meta.destino}
                     onChange={val => setMeta(p => ({ ...p, destino: val }))}
-                    placeholder="Buscar sitio Nokia…"
+                    opciones={sitiosNombres}
+                    placeholder="Escribir o buscar sitio Nokia…"
                   />
                 </div>
                 <div>

@@ -204,6 +204,8 @@ function emptyForm(tipo, movimientos) {
     cantidad:          1,
     seriales:          [''],
     serialBodegas:     [bodegaPrincipal],
+    serialSalesOrders: [''],
+    serialBulks:       [''],
     sinSerial:         false,
     origen:            bodegaPrincipal,
     origen_tipo:       tipo === 'ENTRADA' ? 'nokia'  : 'bodega',
@@ -305,8 +307,10 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
         const qty = Math.max(1, stockTodo || 1)
         const bods = [...(p.serialBodegas || [])]
         const arr  = [...(p.seriales || [])]
-        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
-        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
+        const sos  = [...(p.serialSalesOrders || [])]
+      const bks  = [...(p.serialBulks || [])]
+        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || ''); sos.push(''); bks.push('') }
+        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty), serialSalesOrders: sos.slice(0, qty), serialBulks: bks.slice(0, qty) }
       }
 
       const stockActual = tipo === 'SALIDA' && p.catalogo_id && p.origen_tipo === 'bodega'
@@ -336,15 +340,19 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
         const qty = Math.max(1, stockActual || 1)
         const bods = [...(p.serialBodegas || [])]
         const arr  = [...(p.seriales || [])]
-        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
-        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
+        const sos  = [...(p.serialSalesOrders || [])]
+      const bks  = [...(p.serialBulks || [])]
+        while (arr.length < qty)  { arr.push('');  bods.push(p.origen || ''); sos.push(''); bks.push('') }
+        return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty), serialSalesOrders: sos.slice(0, qty), serialBulks: bks.slice(0, qty) }
       }
 
       const qty = Math.max(1, Math.min(stockTodo || 50, raw))
       const bods = [...(p.serialBodegas || [])]
       const arr  = [...(p.seriales || [])]
-      while (arr.length < qty)  { arr.push('');  bods.push(p.origen || '') }
-      return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty) }
+      const sos  = [...(p.serialSalesOrders || [])]
+      const bks  = [...(p.serialBulks || [])]
+      while (arr.length < qty)  { arr.push('');  bods.push(p.origen || ''); sos.push(''); bks.push('') }
+      return { ...p, cantidad: qty, seriales: arr.slice(0, qty), serialBodegas: bods.slice(0, qty), serialSalesOrders: sos.slice(0, qty), serialBulks: bks.slice(0, qty) }
     })
   }
 
@@ -353,9 +361,11 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
     const fromAlt     = Math.min(altModal.requestedQty - fromCurrent, altStock)
     setForm(p => ({
       ...p,
-      cantidad:      fromCurrent + fromAlt,
-      seriales:      [...Array(fromCurrent).fill(''), ...Array(fromAlt).fill('')],
-      serialBodegas: [...Array(fromCurrent).fill(altModal.currentBodega), ...Array(fromAlt).fill(altBodega)],
+      cantidad:       fromCurrent + fromAlt,
+      seriales:       [...Array(fromCurrent).fill(''), ...Array(fromAlt).fill('')],
+      serialBodegas:  [...Array(fromCurrent).fill(altModal.currentBodega), ...Array(fromAlt).fill(altBodega)],
+      serialSalesOrders: Array(fromCurrent + fromAlt).fill(''),
+      serialBulks:       Array(fromCurrent + fromAlt).fill(''),
     }))
     setAltModal(null)
   }
@@ -364,9 +374,11 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
     const qty = Math.max(1, altModal.currentStock)
     setForm(p => ({
       ...p,
-      cantidad:      qty,
-      seriales:      Array(qty).fill(''),
-      serialBodegas: Array(qty).fill(altModal.currentBodega || p.origen || ''),
+      cantidad:       qty,
+      seriales:       Array(qty).fill(''),
+      serialBodegas:  Array(qty).fill(altModal.currentBodega || p.origen || ''),
+      serialSalesOrders: Array(qty).fill(''),
+      serialBulks:       Array(qty).fill(''),
     }))
     setAltModal(null)
   }
@@ -376,6 +388,22 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
       const arr = [...p.seriales]
       arr[i] = val
       return { ...p, seriales: arr }
+    })
+  }
+
+  function setSerialSalesOrder(i, val) {
+    setForm(p => {
+      const arr = [...(p.serialSalesOrders || [])]
+      arr[i] = val
+      return { ...p, serialSalesOrders: arr }
+    })
+  }
+
+  function setSerialBulk(i, val) {
+    setForm(p => {
+      const arr = [...(p.serialBulks || [])]
+      arr[i] = val
+      return { ...p, serialBulks: arr }
     })
   }
 
@@ -403,6 +431,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
           tipo,
           tipo_fuente:         'MANUAL',
           so:                  form.so || null,
+          sales_order:         form.serialSalesOrders?.[0] || null,
           smp_id:              form.smp_id || null,
           fecha:               form.fecha,
           cantidad:            Number(form.cantidad),
@@ -469,6 +498,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
             estado:              nuevoEstado,
             ubicacion_actual:    form.destino,
             condicion:           form.condicion,
+            bulk:                form.serialBulks?.[idx] || null,
             log_inv_tipo_unidad: form.log_inv_tipo_unidad || null,
             notas:               form.notas || null,
           })
@@ -483,6 +513,8 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
           tipo,
           tipo_fuente:         'MANUAL',
           so:                  form.so || null,
+          sales_order:         form.serialSalesOrders?.[idx] || null,
+          bulk:                form.serialBulks?.[idx] || null,
           smp_id:              form.smp_id || null,
           fecha:               form.fecha,
           cantidad:            1,
@@ -681,6 +713,14 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
                               onChange={e => setSerial(i, e.target.value)}
                               style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, flex:1 }} />
                           )}
+                          <input className="fc" placeholder="SO Nokia"
+                            value={form.serialSalesOrders?.[i] || ''}
+                            onChange={e => setSerialSalesOrder(i, e.target.value)}
+                            style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, width:120, flexShrink:0 }} />
+                          <input className="fc" placeholder="BULK"
+                            value={form.serialBulks?.[i] || ''}
+                            onChange={e => setSerialBulk(i, e.target.value)}
+                            style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, width:90, flexShrink:0 }} />
                           {tipo === 'SALIDA' && slotBodega && (
                             <span style={{ fontSize:9, fontWeight:700, whiteSpace:'nowrap', padding:'2px 7px',
                               borderRadius:10, background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0' }}>

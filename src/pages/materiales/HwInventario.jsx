@@ -1,11 +1,15 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
+import { useMatStore } from '../../store/useMatStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwEntradaSalidaModal from '../../components/materiales/HwEntradaSalidaModal'
+import HwMassUploadModal from '../../components/materiales/HwMassUploadModal'
 
 const CAT_FORM_DEFAULT = { cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes', aplica_serial:false, notas:'', activo:true }
+
+const MTS_CATS = new Set(['1009196', '1043056'])
 
 const ESTADO_CFG = {
   en_bodega:       { label:'En Bodega',      bg:'#d4edda', color:'#1a6130' },
@@ -54,6 +58,8 @@ export default function HwInventario() {
   const loadAll          = useHwStore(s => s.loadAll)
   const loading          = useHwStore(s => s.loading)
   const user             = useAuthStore(s => s.user)
+  const matSitios        = useMatStore(s => s.sitios)
+  const saveSitio        = useMatStore(s => s.saveSitio)
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,    setSearch]    = useState('')
@@ -64,13 +70,26 @@ export default function HwInventario() {
   const [editForm,  setEditForm]  = useState({})
   const [editSaving,setEditSaving]= useState(false)
   const [modalTipo, setModalTipo] = useState(null)   // 'ENTRADA' | 'SALIDA' | null
+  const [massUpload,setMassUpload]= useState(false)
   const [catModal,  setCatModal]  = useState(null)   // catalog item being edited (sin serial)
   const [catForm,   setCatForm]   = useState({})
   const [catSaving, setCatSaving] = useState(false)
+  const [visibleEquipos, setVisibleEquipos] = useState(100)
+  const sentinelEqRef = useRef(null)
 
   const canEdit = ['admin'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
+  useEffect(() => { setVisibleEquipos(100) }, [expanded])
+  useEffect(() => {
+    const el = sentinelEqRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleEquipos(c => c + 100)
+    }, { rootMargin: '150px' })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [visibleEquipos])
 
   // ── Agrupado por tipo de equipo (catalogo) ───────────────────────
   const rows = useMemo(() => {
@@ -119,7 +138,9 @@ export default function HwInventario() {
         const bodegaLabel = bodegaParts.join(' - ') || '—'
         const st       = statusInfo(stock)
 
-        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }
+        const isMts     = MTS_CATS.has(String(cat.cod_material))
+
+        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }
       })
       .filter(r => {
         if (!r) return false
@@ -172,6 +193,11 @@ export default function HwInventario() {
         log_inv_tipo_unidad: editForm.log_inv_tipo_unidad || null,
         notas:               editForm.notas || null,
       })
+      // Auto-crear sitio en mat_sitios si el destino es nuevo y estado es en_sitio
+      if (editForm.estado === 'en_sitio' && editForm.ubicacion_actual) {
+        const existe = matSitios.some(s => s.nombre?.toLowerCase() === editForm.ubicacion_actual.toLowerCase())
+        if (!existe) await saveSitio({ nombre: editForm.ubicacion_actual, regional: '', activo: true }).catch(() => {})
+      }
       showToast('Equipo actualizado')
       setEditModal(null)
     } catch (err) { showToast('Error: ' + err.message, 'err') }
@@ -222,6 +248,7 @@ export default function HwInventario() {
       {modalTipo && (
         <HwEntradaSalidaModal tipo={modalTipo} onClose={() => setModalTipo(null)} />
       )}
+      {massUpload && <HwMassUploadModal onClose={() => setMassUpload(false)} />}
 
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:14 }}>
@@ -249,6 +276,10 @@ export default function HwInventario() {
                 onClick={() => setModalTipo('ENTRADA')}>
                 + Entrada
               </button>
+              <button className="btn btn-sm" style={{ background:'#0369a1', color:'#fff' }}
+                onClick={() => setMassUpload(true)}>
+                ⬆ Carga Masiva
+              </button>
               <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
                 onClick={() => setModalTipo('SALIDA')}>
                 + Salida
@@ -274,14 +305,13 @@ export default function HwInventario() {
             </select>
           </div>
 
-          <div style={{ overflowX:'auto' }}>
+          <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 310px)' }}>
             <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
-              <thead>
+              <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}>
                 <tr>
                   <th style={{ width:32 }}></th>
                   <th>CÓD. EQUIPO</th>
                   <th>DESCRIPCIÓN</th>
-                  <th>TIPO</th>
                   <th>BODEGA</th>
                   <th style={{ textAlign:'center' }}>STOCK</th>
                   <th style={{ textAlign:'center' }}>EN SITIO</th>
@@ -295,7 +325,7 @@ export default function HwInventario() {
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel }) => {
+                {rows.map(({ cat, equipos, stock, enSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }) => {
                   const isOpen = expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
@@ -310,9 +340,6 @@ export default function HwInventario() {
                         {cat.cod_material || '—'}
                       </td>
                       <td style={{ fontWeight:600, fontSize:12 }}>{cat.descripcion}</td>
-                      <td>
-                        <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
-                      </td>
                       <td style={{ fontSize:11, color:'#555f55' }}>
                         {(() => {
                           const d = bodegaLabel !== '—' ? bodegaLabel : ssBodegaLabel
@@ -320,10 +347,14 @@ export default function HwInventario() {
                         })()}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:800, fontSize:14, color: stock === 0 ? '#c0392b' : '#1a6130' }}>
-                        {stock}
+                        {stock}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
                       </td>
-                      <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#1e40af' }}>{enSitio}</td>
-                      <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#555f55' }}>{total}</td>
+                      <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#1e40af' }}>
+                        {enSitio}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                      </td>
+                      <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#555f55' }}>
+                        {total}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                      </td>
                       <td>
                         <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
                       </td>
@@ -347,24 +378,26 @@ export default function HwInventario() {
                                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                   <thead>
                                     <tr style={{ background:'#f0f7f0' }}>
-                                      {['CANT.','SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN','TIPO UNIDAD',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                      {['CANT.','SERIAL','SO','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
                                         <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                       ))}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {equipos.map((e, idx) => {
+                                    {equipos.slice(0, visibleEquipos).map((e, idx) => {
                                       const est = ESTADO_CFG[e.estado] || ESTADO_CFG.en_bodega
                                       return (
                                         <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
                                           <td style={{ padding:'6px 10px', fontWeight:700, textAlign:'center', color:'#555f55' }}>1</td>
                                           <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>{e.serial}</td>
+                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
+                                            {hwMovimientos.find(m => m.serial === e.serial && m.tipo === 'ENTRADA')?.sales_order || <span style={{ color:'#9ca89c' }}>—</span>}
+                                          </td>
                                           <td style={{ padding:'6px 10px' }}>
                                             <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
                                           </td>
                                           <td style={{ padding:'6px 10px', color:'#555f55' }}>{e.ubicacion_actual || '—'}</td>
                                           <td style={{ padding:'6px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c', fontSize:10 }}>{e.log_inv_tipo_unidad || '—'}</td>
                                           {canEdit && (
                                             <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}
                                               onClick={ev => ev.stopPropagation()}>
@@ -376,6 +409,12 @@ export default function HwInventario() {
                                         </tr>
                                       )
                                     })}
+                                    {visibleEquipos < equipos.length && (
+                                      <tr><td ref={sentinelEqRef} colSpan={canEdit ? 7 : 6}
+                                        style={{ padding:'8px 10px', textAlign:'center', color:'#9ca89c', fontSize:10 }}>
+                                        Mostrando {visibleEquipos} de {equipos.length} — cargando más…
+                                      </td></tr>
+                                    )}
                                   </tbody>
                                 </table>
                               </div>
@@ -411,9 +450,15 @@ export default function HwInventario() {
                                           <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
                                         </td>
                                         <td style={{ padding:'6px 10px', fontSize:11, color:'#555f55' }}>{ssBodegaLabel}</td>
-                                        <td style={{ padding:'6px 10px', fontWeight:800, fontSize:14, color: ssStock===0?'#c0392b':'#1a6130', textAlign:'center' }}>{ssStock}</td>
-                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#1e40af', textAlign:'center' }}>{ssEnSitio}</td>
-                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#555f55', textAlign:'center' }}>{ssEntrada}</td>
+                                        <td style={{ padding:'6px 10px', fontWeight:800, fontSize:14, color: ssStock===0?'#c0392b':'#1a6130', textAlign:'center' }}>
+                                          {ssStock}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                        </td>
+                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#1e40af', textAlign:'center' }}>
+                                          {ssEnSitio}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                        </td>
+                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#555f55', textAlign:'center' }}>
+                                          {ssEntrada}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                        </td>
                                         <td style={{ padding:'6px 10px' }}>
                                           <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
                                         </td>
@@ -461,8 +506,13 @@ export default function HwInventario() {
               </div>
               <div>
                 <label className="fl">Ubicación Actual</label>
-                <input className="fc" value={editForm.ubicacion_actual}
+                <input className="fc" list="edit-sitios-list"
+                  placeholder="Seleccionar sitio o escribir…"
+                  value={editForm.ubicacion_actual}
                   onChange={e => setEditForm(p => ({ ...p, ubicacion_actual: e.target.value }))} />
+                <datalist id="edit-sitios-list">
+                  {matSitios.map(s => <option key={s.id ?? s.nombre} value={s.nombre} />)}
+                </datalist>
               </div>
               <div>
                 <label className="fl">Condición</label>

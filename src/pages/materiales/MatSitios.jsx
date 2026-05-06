@@ -16,6 +16,7 @@ const HW_ESTADO_CFG = {
 }
 
 const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Caribe']
+const MTS_CATS   = new Set(['1009196', '1043056'])
 
 export default function MatSitios() {
   const sitios      = useMatStore(s => s.sitios)
@@ -312,12 +313,22 @@ export default function MatSitios() {
                                 )
                               })()}
 
+                              {(() => {
+                                const hwTotal = hwEquipos.filter(e =>
+                                  e.ubicacion_actual && e.ubicacion_actual.toLowerCase() === s.nombre.toLowerCase()
+                                ).length + hwMovimientos.filter(m =>
+                                  m.tipo === 'SALIDA' && !m.serial &&
+                                  m.destino && m.destino.toLowerCase() === s.nombre.toLowerCase()
+                                ).reduce((a, m) => a + (m.cantidad || 0), 0)
+                                return (
                               <div style={{ padding:'8px 16px', background:'#e8f5e8', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                                 <div style={{ fontSize:10, color:'#264D4A', fontWeight:700 }}>
                                   DESPACHOS RECIBIDOS: {sd.despCount}
-                                  <span style={{ marginLeft:16 }}>
-                                    TOTAL UNIDADES: {sd.materiales.reduce((a, m) => a + m.cantidad, 0)}
-                                  </span>
+                                  {hwTotal > 0 && (
+                                    <span style={{ marginLeft:16 }}>
+                                      HW Nokia (TI): {hwTotal} uds.
+                                    </span>
+                                  )}
                                 </div>
                                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                                   <span style={{ fontSize:11, fontWeight:700, color:'#166534' }}>
@@ -336,6 +347,8 @@ export default function MatSitios() {
                                   </button>
                                 </div>
                               </div>
+                                )
+                              })()}
 
                               {/* ── HW Nokia en este sitio ── */}
                               {(() => {
@@ -380,7 +393,7 @@ export default function MatSitios() {
                                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                           <thead>
                                             <tr style={{ background:'#eff6ff' }}>
-                                              {['SERIAL','CÓD. EQUIPO','DESCRIPCIÓN','TIPO','CANTIDAD','ESTADO','CONDICIÓN'].map(h => (
+                                              {['SERIAL','CÓD. EQUIPO','DESCRIPCIÓN','CANTIDAD','ESTADO','CONDICIÓN'].map(h => (
                                                 <th key={h} style={{ padding:'5px 10px', color:'#1e40af', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #bfdbfe', whiteSpace:'nowrap' }}>{h}</th>
                                               ))}
                                             </tr>
@@ -395,9 +408,6 @@ export default function MatSitios() {
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{cat?.cod_material || '—'}</td>
                                                   <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
-                                                  <td style={{ padding:'5px 10px' }}>
-                                                    {cat && <span className="badge" style={{ background: cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{cat.tipo_material}</span>}
-                                                  </td>
                                                   <td style={{ padding:'5px 10px', fontWeight:700, textAlign:'center' }}>1</td>
                                                   <td style={{ padding:'5px 10px' }}>
                                                     <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
@@ -412,10 +422,9 @@ export default function MatSitios() {
                                                 <td style={{ padding:'5px 10px', fontSize:9, fontStyle:'italic', color:'#9ca89c' }}>No Aplica</td>
                                                 <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{x.cat?.cod_material || '—'}</td>
                                                 <td style={{ padding:'5px 10px', fontWeight:600 }}>{x.cat?.descripcion || '—'}</td>
-                                                <td style={{ padding:'5px 10px' }}>
-                                                  {x.cat && <span className="badge" style={{ background: x.cat.tipo_material==='Grupos'?'#eff6ff':'#f0fdf4', color: x.cat.tipo_material==='Grupos'?'#1e40af':'#166534', fontSize:9 }}>{x.cat.tipo_material}</span>}
+                                                <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#264D4A', textAlign:'center' }}>
+                                                  {x.cantidad}{MTS_CATS.has(String(x.cat?.cod_material)) && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
                                                 </td>
-                                                <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#264D4A', textAlign:'center' }}>{x.cantidad}</td>
                                                 <td style={{ padding:'5px 10px' }}>
                                                   <span className="badge" style={{ background:'#dbeafe', color:'#1e40af', fontSize:9 }}>En Sitio</span>
                                                 </td>
