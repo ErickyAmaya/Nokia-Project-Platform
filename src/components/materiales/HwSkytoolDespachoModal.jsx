@@ -117,24 +117,30 @@ export default function HwSkytoolDespachoModal({ onClose }) {
   const saveSitio     = useMatStore(s => s.saveSitio)
   const user          = useAuthStore(s => s.user)
 
-  const [step,     setStep]     = useState('pick')
-  const [rows,     setRows]     = useState([])
-  const [saving,   setSaving]   = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0, phase: '' })
+  const [step,      setStep]      = useState('pick')
+  const [rows,      setRows]      = useState([])
+  const [rawBuffer, setRawBuffer] = useState(null)
+  const [saving,    setSaving]    = useState(false)
+  const [progress,  setProgress]  = useState({ current: 0, total: 0, phase: '' })
 
   function parseFile(file) {
     if (!file) return
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true })
+        const buffer = e.target.result
+        setRawBuffer(buffer)
+        const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
         const ws = wb.Sheets['Pendientes_Conf_SO_HWS']
         if (!ws) { showToast('Hoja "Pendientes_Conf_SO_HWS" no encontrada en el archivo', 'err'); return }
 
         const raw      = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
-        const dataRows = raw.slice(1).filter(r => r[9] || r[8])
+        const dataRows = raw.slice(1)
+          .map((r, i) => ({ r, rawIdx: i + 1 }))
+          .filter(({ r }) => r[9] || r[8])
 
-        const skytoolRows = dataRows.map(r => ({
+        const skytoolRows = dataRows.map(({ r, rawIdx }) => ({
+          rawIdx,
           id:           r[0],
           siteName:     r[3] != null ? String(r[3]).trim() : '',
           smp:          r[4] != null ? String(r[4]).trim() : null,
@@ -153,6 +159,33 @@ export default function HwSkytoolDespachoModal({ onClose }) {
       }
     }
     reader.readAsArrayBuffer(file)
+  }
+
+  function downloadWithSOs() {
+    if (!rawBuffer || rows.length === 0) return
+    const wb  = XLSX.read(rawBuffer, { type: 'array', cellDates: true })
+    const ws  = wb.Sheets['Pendientes_Conf_SO_HWS']
+    if (!ws) return
+
+    const raw    = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
+    const header = raw[0] || []
+
+    let soColIdx = header.findIndex(h => h && String(h).toLowerCase().includes('sales_order_ss'))
+    if (soColIdx === -1) soColIdx = header.length
+
+    const soByRawIdx = {}
+    rows.forEach(row => { if (row.rawIdx != null && row.so) soByRawIdx[row.rawIdx] = row.so })
+
+    const modified = raw.map((r, idx) => {
+      if (idx === 0) { const h = [...r]; h[soColIdx] = 'sales_order_ss'; return h }
+      const so = soByRawIdx[idx]
+      if (so != null) { const nr = [...r]; nr[soColIdx] = so; return nr }
+      return r
+    })
+
+    const newWs = XLSX.utils.aoa_to_sheet(modified)
+    wb.Sheets['Pendientes_Conf_SO_HWS'] = newWs
+    XLSX.writeFile(wb, 'Skytool_SO_Asignadas.xlsx')
   }
 
   const okRows      = rows.filter(r => r.status === 'ok')
@@ -226,7 +259,7 @@ export default function HwSkytoolDespachoModal({ onClose }) {
       await useHwStore.getState().loadAll()
 
       showToast(`${okRows.length} despacho(s) Skytool registrado(s)`)
-      onClose()
+      setStep('done')
     } catch (err) {
       showToast('Error: ' + err.message, 'err')
     } finally {
@@ -280,6 +313,34 @@ export default function HwSkytoolDespachoModal({ onClose }) {
               style={{ padding:'7px 20px', fontSize:12, fontWeight:700, borderRadius:6,
                 border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>
               Cancelar
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP: done ── */}
+        {step === 'done' && (
+          <div style={{ flex:1, padding:40, display:'flex', flexDirection:'column', alignItems:'center', gap:18, textAlign:'center' }}>
+            <div style={{ fontSize:48 }}>✅</div>
+            <div style={{ fontSize:15, fontWeight:800, color:'#6b21a8', fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:.5 }}>
+              {okRows.length} DESPACHO(S) REGISTRADO(S)
+            </div>
+            {blockedRows.length > 0 && (
+              <div style={{ fontSize:12, color:'#991b1b', background:'#fee2e2', borderRadius:8,
+                padding:'8px 16px', fontWeight:600 }}>
+                {blockedRows.length} ítem(s) quedaron pendientes por falta de stock o SO.
+                Descarga el Excel para revisar y gestionar entradas faltantes.
+              </div>
+            )}
+            <button onClick={downloadWithSOs}
+              style={{ padding:'10px 24px', fontSize:13, fontWeight:700, borderRadius:8,
+                border:'2px solid #7c3aed', background:'#7c3aed', color:'#fff', cursor:'pointer',
+                display:'flex', alignItems:'center', gap:8 }}>
+              ↓ Descargar Skytool con SO asignadas
+            </button>
+            <button onClick={onClose}
+              style={{ padding:'8px 20px', fontSize:12, fontWeight:700, borderRadius:6,
+                border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>
+              Cerrar
             </button>
           </div>
         )}
@@ -391,6 +452,12 @@ export default function HwSkytoolDespachoModal({ onClose }) {
                 )}
               </div>
               <div style={{ display:'flex', gap:8 }}>
+                <button onClick={downloadWithSOs} disabled={saving}
+                  style={{ padding:'8px 16px', fontSize:12, fontWeight:700, borderRadius:6,
+                    border:'1.5px solid #c4b5fd', background:'#faf5ff', color:'#7c3aed', cursor:'pointer',
+                    display:'flex', alignItems:'center', gap:5 }}>
+                  ↓ Descargar Excel
+                </button>
                 <button onClick={onClose} disabled={saving}
                   style={{ padding:'8px 16px', fontSize:12, fontWeight:700, borderRadius:6,
                     border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>
