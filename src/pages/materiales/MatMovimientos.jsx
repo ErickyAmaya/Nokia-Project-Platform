@@ -6,6 +6,7 @@ import { useConfirm } from '../../components/ConfirmModal'
 import { useNavigate } from 'react-router-dom'
 import DespachoModal from '../../components/materiales/DespachoModal'
 import MatEntradaModal from '../../components/materiales/MatEntradaModal'
+import MatMassEntradaModal from '../../components/materiales/MatMassEntradaModal'
 
 export default function MatMovimientos() {
   const catalogo         = useMatStore(s => s.catalogo)
@@ -18,9 +19,10 @@ export default function MatMovimientos() {
   const { confirm, ConfirmModalUI } = useConfirm()
   const navigate = useNavigate()
 
-  const [despachoOpen, setDespachoOpen]   = useState(false)
-  const [entradaOpen,  setEntradaOpen]    = useState(false)
-  const [pickerOpen,   setPickerOpen]     = useState(false)
+  const [despachoOpen,     setDespachoOpen]     = useState(false)
+  const [entradaOpen,      setEntradaOpen]      = useState(false)
+  const [massEntradaOpen,  setMassEntradaOpen]  = useState(false)
+  const [pickerOpen,       setPickerOpen]        = useState(false)
   const [filTipo,      setFilTipo]        = useState('')
   const [filBod,       setFilBod]         = useState('')
   const [search,       setSearch]         = useState('')
@@ -66,8 +68,9 @@ export default function MatMovimientos() {
   return (
     <div>
       <ConfirmModalUI />
-      {despachoOpen && <DespachoModal onClose={() => setDespachoOpen(false)} />}
-      {entradaOpen  && <MatEntradaModal onClose={() => setEntradaOpen(false)} />}
+      {despachoOpen    && <DespachoModal         onClose={() => setDespachoOpen(false)} />}
+      {entradaOpen     && <MatEntradaModal        onClose={() => setEntradaOpen(false)} />}
+      {massEntradaOpen && <MatMassEntradaModal    onClose={() => setMassEntradaOpen(false)} />}
 
       {/* Picker de tipo de movimiento */}
       {pickerOpen && (
@@ -79,7 +82,12 @@ export default function MatMovimientos() {
             <button onClick={() => { setPickerOpen(false); setEntradaOpen(true) }}
               style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #a3e6a3', background:'#f0fdf4', textAlign:'left', cursor:'pointer' }}>
               <div style={{ fontWeight:700, fontSize:13, color:'#166534' }}>↑ Entrada de Materiales</div>
-              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Registrar llegada de material a bodega</div>
+              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Registrar un ítem individual</div>
+            </button>
+            <button onClick={() => { setPickerOpen(false); setMassEntradaOpen(true) }}
+              style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #6ee7b7', background:'#ecfdf5', textAlign:'left', cursor:'pointer' }}>
+              <div style={{ fontWeight:700, fontSize:13, color:'#065f46' }}>↑↑ Entrada Masiva (Excel)</div>
+              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Cargar múltiples entradas desde template Excel</div>
             </button>
             <button onClick={() => { setPickerOpen(false); setDespachoOpen(true) }}
               style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #f5c6cb', background:'#fff5f5', textAlign:'left', cursor:'pointer' }}>

@@ -73,7 +73,14 @@ export default function MatCatalogo() {
 
   const matItems = catalogo
     .filter(c => c.categoria !== 'PROVEEDORES')
-    .map(c => ({ id: c.id, codigo: c.codigo || '—', nombre: c.nombre, categoria: c.categoria || '—', costo_unitario: c.costo_unitario || 0 }))
+    .map(c => {
+      const provPrices = {}
+      proveedores.forEach(p => {
+        const rec = precios.find(x => x.catalogo_id === c.id && x.proveedor_id === p.id)
+        provPrices[`prov_${p.id}`] = rec ? rec.precio : 0
+      })
+      return { id: c.id, codigo: c.codigo || '—', nombre: c.nombre, categoria: c.categoria || '—', costo_unitario: c.costo_unitario || 0, ...provPrices }
+    })
 
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
@@ -307,15 +314,19 @@ export default function MatCatalogo() {
               <table className="tbl">
                 <thead><tr>
                   <th>Nombre</th><th>Código</th><th>Unidad</th><th>Categoría</th>
-                  <th className="num">Costo Unitario</th><th className="num">Stock Mínimo</th><th>Activo</th>
+                  <th className="num">Costo Unitario</th><th className="num">Mejor Precio</th>
+                  <th className="num">Stock Mínimo</th><th>Activo</th>
                   {canEdit && <th></th>}
                 </tr></thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                    <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
                   )}
                   {filtered.map(c => {
                     const cc = CAT_COLORS[c.categoria] || CAT_COLORS.TI
+                    const itemPrecios = precios.filter(p => p.catalogo_id === c.id)
+                    const minPrecio   = itemPrecios.length ? itemPrecios.reduce((a, b) => b.precio < a.precio ? b : a) : null
+                    const bestProv    = minPrecio ? proveedores.find(p => p.id === minPrecio.proveedor_id) : null
                     return (
                       <tr key={c.id}>
                         {/* Nombre con tooltip imagen */}
@@ -342,6 +353,16 @@ export default function MatCatalogo() {
                           </span>
                         </td>
                         <td className="num" style={{ color:'#144E4A', fontWeight:600 }}>{matCop(c.costo_unitario)}</td>
+                        <td className="num">
+                          {minPrecio ? (
+                            <div>
+                              <div style={{ fontWeight:700, color:'#144E4A', fontSize:11 }}>{matCop(minPrecio.precio)}</div>
+                              <div style={{ fontSize:9, color:'#9ca89c', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:120 }}>
+                                {bestProv?.nombre || '—'}
+                              </div>
+                            </div>
+                          ) : <span style={{ color:'#d0d5d0' }}>—</span>}
+                        </td>
                         <td className="num">{c.stock_minimo}</td>
                         <td>
                           <span className="badge" style={{ background:c.activo?'#d4edda':'#f0f0f0', color:c.activo?'#1a6130':'#888' }}>
@@ -535,7 +556,7 @@ export default function MatCatalogo() {
       {/* ── Modal Actualizar Precios ── */}
       {priceModal && (
         <PriceUploadModal
-          title="Actualizar Precios — Materiales"
+          title="Actualizar Precios por Proveedor — Materiales"
           items={matItems}
           idKey="id"
           displayCols={[
@@ -543,11 +564,18 @@ export default function MatCatalogo() {
             { key:'nombre',    label:'Nombre' },
             { key:'categoria', label:'Categoría' },
           ]}
-          priceCols={[
-            { key:'costo_unitario', label:'Costo Unitario' },
-          ]}
+          priceCols={proveedores.map(p => ({ key: `prov_${p.id}`, label: p.nombre }))}
           onSave={async (updates) => {
-            await bulkUpdateMatPrices(updates)
+            for (const row of updates) {
+              const catalogo_id = row.id
+              for (const prov of proveedores) {
+                const key = `prov_${prov.id}`
+                if (!(key in row)) continue
+                const precio = Number(row[key])
+                if (precio > 0) await upsertPrecio(catalogo_id, prov.id, precio)
+                // celdas vacías o en 0 se ignoran — no se borran precios existentes
+              }
+            }
           }}
           onClose={() => setPriceModal(false)}
         />

@@ -49,6 +49,7 @@ export default function MatInventario() {
   const getStock        = useMatStore(s => s.getStock)
   const addMovimiento   = useMatStore(s => s.addMovimiento)
   const correccionStock = useMatStore(s => s.correccionStock)
+  const proveedores     = useMatStore(s => s.proveedores)
   const user            = useAuthStore(s => s.user)
 
   const [search,    setSearch]    = useState('')
@@ -73,8 +74,6 @@ export default function MatInventario() {
   const canEdit    = ['admin','logistica'].includes(user?.role)
   const canCorrect = ['admin'].includes(user?.role)
 
-  const proveedores = useMemo(() => catalogo.filter(c => c.categoria === 'PROVEEDORES' && c.activo), [catalogo])
-
   const rows = useMemo(() => {
     const q = search.toLowerCase()
     const bodegasToShow = filBodega ? bodegas.filter(b => String(b.id) === filBodega) : bodegas
@@ -90,7 +89,7 @@ export default function MatInventario() {
         const st = statusInfo(stock, c.stock_minimo)
         if (filStatus === 'agotado' && stock !== 0)               return null
         if (filStatus === 'bajo'    && (stock === 0 || stock >= c.stock_minimo)) return null
-        if (filStatus === 'stock'   && stock < c.stock_minimo)    return null
+        if (filStatus === 'stock'   && stock <= 0)                 return null
         return { ...c, bodega: b, stockActual: stock, st, importe: stock * (c.costo_unitario || 0) }
       }))
       .filter(Boolean)
@@ -123,9 +122,10 @@ export default function MatInventario() {
   }
 
   async function handleEntSave() {
-    if (!entForm.catalogo_id) { showToast('Selecciona un material', 'err'); return }
-    if (!entForm.bodega_id)   { showToast('Selecciona una bodega', 'err'); return }
-    if (entForm.cantidad <= 0){ showToast('Cantidad inválida', 'err'); return }
+    if (!entForm.catalogo_id)  { showToast('Selecciona un material', 'err'); return }
+    if (!entForm.bodega_id)    { showToast('Selecciona una bodega', 'err'); return }
+    if (!entForm.proveedor_id) { showToast('Selecciona un proveedor', 'err'); return }
+    if (entForm.cantidad <= 0) { showToast('Cantidad inválida', 'err'); return }
     setSaving(true)
     try {
       await addMovimiento({

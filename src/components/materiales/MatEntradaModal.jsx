@@ -69,8 +69,9 @@ export default function MatEntradaModal({ onClose }) {
   const precioCambio = precioActual != null && valorUnit !== precioActual
 
   async function handleSave() {
-    if (!form.catalogo_id)    { showToast('Selecciona un material', 'err'); return }
-    if (!form.bodega_id)      { showToast('Selecciona una bodega', 'err'); return }
+    if (!form.catalogo_id)          { showToast('Selecciona un material', 'err'); return }
+    if (!form.bodega_id)            { showToast('Selecciona una bodega', 'err'); return }
+    if (!form.proveedor_id)         { showToast('Selecciona un proveedor', 'err'); return }
     if (Number(form.cantidad) <= 0) { showToast('Cantidad inválida', 'err'); return }
     setSaving(true)
     try {
@@ -82,7 +83,6 @@ export default function MatEntradaModal({ onClose }) {
         bodega_id:     Number(form.bodega_id),
         cantidad:      Number(form.cantidad),
         valor_unitario: valorUnit,
-        valor_total:   total,
         origen:        prov?.nombre || null,
         created_by:    user?.nombre || user?.email,
       })
