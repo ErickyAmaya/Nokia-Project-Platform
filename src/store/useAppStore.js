@@ -555,7 +555,6 @@ export const useAppStore = create((set, get) => ({
         id: liq.id, sitio_id: liq.sitio_id, smp: liq.smp,
         region: liq.region, tipo_zona: liq.tipo_zona,
         lc: liq.lc, estado: liq.estado, items: liq.items,
-        fecha: liq.fecha || null,
       }, { onConflict: 'id' })
       get()._broadcastChange()
     }, 2000)

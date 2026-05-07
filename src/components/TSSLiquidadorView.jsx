@@ -518,7 +518,7 @@ function SubcCard({
                     {showAdicional && (
                       <td className="num" style={{ color: '#b45309' }}>{adicional > 0 ? cop(adicional) : '—'}</td>
                     )}
-                    <td className="num fw7" style={{ color: '#000' }}>{cop(act.totalSubc)}</td>
+                    <td className="num fw7" style={{ color: '#000' }}>{cop(act.totalSubc + adicional)}</td>
                     <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <button style={{ ...btnConfirm, marginRight: 3 }} onClick={confirmEdit} title="Guardar">✓</button>
                       <button style={btnCancel} onClick={cancelEdit} title="Cancelar">✕</button>
@@ -542,7 +542,7 @@ function SubcCard({
                   {showAdicional && (
                     <td className="num" style={{ color: '#b45309' }}>{adicional > 0 ? cop(adicional) : '—'}</td>
                   )}
-                  <td className="num fw7" style={{ color: '#000' }}>{cop(act.totalSubc)}</td>
+                  <td className="num fw7" style={{ color: '#000' }}>{cop(act.totalSubc + adicional)}</td>
                   {hasButtons && (
                     <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {!hideDelete && (
@@ -561,7 +561,7 @@ function SubcCard({
             <tr style={{ background: '#fffbeb', fontWeight: 700 }}>
               <td colSpan={4} style={{ padding: '6px 10px', color: '#92400e' }}><strong>TOTAL</strong></td>
               <td />
-              <td />
+              <td className="num fw7" style={{ color: '#b45309' }}>{cop(total)}</td>
               {showAdicional && (
                 <td className="num" style={{ color: '#b45309' }}>{cop(totalAdicional)}</td>
               )}
@@ -627,7 +627,11 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   }, [calc.acts])
 
   // Gastos
-  const gastosS = useMemo(() => gastos.filter(g => g.sitio === sitio.id), [gastos, sitio.id])
+  const gastosS = useMemo(() =>
+    gastos
+      .filter(g => g.sitio === sitio.id)
+      .sort((a, b) => (a.sub_sitio || '').localeCompare(b.sub_sitio || '') || (a.tipo || '').localeCompare(b.tipo || ''))
+  , [gastos, sitio.id])
   const gastosBySitio = useMemo(() => {
     const map = {}
     gastosS.forEach(g => { if (g.sub_sitio) map[g.sub_sitio] = (map[g.sub_sitio] || 0) + (g.valor || 0) })

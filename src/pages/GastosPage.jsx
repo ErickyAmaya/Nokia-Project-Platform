@@ -37,12 +37,18 @@ export default function GastosPage() {
 
   // Filtrar
   const filtered = useMemo(() => {
-    return gastos.filter(g => {
-      if (filSitio && g.sitio !== filSitio) return false
-      if (filTipo  && g.tipo !== filTipo)   return false
-      return true
-    })
-  }, [gastos, filSitio, filTipo])
+    return gastos
+      .filter(g => {
+        if (filSitio && g.sitio !== filSitio) return false
+        if (filTipo  && g.tipo !== filTipo)   return false
+        return true
+      })
+      .sort((a, b) => {
+        const na = sitios.find(s => s.id === a.sitio)?.nombre || ''
+        const nb = sitios.find(s => s.id === b.sitio)?.nombre || ''
+        return na.localeCompare(nb) || (a.sub_sitio || '').localeCompare(b.sub_sitio || '')
+      })
+  }, [gastos, filSitio, filTipo, sitios])
 
   // Totales por tipo
   const totalesTipo = useMemo(() => {

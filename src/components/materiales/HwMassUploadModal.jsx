@@ -198,7 +198,8 @@ export default function HwMassUploadModal({ onClose }) {
       } else {
         newEntradas.push({ hasSerial:true, serial, cod_material:cod, catalogo_id:cat?.id||null,
           descripcion: cat?.descripcion || row.descripcion_material?.trim() || cod,
-          fecha, so, tipo_fuente:tf })
+          fecha, so, tipo_fuente:tf,
+          proyecto: row.proyecto?.trim() || null, sub_proyecto: row.sub_proyecto?.trim() || null })
       }
     }
 
@@ -207,12 +208,14 @@ export default function HwMassUploadModal({ onClose }) {
     for (const row of enriched.filter(r => r.tipo_movimiento === 'ENTRADA' && !r.serial?.trim())) {
       const cod = row.cod_material?.trim(), so = row.so?.trim() || ''
       const fecha = row.fecha_movimiento?.split(' ')[0] || ''
-      const key = `${cod}||${so}||${fecha}`
+      const proy = row.proyecto?.trim() || '', subp = row.sub_proyecto?.trim() || ''
+      const key = `${cod}||${so}||${fecha}||${proy}||${subp}`
       const cat = hwCatalogo.find(c => c.cod_material === cod)
       if (!entGrps.has(key))
         entGrps.set(key, { hasSerial:false, cod_material:cod, catalogo_id:cat?.id||null,
           descripcion: cat?.descripcion || row.descripcion_material?.trim() || cod,
-          fecha, so: so||null, tipo_fuente: row.tipo_fuente?.trim()||'LOG_INV', cantidad:0 })
+          fecha, so: so||null, tipo_fuente: row.tipo_fuente?.trim()||'LOG_INV', cantidad:0,
+          proyecto: proy||null, sub_proyecto: subp||null })
       entGrps.get(key).cantidad += Number(row.cantidad) || 1
     }
     for (const [, g] of entGrps) {
@@ -234,7 +237,8 @@ export default function HwMassUploadModal({ onClose }) {
         newSalidas.push({ hasSerial:true, serial, cod_material:cod, catalogo_id:cat?.id||null,
           descripcion: cat?.descripcion || row.descripcion_material?.trim() || cod,
           fecha, so, tipo_fuente: row.tipo_fuente?.trim()||'LOG_INV',
-          siteName: row.siteName||null, smp: row.smp||null, cantidad:1 })
+          siteName: row.siteName||null, smp: row.smp||null, cantidad:1,
+          proyecto: row.proyecto?.trim() || null, sub_proyecto: row.sub_proyecto?.trim() || null })
       }
 
       // SALIDAs sin serial — agrupar
@@ -243,13 +247,15 @@ export default function HwMassUploadModal({ onClose }) {
         const cod = row.cod_material?.trim(), so = row.so?.trim() || ''
         const fecha = row.fecha_movimiento?.split(' ')[0] || ''
         const site  = row.siteName || ''
-        const key   = `${cod}||${so}||${fecha}||${site}`
+        const proy  = row.proyecto?.trim() || '', subp = row.sub_proyecto?.trim() || ''
+        const key   = `${cod}||${so}||${fecha}||${site}||${proy}||${subp}`
         const cat   = hwCatalogo.find(c => c.cod_material === cod)
         if (!salGrps.has(key))
           salGrps.set(key, { hasSerial:false, cod_material:cod, catalogo_id:cat?.id||null,
             descripcion: cat?.descripcion || row.descripcion_material?.trim() || cod,
             fecha, so: so||null, tipo_fuente: row.tipo_fuente?.trim()||'LOG_INV',
-            siteName: row.siteName||null, smp: row.smp||null, cantidad:0 })
+            siteName: row.siteName||null, smp: row.smp||null, cantidad:0,
+            proyecto: proy||null, sub_proyecto: subp||null })
         salGrps.get(key).cantidad += Number(row.cantidad) || 1
       }
       for (const [, g] of salGrps) {
@@ -370,7 +376,9 @@ export default function HwMassUploadModal({ onClose }) {
             estado:           'en_bodega',
             ubicacion_actual: bodega,
             condicion:        'nuevo',
-            bulk: item.tipo_fuente === 'ABASTECIMIENTO' ? (itemFields[item._idx]?.trim() || null) : null,
+            bulk:             item.tipo_fuente === 'ABASTECIMIENTO' ? (itemFields[item._idx]?.trim() || null) : null,
+            proyecto:         item.proyecto     || null,
+            sub_proyecto:     item.sub_proyecto || null,
           })), { onConflict: 'serial', ignoreDuplicates: true })
           .select('id, serial')
         if (error) throw error
@@ -392,6 +400,8 @@ export default function HwMassUploadModal({ onClose }) {
             origen: isAb ? 'Nokia' : (fv || 'Nokia'),
             origen_tipo: isAb ? 'nokia' : 'ss',
             destino: bodega, destino_tipo: 'bodega',
+            proyecto: item.proyecto     || null,
+            sub_proyecto: item.sub_proyecto || null,
             created_by: user?.nombre || user?.email,
           }
         }))
@@ -412,6 +422,8 @@ export default function HwMassUploadModal({ onClose }) {
             origen: isAb ? 'Nokia' : (fv || 'Nokia'),
             origen_tipo: isAb ? 'nokia' : 'ss',
             destino: bodega, destino_tipo: 'bodega',
+            proyecto: item.proyecto     || null,
+            sub_proyecto: item.sub_proyecto || null,
             created_by: user?.nombre || user?.email,
           }
         }))
@@ -477,6 +489,8 @@ export default function HwMassUploadModal({ onClose }) {
             fecha: it.fecha, cantidad: 1,
             origen: bodega, origen_tipo: 'bodega',
             destino: it.siteName, destino_tipo: it.siteName ? 'sitio' : null,
+            proyecto: it.proyecto     || null,
+            sub_proyecto: it.sub_proyecto || null,
             created_by: user?.nombre || user?.email,
           })))
           if (me) throw me
@@ -494,6 +508,8 @@ export default function HwMassUploadModal({ onClose }) {
           fecha: it.fecha, cantidad: it.cantidad,
           origen: bodega, origen_tipo: 'bodega',
           destino: it.siteName, destino_tipo: it.siteName ? 'sitio' : null,
+          proyecto: it.proyecto     || null,
+          sub_proyecto: it.sub_proyecto || null,
           created_by: user?.nombre || user?.email,
         })))
         if (error) throw error
