@@ -7,7 +7,6 @@ import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwDespachoModal from '../../components/materiales/HwDespachoModal'
-import HwMassDespachoModal from '../../components/materiales/HwMassDespachoModal'
 import HwSkytoolDespachoModal from '../../components/materiales/HwSkytoolDespachoModal'
 
 const TIPO_LUGAR = [
@@ -230,7 +229,6 @@ export default function HwMovimientos() {
   const [form,         setForm]         = useState(null)
   const [altModal,     setAltModal]     = useState(null)
   const [despachoOpen,       setDespachoOpen]       = useState(false)
-  const [massDespachoOpen,   setMassDespachoOpen]   = useState(false)
   const [skytoolOpen,        setSkytoolOpen]        = useState(false)
   const [despachoPickerOpen, setDespachoPickerOpen] = useState(false)
   const [visibleCount, setVisibleCount] = useState(100)
@@ -592,7 +590,6 @@ export default function HwMovimientos() {
     <div>
       <ConfirmModalUI />
       {despachoOpen     && <HwDespachoModal          onClose={() => setDespachoOpen(false)} />}
-      {massDespachoOpen && <HwMassDespachoModal      onClose={() => setMassDespachoOpen(false)} />}
       {skytoolOpen      && <HwSkytoolDespachoModal   onClose={() => setSkytoolOpen(false)} />}
 
       {/* ── Picker: tipo de despacho ── */}
@@ -619,16 +616,10 @@ export default function HwMovimientos() {
                 <div style={{ fontWeight:700, fontSize:13, color:'#144E4A', marginBottom:3 }}>Despacho Normal</div>
                 <div style={{ fontSize:11, color:'#9ca89c' }}>Registrar salida con seriales y destino</div>
               </button>
-              <button onClick={() => { setDespachoPickerOpen(false); setMassDespachoOpen(true) }}
-                style={{ padding:'14px 16px', borderRadius:8, border:'1.5px solid #e0e4e0',
-                  background:'#fff', cursor:'pointer', textAlign:'left', width:'100%' }}>
-                <div style={{ fontWeight:700, fontSize:13, color:'#1e40af', marginBottom:3 }}>Por Lote (Excel)</div>
-                <div style={{ fontSize:11, color:'#9ca89c' }}>Carga masiva de despachos desde archivo Excel</div>
-              </button>
               <button onClick={() => { setDespachoPickerOpen(false); setSkytoolOpen(true) }}
                 style={{ padding:'14px 16px', borderRadius:8, border:'1.5px solid #c4b5fd',
                   background:'#faf5ff', cursor:'pointer', textAlign:'left', width:'100%' }}>
-                <div style={{ fontWeight:700, fontSize:13, color:'#7c3aed', marginBottom:3 }}>Skytool — Asign. SO Automática</div>
+                <div style={{ fontWeight:700, fontSize:13, color:'#7c3aed', marginBottom:3 }}>Por Lote (Asign. SO Automática)</div>
                 <div style={{ fontSize:11, color:'#9ca89c' }}>Lee Necesidad Sitio Skytool y asigna SO por FIFO (proyecto + sub-proyecto)</div>
               </button>
             </div>

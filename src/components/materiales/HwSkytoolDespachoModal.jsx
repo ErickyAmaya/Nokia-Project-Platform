@@ -120,11 +120,13 @@ export default function HwSkytoolDespachoModal({ onClose }) {
   const [step,      setStep]      = useState('pick')
   const [rows,      setRows]      = useState([])
   const [rawBuffer, setRawBuffer] = useState(null)
+  const [fileName,  setFileName]  = useState('')
   const [saving,    setSaving]    = useState(false)
   const [progress,  setProgress]  = useState({ current: 0, total: 0, phase: '' })
 
   function parseFile(file) {
     if (!file) return
+    setFileName(file.name)
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
@@ -293,7 +295,10 @@ export default function HwSkytoolDespachoModal({ onClose }) {
         {step === 'pick' && (
           <div style={{ flex:1, padding:32, display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
             <div style={{ fontSize:13, color:'#555f55', textAlign:'center', lineHeight:1.7, maxWidth:440 }}>
-              Carga el archivo <b>Necesidad Sitio Skytool.xlsx</b>.<br/>
+              {fileName
+                ? <><b style={{ color:'#7c3aed' }}>📄 {fileName}</b><br/></>
+                : <>Carga el archivo <b>Necesidad Sitio Skytool.xlsx</b>.<br/></>
+              }
               <span style={{ fontSize:11, color:'#9ca89c' }}>
                 Hoja: <b>Pendientes_Conf_SO_HWS</b> — La app asigna la SO más antigua disponible
                 (FIFO) por proyecto y sub-proyecto. No se combinan SOs parciales.
@@ -305,7 +310,9 @@ export default function HwSkytoolDespachoModal({ onClose }) {
               cursor:'pointer', background:'#faf5ff', width:'100%', maxWidth:340,
             }}>
               <span style={{ fontSize:32 }}>📂</span>
-              <span style={{ fontSize:12, fontWeight:700, color:'#7c3aed' }}>Seleccionar Skytool .xlsx</span>
+              <span style={{ fontSize:12, fontWeight:700, color:'#7c3aed' }}>
+                {fileName ? 'Cambiar archivo' : 'Seleccionar Skytool .xlsx'}
+              </span>
               <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
                 onChange={e => parseFile(e.target.files?.[0])} />
             </label>
