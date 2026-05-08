@@ -24,8 +24,8 @@ create policy "cat_cw_select" on public.catalogo_cw
 drop policy if exists "cat_cw_write" on public.catalogo_cw;
 create policy "cat_cw_write" on public.catalogo_cw
   for all to authenticated
-  using (public.get_my_role() in ('admin','coord'))
-  with check (public.get_my_role() in ('admin','coord'));
+  using (public.get_my_role() in ('admin','coordinador'))
+  with check (public.get_my_role() in ('admin','coordinador'));
 
 -- ── 3. Seed precios CW 2026 ──────────────────────────────────
 -- El campo 'nombre' usa actividad_id como placeholder.

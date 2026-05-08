@@ -37,8 +37,8 @@ create policy "cat_ti_select" on public.catalogo_ti
 drop policy if exists "cat_ti_write" on public.catalogo_ti;
 create policy "cat_ti_write" on public.catalogo_ti
   for all to authenticated
-  using  (public.get_my_role() in ('admin','coord'))
-  with check (public.get_my_role() in ('admin','coord'));
+  using  (public.get_my_role() in ('admin','coordinador'))
+  with check (public.get_my_role() in ('admin','coordinador'));
 
 -- ── 3. Seed (56 ítems TI 2026) ──────────────────────────────
 insert into public.catalogo_ti
