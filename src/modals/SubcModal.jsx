@@ -20,7 +20,8 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
 
   const TIPOS = buildTiposCuadrilla(empresaConfig?.nombre_corto, empresaConfig?.tipos_cuadrilla || [])
 
-  const isEdit = !!subc
+  const isEdit    = !!subc
+  const isScytel  = form.tipoCuadrilla.toUpperCase().includes('SCYTEL')
 
   useEffect(() => {
     if (open) {
@@ -114,7 +115,11 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
 
         <div className="fg">
           <label className="fl">Tipo de Cuadrilla</label>
-          <select className="fc" value={form.tipoCuadrilla} onChange={e => upd('tipoCuadrilla', e.target.value)}>
+          <select className="fc" value={form.tipoCuadrilla} onChange={e => {
+            const val = e.target.value
+            setForm(f => ({ ...f, tipoCuadrilla: val, esInterna: val.toUpperCase().includes('SCYTEL') ? false : f.esInterna }))
+            setError('')
+          }}>
             {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
@@ -140,14 +145,16 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
           </div>
         </div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={form.esInterna}
-            onChange={e => upd('esInterna', e.target.checked)}
-          />
-          Cuadrilla interna (nómina Ingetel) — liquidación SUBC = $0
-        </label>
+        {!isScytel && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.esInterna}
+              onChange={e => upd('esInterna', e.target.checked)}
+            />
+            Cuadrilla interna (nómina Ingetel) — liquidación SUBC = $0
+          </label>
+        )}
 
         {error && <div className="alert al-e">{error}</div>}
       </div>
