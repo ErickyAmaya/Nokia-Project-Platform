@@ -187,8 +187,8 @@ create policy "subcs_select" on public.subcontratistas
 
 create policy "subcs_write" on public.subcontratistas
   for all to authenticated
-  using (public.get_my_role() = 'admin')
-  with check (public.get_my_role() = 'admin');
+  using (public.get_my_role() in ('admin','coord'))
+  with check (public.get_my_role() in ('admin','coord'));
 
 
 -- ── user_roles ───────────────────────────────────────────────
