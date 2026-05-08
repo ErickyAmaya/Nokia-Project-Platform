@@ -77,7 +77,7 @@ create table if not exists public.liquidaciones_cw (
 create table if not exists public.user_roles (
   user_id  uuid  primary key references auth.users(id) on delete cascade,
   role     text  not null default 'operador'
-                 check (role in ('admin','coord','operador','viewer')),
+                 check (role in ('admin','coordinador','operador','viewer')),
   nombre   text  not null default ''
 );
 
@@ -143,15 +143,15 @@ create policy "sitios_select" on public.sitios
 -- Solo admin, coord y operador pueden insertar / actualizar / eliminar
 create policy "sitios_insert" on public.sitios
   for insert to authenticated
-  with check (public.get_my_role() in ('admin','coord','operador'));
+  with check (public.get_my_role() in ('admin','coordinador','operador'));
 
 create policy "sitios_update" on public.sitios
   for update to authenticated
-  using (public.get_my_role() in ('admin','coord','operador'));
+  using (public.get_my_role() in ('admin','coordinador','operador'));
 
 create policy "sitios_delete" on public.sitios
   for delete to authenticated
-  using (public.get_my_role() in ('admin','coord','operador'));
+  using (public.get_my_role() in ('admin','coordinador','operador'));
 
 
 -- ── gastos ───────────────────────────────────────────────────
@@ -160,15 +160,15 @@ create policy "gastos_select" on public.gastos
 
 create policy "gastos_insert" on public.gastos
   for insert to authenticated
-  with check (public.get_my_role() in ('admin','coord','operador'));
+  with check (public.get_my_role() in ('admin','coordinador','operador'));
 
 create policy "gastos_update" on public.gastos
   for update to authenticated
-  using (public.get_my_role() in ('admin','coord','operador'));
+  using (public.get_my_role() in ('admin','coordinador','operador'));
 
 create policy "gastos_delete" on public.gastos
   for delete to authenticated
-  using (public.get_my_role() in ('admin','coord','operador'));
+  using (public.get_my_role() in ('admin','coordinador','operador'));
 
 
 -- ── liquidaciones_cw ─────────────────────────────────────────
@@ -177,8 +177,8 @@ create policy "liq_cw_select" on public.liquidaciones_cw
 
 create policy "liq_cw_write" on public.liquidaciones_cw
   for all to authenticated
-  using (public.get_my_role() in ('admin','coord','operador'))
-  with check (public.get_my_role() in ('admin','coord','operador'));
+  using (public.get_my_role() in ('admin','coordinador','operador'))
+  with check (public.get_my_role() in ('admin','coordinador','operador'));
 
 
 -- ── subcontratistas ──────────────────────────────────────────
@@ -187,8 +187,8 @@ create policy "subcs_select" on public.subcontratistas
 
 create policy "subcs_write" on public.subcontratistas
   for all to authenticated
-  using (public.get_my_role() in ('admin','coord'))
-  with check (public.get_my_role() in ('admin','coord'));
+  using (public.get_my_role() in ('admin','coordinador'))
+  with check (public.get_my_role() in ('admin','coordinador'));
 
 
 -- ── user_roles ───────────────────────────────────────────────
@@ -222,8 +222,8 @@ create policy "cat_cw_select" on public.catalogo_cw
 
 create policy "cat_cw_write" on public.catalogo_cw
   for all to authenticated
-  using (public.get_my_role() in ('admin','coord'))
-  with check (public.get_my_role() in ('admin','coord'));
+  using (public.get_my_role() in ('admin','coordinador'))
+  with check (public.get_my_role() in ('admin','coordinador'));
 
 
 -- ── 5. REALTIME ──────────────────────────────────────────────
