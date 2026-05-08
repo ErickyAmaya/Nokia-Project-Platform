@@ -177,7 +177,7 @@ export default function LiquidadorPage() {
   const userRole  = user?.role ?? ''
   const isViewer  = userRole === 'viewer'
   const isAdmin   = userRole === 'admin'
-  const isCoord   = userRole === 'coord'
+  const isCoord   = userRole === 'coordinador'
   const isTIUser  = userRole === 'TI'
   const isTSSUser = userRole === 'TSS'
   const isCWUser  = userRole === 'CW'
@@ -853,8 +853,8 @@ export default function LiquidadorPage() {
             </div>
           </div>
 
-          {/* BACKOFFICE (admin only) */}
-          {isAdmin && !isTSS && (
+          {/* BACKOFFICE */}
+          {(isAdmin || isCoord) && !isTSS && (
             <div className="card">
               <div className="card-h"><h2>Costo Backoffice</h2></div>
               <div className="card-b">
@@ -885,7 +885,7 @@ export default function LiquidadorPage() {
                 { label: 'Materiales CW',  value: efectMatCW,     hide: efectMatCW === 0, auto: hasDespacho && matCW_auto > 0 },
                 { label: 'Logística',      value: calc.logist,    hide: calc.logist === 0 },
                 { label: 'Adicionales',    value: calc.adicion,   hide: calc.adicion === 0 },
-                { label: 'Backoffice',     value: calc.backoffice, hide: !isAdmin || calc.backoffice === 0 },
+                { label: 'Backoffice',     value: calc.backoffice, hide: (!isAdmin && !isCoord) || calc.backoffice === 0 },
               ].filter(r => !r.hide).map(r => (
                 <div key={r.label} className="fb" style={{ marginBottom: 4 }}>
                   <span style={{ fontSize: 11, color: '#555f55', display: 'flex', alignItems: 'center', gap: 4 }}>
