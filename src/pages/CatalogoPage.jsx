@@ -43,6 +43,8 @@ function SubcSection() {
   const [editing,   setEditing]   = useState(null)
   const [search,    setSearch]    = useState('')
 
+  const user         = useAuthStore(s => s.user)
+  const isAdmin      = user?.role === 'admin'
   const subcs        = useAppStore(s => s.subcs)
   const sitios       = useAppStore(s => s.sitios)
   const eliminarSubc = useAppStore(s => s.eliminarSubc)
@@ -127,13 +129,17 @@ function SubcSection() {
                       : <span style={{ color: '#ccc' }}>0</span>}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    <button
-                      className="btn-del"
-                      style={{ marginRight: 4, background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}
-                      onClick={() => setEditing(s)}
-                      title="Editar"
-                    >✎</button>
-                    <button className="btn-del" onClick={() => handleEliminar(s)} title="Eliminar">✕</button>
+                    {(isAdmin || nSitios === 0) && (
+                      <button
+                        className="btn-del"
+                        style={{ marginRight: 4, background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}
+                        onClick={() => setEditing(s)}
+                        title="Editar"
+                      >✎</button>
+                    )}
+                    {isAdmin && (
+                      <button className="btn-del" onClick={() => handleEliminar(s)} title="Eliminar">✕</button>
+                    )}
                   </td>
                 </tr>
               )
@@ -147,7 +153,12 @@ function SubcSection() {
         </table>
       </div>
       <SubcModal open={modalSubc} onClose={() => setModalSubc(false)} />
-      <SubcModal open={!!editing} subc={editing} onClose={() => setEditing(null)} />
+      <SubcModal
+        open={!!editing}
+        subc={editing}
+        hasSitios={editing ? sitios.filter(x => x.lc === editing.lc).length > 0 : false}
+        onClose={() => setEditing(null)}
+      />
       <ConfirmModalUI />
     </div>
   )

@@ -17,6 +17,7 @@ create table if not exists public.subcontratistas (
   tel             text        not null default '',
   email           text        not null default '',
   tipo_cuadrilla  text        not null default 'TI Ingetel',
+  es_interna      boolean     not null default false,
   created_at      timestamptz not null default now()
 );
 

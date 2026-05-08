@@ -10,6 +10,8 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
   const cat       = sitio.catEfectiva || sitio.cat || 'A'
   const isFinal   = sitio.estado === 'final'
   const crExclSet = new Set(sitio.crSubcExcluded || [])
+  const esInternaOf = lc => subcs.find(x => x.lc === lc)?.esInterna || false
+  const esInternaSitio = esInternaOf(sitio.lc)
 
   let nokiaTI = 0, nokiaADJ = 0, nokiaCR = 0
   let subcTI  = 0, subcADJ  = 0, subcCR  = 0
@@ -25,8 +27,9 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
       const pS = getPrecio('BASE', act.id, null, act.catOver || cb, act.ciudad, catalogTI)
       const isNokia = act.cardType !== 'subc'
       const isSubc  = act.cardType !== 'nokia'
+      const actLc   = act.id === 'TSS_V' ? lcV : act.id === 'TSS_R' ? lcR : lcRd
       const tN = isNokia ? pN.nokia * (act.cant || 0) : 0
-      const tS = isSubc  ? pS.subc  * (act.cant || 0) : 0
+      const tS = isSubc && !esInternaOf(actLc) ? pS.subc * (act.cant || 0) : 0
       if (isNokia) nokiaTI += tN
       if (isSubc)  subcTI  += tS
       return { ...act, preNokia: pN.nokia, preSubc: pS.subc, totalNokia: tN, totalSubc: tS, subcExcluded: false }
@@ -37,7 +40,7 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
       : getPrecio(act.tipo, act.id, sitio.ciudad, cat, act.ciudad || null, catalogTI)
 
     const tN = p.nokia * (act.cant || 0)
-    const tS = p.subc  * (act.cant || 0)
+    const tS = esInternaSitio ? 0 : p.subc * (act.cant || 0)
     const at = act.tipo || 'BASE'
     const subcExcluded = at === 'CR' && crExclSet.has(actIdx)
 
@@ -54,7 +57,7 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
   const nokiaCW    = liqCWItems.length > 0
     ? liqCWItems.reduce((s, i) => s + (i.cant || 0) * (i.precio_nokia || 0), 0)
     : (sitio.cw_nokia || 0)
-  const subcCW     = liqCWItems.length > 0
+  const subcCW     = esInternaSitio ? 0 : liqCWItems.length > 0
     ? liqCWItems.reduce((s, i) => s + (i.cant || 0) * (i.precio_subc  || 0), 0)
     : (sitio.cw_costo || 0)
   const totalVenta = nokiaTI + nokiaADJ + nokiaCW + nokiaCR

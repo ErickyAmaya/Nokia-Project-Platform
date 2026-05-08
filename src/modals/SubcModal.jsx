@@ -6,9 +6,9 @@ import { buildTiposCuadrilla } from '../lib/cuadrilla'
 
 const CATS = ['A', 'AA', 'AAA']
 
-const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: '' }
+const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: '', esInterna: false }
 
-export default function SubcModal({ open, onClose, subc = null }) {
+export default function SubcModal({ open, onClose, subc = null, hasSitios = false }) {
   const [form,   setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
@@ -25,7 +25,7 @@ export default function SubcModal({ open, onClose, subc = null }) {
   useEffect(() => {
     if (open) {
       setForm(subc
-        ? { lc: subc.lc, empresa: subc.empresa || '', cat: subc.cat || 'A', tel: subc.tel || '', email: subc.email || '', tipoCuadrilla: subc.tipoCuadrilla || TIPOS[0] }
+        ? { lc: subc.lc, empresa: subc.empresa || '', cat: subc.cat || 'A', tel: subc.tel || '', email: subc.email || '', tipoCuadrilla: subc.tipoCuadrilla || TIPOS[0], esInterna: subc.esInterna || false }
         : { ...EMPTY, tipoCuadrilla: TIPOS[0] }
       )
       setError('')
@@ -51,7 +51,7 @@ export default function SubcModal({ open, onClose, subc = null }) {
     setSaving(true)
     try {
       if (isEdit) {
-        await actualizarSubc(lc, form)
+        await actualizarSubc(subc.lc, form)
         showToast(`${lc} actualizado`)
       } else {
         await crearSubc(form)
@@ -89,7 +89,7 @@ export default function SubcModal({ open, onClose, subc = null }) {
               placeholder="Ej: LC001"
               value={form.lc}
               onChange={e => upd('lc', e.target.value)}
-              disabled={isEdit}
+              disabled={isEdit && hasSitios}
               autoFocus={!isEdit}
             />
           </div>
@@ -102,7 +102,7 @@ export default function SubcModal({ open, onClose, subc = null }) {
         </div>
 
         <div className="fg">
-          <label className="fl">Empresa / Nombre *</label>
+          <label className="fl">Empresa *</label>
           <input
             type="text" className="fc"
             placeholder="Ej: Constructora Ejemplo S.A.S"
@@ -139,6 +139,15 @@ export default function SubcModal({ open, onClose, subc = null }) {
             />
           </div>
         </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={form.esInterna}
+            onChange={e => upd('esInterna', e.target.checked)}
+          />
+          Cuadrilla interna (nómina Ingetel) — liquidación SUBC = $0
+        </label>
 
         {error && <div className="alert al-e">{error}</div>}
       </div>
