@@ -936,7 +936,13 @@ export default function AnaliticaPage() {
   const subcs            = useAppStore(s => s.subcs)
   const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
+  const loadData         = useAppStore(s => s.loadData)
   const user             = useAuthStore(s => s.user)
+
+  // Refresca datos al montar — garantiza que pct_m1 y otros cambios
+  // hechos en Liquidador (mismo o diferente dispositivo) sean visibles
+  // sin necesidad de F5.
+  useEffect(() => { loadData() }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-apply tipo filter for role-based views
   const roleFilter = useMemo(() => {
@@ -953,6 +959,12 @@ export default function AnaliticaPage() {
   useEffect(() => {
     if (roleFilter !== 'TODOS') setFilters(f => ({ ...f, tipo: roleFilter }))
   }, [roleFilter])
+
+  // Al entrar a la pestaña Producción recarga para asegurar datos frescos
+  function handleTab(id) {
+    setTab(id)
+    if (id === 5) loadData()
+  }
 
   function setFilter(field, value) {
     if (field === '__reset__') { setFilters({ ...INIT_FILTERS, tipo: roleFilter }); return }
@@ -1102,7 +1114,7 @@ export default function AnaliticaPage() {
           {TABS.map(t => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => handleTab(t.id)}
               style={{
                 padding: '7px 16px', fontSize: 11, fontWeight: 700,
                 border: 'none', cursor: 'pointer', borderRadius: '6px 6px 0 0',
