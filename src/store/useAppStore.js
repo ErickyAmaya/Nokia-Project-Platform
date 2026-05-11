@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from './authStore'
 
 // ── Debounced Supabase sync ──────────────────────────────────────
+const _clientId    = Math.random().toString(36).slice(2)  // unique per tab
 const _syncTimers  = {}
 const _pendingIds  = new Set()   // sitio IDs with un-synced local changes
 
@@ -199,7 +200,12 @@ export const useAppStore = create((set, get) => ({
 
   // ── Realtime sync ────────────────────────────────────────────────
   initRealtimeSync: () => {
-    const reload = () => get().loadData()
+    const reload = (msg) => {
+      // Skip broadcasts originated by this same tab — store already has
+      // the optimistic value; reloading would race against the pending write.
+      if (msg?.payload?.from === _clientId) return
+      get().loadData()
+    }
     const syncChannel = supabase
       .channel('app-sync')
       .on('broadcast', { event: 'changed' }, reload)
@@ -213,7 +219,7 @@ export const useAppStore = create((set, get) => ({
 
   _broadcastChange: () => {
     const ch = get()._syncChannel
-    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
+    if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: { from: _clientId } }).catch(() => {})
   },
 
   setSitios: sitios => set({ sitios }),
