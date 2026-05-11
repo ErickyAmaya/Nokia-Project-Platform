@@ -6,7 +6,8 @@ import { useConfirm } from '../../components/ConfirmModal'
 import { useNavigate } from 'react-router-dom'
 import DespachoModal from '../../components/materiales/DespachoModal'
 import MatEntradaModal from '../../components/materiales/MatEntradaModal'
-import MatMassEntradaModal from '../../components/materiales/MatMassEntradaModal'
+import MatMassEntradaModal  from '../../components/materiales/MatMassEntradaModal'
+import MatMassDespachoModal from '../../components/materiales/MatMassDespachoModal'
 
 export default function MatMovimientos() {
   const catalogo         = useMatStore(s => s.catalogo)
@@ -21,7 +22,8 @@ export default function MatMovimientos() {
 
   const [despachoOpen,     setDespachoOpen]     = useState(false)
   const [entradaOpen,      setEntradaOpen]      = useState(false)
-  const [massEntradaOpen,  setMassEntradaOpen]  = useState(false)
+  const [massEntradaOpen,   setMassEntradaOpen]  = useState(false)
+  const [massDespachoOpen,  setMassDespachoOpen] = useState(false)
   const [pickerOpen,       setPickerOpen]        = useState(false)
   const [filTipo,      setFilTipo]        = useState('')
   const [filBod,       setFilBod]         = useState('')
@@ -70,7 +72,8 @@ export default function MatMovimientos() {
       <ConfirmModalUI />
       {despachoOpen    && <DespachoModal         onClose={() => setDespachoOpen(false)} />}
       {entradaOpen     && <MatEntradaModal        onClose={() => setEntradaOpen(false)} />}
-      {massEntradaOpen && <MatMassEntradaModal    onClose={() => setMassEntradaOpen(false)} />}
+      {massEntradaOpen  && <MatMassEntradaModal  onClose={() => setMassEntradaOpen(false)} />}
+      {massDespachoOpen && <MatMassDespachoModal onClose={() => setMassDespachoOpen(false)} />}
 
       {/* Picker de tipo de movimiento */}
       {pickerOpen && (
@@ -93,6 +96,11 @@ export default function MatMovimientos() {
               style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #f5c6cb', background:'#fff5f5', textAlign:'left', cursor:'pointer' }}>
               <div style={{ fontWeight:700, fontSize:13, color:'#c0392b' }}>↓ Despacho a Sitio</div>
               <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Despachar materiales desde bodega a un sitio Nokia</div>
+            </button>
+            <button onClick={() => { setPickerOpen(false); setMassDespachoOpen(true) }}
+              style={{ padding:'12px 16px', borderRadius:8, border:'1.5px solid #e8a0a0', background:'#fff0f0', textAlign:'left', cursor:'pointer' }}>
+              <div style={{ fontWeight:700, fontSize:13, color:'#7f1d1d' }}>↓↓ Despacho a Sitio por Lote (Excel)</div>
+              <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>Cargar múltiples despachos por sitio desde template Excel</div>
             </button>
           </div>
         </div>

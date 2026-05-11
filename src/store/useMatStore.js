@@ -20,8 +20,9 @@ export const useMatStore = create((set, get) => ({
   sitiosError:  null,
   movimientos:  [],
   despachos:    [],
-  proveedores:  [],   // mat_proveedores
-  precios:      [],   // mat_precios_proveedor
+  pendientes:   [],   // mat_pendientes
+  proveedores:  [],
+  precios:      [],
   loading:      false,
   error:        null,
   _syncChannel: null,
@@ -32,13 +33,14 @@ export const useMatStore = create((set, get) => ({
     const firstLoad = get().catalogo.length === 0
     if (firstLoad) set({ loading: true, error: null })
     try {
-      const [cat, stk, bod, sit, mov, dep, prov, prec] = await Promise.all([
+      const [cat, stk, bod, sit, mov, dep, pend, prov, prec] = await Promise.all([
         db().from('mat_catalogo').select('*').order('categoria').order('nombre'),
         db().from('mat_stock').select('*'),
         db().from('bodegas').select('*').order('nombre'),
         db().from('mat_sitios').select('*').order('nombre'),
         db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
         db().from('despachos').select('*').order('created_at', { ascending: false }),
+        db().from('mat_pendientes').select('*').order('created_at', { ascending: false }),
         db().from('mat_proveedores').select('*').order('nombre'),
         db().from('mat_precios_proveedor').select('*'),
       ])
@@ -48,6 +50,7 @@ export const useMatStore = create((set, get) => ({
       if (sit.error)  console.error('[mat] sitios:',       sit.error.message)
       if (mov.error)  console.error('[mat] movimientos:',  mov.error.message)
       if (dep.error)  console.error('[mat] despachos:',    dep.error.message)
+      if (pend.error) console.error('[mat] pendientes:',   pend.error.message)
       if (prov.error) console.error('[mat] proveedores:',  prov.error.message)
       if (prec.error) console.error('[mat] precios:',      prec.error.message)
       set({
@@ -57,6 +60,7 @@ export const useMatStore = create((set, get) => ({
         sitios:      sit.data  || [],
         movimientos: mov.data  || [],
         despachos:   dep.data  || [],
+        pendientes:  pend.data || [],
         proveedores: prov.data || [],
         precios:     prec.data || [],
         sitiosError: sit.error?.message || null,
@@ -309,6 +313,23 @@ export const useMatStore = create((set, get) => ({
       stock: stk || [],
     }))
     get()._broadcastChange()
+  },
+
+  // ── PENDIENTES ───────────────────────────────────────────────────
+  insertPendientes: async (items) => {
+    if (!items.length) return
+    const { error } = await db().from('mat_pendientes').insert(items)
+    if (error) throw error
+    const { data } = await db().from('mat_pendientes').select('*').order('created_at', { ascending: false })
+    if (data) set({ pendientes: data })
+  },
+
+  resolverPendientes: async (sitio, catalogoIds) => {
+    if (!sitio || !catalogoIds?.length) return
+    await db().from('mat_pendientes').delete().eq('sitio', sitio).in('catalogo_id', catalogoIds)
+    set(s => ({
+      pendientes: s.pendientes.filter(p => !(p.sitio === sitio && catalogoIds.includes(p.catalogo_id)))
+    }))
   },
 
   // ── Realtime sync — lo llama MatWrapper al montar ────────────────

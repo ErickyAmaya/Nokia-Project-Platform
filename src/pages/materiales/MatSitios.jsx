@@ -23,6 +23,7 @@ export default function MatSitios() {
   const movimientos = useMatStore(s => s.movimientos)
   const despachos   = useMatStore(s => s.despachos)
   const catalogo    = useMatStore(s => s.catalogo)
+  const pendientes  = useMatStore(s => s.pendientes)
   const deleteSitio = useMatStore(s => s.deleteSitio)
   const hwEquipos      = useHwStore(s => s.hwEquipos)
   const hwCatalogo     = useHwStore(s => s.hwCatalogo)
@@ -178,7 +179,21 @@ export default function MatSitios() {
                     <React.Fragment key={rowKey}>
                       <tr style={{ background: isOpen ? '#f0fdf4' : undefined, borderBottom: isOpen ? 'none' : undefined }}>
                         <td style={{ color:'#9ca89c', fontSize:11 }}>{i + 1}</td>
-                        <td style={{ fontWeight:700 }}>{s.nombre}</td>
+                        <td style={{ fontWeight:700 }}>
+                          {s.nombre}
+                          {(() => {
+                            const pend = pendientes.filter(p => p.sitio?.toLowerCase() === s.nombre?.toLowerCase())
+                            if (!pend.length) return null
+                            return (
+                              <span title={`${pend.length} ítem(s) pendiente(s) por stock insuficiente`}
+                                style={{ marginLeft:6, display:'inline-block', padding:'1px 7px', borderRadius:10,
+                                  fontSize:9, fontWeight:800, background:'#fef3cd', color:'#92400e',
+                                  border:'1px solid #fbbf24', verticalAlign:'middle', cursor:'default' }}>
+                                ⏳ {pend.length} pendiente{pend.length > 1 ? 's' : ''}
+                              </span>
+                            )
+                          })()}
+                        </td>
                         <td>
                           {s.tipo_cw
                             ? <span className="badge" style={{ background:'#eff6ff', color:'#1e40af' }}>{s.tipo_cw}</span>
@@ -231,6 +246,42 @@ export default function MatSitios() {
                                   Materiales enviados a este sitio según historial de salidas
                                 </span>
                               </div>
+
+                              {/* ── Pendientes por stock insuficiente ── */}
+                              {(() => {
+                                const sitePend = pendientes.filter(p => p.sitio?.toLowerCase() === s.nombre?.toLowerCase())
+                                if (!sitePend.length) return null
+                                return (
+                                  <div style={{ borderBottom:'2px solid #fbbf24', background:'#fffbeb', padding:'10px 16px' }}>
+                                    <div style={{ fontSize:11, fontWeight:800, color:'#92400e', marginBottom:8, letterSpacing:.5 }}>
+                                      ⏳ MATERIALES PENDIENTES POR STOCK INSUFICIENTE
+                                    </div>
+                                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                      <thead>
+                                        <tr style={{ background:'#fef3cd' }}>
+                                          {['MATERIAL','CÓDIGO','CANT. PENDIENTE','REF. DESPACHO','FECHA'].map(h => (
+                                            <th key={h} style={{ padding:'5px 10px', color:'#92400e', fontWeight:700, fontSize:9, textAlign:'left' }}>{h}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {sitePend.map(p => {
+                                          const cat = catalogo.find(c => c.id === p.catalogo_id)
+                                          return (
+                                            <tr key={p.id} style={{ borderBottom:'1px solid #fde68a' }}>
+                                              <td style={{ padding:'5px 10px', fontWeight:600, color:'#78350f' }}>{cat?.nombre || '—'}</td>
+                                              <td style={{ padding:'5px 10px', color:'#92400e', fontFamily:"'Barlow Condensed',sans-serif" }}>{cat?.codigo || '—'}</td>
+                                              <td style={{ padding:'5px 10px', fontWeight:800, color:'#c0392b' }}>{p.cantidad} {cat?.unidad || 'und.'}</td>
+                                              <td style={{ padding:'5px 10px', color:'#92400e', fontSize:10 }}>{p.despacho_ref || '—'}</td>
+                                              <td style={{ padding:'5px 10px', color:'#92400e', fontSize:10 }}>{String(p.fecha || '').slice(0,10)}</td>
+                                            </tr>
+                                          )
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )
+                              })()}
 
                               {sd.materiales.length === 0 ? (
                                 <div style={{ textAlign:'center', padding:'20px 16px', color:'#9ca89c', fontSize:12 }}>

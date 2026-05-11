@@ -381,6 +381,18 @@ export default function LiquidadorPage() {
               </span>
             )}
             {sitio.fecha && <span style={{ fontSize: 10, color: '#9ca89c' }}>{sitio.fecha}</span>}
+            {(sitio.pct_m1 ?? 100) < 100 && (() => {
+              const d1 = new Date(sitio.fecha || Date.now())
+              const d2 = new Date(sitio.fecha || Date.now())
+              d2.setMonth(d2.getMonth() + 1)
+              const m1s = d1.toLocaleString('es', { month: 'short' })
+              const m2s = d2.toLocaleString('es', { month: 'short' })
+              return (
+                <span className="badge" style={{ background: '#fde68a', color: '#92400e', fontSize: 9 }}>
+                  {m1s} {sitio.pct_m1}% · {m2s} {100 - sitio.pct_m1}%
+                </span>
+              )
+            })()}
           </div>
           {/* Marcar Final — TI or CW depending on active view */}
           {!isViewer && (
@@ -476,13 +488,42 @@ export default function LiquidadorPage() {
                 )
               })()}
               <div className="fg" style={{ marginBottom: 0 }}>
-                <label className="fl">Fecha</label>
-                <input
-                  type="date" className="fc"
-                  value={sitio.fecha || ''}
-                  onChange={e => updateSitioField(sitio.id, 'fecha', e.target.value)}
-                  disabled={isFinal}
-                />
+                <label className="fl" style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span>Fecha</span>
+                  {(sitio.pct_m1 ?? 100) < 100 && (() => {
+                    const d1 = new Date(sitio.fecha || Date.now())
+                    const d2 = new Date(sitio.fecha || Date.now())
+                    d2.setMonth(d2.getMonth() + 1)
+                    return (
+                      <span style={{ fontSize:9, color:'#92400e', fontWeight:700 }}>
+                        {d1.toLocaleString('es',{month:'short'})} {sitio.pct_m1}% · {d2.toLocaleString('es',{month:'short'})} {100-(sitio.pct_m1??100)}%
+                      </span>
+                    )
+                  })()}
+                </label>
+                <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                  <input
+                    type="date" className="fc"
+                    value={sitio.fecha || ''}
+                    onChange={e => updateSitioField(sitio.id, 'fecha', e.target.value)}
+                    disabled={isFinal}
+                    style={{ flex:'0 0 auto', width:120 }}
+                  />
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
+                    <span style={{ fontSize:8, color:'#9ca89c', fontWeight:700, lineHeight:1 }}>M1%</span>
+                    <select
+                      className="fc"
+                      value={sitio.pct_m1 ?? 100}
+                      onChange={e => updateSitioField(sitio.id, 'pct_m1', Number(e.target.value))}
+                      disabled={isFinal}
+                      style={{ width:72, textAlign:'center', padding:'4px 2px' }}
+                    >
+                      {[0,10,20,30,40,50,60,70,80,90,100].map(v => (
+                        <option key={v} value={v}>{v}%</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

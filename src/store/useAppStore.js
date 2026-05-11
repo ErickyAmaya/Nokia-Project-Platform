@@ -3,12 +3,15 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from './authStore'
 
 // ── Debounced Supabase sync ──────────────────────────────────────
-const _syncTimers = {}
+const _syncTimers  = {}
+const _pendingIds  = new Set()   // sitio IDs with un-synced local changes
+
 async function _debouncedSync(id, get) {
   clearTimeout(_syncTimers[id])
+  _pendingIds.add(id)
   _syncTimers[id] = setTimeout(async () => {
     const sitio = get().sitios.find(s => s.id === id)
-    if (!sitio) return
+    if (!sitio) { _pendingIds.delete(id); return }
     await supabase.from('sitios').upsert({
       id:               sitio.id,
       nombre:           sitio.nombre,
@@ -33,7 +36,9 @@ async function _debouncedSync(id, get) {
       cat_over_reporte:  sitio.catOverReporte  || '',
       cat_over_redesign: sitio.catOverRedesign || '',
       region:            sitio.region || '',
+      pct_m1:            sitio.pct_m1 ?? 100,
     }, { onConflict: 'id' })
+    _pendingIds.delete(id)
     get()._broadcastChange()
   }, 1500)
 }
@@ -104,23 +109,33 @@ export const useAppStore = create((set, get) => ({
       supabase.from('catalogo_ti').select('*').order('seccion').order('id'),
     ])
 
-    const sitios = sitiosData.map(r => ({
-      id: r.id, nombre: r.nombre, tipo: r.tipo,
-      fecha: r.fecha, ciudad: r.ciudad, lc: r.lc || '',
-      cat: r.cat || 'A', catEfectiva: r.cat_efectiva || undefined,
-      tiene_cw: r.tiene_cw || false, cw_nokia: r.cw_nokia || 0,
-      cw_costo: r.cw_costo || 0, cw_conjunto: r.cw_conjunto || false,
-      estado: r.estado || 'pre',
-      lcVisita:    r.lc_visita    || r.lc || '',
-      lcReporte:   r.lc_reporte   || '',
-      lcRedesign:  r.lc_redesign  || '',
-      catOverVisita:   r.cat_over_visita   || '',
-      catOverReporte:  r.cat_over_reporte  || '',
-      catOverRedesign: r.cat_over_redesign || '',
-      costos: r.costos || {}, actividades: r.actividades || [],
-      crSubcExcluded: r.cr_subc_excluded || [],
-      region: r.region || '',
-    }))
+    const currentSitios = get().sitios
+    const sitios = sitiosData.map(r => {
+      // If this sitio has un-synced local edits, keep the in-memory copy
+      // so an external loadData() doesn't clobber the user's pending input.
+      if (_pendingIds.has(r.id)) {
+        const mem = currentSitios.find(s => s.id === r.id)
+        if (mem) return mem
+      }
+      return {
+        id: r.id, nombre: r.nombre, tipo: r.tipo,
+        fecha: r.fecha, ciudad: r.ciudad, lc: r.lc || '',
+        cat: r.cat || 'A', catEfectiva: r.cat_efectiva || undefined,
+        tiene_cw: r.tiene_cw || false, cw_nokia: r.cw_nokia || 0,
+        cw_costo: r.cw_costo || 0, cw_conjunto: r.cw_conjunto || false,
+        estado: r.estado || 'pre',
+        lcVisita:    r.lc_visita    || r.lc || '',
+        lcReporte:   r.lc_reporte   || '',
+        lcRedesign:  r.lc_redesign  || '',
+        catOverVisita:   r.cat_over_visita   || '',
+        catOverReporte:  r.cat_over_reporte  || '',
+        catOverRedesign: r.cat_over_redesign || '',
+        costos: r.costos || {}, actividades: r.actividades || [],
+        crSubcExcluded: r.cr_subc_excluded || [],
+        region: r.region || '',
+        pct_m1: r.pct_m1 ?? 100,
+      }
+    })
 
     const gastos = (gastosData || []).map(r => ({
       id: r.id,

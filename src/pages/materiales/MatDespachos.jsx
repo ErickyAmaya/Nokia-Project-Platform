@@ -21,9 +21,10 @@ function DespachoWizard({ onClose }) {
   const bodegas           = useMatStore(s => s.bodegas)
   const despachos         = useMatStore(s => s.despachos)
   const getStock          = useMatStore(s => s.getStock)
-  const saveDespacho      = useMatStore(s => s.saveDespacho)
-  const addMovimiento     = useMatStore(s => s.addMovimiento)
-  const finalizarDespacho = useMatStore(s => s.finalizarDespacho)
+  const saveDespacho       = useMatStore(s => s.saveDespacho)
+  const addMovimiento      = useMatStore(s => s.addMovimiento)
+  const finalizarDespacho  = useMatStore(s => s.finalizarDespacho)
+  const resolverPendientes = useMatStore(s => s.resolverPendientes)
   const liquidadorSitios  = useAppStore(s => s.sitios)
   const user              = useAuthStore(s => s.user)
 
@@ -121,6 +122,8 @@ function DespachoWizard({ onClose }) {
         })
       }
       await finalizarDespacho(desp.id)
+      const dispatchedIds = items.filter(i => (i.cant_despachada || 0) > 0).map(i => i.catalogo_id)
+      await resolverPendientes(meta.destino, dispatchedIds)
       showToast(`Despacho ${desp.numero_doc} finalizado`)
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
