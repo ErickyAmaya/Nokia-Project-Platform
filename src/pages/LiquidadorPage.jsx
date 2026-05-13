@@ -154,6 +154,7 @@ export default function LiquidadorPage() {
   const updateSitioField = useAppStore(s => s.updateSitioField)
   const updateBackoffice      = useAppStore(s => s.updateBackoffice)
   const updateCostoCuadrilla  = useAppStore(s => s.updateCostoCuadrilla)
+  const updatePctM1           = useAppStore(s => s.updatePctM1)
   const activarCW        = useAppStore(s => s.activarCW)
   const marcarFinal        = useAppStore(s => s.marcarFinal)
   const reabrirSitio       = useAppStore(s => s.reabrirSitio)
@@ -516,7 +517,7 @@ export default function LiquidadorPage() {
                     <select
                       className="fc"
                       value={sitio.pct_m1 ?? 100}
-                      onChange={e => updateSitioField(sitio.id, 'pct_m1', Number(e.target.value))}
+                      onChange={e => updatePctM1(sitio.id, Number(e.target.value))}
                       disabled={isFinal}
                       style={{ width:72, textAlign:'center', padding:'4px 2px' }}
                     >

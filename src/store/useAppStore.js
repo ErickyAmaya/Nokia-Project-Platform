@@ -7,41 +7,48 @@ const _clientId    = Math.random().toString(36).slice(2)  // unique per tab
 const _syncTimers  = {}
 const _pendingIds  = new Set()   // sitio IDs with un-synced local changes
 
-async function _debouncedSync(id, get) {
+function _buildSitioPayload(sitio) {
+  return {
+    id:               sitio.id,
+    nombre:           sitio.nombre,
+    tipo:             sitio.tipo,
+    fecha:            sitio.fecha,
+    ciudad:           sitio.ciudad,
+    lc:               sitio.lc,
+    cat:              sitio.cat,
+    cat_efectiva:     sitio.catEfectiva || null,
+    tiene_cw:         sitio.tiene_cw,
+    cw_nokia:         sitio.cw_nokia,
+    cw_costo:         sitio.cw_costo,
+    cw_conjunto:      sitio.cw_conjunto,
+    estado:           sitio.estado,
+    costos:           sitio.costos,
+    actividades:      sitio.actividades,
+    cr_subc_excluded: sitio.crSubcExcluded || [],
+    lc_visita:        sitio.lcVisita   || sitio.lc,
+    lc_reporte:       sitio.lcReporte  || '',
+    lc_redesign:      sitio.lcRedesign || '',
+    cat_over_visita:   sitio.catOverVisita   || '',
+    cat_over_reporte:  sitio.catOverReporte  || '',
+    cat_over_redesign: sitio.catOverRedesign || '',
+    region:            sitio.region || '',
+    pct_m1:            sitio.pct_m1 ?? 100,
+  }
+}
+
+async function _debouncedSync(id, get, delay = 1500) {
   clearTimeout(_syncTimers[id])
   _pendingIds.add(id)
   _syncTimers[id] = setTimeout(async () => {
     const sitio = get().sitios.find(s => s.id === id)
     if (!sitio) { _pendingIds.delete(id); return }
-    await supabase.from('sitios').upsert({
-      id:               sitio.id,
-      nombre:           sitio.nombre,
-      tipo:             sitio.tipo,
-      fecha:            sitio.fecha,
-      ciudad:           sitio.ciudad,
-      lc:               sitio.lc,
-      cat:              sitio.cat,
-      cat_efectiva:     sitio.catEfectiva || null,
-      tiene_cw:         sitio.tiene_cw,
-      cw_nokia:         sitio.cw_nokia,
-      cw_costo:         sitio.cw_costo,
-      cw_conjunto:      sitio.cw_conjunto,
-      estado:           sitio.estado,
-      costos:           sitio.costos,
-      actividades:      sitio.actividades,
-      cr_subc_excluded: sitio.crSubcExcluded || [],
-      lc_visita:        sitio.lcVisita   || sitio.lc,
-      lc_reporte:       sitio.lcReporte  || '',
-      lc_redesign:      sitio.lcRedesign || '',
-      cat_over_visita:   sitio.catOverVisita   || '',
-      cat_over_reporte:  sitio.catOverReporte  || '',
-      cat_over_redesign: sitio.catOverRedesign || '',
-      region:            sitio.region || '',
-      pct_m1:            sitio.pct_m1 ?? 100,
-    }, { onConflict: 'id' })
-    _pendingIds.delete(id)
-    get()._broadcastChange()
-  }, 1500)
+    try {
+      await supabase.from('sitios').upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
+    } finally {
+      _pendingIds.delete(id)
+      get()._broadcastChange()
+    }
+  }, delay)
 }
 
 const DEFAULT_EMPRESA = {
@@ -243,6 +250,12 @@ export const useAppStore = create((set, get) => ({
 
   updateCostoCuadrilla: (id, field, value) => {
     get()._updateAndSync(id, s => ({ ...s, costos: { ...s.costos, [field]: value } }))
+  },
+
+  // pct_m1 usa delay=0 para escribir inmediatamente — evita race con loadData()
+  updatePctM1: (id, value) => {
+    set(s => ({ sitios: s.sitios.map(x => x.id === id ? { ...x, pct_m1: value } : x) }))
+    _debouncedSync(id, get, 0)
   },
 
   updateSitioAct: (id, actIdx, cant) => {
