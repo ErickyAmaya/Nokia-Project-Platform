@@ -67,15 +67,21 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
   const adicion  = gastosS.filter(g => g.tipo === 'Adicionales')    .reduce((s, g) => s + (g.valor || 0), 0)
   const matTI    = gastosS.filter(g => g.tipo === 'Materiales TI')  .reduce((s, g) => s + (g.valor || 0), 0)
   const matCW    = gastosS.filter(g => g.tipo === 'Materiales CW')  .reduce((s, g) => s + (g.valor || 0), 0)
-  const backoffice = sitio.costos?.backoffice || 0
+  const backoffice  = sitio.costos?.backoffice  || 0
+  const nomina      = esInternaSitio ? (sitio.costos?.nomina      || 0) : 0
+  const viaticos    = esInternaSitio ? (sitio.costos?.viaticos    || 0) : 0
+  const transporte  = esInternaSitio ? (sitio.costos?.transporte  || 0) : 0
+  const cuadrillaCosto = nomina + viaticos + transporte
 
-  const totalCosto = subcTI + subcADJ + subcCR + subcCW + matTI + matCW + logist + adicion + backoffice
+  const totalCosto = subcTI + subcADJ + subcCR + subcCW + cuadrillaCosto + matTI + matCW + logist + adicion + backoffice
   const utilidad   = totalVenta - totalCosto
   const margen     = totalVenta > 0 ? utilidad / totalVenta : 0
 
   return { acts, nokiaTI, nokiaADJ, nokiaCW, nokiaCR, totalVenta,
            subcTI, subcADJ, subcCR, subcCW, matTI, matCW,
-           logist, adicion, backoffice, totalCosto, utilidad, margen, cat }
+           logist, adicion, backoffice,
+           nomina, viaticos, transporte, cuadrillaCosto,
+           totalCosto, utilidad, margen, cat }
 }
 
 /** Helper: does the site have a SITIO NUEVO activity? */

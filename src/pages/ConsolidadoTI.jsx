@@ -8,6 +8,14 @@ import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
 import NuevoSitioModal from '../modals/NuevoSitioModal'
 
+const REGION_ABREV = {
+  'R1 – Costa':        'Cta',
+  'R2 – Noroccidente': 'NOC',
+  'R3 – Suroccidente': 'SOC',
+  'R4 – Centro':       'CTO',
+  'R5 – Oriente':      'ORI',
+}
+
 // ── Sub-components ──────────────────────────────────────────────
 
 function TipoBadge({ sitio }) {
@@ -260,7 +268,7 @@ export default function ConsolidadoTI() {
                     )}
                   </td>
                   <td style={{ background: '#fff' }}>
-                    <span className="badge bg-b" style={{ fontSize: 8 }}>{s.region || '—'}</span>
+                    <span className="badge bg-b" style={{ fontSize: 8 }}>{REGION_ABREV[s.region] || s.region || '—'}</span>
                   </td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.fecha || '—'}</td>
                   <td style={{ fontSize: 10, background: '#fff' }}>{s.lc}</td>

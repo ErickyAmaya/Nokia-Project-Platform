@@ -241,6 +241,10 @@ export const useAppStore = create((set, get) => ({
     get()._updateAndSync(id, s => ({ ...s, costos: { ...s.costos, backoffice: value } }))
   },
 
+  updateCostoCuadrilla: (id, field, value) => {
+    get()._updateAndSync(id, s => ({ ...s, costos: { ...s.costos, [field]: value } }))
+  },
+
   updateSitioAct: (id, actIdx, cant) => {
     get()._updateAndSync(id, s => {
       const actividades = s.actividades.map((a, i) => i === actIdx ? { ...a, cant } : a)

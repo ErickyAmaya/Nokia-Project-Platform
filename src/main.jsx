@@ -19,6 +19,11 @@ async function checkVersion() {
 checkVersion()
 setInterval(checkVersion, 5 * 60 * 1000)
 
+// Select-all on focus for every number input in the app
+document.addEventListener('focusin', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'number') e.target.select()
+})
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>

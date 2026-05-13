@@ -152,7 +152,8 @@ export default function LiquidadorPage() {
   const deleteActividad  = useAppStore(s => s.deleteActividad)
   const exclCRSubc       = useAppStore(s => s.exclCRSubc)
   const updateSitioField = useAppStore(s => s.updateSitioField)
-  const updateBackoffice = useAppStore(s => s.updateBackoffice)
+  const updateBackoffice      = useAppStore(s => s.updateBackoffice)
+  const updateCostoCuadrilla  = useAppStore(s => s.updateCostoCuadrilla)
   const activarCW        = useAppStore(s => s.activarCW)
   const marcarFinal        = useAppStore(s => s.marcarFinal)
   const reabrirSitio       = useAppStore(s => s.reabrirSitio)
@@ -280,8 +281,9 @@ export default function LiquidadorPage() {
   const liqCWItems = liqCW?.items || []
   const cwVenta = liqCWItems.reduce((acc, i) => acc + (i.cant||0)*(i.precio_nokia||0), 0)
   const cwCosto = liqCWItems.reduce((acc, i) => acc + (i.cant||0)*(i.precio_subc||0), 0)
-  const lc      = sitio.lc || ''
-  const sub     = lc ? subcs.find(s => s.lc === lc) : null
+  const lc             = sitio.lc || ''
+  const sub            = lc ? subcs.find(s => s.lc === lc) : null
+  const esInternaSitio = sub?.esInterna || false
 
   // Category logic
   const lcCat       = sub?.cat || sitio.cat || 'A'
@@ -864,7 +866,7 @@ export default function LiquidadorPage() {
                       </Fragment>
                     )
                   })}
-                  {!isTSS && sitio.tiene_cw && (cwCosto > 0 || (sitio.cw_costo || 0) > 0) && (
+                  {!isTSS && sitio.tiene_cw && !esInternaSitio && (cwCosto > 0 || (sitio.cw_costo || 0) > 0) && (
                     <Fragment key="cw-subc">
                       <SectionDivider label="CW" colSpan={!isViewer && !isFinal ? 6 : 5} variant="subc" />
                       <tr>
@@ -885,7 +887,7 @@ export default function LiquidadorPage() {
                     </td>
                     <td />
                     <td className="num" style={{ color: '#b45309', fontWeight: 800, fontSize: 13 }}>
-                      {cop(totalSubcActs + (!isTSS && sitio.tiene_cw ? (cwCosto || sitio.cw_costo || 0) : 0))}
+                      {cop(totalSubcActs + (!isTSS && sitio.tiene_cw && !esInternaSitio ? (cwCosto || sitio.cw_costo || 0) : 0))}
                     </td>
                     {!isViewer && !isFinal && <td />}
                   </tr>
@@ -894,21 +896,56 @@ export default function LiquidadorPage() {
             </div>
           </div>
 
-          {/* BACKOFFICE */}
+          {/* BACKOFFICE + COSTO CUADRILLA (side-by-side when interna) */}
           {(isAdmin || isCoord) && !isTSS && (
-            <div className="card">
-              <div className="card-h"><h2>Costo Backoffice</h2></div>
-              <div className="card-b">
-                <div className="fg" style={{ marginBottom: 0, maxWidth: 220 }}>
-                  <label className="fl">Valor Backoffice (COP)</label>
-                  <input
-                    type="number" className="fc" min="0"
-                    value={sitio.costos?.backoffice || 0}
-                    onChange={e => updateBackoffice(sitio.id, parseInt(e.target.value) || 0)}
-                    disabled={isFinal}
-                  />
+            <div style={esInternaSitio ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 } : {}}>
+              {/* Backoffice */}
+              <div className="card" style={{ margin: 0 }}>
+                <div className="card-h"><h2>Costo Backoffice</h2></div>
+                <div className="card-b">
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <label className="fl">Valor Backoffice (COP)</label>
+                    <input
+                      type="number" className="fc" min="0"
+                      value={sitio.costos?.backoffice || 0}
+                      onChange={e => updateBackoffice(sitio.id, parseInt(e.target.value) || 0)}
+                      disabled={isFinal}
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Costo Cuadrilla Interna */}
+              {esInternaSitio && (
+                <div className="card" style={{ margin: 0 }}>
+                  <div className="card-h" style={{ background: '#f0f4ff', borderLeftColor: '#6366f1' }}>
+                    <h2 style={{ color: '#3730a3' }}>Costo Cuadrilla Interna</h2>
+                  </div>
+                  <div className="card-b">
+                    {[
+                      { field: 'nomina',     label: 'Nómina' },
+                      { field: 'viaticos',   label: 'Viáticos' },
+                      { field: 'transporte', label: 'Transporte' },
+                    ].map(({ field, label }) => (
+                      <div key={field} className="fg" style={{ marginBottom: 8 }}>
+                        <label className="fl">{label} (COP)</label>
+                        <input
+                          type="number" className="fc" min="0"
+                          value={sitio.costos?.[field] || 0}
+                          onChange={e => updateCostoCuadrilla(sitio.id, field, parseInt(e.target.value) || 0)}
+                          disabled={isFinal}
+                        />
+                      </div>
+                    ))}
+                    <div className="fb" style={{ borderTop: '2px solid #6366f1', paddingTop: 6, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#3730a3' }}>Total</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#3730a3' }}>
+                        {cop((sitio.costos?.nomina || 0) + (sitio.costos?.viaticos || 0) + (sitio.costos?.transporte || 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -919,14 +956,15 @@ export default function LiquidadorPage() {
             </div>
             <div className="card-b" style={{ padding: '10px 14px' }}>
               {[
-                { label: 'SubC TI+ADJ',   value: calc.subcTI + calc.subcADJ, hide: false },
-                { label: 'SubC CR',        value: calc.subcCR,    hide: calc.subcCR === 0 },
-                { label: 'SubC CW',        value: calc.subcCW,    hide: !sitio.tiene_cw },
-                { label: 'Materiales TI',  value: efectMatTI,     hide: efectMatTI === 0, auto: hasDespacho && matTI_auto > 0 },
-                { label: 'Materiales CW',  value: efectMatCW,     hide: efectMatCW === 0, auto: hasDespacho && matCW_auto > 0 },
-                { label: 'Logística',      value: calc.logist,    hide: calc.logist === 0 },
-                { label: 'Adicionales',    value: calc.adicion,   hide: calc.adicion === 0 },
-                { label: 'Backoffice',     value: calc.backoffice, hide: (!isAdmin && !isCoord) || calc.backoffice === 0 },
+                { label: 'Cuadrilla Interna', value: calc.cuadrillaCosto, hide: !esInternaSitio || calc.cuadrillaCosto === 0 },
+                { label: 'SubC TI+ADJ',        value: calc.subcTI + calc.subcADJ, hide: esInternaSitio },
+                { label: 'SubC CR',            value: calc.subcCR,    hide: esInternaSitio || calc.subcCR === 0 },
+                { label: 'SubC CW',            value: calc.subcCW,    hide: esInternaSitio || !sitio.tiene_cw },
+                { label: 'Materiales TI',      value: efectMatTI,     hide: efectMatTI === 0, auto: hasDespacho && matTI_auto > 0 },
+                { label: 'Materiales CW',      value: efectMatCW,     hide: efectMatCW === 0, auto: hasDespacho && matCW_auto > 0 },
+                { label: 'Logística',          value: calc.logist,    hide: calc.logist === 0 },
+                { label: 'Adicionales',        value: calc.adicion,   hide: calc.adicion === 0 },
+                { label: 'Backoffice',         value: calc.backoffice, hide: (!isAdmin && !isCoord) || calc.backoffice === 0 },
               ].filter(r => !r.hide).map(r => (
                 <div key={r.label} className="fb" style={{ marginBottom: 4 }}>
                   <span style={{ fontSize: 11, color: '#555f55', display: 'flex', alignItems: 'center', gap: 4 }}>
