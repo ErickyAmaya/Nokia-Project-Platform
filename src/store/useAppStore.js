@@ -260,10 +260,18 @@ export const useAppStore = create((set, get) => ({
     get()._updateAndSync(id, s => ({ ...s, costos: { ...s.costos, [field]: value } }))
   },
 
-  // pct_m1 usa delay=0 para escribir inmediatamente — evita race con loadData()
+  // pct_m1: upsert directo sin setTimeout — _pendingIds.add ocurre síncronamente
+  // antes de cualquier await, así loadData() nunca puede pisar el valor local.
   updatePctM1: (id, value) => {
+    clearTimeout(_syncTimers[id])
     set(s => ({ sitios: s.sitios.map(x => x.id === id ? { ...x, pct_m1: value } : x) }))
-    _debouncedSync(id, get, 0)
+    _pendingIds.add(id)
+    _lastWriteTime[id] = Date.now()
+    const sitio = get().sitios.find(s => s.id === id)
+    if (!sitio) { _pendingIds.delete(id); return }
+    supabase.from('sitios').upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
+      .then(() => { _pendingIds.delete(id); get()._broadcastChange() })
+      .catch(() => { _pendingIds.delete(id) })
   },
 
   updateSitioAct: (id, actIdx, cant) => {
