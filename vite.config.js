@@ -30,6 +30,11 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/, /version\.json/],
         runtimeCaching: [
           {
+            // Supabase API — nunca cachear, siempre red
+            urlPattern: ({ url }) => url.hostname.includes('supabase.co'),
+            handler: 'NetworkOnly',
+          },
+          {
             // Google Fonts
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',

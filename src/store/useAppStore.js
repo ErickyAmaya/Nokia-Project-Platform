@@ -4,8 +4,9 @@ import { useAuthStore } from './authStore'
 
 // ── Debounced Supabase sync ──────────────────────────────────────
 const _clientId    = Math.random().toString(36).slice(2)  // unique per tab
-const _syncTimers  = {}
-const _pendingIds  = new Set()   // sitio IDs with un-synced local changes
+const _syncTimers   = {}
+const _pendingIds   = new Set()   // sitio IDs with un-synced local changes
+const _lastWriteTime = {}         // sitio id → ms timestamp of last upsert dispatch
 
 function _buildSitioPayload(sitio) {
   return {
@@ -39,6 +40,7 @@ function _buildSitioPayload(sitio) {
 async function _debouncedSync(id, get, delay = 1500) {
   clearTimeout(_syncTimers[id])
   _pendingIds.add(id)
+  _lastWriteTime[id] = Date.now()
   _syncTimers[id] = setTimeout(async () => {
     const sitio = get().sitios.find(s => s.id === id)
     if (!sitio) { _pendingIds.delete(id); return }
@@ -121,7 +123,11 @@ export const useAppStore = create((set, get) => ({
     const sitios = sitiosData.map(r => {
       // If this sitio has un-synced local edits, keep the in-memory copy
       // so an external loadData() doesn't clobber the user's pending input.
-      if (_pendingIds.has(r.id)) {
+      // Guard: keep in-memory copy if a write is pending OR was dispatched in last 3s
+      // The 3s window covers the race where the upsert finished but loadData() resolved
+      // with a stale SELECT response that was already in-flight before the write.
+      const recentlyWritten = (Date.now() - (_lastWriteTime[r.id] || 0)) < 3000
+      if (_pendingIds.has(r.id) || recentlyWritten) {
         const mem = currentSitios.find(s => s.id === r.id)
         if (mem) return mem
       }
