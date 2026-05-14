@@ -41,6 +41,21 @@ function SitioCombobox({ value, onChange, opciones, placeholder }) {
 
 const STEPS = ['Datos del Despacho', 'Agregar Equipos', 'Confirmar y Guardar']
 
+function getSosDisponibles(hwEquipos, _hwMovimientos, catalogoId, bodega = null, excludeSerials = []) {
+  return hwEquipos
+    .filter(e =>
+      Number(e.catalogo_id) === Number(catalogoId) &&
+      e.estado === 'en_bodega' &&
+      (!bodega || !e.ubicacion_actual || e.ubicacion_actual === bodega) &&
+      !excludeSerials.includes(e.serial)
+    )
+    .map(e => ({ so: e.so || e.serial, serial: e.serial, bodega: e.ubicacion_actual || '' }))
+}
+
+function getSOFromSerial(serial, hwEquipos) {
+  return hwEquipos.find(e => e.serial === serial)?.so || serial || ''
+}
+
 function nextHwDsDoc(movimientos) {
   const year = new Date().getFullYear()
   const re   = new RegExp(`^HW-DS-${year}-(\\d+)$`)
@@ -52,8 +67,9 @@ export default function HwDespachoModal({ onClose }) {
   const hwCatalogo      = useHwStore(s => s.hwCatalogo)
   const hwEquipos       = useHwStore(s => s.hwEquipos)
   const hwMovimientos   = useHwStore(s => s.hwMovimientos)
-  const addHwMovimiento = useHwStore(s => s.addHwMovimiento)
-  const updateHwEquipo  = useHwStore(s => s.updateHwEquipo)
+  const addHwMovimiento        = useHwStore(s => s.addHwMovimiento)
+  const updateHwEquipo         = useHwStore(s => s.updateHwEquipo)
+  const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
   const bodegas         = useMatStore(s => s.bodegas)
   const matSitios       = useMatStore(s => s.sitios)
   const saveSitio       = useMatStore(s => s.saveSitio)
@@ -228,47 +244,54 @@ export default function HwDespachoModal({ onClose }) {
     setStep(3)
   }
 
-  // ── Guardar ───────────────────────────────────────────────────────
+  // ── Guardar → crea despacho PENDIENTE (no va a Materiales todavía) ──
   async function handleSave() {
     if (items.length === 0) { showToast('Agrega al menos un equipo', 'err'); return }
+    if (!meta.destino.trim()) { showToast('Indica el sitio destino', 'err'); return }
     setSaving(true)
     try {
-      const existe = matSitios.some(s => s.nombre?.toLowerCase() === meta.destino.toLowerCase())
-      if (!existe && meta.destino) {
-        await saveSitio({ nombre: meta.destino, regional: '', activo: true }).catch(() => {})
-      }
+      // Aplanar items: cada serial → ítem individual en el jsonb
+      const itemsFlat = []
       for (const item of items) {
         if (item.aplica_serial === false) {
-          await addHwMovimiento({
-            equipo_id: null, serial: null,
-            catalogo_id: item.catalogo_id,
-            tipo: 'SALIDA', tipo_fuente: 'MANUAL',
-            so: meta.numero_doc, smp_id: meta.smp_id || null,
-            fecha: meta.fecha, cantidad: item.cantidad,
-            origen: item.bodega, origen_tipo: 'bodega',
-            destino: meta.destino, destino_tipo: 'sitio',
-            created_by: user?.nombre || user?.email,
-            notas: meta.notas || null,
+          itemsFlat.push({
+            catalogo_id:   item.catalogo_id,
+            descripcion:   item.descripcion,
+            cod_material:  item.cod_material,
+            tipo_material: item.tipo_material,
+            aplica_serial: false,
+            serial:        null,
+            so:            null,
+            cantidad:      item.cantidad,
+            bodega:        item.bodega,
           })
         } else {
           for (const serial of item.seriales) {
-            const equipo = hwEquipos.find(e => e.serial === serial)
-            if (equipo) await updateHwEquipo(equipo.id, { estado: 'en_sitio', ubicacion_actual: meta.destino })
-            await addHwMovimiento({
-              equipo_id: equipo?.id || null, serial,
-              catalogo_id: item.catalogo_id,
-              tipo: 'SALIDA', tipo_fuente: 'MANUAL',
-              so: meta.numero_doc, smp_id: meta.smp_id || null,
-              fecha: meta.fecha, cantidad: 1,
-              origen: item.bodega, origen_tipo: 'bodega',
-              destino: meta.destino, destino_tipo: 'sitio',
-              created_by: user?.nombre || user?.email,
-              notas: meta.notas || null,
+            itemsFlat.push({
+              catalogo_id:   item.catalogo_id,
+              descripcion:   item.descripcion,
+              cod_material:  item.cod_material,
+              tipo_material: item.tipo_material,
+              aplica_serial: true,
+              serial,
+              so:            hwEquipos.find(e => e.serial === serial)?.so || null,
+              cantidad:      1,
+              bodega:        item.bodega,
             })
           }
         }
       }
-      showToast('Despacho HW registrado correctamente')
+      await crearDespachoPendiente({
+        numero_doc:  meta.numero_doc,
+        fecha:       meta.fecha,
+        smp_id:      meta.smp_id || null,
+        bodega:      meta.bodega,
+        destino:     meta.destino.trim(),
+        notas:       meta.notas || null,
+        items:       itemsFlat,
+        created_by:  user?.nombre || user?.email || null,
+      })
+      showToast('Despacho registrado — pendiente de envío a sitio')
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
@@ -458,31 +481,40 @@ export default function HwDespachoModal({ onClose }) {
                       {item.aplica_serial !== false ? (
                         <div style={{ padding:'8px 12px', display:'flex', flexDirection:'column', gap:5 }}>
                           {item.seriales.map((s, slotIdx) => {
-                            const opciones = serialesDisp(itemIdx, slotIdx)
+                            const elegidos = item.seriales.filter((x, j) => j !== slotIdx && x)
+                            const sosDisp  = getSosDisponibles(hwEquipos, hwMovimientos, item.catalogo_id, item.bodega, elegidos)
+                            const soActual = s ? getSOFromSerial(s, hwEquipos) : ''
                             return (
                               <div key={slotIdx} style={{ display:'flex', alignItems:'center', gap:8 }}>
                                 <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:56,
                                   fontFamily:"'Barlow Condensed',sans-serif" }}>
-                                  Serial {slotIdx + 1}
+                                  SO {slotIdx + 1}
                                 </span>
                                 <select className="fc"
-                                  value={s}
-                                  onChange={e => setSerial(itemIdx, slotIdx, e.target.value)}
+                                  value={soActual}
+                                  onChange={e => {
+                                    const match = sosDisp.find(x => x.so === e.target.value)
+                                    setSerial(itemIdx, slotIdx, match ? match.serial : '')
+                                  }}
                                   style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600,
                                     flex:1, borderColor: s ? '#1a9c1a' : '#f59e0b' }}>
-                                  <option value="">— Seleccionar serial —</option>
-                                  {opciones.map(ser => (
-                                    <option key={ser} value={ser}>{ser}</option>
+                                  <option value="">— Seleccionar SO —</option>
+                                  {sosDisp.map(x => (
+                                    <option key={x.serial} value={x.so}>{x.so}{x.bodega ? ` (${x.bodega})` : ''}</option>
                                   ))}
                                 </select>
                                 {s && (
-                                  <span style={{ fontSize:9, color:'#1a6130', fontWeight:700 }}>✓</span>
+                                  <span style={{ fontSize:11, fontFamily:'monospace', color:'#144E4A',
+                                    background:'#f0fdf4', padding:'2px 8px', borderRadius:4,
+                                    border:'1px solid #c8e6c8', whiteSpace:'nowrap' }}>
+                                    {s}
+                                  </span>
                                 )}
                               </div>
                             )
                           })}
                           <div style={{ fontSize:10, color: item.seriales.filter(s=>s).length === item.cantidad ? '#1a6130' : '#92400e', fontWeight:600, marginTop:2 }}>
-                            {item.seriales.filter(s=>s).length} de {item.cantidad} serial(es) seleccionado(s)
+                            {item.seriales.filter(s=>s).length} de {item.cantidad} SO seleccionada(s)
                           </div>
                         </div>
                       ) : (
