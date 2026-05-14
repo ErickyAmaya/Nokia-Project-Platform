@@ -286,7 +286,7 @@ export const useHwStore = create((set, get) => ({
 
   // Crea un despacho pendiente. El HW sale del inventario disponible
   // pero su ubicación sigue siendo la bodega hasta que se realice.
-  crearDespachoPendiente: async ({ numero_doc, fecha, smp_id, bodega, destino, notas, items, created_by }) => {
+  crearDespachoPendiente: async ({ numero_doc, fecha, smp_id, bodega, destino, destino_tipo = 'sitio', id_transferencia = null, notas, items, created_by }) => {
     // 1. Equipos con serial → batch update a 'pendiente_despacho'
     const serialItems = items.filter(i => i.aplica_serial !== false && i.serial)
     if (serialItems.length > 0) {
@@ -312,6 +312,7 @@ export const useHwStore = create((set, get) => ({
           fecha, cantidad: item.cantidad,
           origen: item.bodega, origen_tipo: 'bodega',
           destino, destino_tipo: 'pendiente',
+          id_transferencia: id_transferencia || null,
           created_by: created_by || null,
           notas: `Despacho pendiente ${numero_doc}`,
         })
@@ -320,6 +321,7 @@ export const useHwStore = create((set, get) => ({
     // 3. Crear registro
     const { data, error } = await db().from('hw_despachos_pendientes').insert({
       numero_doc, fecha, smp_id: smp_id || null, bodega, destino,
+      destino_tipo, id_transferencia: id_transferencia || null,
       notas: notas || null, items, created_by: created_by || null,
     }).select().single()
     if (error) throw error
@@ -429,21 +431,25 @@ export const useHwStore = create((set, get) => ({
     return data
   },
 
-  // Marca el despacho como realizado → equipos pasan a en_sitio, entra a Materiales
+  // Marca el despacho como realizado → equipos pasan a en_sitio / en_transito
   realizarDespacho: async (despachoId, matSitios, saveSitio) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
-    // Crear sitio en Materiales si no existe
-    const existe = matSitios?.some(s => s.nombre?.toLowerCase() === despacho.destino.toLowerCase())
-    if (!existe && despacho.destino && saveSitio) {
-      await saveSitio({ nombre: despacho.destino, regional: '', activo: true }).catch(() => {})
+    const isTransfer  = despacho.destino_tipo === 'ss'
+    const nuevoEstado = isTransfer ? 'en_transito' : 'en_sitio'
+    const destTipoMov = isTransfer ? 'ss'           : 'sitio'
+    // Crear sitio en Materiales solo si es despacho a sitio (no transferencia)
+    if (!isTransfer) {
+      const existe = matSitios?.some(s => s.nombre?.toLowerCase() === despacho.destino.toLowerCase())
+      if (!existe && despacho.destino && saveSitio) {
+        await saveSitio({ nombre: despacho.destino, regional: '', activo: true }).catch(() => {})
+      }
     }
     // Procesar items
     for (const item of despacho.items) {
       if (item.aplica_serial !== false && item.serial) {
-        // Serial → en_sitio + movimiento SALIDA
         const eq = get().hwEquipos.find(e => e.serial === item.serial)
-        if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_sitio', ubicacion_actual: despacho.destino })
+        if (eq) await get().updateHwEquipo(eq.id, { estado: nuevoEstado, ubicacion_actual: despacho.destino })
         await get().addHwMovimiento({
           equipo_id: eq?.id || null, serial: item.serial,
           catalogo_id: item.catalogo_id,
@@ -452,13 +458,24 @@ export const useHwStore = create((set, get) => ({
           smp_id: despacho.smp_id || null,
           fecha: despacho.fecha, cantidad: 1,
           origen: item.bodega, origen_tipo: 'bodega',
-          destino: despacho.destino, destino_tipo: 'sitio',
+          destino: despacho.destino, destino_tipo: destTipoMov,
+          id_transferencia: despacho.id_transferencia || null,
           created_by: null,
           notas: despacho.notas || null,
         })
       }
-      // Sin serial → el movimiento SALIDA ya existe (tipo_fuente='PENDIENTE')
-      // Solo hay que actualizar destino_tipo a 'sitio' si cambió
+      // Sin serial → movimiento PENDIENTE ya existe; actualizar destino_tipo si es transferencia
+      if (item.aplica_serial === false && isTransfer) {
+        const movPend = get().hwMovimientos.find(m =>
+          m.tipo === 'SALIDA' && m.tipo_fuente === 'PENDIENTE' &&
+          Number(m.catalogo_id) === Number(item.catalogo_id) &&
+          m.destino === despacho.destino
+        )
+        if (movPend) {
+          await db().from('hw_movimientos').update({ destino_tipo: 'ss' }).eq('id', movPend.id)
+          set(s => ({ hwMovimientos: s.hwMovimientos.map(m => m.id === movPend.id ? { ...m, destino_tipo: 'ss' } : m) }))
+        }
+      }
     }
     // Eliminar registro pendiente
     const { error } = await db().from('hw_despachos_pendientes').delete().eq('id', despachoId)

@@ -350,6 +350,14 @@ export default function MatReportes() {
         estado = 'Asignado'; ubicacion = 'SITIO'
         asignadoA = e.ubicacion_actual || ''
         so = salidaMov?.so || e.so || ''
+      } else if (e.estado === 'en_transito') {
+        const salidaMov = hwMovimientos
+          .filter(m => m.serial === e.serial && m.tipo === 'SALIDA')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+        ubicacion = 'Transferencia'
+        estado = salidaMov?.id_transferencia ? `ID Transferencia ${salidaMov.id_transferencia}` : 'En Tránsito'
+        asignadoA = e.ubicacion_actual || salidaMov?.destino || ''
+        so = salidaMov?.so || e.so || ''
       } else {
         estado = e.estado || '—'; ubicacion = e.ubicacion_actual || 'POPAYAN'
         asignadoA = ''; so = e.so || ''
@@ -370,6 +378,19 @@ export default function MatReportes() {
         'INGETEL', 'SITIO', m.tipo_fuente || 'ABASTECIMIENTO', m.so || '—',
         cat?.cod_material || '—', cat?.descripcion || '—',
         m.cantidad || 1, null, 'Asignado', m.destino || '',
+        m.notas || '', rowId++, '',
+      ])
+    })
+
+    // Sin serial — SALIDA a SS (Transferencia) → ID Transferencia
+    ssMovs.filter(m => m.tipo === 'SALIDA' && m.destino_tipo === 'ss').forEach(m => {
+      const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+      nokiaRows.push([
+        'INGETEL', 'Transferencia', m.tipo_fuente || 'ABASTECIMIENTO', m.so || '—',
+        cat?.cod_material || '—', cat?.descripcion || '—',
+        m.cantidad || 1, null,
+        m.id_transferencia ? `ID Transferencia ${m.id_transferencia}` : 'En Tránsito',
+        m.destino || '',
         m.notas || '', rowId++, '',
       ])
     })

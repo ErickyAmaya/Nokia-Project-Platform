@@ -225,6 +225,7 @@ function emptyForm(tipo, movimientos) {
     condicion:         'nuevo',
     log_inv_tipo_unidad: '',
     notas:             '',
+    id_transferencia:  '',
   }
 }
 
@@ -450,6 +451,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
           origen_tipo:         form.origen_tipo,
           destino:             form.destino,
           destino_tipo:        form.destino_tipo,
+          id_transferencia:    tipo === 'SALIDA' && form.destino_tipo === 'ss' ? (form.id_transferencia || null) : null,
           log_inv_tipo_unidad: form.log_inv_tipo_unidad || null,
           created_by:          user?.nombre || user?.email,
           notas:               form.notas || null,
@@ -499,7 +501,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
 
         const nuevoEstado = tipo === 'ENTRADA'
           ? (form.destino_tipo === 'bodega' ? 'en_bodega' : form.destino_tipo === 'sitio' ? 'en_sitio' : 'en_transito')
-          : (form.destino_tipo === 'nokia' ? 'retornado_nokia' : form.destino_tipo === 'ss' ? 'retornado_ss' : form.destino_tipo === 'sitio' ? 'en_sitio' : 'en_transito')
+          : (form.destino_tipo === 'nokia' ? 'retornado_nokia' : form.destino_tipo === 'ss' ? 'en_transito' : form.destino_tipo === 'sitio' ? 'en_sitio' : 'en_transito')
 
         let equipo = hwEquipos.find(e => e.serial === serial)
         if (!equipo) {
@@ -534,6 +536,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
           origen_tipo:         form.origen_tipo,
           destino:             form.destino,
           destino_tipo:        form.destino_tipo,
+          id_transferencia:    tipo === 'SALIDA' && form.destino_tipo === 'ss' ? (form.id_transferencia || null) : null,
           log_inv_tipo_unidad: form.log_inv_tipo_unidad || null,
           created_by:          user?.nombre || user?.email,
           notas:               form.notas || null,
@@ -770,6 +773,16 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
             {/* Destino */}
             <LugarField label="Destino *" tipoKey="destino_tipo" nombreKey="destino"
               form={form} setForm={setForm} getOpciones={getOpciones} />
+
+            {/* ID Transferencia — solo para SALIDA a SS */}
+            {tipo === 'SALIDA' && form.destino_tipo === 'ss' && (
+              <div>
+                <label className="fl">ID Transferencia</label>
+                <input type="number" className="fc" placeholder="Ej: 248"
+                  value={form.id_transferencia}
+                  onChange={e => setForm(p => ({ ...p, id_transferencia: e.target.value }))} />
+              </div>
+            )}
 
             {/* Condición + Tipo Unidad */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>

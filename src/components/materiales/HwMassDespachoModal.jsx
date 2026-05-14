@@ -27,14 +27,16 @@ export default function HwMassDespachoModal({ onClose }) {
   const hwCatalogo             = useHwStore(s => s.hwCatalogo)
   const hwEquipos              = useHwStore(s => s.hwEquipos)
   const hwMovimientos          = useHwStore(s => s.hwMovimientos)
+  const hwServiceSuppliers     = useHwStore(s => s.hwServiceSuppliers)
   const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
   const user                   = useAuthStore(s => s.user)
 
-  const [step,     setStep]     = useState('pick')
-  const [rows,     setRows]     = useState([])
-  const [batchDoc, setBatchDoc] = useState('')
-  const [saving,   setSaving]   = useState(false)
-  const [progress, setProgress] = useState({ current: 0, total: 0, phase: '' })
+  const [step,        setStep]        = useState('pick')
+  const [rows,        setRows]        = useState([])
+  const [batchDoc,    setBatchDoc]    = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [progress,    setProgress]    = useState({ current: 0, total: 0, phase: '' })
+  const [transferIds, setTransferIds] = useState({})
 
   function parseFile(file) {
     if (!file) return
@@ -128,6 +130,15 @@ export default function HwMassDespachoModal({ onClose }) {
           }
         })
 
+        // Detectar destinos SS para IDs de transferencia
+        const ssNames = new Set(hwServiceSuppliers.map(s => s.nombre))
+        const newTransferIds = {}
+        parsed.forEach(r => {
+          if (ssNames.has(r.siteName) && !(r.siteName in newTransferIds)) {
+            newTransferIds[r.siteName] = ''
+          }
+        })
+        setTransferIds(newTransferIds)
         setBatchDoc(nextHwDespachoDoc(hwMovimientos))
         setRows(parsed)
         setStep('preview')
@@ -151,15 +162,17 @@ export default function HwMassDespachoModal({ onClose }) {
       if (!bySite[r.siteName]) bySite[r.siteName] = []
       bySite[r.siteName].push(r)
     })
-    const sites   = Object.keys(bySite)
-    const today   = new Date().toISOString().slice(0, 10)
-    let   doneOps = 0
+    const ssNames  = new Set(hwServiceSuppliers.map(s => s.nombre))
+    const sites    = Object.keys(bySite)
+    const today    = new Date().toISOString().slice(0, 10)
+    let   doneOps  = 0
     setProgress({ current: 0, total: sites.length, phase: 'Preparando…' })
 
     try {
       for (let i = 0; i < sites.length; i++) {
-        const siteName  = sites[i]
-        const siteRows  = bySite[siteName]
+        const siteName   = sites[i]
+        const siteRows   = bySite[siteName]
+        const isTransfer = ssNames.has(siteName)
         setProgress({ current: doneOps, total: sites.length, phase: `Procesando ${siteName}…` })
 
         const docNum = sites.length === 1
@@ -179,14 +192,16 @@ export default function HwMassDespachoModal({ onClose }) {
         }))
 
         await crearDespachoPendiente({
-          numero_doc:  docNum,
-          fecha:       siteRows.find(r => r.fecha)?.fecha || today,
-          smp_id:      siteRows.find(r => r.smpId)?.smpId || null,
-          bodega:      siteRows[0].bodegaOrigen || 'POPAYAN',
-          destino:     siteName,
-          notas:       null,
+          numero_doc:       docNum,
+          fecha:            siteRows.find(r => r.fecha)?.fecha || today,
+          smp_id:           siteRows.find(r => r.smpId)?.smpId || null,
+          bodega:           siteRows[0].bodegaOrigen || 'POPAYAN',
+          destino:          siteName,
+          destino_tipo:     isTransfer ? 'ss' : 'sitio',
+          id_transferencia: isTransfer ? (transferIds[siteName] || null) : null,
+          notas:            null,
           items,
-          created_by:  user?.nombre || user?.email || null,
+          created_by:       user?.nombre || user?.email || null,
         })
 
         doneOps++
@@ -280,6 +295,24 @@ export default function HwMassDespachoModal({ onClose }) {
                 </div>
               ))}
             </div>
+
+            {/* IDs de Transferencia para destinos SS */}
+            {Object.keys(transferIds).length > 0 && (
+              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:12 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#1e40af', letterSpacing:.5, marginBottom:8 }}>
+                  TRANSFERENCIAS A SS — ID TRANSFERENCIA
+                </div>
+                {Object.keys(transferIds).map(ssName => (
+                  <div key={ssName} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:'#1e40af', minWidth:140 }}>{ssName}</span>
+                    <input type="number" className="fc" placeholder="ID Transferencia (ej: 248)"
+                      value={transferIds[ssName]}
+                      onChange={e => setTransferIds(p => ({ ...p, [ssName]: e.target.value }))}
+                      style={{ maxWidth:200 }} />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Tabla */}
             <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>

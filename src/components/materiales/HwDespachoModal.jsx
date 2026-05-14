@@ -64,9 +64,10 @@ function nextHwDsDoc(movimientos) {
 }
 
 export default function HwDespachoModal({ onClose }) {
-  const hwCatalogo      = useHwStore(s => s.hwCatalogo)
-  const hwEquipos       = useHwStore(s => s.hwEquipos)
-  const hwMovimientos   = useHwStore(s => s.hwMovimientos)
+  const hwCatalogo         = useHwStore(s => s.hwCatalogo)
+  const hwEquipos          = useHwStore(s => s.hwEquipos)
+  const hwMovimientos      = useHwStore(s => s.hwMovimientos)
+  const hwServiceSuppliers = useHwStore(s => s.hwServiceSuppliers)
   const addHwMovimiento        = useHwStore(s => s.addHwMovimiento)
   const updateHwEquipo         = useHwStore(s => s.updateHwEquipo)
   const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
@@ -82,12 +83,14 @@ export default function HwDespachoModal({ onClose }) {
 
   // ── Step 1 ────────────────────────────────────────────────────────
   const [meta, setMeta] = useState({
-    numero_doc: nextHwDsDoc(hwMovimientos),
-    fecha:      new Date().toISOString().slice(0, 10),
-    smp_id:     '',
-    bodega:     bodegas[0]?.nombre || '',
-    destino:    '',
-    notas:      '',
+    numero_doc:       nextHwDsDoc(hwMovimientos),
+    fecha:            new Date().toISOString().slice(0, 10),
+    smp_id:           '',
+    bodega:           bodegas[0]?.nombre || '',
+    destino_tipo:     'sitio',
+    destino:          '',
+    id_transferencia: '',
+    notas:            '',
   })
 
   // ── Step 2 items ──────────────────────────────────────────────────
@@ -247,7 +250,7 @@ export default function HwDespachoModal({ onClose }) {
   // ── Guardar → crea despacho PENDIENTE (no va a Materiales todavía) ──
   async function handleSave() {
     if (items.length === 0) { showToast('Agrega al menos un equipo', 'err'); return }
-    if (!meta.destino.trim()) { showToast('Indica el sitio destino', 'err'); return }
+    if (!meta.destino.trim()) { showToast(meta.destino_tipo === 'ss' ? 'Indica el Service Supplier' : 'Indica el sitio destino', 'err'); return }
     setSaving(true)
     try {
       // Aplanar items: cada serial → ítem individual en el jsonb
@@ -282,14 +285,16 @@ export default function HwDespachoModal({ onClose }) {
         }
       }
       await crearDespachoPendiente({
-        numero_doc:  meta.numero_doc,
-        fecha:       meta.fecha,
-        smp_id:      meta.smp_id || null,
-        bodega:      meta.bodega,
-        destino:     meta.destino.trim(),
-        notas:       meta.notas || null,
-        items:       itemsFlat,
-        created_by:  user?.nombre || user?.email || null,
+        numero_doc:       meta.numero_doc,
+        fecha:            meta.fecha,
+        smp_id:           meta.smp_id || null,
+        bodega:           meta.bodega,
+        destino:          meta.destino.trim(),
+        destino_tipo:     meta.destino_tipo,
+        id_transferencia: meta.destino_tipo === 'ss' ? (meta.id_transferencia || null) : null,
+        notas:            meta.notas || null,
+        items:            itemsFlat,
+        created_by:       user?.nombre || user?.email || null,
       })
       showToast('Despacho registrado — pendiente de envío a sitio')
       onClose()
@@ -372,13 +377,47 @@ export default function HwDespachoModal({ onClose }) {
                   </select>
                 </div>
                 <div>
-                  <label className="fl">Sitio Destino *</label>
-                  <SitioCombobox
-                    value={meta.destino}
-                    onChange={val => setMeta(p => ({ ...p, destino: val }))}
-                    opciones={sitiosNombres}
-                    placeholder="Escribir o buscar sitio Nokia…"
-                  />
+                  <label className="fl">Tipo de Destino *</label>
+                  <div style={{ display:'flex', gap:6, marginBottom:8 }}>
+                    {[{value:'sitio',label:'Sitio Nokia'},{value:'ss',label:'Transferencia SS'}].map(t => (
+                      <button key={t.value} type="button"
+                        onClick={() => setMeta(p => ({ ...p, destino_tipo: t.value, destino: '', id_transferencia: '' }))}
+                        style={{
+                          padding:'4px 14px', fontSize:11, fontWeight:700, borderRadius:20, cursor:'pointer',
+                          border: meta.destino_tipo === t.value ? 'none' : '1.5px solid #e0e4e0',
+                          background: meta.destino_tipo === t.value ? '#1d4ed8' : '#fff',
+                          color: meta.destino_tipo === t.value ? '#fff' : '#555f55',
+                        }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {meta.destino_tipo === 'sitio' ? (
+                    <>
+                      <label className="fl">Sitio Destino *</label>
+                      <SitioCombobox
+                        value={meta.destino}
+                        onChange={val => setMeta(p => ({ ...p, destino: val }))}
+                        opciones={sitiosNombres}
+                        placeholder="Escribir o buscar sitio Nokia…"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <label className="fl">Service Supplier *</label>
+                      <select className="fc" value={meta.destino}
+                        onChange={e => setMeta(p => ({ ...p, destino: e.target.value }))}>
+                        <option value="">— Seleccionar SS —</option>
+                        {hwServiceSuppliers.filter(s => s.activo !== false).map(s => (
+                          <option key={s.id} value={s.nombre}>{s.nombre}</option>
+                        ))}
+                      </select>
+                      <label className="fl" style={{ marginTop:8 }}>ID Transferencia</label>
+                      <input type="number" className="fc" placeholder="Ej: 248"
+                        value={meta.id_transferencia}
+                        onChange={e => setMeta(p => ({ ...p, id_transferencia: e.target.value }))} />
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="fl">Notas</label>
@@ -389,7 +428,7 @@ export default function HwDespachoModal({ onClose }) {
                   <button className="btn bou" onClick={onClose}>Cancelar</button>
                   <button className="btn bp" onClick={() => {
                     if (!meta.bodega)  { showToast('Selecciona una bodega', 'err'); return }
-                    if (!meta.destino) { showToast('Selecciona un sitio destino', 'err'); return }
+                    if (!meta.destino) { showToast(meta.destino_tipo === 'ss' ? 'Selecciona un Service Supplier' : 'Selecciona un sitio destino', 'err'); return }
                     setStep(2)
                   }}>Siguiente →</button>
                 </div>
@@ -400,7 +439,10 @@ export default function HwDespachoModal({ onClose }) {
             {step === 2 && (
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                 <div style={{ background:'#f5f5f5', borderRadius:6, padding:'6px 10px', fontSize:11, color:'#555f55' }}>
-                  Despacho <strong>{meta.numero_doc}</strong> · Bodega: <strong>{meta.bodega}</strong> → <strong>{meta.destino}</strong>
+                  Despacho <strong>{meta.numero_doc}</strong> · Bodega: <strong>{meta.bodega}</strong> → {meta.destino_tipo === 'ss' ? <span style={{ color:'#1d4ed8', fontWeight:700 }}>SS: </span> : ''}<strong>{meta.destino}</strong>
+                  {meta.destino_tipo === 'ss' && meta.id_transferencia && (
+                    <span style={{ marginLeft:8, color:'#1d4ed8', fontSize:10 }}>(ID Trans: {meta.id_transferencia})</span>
+                  )}
                 </div>
 
                 {/* Agregar equipo */}

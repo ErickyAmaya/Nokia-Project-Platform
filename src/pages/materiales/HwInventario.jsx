@@ -147,7 +147,10 @@ export default function HwInventario() {
         if (filTipo   && r.cat.tipo_material !== filTipo)   return false
         if (filStatus === 'agotado' && r.stock !== 0)       return false
         if (filStatus === 'stock'   && r.stock === 0)       return false
-        if (q && !`${r.cat.descripcion} ${r.cat.cod_material || ''}`.toLowerCase().includes(q)) return false
+        if (q) {
+          const soText = r.movsSinSerial.map(m => m.so || '').join(' ')
+          if (!`${r.cat.descripcion} ${r.cat.cod_material || ''} ${soText}`.toLowerCase().includes(q)) return false
+        }
         return true
       })
   }, [hwCatalogo, hwEquipos, hwMovimientos, search, filTipo, filStatus])
@@ -422,55 +425,90 @@ export default function HwInventario() {
                               </div>
                             </>)}
 
-                            {/* ── Sin serial: columnas igual a la tabla principal ── */}
+                            {/* ── Sin serial: kardex de movimientos por SO ── */}
                             {movsSinSerial.length > 0 && (() => {
                               if (ssStock === 0 && ssEnSitio === 0) return null
-                              const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
-                              const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
-                              const st     = statusInfo(ssStock)
+                              const st = statusInfo(ssStock)
+                              const movsOrdenados = [...movsSinSerial].sort((a, b) =>
+                                new Date(b.fecha || b.created_at) - new Date(a.fecha || a.created_at)
+                              )
                               return (
                                 <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
-                                  <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                  {/* Sub-header con totales */}
+                                  <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6 }}>
                                     <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
-                                      {cat.descripcion}
+                                      {cat.descripcion} — SIN SERIAL
                                     </span>
-                                    <span style={{ fontSize:10, color:'#D6F9F2' }}>{ssEntrada} unidad(es)</span>
+                                    <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+                                      <span style={{ fontSize:10, color:'#D6F9F2' }}>
+                                        Stock: <strong>{ssStock}</strong>{isMts && ' mts'}
+                                      </span>
+                                      <span style={{ fontSize:10, color:'#D6F9F2' }}>
+                                        En Sitio: <strong>{ssEnSitio}</strong>
+                                      </span>
+                                      <span style={{ fontSize:10, color:'#9ca89c' }}>
+                                        Total recibido: {ssEntrada}
+                                      </span>
+                                      <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
+                                      {canEdit && (
+                                        <span onClick={ev => ev.stopPropagation()} style={{ display:'flex', gap:4 }}>
+                                          <button className="btn-edit" onClick={() => openCatEdit(cat)}><IconEdit /></button>
+                                          <button className="btn-del" onClick={() => handleDeleteCat(cat)}>✕</button>
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
+                                  {/* Tabla kardex */}
                                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                     <thead>
                                       <tr style={{ background:'#f0f7f0' }}>
-                                        {['CÓD. EQUIPO','DESCRIPCIÓN','TIPO','BODEGA','STOCK','EN SITIO','TOTAL','STATUS', canEdit && ''].filter(Boolean).map(h => (
-                                          <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign: ['STOCK','EN SITIO','TOTAL'].includes(h) ? 'center' : 'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
+                                        {['TIPO','SO','FECHA','BODEGA','CANT.','DESTINO','NOTAS'].map(h => (
+                                          <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10,
+                                            textAlign: h === 'CANT.' ? 'center' : 'left',
+                                            borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                         ))}
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      <tr style={{ background:'#fff', borderBottom:'1px solid #e8f5e8' }}>
-                                        <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#264D4A' }}>{cat.cod_material || '—'}</td>
-                                        <td style={{ padding:'6px 10px', fontWeight:600, fontSize:12 }}>{cat.descripcion}</td>
-                                        <td style={{ padding:'6px 10px' }}>
-                                          <span className="badge" style={{ background:tipoBg, color:tipoCl, fontSize:9 }}>{cat.tipo_material}</span>
-                                        </td>
-                                        <td style={{ padding:'6px 10px', fontSize:11, color:'#555f55' }}>{ssBodegaLabel}</td>
-                                        <td style={{ padding:'6px 10px', fontWeight:800, fontSize:14, color: ssStock===0?'#c0392b':'#1a6130', textAlign:'center' }}>
-                                          {ssStock}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
-                                        </td>
-                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#1e40af', textAlign:'center' }}>
-                                          {ssEnSitio}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
-                                        </td>
-                                        <td style={{ padding:'6px 10px', fontWeight:700, fontSize:12, color:'#555f55', textAlign:'center' }}>
-                                          {ssEntrada}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
-                                        </td>
-                                        <td style={{ padding:'6px 10px' }}>
-                                          <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
-                                        </td>
-                                        {canEdit && (
-                                          <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}>
-                                            <button className="btn-edit" onClick={() => openCatEdit(cat)} style={{ marginRight:4 }}><IconEdit /></button>
-                                            <button className="btn-del" onClick={() => handleDeleteCat(cat)}>✕</button>
-                                          </td>
-                                        )}
-                                      </tr>
+                                      {movsOrdenados.map((m, i) => {
+                                        const isEnt = m.tipo === 'ENTRADA'
+                                        return (
+                                          <tr key={m.id} style={{
+                                            background: isEnt
+                                              ? (i % 2 === 0 ? '#f0fdf4' : '#e8f5e8')
+                                              : (i % 2 === 0 ? '#fff9f9' : '#fee8e7'),
+                                            borderBottom:'1px solid #e8f5e8',
+                                          }}>
+                                            <td style={{ padding:'5px 10px', whiteSpace:'nowrap' }}>
+                                              <span className="badge" style={{
+                                                background: isEnt ? '#d4edda' : '#fde8e7',
+                                                color: isEnt ? '#1a6130' : '#c0392b', fontSize:9,
+                                              }}>{m.tipo}</span>
+                                            </td>
+                                            <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>
+                                              {m.so || <span style={{ color:'#9ca89c', fontWeight:400 }}>—</span>}
+                                            </td>
+                                            <td style={{ padding:'5px 10px', color:'#555f55', whiteSpace:'nowrap' }}>
+                                              {(m.fecha || m.created_at || '').slice(0, 10) || '—'}
+                                            </td>
+                                            <td style={{ padding:'5px 10px', color:'#555f55' }}>
+                                              {isEnt ? (m.destino || '—') : (m.origen || '—')}
+                                            </td>
+                                            <td style={{ padding:'5px 10px', fontWeight:700, textAlign:'center',
+                                              color: isEnt ? '#1a6130' : '#c0392b' }}>
+                                              {isEnt ? '+' : '−'}{m.cantidad || 1}
+                                              {isMts && <span style={{ fontWeight:400, fontSize:9, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                            </td>
+                                            <td style={{ padding:'5px 10px', color:'#555f55', fontSize:10 }}>
+                                              {isEnt ? (m.origen || '—') : (m.destino || '—')}
+                                            </td>
+                                            <td style={{ padding:'5px 10px', color:'#9ca89c', fontSize:10, maxWidth:180,
+                                              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                              {m.notas || '—'}
+                                            </td>
+                                          </tr>
+                                        )
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>
