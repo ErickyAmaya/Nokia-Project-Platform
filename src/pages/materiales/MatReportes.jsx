@@ -299,18 +299,7 @@ export default function MatReportes() {
         cat.aplica_serial===false?'No':'Sí', ...counts, total])
     })
 
-    // Sheet 2: Equipos con serial (detalle)
-    const seriales = [['Descripción','Código','ID Parte','Tipo','Serial','Estado',
-      'Ubicación Actual','Condición','Tipo Unidad','Notas','Fecha Creación']]
-    hwEquipos.forEach(e => {
-      const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
-      seriales.push([cat?.descripcion||'—', cat?.cod_material||'—', cat?.id_parte||'—',
-        cat?.tipo_material||'—', e.serial||'—', e.estado||'—',
-        e.ubicacion_actual||'—', e.condicion||'—', e.log_inv_tipo_unidad||'—',
-        e.notas||'', fmtDate(e.created_at)])
-    })
-
-    // Sheet 3: Equipos por ubicación
+    // Sheet 2: Equipos por ubicación
     const porUbicacion = [['Ubicación','Descripción','Código','Serial','Estado','Condición']]
     const ubicaciones = [...new Set(hwEquipos.map(e => e.ubicacion_actual || '(Sin asignar)'))]
     ubicaciones.sort().forEach(ub => {
@@ -321,14 +310,13 @@ export default function MatReportes() {
       })
     })
 
-    // Sheet 4: Reporte Semanal Nokia — formato exacto del Excel Nokia
-    const NOKIA_HDR = ['ss_e2e','Ubicacion/Bodega','tipo_fuente','so','cod_material',
-      'descripcion_material','cantidad','serial','Estado','Asignado A','Comentario','ID','Columna1']
+    // Sheet 3: Disponible — formato Nokia exacto (con serial + sin serial)
+    const NOKIA_HDR = ['ss_e2e','Ubicacion / Bodega','tipo_fuente','so','cod_material',
+      'descripcion_material','cantidad','serial','Estado (Asignado / Disponible)','Asignado A','Comentario','ID','Columna1']
     const nokiaRows = [NOKIA_HDR]
 
     const serialesEnFalla = new Set(hwFallas.map(f => f.serial).filter(Boolean))
 
-    // serial → despacho pendiente para obtener SO y destino
     const serialToDespacho = {}
     hwDespachosPendientes.forEach(d => {
       ;(d.items || []).forEach(item => {
@@ -337,37 +325,35 @@ export default function MatReportes() {
     })
 
     let rowId = 1
+
+    // Con serial (hwEquipos)
     hwEquipos.forEach(e => {
       const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
-
       const entradaMov = hwMovimientos
         .filter(m => m.serial === e.serial && m.tipo === 'ENTRADA')
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
       const tipo_fuente = entradaMov?.tipo_fuente || 'ABASTECIMIENTO'
-
       let estado, ubicacion, asignadoA, so
-
       if (serialesEnFalla.has(e.serial)) {
-        estado = 'Equipo Falla'; ubicacion = 'POPAYAN'; asignadoA = ''; so = ''
+        estado = 'Equipo Falla'; ubicacion = e.ubicacion_actual || 'POPAYAN'; asignadoA = ''; so = e.so || ''
       } else if (e.estado === 'en_bodega') {
-        estado = 'Disponible'; ubicacion = 'POPAYAN'; asignadoA = ''; so = ''
+        estado = 'Disponible'; ubicacion = e.ubicacion_actual || 'POPAYAN'; asignadoA = ''; so = e.so || ''
       } else if (e.estado === 'pendiente_despacho') {
         const match = serialToDespacho[e.serial]
-        estado = 'Asignado'; ubicacion = 'POPAYAN'
+        estado = 'Asignado'; ubicacion = e.ubicacion_actual || 'POPAYAN'
         asignadoA = match?.despacho?.destino || ''
-        so = match?.item?.so || match?.despacho?.so || ''
+        so = match?.item?.so || e.so || ''
       } else if (e.estado === 'en_sitio') {
         const salidaMov = hwMovimientos
           .filter(m => m.serial === e.serial && m.tipo === 'SALIDA')
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
         estado = 'Asignado'; ubicacion = 'SITIO'
         asignadoA = e.ubicacion_actual || ''
-        so = salidaMov?.so || ''
+        so = salidaMov?.so || e.so || ''
       } else {
         estado = e.estado || '—'; ubicacion = e.ubicacion_actual || 'POPAYAN'
-        asignadoA = ''; so = ''
+        asignadoA = ''; so = e.so || ''
       }
-
       nokiaRows.push([
         'INGETEL', ubicacion, tipo_fuente, so,
         cat?.cod_material || '—', cat?.descripcion || '—',
@@ -376,9 +362,61 @@ export default function MatReportes() {
       ])
     })
 
+    // Sin serial — SALIDA a sitio → Asignado
+    const ssMovs = hwMovimientos.filter(m => !m.serial && m.catalogo_id)
+    ssMovs.filter(m => m.tipo === 'SALIDA' && m.destino_tipo === 'sitio').forEach(m => {
+      const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+      nokiaRows.push([
+        'INGETEL', 'SITIO', m.tipo_fuente || 'ABASTECIMIENTO', m.so || '—',
+        cat?.cod_material || '—', cat?.descripcion || '—',
+        m.cantidad || 1, null, 'Asignado', m.destino || '',
+        m.notas || '', rowId++, '',
+      ])
+    })
+
+    // Sin serial — pendiente de despacho → Asignado
+    ssMovs.filter(m => m.tipo === 'SALIDA' && m.tipo_fuente === 'PENDIENTE').forEach(m => {
+      const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+      nokiaRows.push([
+        'INGETEL', m.origen || 'POPAYAN', 'PENDIENTE', m.so || '—',
+        cat?.cod_material || '—', cat?.descripcion || '—',
+        m.cantidad || 1, null, 'Asignado', m.destino || '',
+        m.notas || '', rowId++, '',
+      ])
+    })
+
+    // Sin serial — stock en bodega → Disponible (net ENTRADA - SALIDA por catalogo+bodega)
+    const netByKey = {}
+    ssMovs.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino).forEach(m => {
+      const key = `${m.catalogo_id}|${m.destino}`
+      if (!netByKey[key]) netByKey[key] = { net: 0, movs: [] }
+      netByKey[key].net += (m.cantidad || 0)
+      netByKey[key].movs.push(m)
+    })
+    ssMovs.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen).forEach(m => {
+      const key = `${m.catalogo_id}|${m.origen}`
+      if (netByKey[key]) netByKey[key].net -= (m.cantidad || 0)
+    })
+    Object.values(netByKey).forEach(({ net, movs }) => {
+      if (net <= 0) return
+      let remaining = net
+      ;[...movs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).forEach(m => {
+        if (remaining <= 0) return
+        const qty = Math.min(m.cantidad || 0, remaining)
+        if (qty <= 0) return
+        remaining -= qty
+        const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+        nokiaRows.push([
+          'INGETEL', m.destino || 'POPAYAN', m.tipo_fuente || 'ABASTECIMIENTO', m.so || '—',
+          cat?.cod_material || '—', cat?.descripcion || '—',
+          qty, null, 'Disponible', '',
+          m.notas || '', rowId++, '',
+        ])
+      })
+    })
+
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws(resumen),      'Resumen por Tipo')
-    XLSX.utils.book_append_sheet(wb, ws(seriales),     'Equipos con Serial')
     XLSX.utils.book_append_sheet(wb, ws(porUbicacion), 'Por Ubicación')
     XLSX.utils.book_append_sheet(wb, ws(nokiaRows),    'Disponible')
     XLSX.writeFile(wb, `Inventario_HW_Nokia_${new Date().toISOString().slice(0,10)}.xlsx`)
