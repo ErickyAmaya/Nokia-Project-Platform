@@ -232,6 +232,7 @@ function AppRoutes() {
 export default function App() {
   const initSession       = useAuthStore(s => s.initSession)
   const loadData          = useAppStore(s => s.loadData)
+  const hasPendingSync    = useAppStore(s => s.hasPendingSync)
   const loadEmpresaConfig = useAppStore(s => s.loadEmpresaConfig)
   const initAppSync       = useAppStore(s => s.initRealtimeSync)
   const user              = useAuthStore(s => s.user)
@@ -262,7 +263,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return
     function onVisible() {
-      if (document.visibilityState === 'visible') loadData()
+      // Skip reload if there are un-synced local writes in flight — the in-memory
+      // state is more current than whatever the DB would return right now.
+      // This prevents iOS native-select visibilitychange from clobbering edits.
+      if (document.visibilityState === 'visible' && !hasPendingSync()) loadData()
     }
     document.addEventListener('visibilitychange', onVisible)
     const interval = setInterval(loadData, 60_000)
@@ -270,7 +274,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisible)
       clearInterval(interval)
     }
-  }, [user, loadData])
+  }, [user, loadData, hasPendingSync])
 
   // Expose RT status globally so Layout can read it without prop drilling
   useEffect(() => {

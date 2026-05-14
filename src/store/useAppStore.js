@@ -235,6 +235,8 @@ export const useAppStore = create((set, get) => ({
     if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: { from: _clientId } }).catch(() => {})
   },
 
+  hasPendingSync: () => _pendingIds.size > 0,
+
   setSitios: sitios => set({ sitios }),
   setGastos: gastos => set({ gastos }),
 
