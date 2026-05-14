@@ -5,8 +5,10 @@ import { useAuthStore } from './authStore'
 // ── Debounced Supabase sync ──────────────────────────────────────
 const _clientId    = Math.random().toString(36).slice(2)  // unique per tab
 const _syncTimers   = {}
-const _pendingIds   = new Set()   // sitio IDs with un-synced local changes
-const _lastWriteTime = {}         // sitio id → ms timestamp of last upsert dispatch
+const _pendingIds      = new Set()   // sitio IDs with un-synced local changes
+const _lastWriteTime   = {}          // sitio id → ms timestamp of last upsert dispatch
+const _pendingLiqIds   = new Set()   // liquidacion_cw IDs with un-synced local changes
+const _pendingLiqWrite = {}          // liquidacion_cw id → ms timestamp of last upsert dispatch
 
 function _buildSitioPayload(sitio) {
   return {
@@ -161,12 +163,20 @@ export const useAppStore = create((set, get) => ({
       sub_sitio: r.sub_sitio || '',
     }))
 
-    const liquidaciones_cw = (liqCWData || []).map(r => ({
-      id: r.id, sitio_id: r.sitio_id, smp: r.smp || '',
-      region: r.region || '', tipo_zona: r.tipo_zona || 'URBANO',
-      lc: r.lc || '', estado: r.estado || 'pre', items: r.items || [],
-      fecha: r.fecha || '',
-    }))
+    const currentLiqs = get().liquidaciones_cw
+    const liquidaciones_cw = (liqCWData || []).map(r => {
+      const recentlyWritten = (Date.now() - (_pendingLiqWrite[r.id] || 0)) < 3000
+      if (_pendingLiqIds.has(r.id) || recentlyWritten) {
+        const mem = currentLiqs.find(l => l.id === r.id)
+        if (mem) return mem
+      }
+      return {
+        id: r.id, sitio_id: r.sitio_id, smp: r.smp || '',
+        region: r.region || '', tipo_zona: r.tipo_zona || 'URBANO',
+        lc: r.lc || '', estado: r.estado || 'pre', items: r.items || [],
+        fecha: r.fecha || '',
+      }
+    })
 
     const subcs = (subcData || []).map(r => ({
       lc: r.lc, empresa: r.empresa || r.lc, cat: r.cat || 'A',
@@ -528,7 +538,11 @@ export const useAppStore = create((set, get) => ({
             sitios: s.sitios.map(x => x.id === rec.sitio_id ? { ...x, tiene_cw: true } : x),
           }
         }
-        if (event === 'UPDATE') return { liquidaciones_cw: s.liquidaciones_cw.map(x => x.id === rec.id ? liq : x) }
+        if (event === 'UPDATE') {
+          const recentlyWritten = (Date.now() - (_pendingLiqWrite[rec.id] || 0)) < 3000
+          if (_pendingLiqIds.has(rec.id) || recentlyWritten) return {}
+          return { liquidaciones_cw: s.liquidaciones_cw.map(x => x.id === rec.id ? liq : x) }
+        }
         if (event === 'DELETE') {
           const remaining = s.liquidaciones_cw.filter(x => x.id !== rec.id)
           const stillHasCW = remaining.some(x => x.sitio_id === rec.sitio_id)
@@ -623,15 +637,22 @@ export const useAppStore = create((set, get) => ({
       }
       return { liquidaciones_cw: updated, sitios }
     })
-    // Debounced Supabase upsert
+    // Debounced Supabase upsert — guard against loadData() clobbering pending edits
     clearTimeout(_syncTimers['liq_cw_' + liq.id])
+    _pendingLiqIds.add(liq.id)
+    _pendingLiqWrite[liq.id] = Date.now()
     _syncTimers['liq_cw_' + liq.id] = setTimeout(async () => {
-      await supabase.from('liquidaciones_cw').upsert({
-        id: liq.id, sitio_id: liq.sitio_id, smp: liq.smp,
-        region: liq.region, tipo_zona: liq.tipo_zona,
-        lc: liq.lc, estado: liq.estado, items: liq.items,
-      }, { onConflict: 'id' })
-      get()._broadcastChange()
+      try {
+        const { error } = await supabase.from('liquidaciones_cw').upsert({
+          id: liq.id, sitio_id: liq.sitio_id, smp: liq.smp,
+          region: liq.region, tipo_zona: liq.tipo_zona,
+          lc: liq.lc, estado: liq.estado, items: liq.items,
+        }, { onConflict: 'id' })
+        if (error) console.error('[saveLiqCW] upsert failed:', error.message)
+      } finally {
+        _pendingLiqIds.delete(liq.id)
+        get()._broadcastChange()
+      }
     }, 2000)
   },
 
