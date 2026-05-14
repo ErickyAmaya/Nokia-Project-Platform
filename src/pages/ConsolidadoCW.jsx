@@ -43,6 +43,7 @@ export default function ConsolidadoCW() {
   const liquidaciones_cw    = useAppStore(s => s.liquidaciones_cw)
   const user             = useAuthStore(s => s.user)
   const updateSitioField    = useAppStore(s => s.updateSitioField)
+  const saveLiqCW           = useAppStore(s => s.saveLiqCW)
   const quitarCW            = useAppStore(s => s.quitarCW)
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -75,6 +76,17 @@ export default function ConsolidadoCW() {
     try {
       updateSitioField(cwSitioId, 'tiene_cw',    true)
       updateSitioField(cwSitioId, 'cw_conjunto', cwTipo === 'conjunto')
+      // Create a minimal liquidaciones_cw row immediately so the site stays visible
+      // in ConsolidadoCW even if the sitios write is blocked by RLS for this user role.
+      const existing = liquidaciones_cw.find(l => l.sitio_id === cwSitioId)
+      if (!existing) {
+        const sitio = sitios.find(s => s.id === cwSitioId)
+        await saveLiqCW({
+          id: crypto.randomUUID(), sitio_id: cwSitioId,
+          smp: '', region: '', tipo_zona: 'URBANO',
+          lc: sitio?.lc || '', estado: 'pre', items: [],
+        })
+      }
       setModalCW(false)
       const id = cwSitioId
       setCwSitioId('')

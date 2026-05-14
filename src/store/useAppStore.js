@@ -120,6 +120,9 @@ export const useAppStore = create((set, get) => ({
     ])
 
     const currentSitios = get().sitios
+    // Sites are CW-active if sitios.tiene_cw OR a liquidaciones_cw row exists for them.
+    // This prevents CW disappearing when cw-role users can't write to the sitios table.
+    const liqCWSitioIds = new Set((liqCWData || []).map(l => l.sitio_id))
     const sitios = sitiosData.map(r => {
       // If this sitio has un-synced local edits, keep the in-memory copy
       // so an external loadData() doesn't clobber the user's pending input.
@@ -135,7 +138,7 @@ export const useAppStore = create((set, get) => ({
         id: r.id, nombre: r.nombre, tipo: r.tipo,
         fecha: r.fecha, ciudad: r.ciudad, lc: r.lc || '',
         cat: r.cat || 'A', catEfectiva: r.cat_efectiva || undefined,
-        tiene_cw: r.tiene_cw || false, cw_nokia: r.cw_nokia || 0,
+        tiene_cw: r.tiene_cw || liqCWSitioIds.has(r.id) || false, cw_nokia: r.cw_nokia || 0,
         cw_costo: r.cw_costo || 0, cw_conjunto: r.cw_conjunto || false,
         estado: r.estado || 'pre',
         lcVisita:    r.lc_visita    || r.lc || '',
@@ -520,10 +523,20 @@ export const useAppStore = create((set, get) => ({
       set(s => {
         if (event === 'INSERT') {
           if (s.liquidaciones_cw.find(x => x.id === rec.id)) return {}
-          return { liquidaciones_cw: [...s.liquidaciones_cw, liq] }
+          return {
+            liquidaciones_cw: [...s.liquidaciones_cw, liq],
+            sitios: s.sitios.map(x => x.id === rec.sitio_id ? { ...x, tiene_cw: true } : x),
+          }
         }
         if (event === 'UPDATE') return { liquidaciones_cw: s.liquidaciones_cw.map(x => x.id === rec.id ? liq : x) }
-        if (event === 'DELETE') return { liquidaciones_cw: s.liquidaciones_cw.filter(x => x.id !== rec.id) }
+        if (event === 'DELETE') {
+          const remaining = s.liquidaciones_cw.filter(x => x.id !== rec.id)
+          const stillHasCW = remaining.some(x => x.sitio_id === rec.sitio_id)
+          return {
+            liquidaciones_cw: remaining,
+            sitios: stillHasCW ? s.sitios : s.sitios.map(x => x.id === rec.sitio_id ? { ...x, tiene_cw: false } : x),
+          }
+        }
         return {}
       })
     }
