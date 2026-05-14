@@ -5,6 +5,17 @@ import { useMatStore } from '../../store/useMatStore'
 import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../Toast'
 
+function getSosDisponibles(hwEquipos, _hwMovimientos, catalogoId, bodega = null, excludeSerials = []) {
+  return hwEquipos
+    .filter(e =>
+      Number(e.catalogo_id) === Number(catalogoId) &&
+      e.estado === 'en_bodega' &&
+      (!bodega || !e.ubicacion_actual || e.ubicacion_actual === bodega) &&
+      !excludeSerials.includes(e.serial)
+    )
+    .map(e => ({ so: e.so || e.serial, serial: e.serial }))
+}
+
 const TIPO_LUGAR = [
   { value:'nokia',  label:'Nokia' },
   { value:'bodega', label:'Bodega Ingetel' },
@@ -501,6 +512,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
             bulk:                form.serialBulks?.[idx] || null,
             log_inv_tipo_unidad: form.log_inv_tipo_unidad || null,
             notas:               form.notas || null,
+            so:                  tipo === 'ENTRADA' ? (form.serialSalesOrders?.[idx] || null) : null,
           })
         } else {
           await updateHwEquipo(equipo.id, { estado: nuevoEstado, ubicacion_actual: form.destino })
@@ -686,33 +698,52 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
                   )}
                   <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                     {form.seriales.map((s, i) => {
-                      const slotBodega = form.serialBodegas?.[i] || form.origen
-                      const elegidosEnSlot = form.seriales.filter((x, j) =>
-                        j !== i && x && (form.serialBodegas?.[j] || form.origen) === slotBodega
-                      )
-                      const opcionesSlot = todosDisp
-                        .filter(e => e.ubicacion_actual === slotBodega && !elegidosEnSlot.includes(e.serial))
-                        .map(e => e.serial)
+                      const slotBodega    = form.serialBodegas?.[i] || form.origen
+                      const elegidosSlot  = form.seriales.filter((x, j) => j !== i && x)
+
+                      if (tipo === 'SALIDA' && form.catalogo_id) {
+                        const sosDisp = getSosDisponibles(hwEquipos, hwMovimientos, form.catalogo_id, slotBodega, elegidosSlot)
+                        const soActual = form.serialSalesOrders?.[i] || ''
+                        return (
+                          <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:50,
+                              fontFamily:"'Barlow Condensed',sans-serif" }}>SO {i+1}</span>
+                            <select className="fc" value={soActual}
+                              onChange={e => {
+                                const match = sosDisp.find(x => x.so === e.target.value)
+                                setSerial(i, match ? match.serial : '')
+                                setSerialSalesOrder(i, e.target.value)
+                              }}
+                              style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600,
+                                flex:1, borderColor: soActual ? '#1a9c1a' : '#f59e0b' }}>
+                              <option value="">— Seleccionar SO —</option>
+                              {sosDisp.map(x => (
+                                <option key={x.serial} value={x.so}>{x.so}</option>
+                              ))}
+                            </select>
+                            <span style={{ fontFamily:'monospace', fontSize:11, color:'#144E4A',
+                              background: s ? '#f0fdf4' : '#f9f9f9', padding:'3px 8px', borderRadius:4,
+                              border:'1px solid #e0e4e0', minWidth:120, textAlign:'center',
+                              color: s ? '#144E4A' : '#9ca89c' }}>
+                              {s || 'serial auto'}
+                            </span>
+                            <input className="fc" placeholder="BULK"
+                              value={form.serialBulks?.[i] || ''}
+                              onChange={e => setSerialBulk(i, e.target.value)}
+                              style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, width:90, flexShrink:0 }} />
+                          </div>
+                        )
+                      }
 
                       return (
                         <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:60, fontFamily:"'Barlow Condensed',sans-serif" }}>
+                          <span style={{ fontSize:10, color:'#9ca89c', fontWeight:700, minWidth:60,
+                            fontFamily:"'Barlow Condensed',sans-serif" }}>
                             Serial {i + 1}
                           </span>
-                          {tipo === 'SALIDA' && form.catalogo_id ? (
-                            <select className="fc" value={s}
-                              onChange={e => setSerial(i, e.target.value)}
-                              style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, fontWeight:600, flex:1 }}>
-                              <option value="">— Seleccionar serial —</option>
-                              {opcionesSlot.map(ser => (
-                                <option key={ser} value={ser}>{ser}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input className="fc" placeholder={`Serial ${i + 1}`} value={s}
-                              onChange={e => setSerial(i, e.target.value)}
-                              style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, flex:1 }} />
-                          )}
+                          <input className="fc" placeholder={`Serial ${i + 1}`} value={s}
+                            onChange={e => setSerial(i, e.target.value)}
+                            style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:13, fontWeight:600, flex:1 }} />
                           <input className="fc" placeholder="SO Nokia"
                             value={form.serialSalesOrders?.[i] || ''}
                             onChange={e => setSerialSalesOrder(i, e.target.value)}
@@ -721,12 +752,6 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
                             value={form.serialBulks?.[i] || ''}
                             onChange={e => setSerialBulk(i, e.target.value)}
                             style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, width:90, flexShrink:0 }} />
-                          {tipo === 'SALIDA' && slotBodega && (
-                            <span style={{ fontSize:9, fontWeight:700, whiteSpace:'nowrap', padding:'2px 7px',
-                              borderRadius:10, background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0' }}>
-                              {slotBodega}
-                            </span>
-                          )}
                         </div>
                       )
                     })}

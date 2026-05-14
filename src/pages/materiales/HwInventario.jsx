@@ -179,6 +179,7 @@ export default function HwInventario() {
       condicion:           e.condicion || 'nuevo',
       log_inv_tipo_unidad: e.log_inv_tipo_unidad || '',
       notas:               e.notas || '',
+      so:                  e.so || '',
     })
     setEditModal(e)
   }
@@ -192,6 +193,7 @@ export default function HwInventario() {
         condicion:           editForm.condicion,
         log_inv_tipo_unidad: editForm.log_inv_tipo_unidad || null,
         notas:               editForm.notas || null,
+        so:                  editForm.so || null,
       })
       // Auto-crear sitio en mat_sitios si el destino es nuevo y estado es en_sitio
       if (editForm.estado === 'en_sitio' && editForm.ubicacion_actual) {
@@ -378,7 +380,7 @@ export default function HwInventario() {
                                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                   <thead>
                                     <tr style={{ background:'#f0f7f0' }}>
-                                      {['CANT.','SERIAL','SO','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                      {['CANT.','SO','SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
                                         <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
                                       ))}
                                     </tr>
@@ -389,10 +391,10 @@ export default function HwInventario() {
                                       return (
                                         <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
                                           <td style={{ padding:'6px 10px', fontWeight:700, textAlign:'center', color:'#555f55' }}>1</td>
-                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>{e.serial}</td>
                                           <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
-                                            {hwMovimientos.find(m => m.serial === e.serial && m.tipo === 'ENTRADA')?.sales_order || <span style={{ color:'#9ca89c' }}>—</span>}
+                                            {e.so || <span style={{ color:'#9ca89c' }}>—</span>}
                                           </td>
+                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>{e.serial}</td>
                                           <td style={{ padding:'6px 10px' }}>
                                             <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
                                           </td>
@@ -531,6 +533,12 @@ export default function HwInventario() {
                     <option key={t.id} value={t.nombre}>{t.nombre}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="fl">SO (Sales Order)</label>
+                <input className="fc" value={editForm.so || ''}
+                  placeholder="Ej: 4900XXXXXX"
+                  onChange={e => setEditForm(p => ({ ...p, so: e.target.value }))} />
               </div>
               <div>
                 <label className="fl">Notas</label>

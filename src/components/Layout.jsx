@@ -33,9 +33,10 @@ const MAT_NAV = [
 const HW_NAV = [
   { to: '/materiales/hw/dashboard',   label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',   roles: null },
   { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
-  { to: '/materiales/hw/movimientos', label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos', roles: null },
-  { to: '/materiales/hw/catalogo',    label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',    roles: null },
-  { to: '/materiales/hw/fallas',      label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',      roles: null },
+  { to: '/materiales/hw/movimientos',           label: 'Movimientos HW',  icon: '🔁', id: 'hw-movimientos',  roles: null },
+  { to: '/materiales/hw/despachos-pendientes', label: 'Pend. Despacho',  icon: '📦', id: 'hw-despachos-p',  roles: null },
+  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',     icon: '🗂', id: 'hw-catalogo',     roles: null },
+  { to: '/materiales/hw/fallas',               label: 'HW en Falla',     icon: '⚠',  id: 'hw-fallas',       roles: null },
 ]
 
 const ROLLOUT_NAV = [

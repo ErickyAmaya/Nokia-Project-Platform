@@ -100,9 +100,11 @@ export default function MatReportes() {
   const despachos   = useMatStore(s => s.despachos)
   const getStock    = useMatStore(s => s.getStock)
 
-  const hwCatalogo     = useHwStore(s => s.hwCatalogo)
-  const hwEquipos      = useHwStore(s => s.hwEquipos)
-  const hwMovimientos  = useHwStore(s => s.hwMovimientos)
+  const hwCatalogo            = useHwStore(s => s.hwCatalogo)
+  const hwEquipos             = useHwStore(s => s.hwEquipos)
+  const hwMovimientos         = useHwStore(s => s.hwMovimientos)
+  const hwFallas              = useHwStore(s => s.hwFallas)
+  const hwDespachosPendientes = useHwStore(s => s.hwDespachosPendientes)
 
   const [tab, setTab] = useState('mat')
 
@@ -319,10 +321,66 @@ export default function MatReportes() {
       })
     })
 
+    // Sheet 4: Reporte Semanal Nokia — formato exacto del Excel Nokia
+    const NOKIA_HDR = ['ss_e2e','Ubicacion/Bodega','tipo_fuente','so','cod_material',
+      'descripcion_material','cantidad','serial','Estado','Asignado A','Comentario','ID','Columna1']
+    const nokiaRows = [NOKIA_HDR]
+
+    const serialesEnFalla = new Set(hwFallas.map(f => f.serial).filter(Boolean))
+
+    // serial → despacho pendiente para obtener SO y destino
+    const serialToDespacho = {}
+    hwDespachosPendientes.forEach(d => {
+      ;(d.items || []).forEach(item => {
+        if (item.serial) serialToDespacho[item.serial] = { despacho: d, item }
+      })
+    })
+
+    let rowId = 1
+    hwEquipos.forEach(e => {
+      const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+
+      const entradaMov = hwMovimientos
+        .filter(m => m.serial === e.serial && m.tipo === 'ENTRADA')
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+      const tipo_fuente = entradaMov?.tipo_fuente || 'ABASTECIMIENTO'
+
+      let estado, ubicacion, asignadoA, so
+
+      if (serialesEnFalla.has(e.serial)) {
+        estado = 'Equipo Falla'; ubicacion = 'POPAYAN'; asignadoA = ''; so = ''
+      } else if (e.estado === 'en_bodega') {
+        estado = 'Disponible'; ubicacion = 'POPAYAN'; asignadoA = ''; so = ''
+      } else if (e.estado === 'pendiente_despacho') {
+        const match = serialToDespacho[e.serial]
+        estado = 'Asignado'; ubicacion = 'POPAYAN'
+        asignadoA = match?.despacho?.destino || ''
+        so = match?.item?.so || match?.despacho?.so || ''
+      } else if (e.estado === 'en_sitio') {
+        const salidaMov = hwMovimientos
+          .filter(m => m.serial === e.serial && m.tipo === 'SALIDA')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+        estado = 'Asignado'; ubicacion = 'SITIO'
+        asignadoA = e.ubicacion_actual || ''
+        so = salidaMov?.so || ''
+      } else {
+        estado = e.estado || '—'; ubicacion = e.ubicacion_actual || 'POPAYAN'
+        asignadoA = ''; so = ''
+      }
+
+      nokiaRows.push([
+        'INGETEL', ubicacion, tipo_fuente, so,
+        cat?.cod_material || '—', cat?.descripcion || '—',
+        1, e.serial || '—', estado, asignadoA,
+        e.notas || '', rowId++, '',
+      ])
+    })
+
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws(resumen),      'Resumen por Tipo')
     XLSX.utils.book_append_sheet(wb, ws(seriales),     'Equipos con Serial')
     XLSX.utils.book_append_sheet(wb, ws(porUbicacion), 'Por Ubicación')
+    XLSX.utils.book_append_sheet(wb, ws(nokiaRows),    'Disponible')
     XLSX.writeFile(wb, `Inventario_HW_Nokia_${new Date().toISOString().slice(0,10)}.xlsx`)
     showToast('Inventario HW exportado')
   }

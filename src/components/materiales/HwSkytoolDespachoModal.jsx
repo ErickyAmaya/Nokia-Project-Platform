@@ -1,12 +1,8 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useHwStore } from '../../store/useHwStore'
-import { useMatStore } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { supabase } from '../../lib/supabase'
 import { showToast } from '../Toast'
-
-const CHUNK = 500
 
 // ── FIFO SO assignment algorithm ──────────────────────────────────────────
 function assignSOs(skytoolRows, hwCatalogo, hwEquipos, hwMovimientos) {
@@ -70,7 +66,7 @@ function assignSOs(skytoolRows, hwCatalogo, hwEquipos, hwMovimientos) {
 
       return {
         ...row, cat, equipo,
-        so: movEntrada?.so || movEntrada?.sales_order || null,
+        so: equipo.so || null,
         bodegaOrigen: equipo.ubicacion_actual || null,
         status: 'ok',
       }
@@ -110,12 +106,11 @@ function assignSOs(skytoolRows, hwCatalogo, hwEquipos, hwMovimientos) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 export default function HwSkytoolDespachoModal({ onClose }) {
-  const hwCatalogo    = useHwStore(s => s.hwCatalogo)
-  const hwEquipos     = useHwStore(s => s.hwEquipos)
-  const hwMovimientos = useHwStore(s => s.hwMovimientos)
-  const matSitios     = useMatStore(s => s.sitios)
-  const saveSitio     = useMatStore(s => s.saveSitio)
-  const user          = useAuthStore(s => s.user)
+  const hwCatalogo             = useHwStore(s => s.hwCatalogo)
+  const hwEquipos              = useHwStore(s => s.hwEquipos)
+  const hwMovimientos          = useHwStore(s => s.hwMovimientos)
+  const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
+  const user                   = useAuthStore(s => s.user)
 
   const [step,      setStep]      = useState('pick')
   const [rows,      setRows]      = useState([])
@@ -198,69 +193,61 @@ export default function HwSkytoolDespachoModal({ onClose }) {
     if (okRows.length === 0) { showToast('No hay ítems válidos', 'err'); return }
     setSaving(true)
 
-    const serialRows = okRows.filter(r => r.equipo)
-    const totalOps   = (serialRows.length > 0 ? 1 : 0) + Math.ceil(okRows.length / CHUNK) + 1
-    let doneOps      = 0
-    const tick = (phase) => { doneOps++; setProgress({ current: doneOps, total: totalOps, phase }) }
-    setProgress({ current: 0, total: totalOps, phase: 'Preparando…' })
+    // Agrupar por sitio — un despacho pendiente por sitio
+    const bySite = {}
+    okRows.forEach(r => {
+      if (!bySite[r.siteName]) bySite[r.siteName] = []
+      bySite[r.siteName].push(r)
+    })
+    const sites = Object.keys(bySite)
+
+    // Número de despacho base
+    const year    = new Date().getFullYear()
+    const re      = new RegExp(`^HW-DS-${year}-(\\d+)$`)
+    const nums    = hwMovimientos.map(m => { const x = m.so?.match(re); return x ? parseInt(x[1]) : 0 }).filter(Boolean)
+    const baseDoc = `HW-DS-${year}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3,'0')}`
+
+    let doneOps = 0
+    setProgress({ current: 0, total: sites.length, phase: 'Preparando…' })
 
     try {
-      // 1. Update serial equipos → en_sitio
-      if (serialRows.length > 0) {
-        const bySitio = {}
-        serialRows.forEach(r => {
-          if (!bySitio[r.siteName]) bySitio[r.siteName] = []
-          bySitio[r.siteName].push(r.equipo.id)
+      for (let i = 0; i < sites.length; i++) {
+        const siteName = sites[i]
+        const siteRows = bySite[siteName]
+        setProgress({ current: doneOps, total: sites.length, phase: `Procesando ${siteName}…` })
+
+        const docNum = sites.length === 1
+          ? baseDoc
+          : `${baseDoc}-${String(i + 1).padStart(2,'0')}`
+
+        const items = siteRows.map(r => ({
+          catalogo_id:   r.cat.id,
+          descripcion:   r.cat.descripcion,
+          cod_material:  r.cat.cod_material || '—',
+          tipo_material: r.cat.tipo_material || '—',
+          aplica_serial: r.cat.aplica_serial !== false,
+          serial:        r.equipo?.serial || null,
+          so:            r.so || null,
+          cantidad:      r.cantidad,
+          bodega:        r.bodegaOrigen || 'POPAYAN',
+        }))
+
+        await crearDespachoPendiente({
+          numero_doc: docNum,
+          fecha:      today,
+          smp_id:     siteRows.find(r => r.smp)?.smp || null,
+          bodega:     siteRows[0].bodegaOrigen || 'POPAYAN',
+          destino:    siteName,
+          notas:      null,
+          items,
+          created_by: user?.nombre || user?.email || null,
         })
-        for (const [siteName, ids] of Object.entries(bySitio)) {
-          const { error } = await supabase.from('hw_equipos')
-            .update({ estado: 'en_sitio', ubicacion_actual: siteName, updated_at: new Date().toISOString() })
-            .in('id', ids)
-          if (error) throw error
-        }
-        tick('Actualizando equipos…')
+
+        doneOps++
+        setProgress({ current: doneOps, total: sites.length, phase: `${siteName} procesado` })
       }
 
-      // 2. INSERT hw_movimientos SALIDA
-      const movsPayload = okRows.map(r => ({
-        equipo_id:    r.equipo?.id    || null,
-        serial:       r.equipo?.serial || null,
-        catalogo_id:  r.cat.id,
-        tipo:         'SALIDA',
-        tipo_fuente:  'SKYTOOL',
-        so:           r.so || null,
-        sales_order:  r.so || null,
-        smp_id:       r.smp || null,
-        fecha:        today,
-        cantidad:     r.cantidad,
-        origen:       r.bodegaOrigen || null,
-        origen_tipo:  'bodega',
-        destino:      r.siteName,
-        destino_tipo: 'sitio',
-        proyecto:     r.proyecto || null,
-        sub_proyecto: r.sub_proyecto || null,
-        created_by:   user?.nombre || user?.email,
-      }))
-
-      for (let i = 0; i < movsPayload.length; i += CHUNK) {
-        const { error } = await supabase.from('hw_movimientos').insert(movsPayload.slice(i, i + CHUNK))
-        if (error) throw new Error(`${error.message} — ${error.details || error.hint || ''}`)
-        tick(`Movimientos: ${Math.min(i + CHUNK, movsPayload.length)} / ${movsPayload.length}`)
-      }
-
-      // 3. Auto-crear sitios nuevos
-      const sitiosCreados = new Set()
-      for (const r of okRows) {
-        if (!r.siteName || sitiosCreados.has(r.siteName.toLowerCase())) continue
-        sitiosCreados.add(r.siteName.toLowerCase())
-        const existe = matSitios.some(s => s.nombre?.toLowerCase() === r.siteName.toLowerCase())
-        if (!existe) await saveSitio({ nombre: r.siteName, regional: '', activo: true }).catch(() => {})
-      }
-
-      tick('Actualizando inventario…')
-      await useHwStore.getState().loadAll()
-
-      showToast(`${okRows.length} despacho(s) Skytool registrado(s)`)
+      showToast(`${okRows.length} equipo(s) en ${sites.length} sitio(s) — pendientes de despacho`)
       setStep('done')
     } catch (err) {
       showToast('Error: ' + err.message, 'err')
@@ -329,7 +316,7 @@ export default function HwSkytoolDespachoModal({ onClose }) {
           <div style={{ flex:1, padding:40, display:'flex', flexDirection:'column', alignItems:'center', gap:18, textAlign:'center' }}>
             <div style={{ fontSize:48 }}>✅</div>
             <div style={{ fontSize:15, fontWeight:800, color:'#6b21a8', fontFamily:"'Barlow Condensed',sans-serif", letterSpacing:.5 }}>
-              {okRows.length} DESPACHO(S) REGISTRADO(S)
+              {okRows.length} EQUIPO(S) — PENDIENTES DE DESPACHO
             </div>
             {blockedRows.length > 0 && (
               <div style={{ fontSize:12, color:'#991b1b', background:'#fee2e2', borderRadius:8,

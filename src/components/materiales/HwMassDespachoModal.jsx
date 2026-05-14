@@ -1,12 +1,8 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useHwStore } from '../../store/useHwStore'
-import { useMatStore } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { supabase } from '../../lib/supabase'
 import { showToast } from '../Toast'
-
-const CHUNK = 500
 
 function nextHwDespachoDoc(movimientos) {
   const year = new Date().getFullYear()
@@ -28,12 +24,11 @@ function Badge({ children, color = '#6b7280', bg = '#f3f4f6' }) {
 }
 
 export default function HwMassDespachoModal({ onClose }) {
-  const hwCatalogo    = useHwStore(s => s.hwCatalogo)
-  const hwEquipos     = useHwStore(s => s.hwEquipos)
-  const hwMovimientos = useHwStore(s => s.hwMovimientos)
-  const matSitios     = useMatStore(s => s.sitios)
-  const saveSitio     = useMatStore(s => s.saveSitio)
-  const user          = useAuthStore(s => s.user)
+  const hwCatalogo             = useHwStore(s => s.hwCatalogo)
+  const hwEquipos              = useHwStore(s => s.hwEquipos)
+  const hwMovimientos          = useHwStore(s => s.hwMovimientos)
+  const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
+  const user                   = useAuthStore(s => s.user)
 
   const [step,     setStep]     = useState('pick')
   const [rows,     setRows]     = useState([])
@@ -150,72 +145,55 @@ export default function HwMassDespachoModal({ onClose }) {
     if (validRows.length === 0) { showToast('No hay ítems válidos', 'err'); return }
     setSaving(true)
 
-    const serialRows   = validRows.filter(r => r.serial && r.equipo)
-    const totalOps     = (serialRows.length > 0 ? 1 : 0) + Math.ceil(validRows.length / CHUNK)
-    let   doneOps      = 0
-    const tick = (phase) => { doneOps++; setProgress({ current: doneOps, total: totalOps, phase }) }
-
-    setProgress({ current: 0, total: totalOps, phase: 'Preparando…' })
+    // Agrupar filas válidas por sitio — un despacho pendiente por sitio
+    const bySite = {}
+    validRows.forEach(r => {
+      if (!bySite[r.siteName]) bySite[r.siteName] = []
+      bySite[r.siteName].push(r)
+    })
+    const sites   = Object.keys(bySite)
+    const today   = new Date().toISOString().slice(0, 10)
+    let   doneOps = 0
+    setProgress({ current: 0, total: sites.length, phase: 'Preparando…' })
 
     try {
-      // ── 1. Batch UPDATE hw_equipos agrupado por sitio ───────────
-      if (serialRows.length > 0) {
-        const bySite = {}
-        serialRows.forEach(r => {
-          if (!bySite[r.siteName]) bySite[r.siteName] = []
-          bySite[r.siteName].push(r.equipo.id)
+      for (let i = 0; i < sites.length; i++) {
+        const siteName  = sites[i]
+        const siteRows  = bySite[siteName]
+        setProgress({ current: doneOps, total: sites.length, phase: `Procesando ${siteName}…` })
+
+        const docNum = sites.length === 1
+          ? batchDoc
+          : `${batchDoc}-${String(i + 1).padStart(2, '0')}`
+
+        const items = siteRows.map(r => ({
+          catalogo_id:   r.cat.id,
+          descripcion:   r.cat.descripcion,
+          cod_material:  r.cat.cod_material || '—',
+          tipo_material: r.cat.tipo_material || '—',
+          aplica_serial: !!r.serial,
+          serial:        r.serial || null,
+          so:            r.so || batchDoc || null,
+          cantidad:      r.cantidad,
+          bodega:        r.bodegaOrigen || 'POPAYAN',
+        }))
+
+        await crearDespachoPendiente({
+          numero_doc:  docNum,
+          fecha:       siteRows.find(r => r.fecha)?.fecha || today,
+          smp_id:      siteRows.find(r => r.smpId)?.smpId || null,
+          bodega:      siteRows[0].bodegaOrigen || 'POPAYAN',
+          destino:     siteName,
+          notas:       null,
+          items,
+          created_by:  user?.nombre || user?.email || null,
         })
-        for (const [siteName, ids] of Object.entries(bySite)) {
-          const { error } = await supabase
-            .from('hw_equipos')
-            .update({ estado: 'en_sitio', ubicacion_actual: siteName, updated_at: new Date().toISOString() })
-            .in('id', ids)
-          if (error) throw error
-        }
-        tick('Actualizando equipos…')
+
+        doneOps++
+        setProgress({ current: doneOps, total: sites.length, phase: `${siteName} procesado` })
       }
 
-      // ── 2. Batch INSERT hw_movimientos ──────────────────────────
-      const today = new Date().toISOString().slice(0, 10)
-      const movsPayload = validRows.map(r => ({
-        equipo_id:    r.equipo?.id || null,
-        serial:       r.serial || null,
-        catalogo_id:  r.cat.id,
-        tipo:         'SALIDA',
-        tipo_fuente:  'BULK_UPLOAD',
-        so:           r.so || batchDoc || null,
-        sales_order:  r.so || batchDoc || null,
-        smp_id:       r.smpId || null,
-        bulk:         r.bulk || null,
-        fecha:        r.fecha || today,
-        cantidad:     r.cantidad,
-        origen:       r.bodegaOrigen || null,
-        origen_tipo:  'nokia',
-        destino:      r.siteName,
-        destino_tipo: 'sitio',
-        created_by:   user?.nombre || user?.email,
-      }))
-
-      for (let i = 0; i < movsPayload.length; i += CHUNK) {
-        const { error } = await supabase.from('hw_movimientos').insert(movsPayload.slice(i, i + CHUNK))
-        if (error) throw new Error(`${error.message} — ${error.details || error.hint || ''}`)
-        tick(`Movimientos: ${Math.min(i + CHUNK, movsPayload.length)} / ${movsPayload.length}`)
-      }
-
-      // ── 3. Auto-crear sitios nuevos ─────────────────────────────
-      const sitiosCreados = new Set()
-      for (const r of validRows) {
-        if (!r.siteName || sitiosCreados.has(r.siteName.toLowerCase())) continue
-        sitiosCreados.add(r.siteName.toLowerCase())
-        const existe = matSitios.some(s => s.nombre?.toLowerCase() === r.siteName.toLowerCase())
-        if (!existe) await saveSitio({ nombre: r.siteName, regional: '', activo: true }).catch(() => {})
-      }
-
-      // ── 4. Refresh store ────────────────────────────────────────
-      setProgress(p => ({ ...p, phase: 'Actualizando inventario…' }))
-      await useHwStore.getState().loadAll()
-
-      showToast(`${validRows.length} despacho(s) registrado(s)`)
+      showToast(`${validRows.length} equipo(s) en ${sites.length} sitio(s) — pendientes de despacho`)
       onClose()
     } catch (err) {
       showToast('Error: ' + err.message, 'err')
