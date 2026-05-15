@@ -129,15 +129,17 @@ export default function FactSitios() {
 
   return (
     <>
-      <div className="dash-hdr mb14">
-        <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Facturación por Sitio</h1>
-          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchableSelect options={siteOptions} value={search} onChange={setSearch} placeholder="Buscar sitio…" />
-          <button onClick={expandAll}   style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Expandir todo</button>
-          <button onClick={collapseAll} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Colapsar todo</button>
+      <div style={{ position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10, background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
+        <div className="dash-hdr">
+          <div>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Facturación por Sitio</h1>
+            <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <SearchableSelect options={siteOptions} value={search} onChange={setSearch} placeholder="Buscar sitio…" />
+            <button onClick={expandAll}   style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Expandir todo</button>
+            <button onClick={collapseAll} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Colapsar todo</button>
+          </div>
         </div>
       </div>
 

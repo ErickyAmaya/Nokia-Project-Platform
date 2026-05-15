@@ -296,6 +296,7 @@ export default function FactPagosSubc() {
 
   return (
     <>
+      <div style={{ position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10, background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
       {/* Header */}
       <div className="dash-hdr mb14">
         <div>
@@ -353,6 +354,7 @@ export default function FactPagosSubc() {
           {showInternas ? '👁 Cuadrilla Interna visible' : 'Cuadrilla Interna oculta'}
         </button>
         <span style={{ fontSize: 10, color: '#9ca89c' }}>{filtered.length} sitio{filtered.length !== 1 ? 's' : ''}</span>
+      </div>
       </div>
 
       {/* Acordeón de sitios */}
