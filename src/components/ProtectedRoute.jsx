@@ -42,7 +42,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    const roleHome = { TI: '/ti', TSS: '/tss', CW: '/cw-consolidado', logistica: '/materiales' }
+    const roleHome = { TI: '/ti', TSS: '/tss', CW: '/cw-consolidado', logistica: '/materiales', facturacion: '/facturacion' }
     return <Navigate to={roleHome[user.role] || '/dashboard'} replace />
   }
 

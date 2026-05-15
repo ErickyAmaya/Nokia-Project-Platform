@@ -30,7 +30,7 @@ export default function LoginScreen() {
     setBusy(true)
     try {
       await login(email, password)
-      navigate('/dashboard', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión')
     } finally {
