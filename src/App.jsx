@@ -113,7 +113,8 @@ function RoleHome() {
   if (role === 'TI')        return <Navigate to="/ti"             replace />
   if (role === 'TSS')       return <Navigate to="/tss"            replace />
   if (role === 'CW')        return <Navigate to="/cw-consolidado" replace />
-  if (role === 'logistica') return <Navigate to="/materiales"     replace />
+  if (role === 'logistica')   return <Navigate to="/materiales"   replace />
+  if (role === 'facturacion') return <Navigate to="/facturacion" replace />
   return <Navigate to="/dashboard" replace />
 }
 
@@ -204,7 +205,7 @@ function AppRoutes() {
 
       {/* ── Módulo Facturación ─────────────────────────────── */}
       <Route path="/facturacion" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador']}>
+        <ProtectedRoute allowedRoles={['admin','coordinador','facturacion']}>
           <Layout><FactWrapper /></Layout>
         </ProtectedRoute>
       }>

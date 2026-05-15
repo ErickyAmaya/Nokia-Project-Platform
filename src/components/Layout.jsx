@@ -64,6 +64,7 @@ const BADGE = {
   CW:          { label: '🔧 CW',        cls: 'ub-op'    },
   viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
   logistica:   { label: '📦 Logística', cls: 'ub-op'    },
+  facturacion: { label: '🧾 Fact.',    cls: 'ub-op'    },
 }
 
 export default function Layout({ children }) {
