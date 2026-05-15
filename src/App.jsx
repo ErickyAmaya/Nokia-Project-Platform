@@ -35,15 +35,18 @@ import AckDashboard       from './pages/rollout/AckDashboard'
 import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
 import AckForecast        from './pages/rollout/AckForecast'
-import FactWrapper        from './pages/facturacion/FactWrapper'
-import FactDashboard      from './pages/facturacion/FactDashboard'
-import FactPorFacturar    from './pages/facturacion/FactPorFacturar'
-import FactFacturado      from './pages/facturacion/FactFacturado'
-import FactPOs            from './pages/facturacion/FactPOs'
-import FactSMPs           from './pages/facturacion/FactSMPs'
-import FactSitios         from './pages/facturacion/FactSitios'
+import FactWrapper from './pages/facturacion/FactWrapper'
 
-// Heavy pages: lazy-load so xlsx + recharts don't block initial bundle
+// Fact pages: lazy-load so they don't bloat the initial bundle
+const FactDashboard   = lazy(() => import('./pages/facturacion/FactDashboard'))
+const FactPorFacturar = lazy(() => import('./pages/facturacion/FactPorFacturar'))
+const FactFacturado   = lazy(() => import('./pages/facturacion/FactFacturado'))
+const FactPOs         = lazy(() => import('./pages/facturacion/FactPOs'))
+const FactSMPs        = lazy(() => import('./pages/facturacion/FactSMPs'))
+const FactSitios      = lazy(() => import('./pages/facturacion/FactSitios'))
+const FactPagosSubc   = lazy(() => import('./pages/facturacion/FactPagosSubc'))
+
+// Other heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
 const AnaliticaPage = lazy(() => import('./pages/AnaliticaPage'))
 const ReportesPage  = lazy(() => import('./pages/ReportesPage'))
@@ -211,6 +214,7 @@ function AppRoutes() {
         <Route path="sitios"            element={<FactSitios />} />
         <Route path="pos"               element={<FactPOs />} />
         <Route path="smps"              element={<FactSMPs />} />
+        <Route path="pagos-subc"        element={<FactPagosSubc />} />
       </Route>
 
       {/* ── Módulo Rollout ──────────────────────────────────── */}

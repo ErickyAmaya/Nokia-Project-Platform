@@ -117,20 +117,15 @@ export const useFactStore = create((set, get) => ({
         supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
       ])
 
-      const latest = uploads?.[0]
-      let ppa = []
-      if (latest) {
-        const { data } = await supabase.from('fact_ppa').select('*').eq('upload_id', latest.id)
-        ppa = data || []
-      }
+      const { data: ppaData } = await supabase.from('fact_ppa').select('*')
       set({
-        ppa,
+        ppa:          ppaData   || [],
         uploads:      uploads   || [],
         invoices:     invoices  || [],
         pos:          pos       || [],
         calendar:     cal       || [],
         rejectedPos:  rejected  || [],
-        currUploadId: latest?.id || null,
+        currUploadId: uploads?.[0]?.id || null,
         loading: false,
       })
     } catch { set({ loading: false }) }
@@ -150,21 +145,34 @@ export const useFactStore = create((set, get) => ({
       const rows    = raw.slice(1).filter(r => r.some(c => c !== null && c !== ''))
       const parsed  = rows.map(r => parseExcelRow(headers, r)).filter(r => r.spo_number)
 
+      // Audit record
       const { data: upload, error: upErr } = await supabase
         .from('fact_uploads')
         .insert({ filename: file.name, row_count: parsed.length })
         .select().single()
       if (upErr) throw upErr
 
+      // Delete existing rows for every SPO in the new file (will be re-inserted updated)
+      const spoNumbers = parsed.map(r => r.spo_number)
+      if (spoNumbers.length > 0) {
+        const { error: delErr } = await supabase
+          .from('fact_ppa').delete().in('spo_number', spoNumbers)
+        if (delErr) throw delErr
+      }
+
+      // Insert all rows fresh — SPOs not in this file remain untouched in DB
       const toInsert = parsed.map(r => ({ ...r, upload_id: upload.id }))
       const { error: pErr } = await supabase.from('fact_ppa').insert(toInsert)
       if (pErr) throw pErr
 
+      // Reload all fact_ppa (current + any legacy SPOs not in this upload)
+      const { data: allPpa } = await supabase.from('fact_ppa').select('*')
+
       set(s => ({
-        ppa:      toInsert,
-        uploads:  [upload, ...s.uploads],
+        ppa:          allPpa || [],
+        uploads:      [upload, ...s.uploads],
         currUploadId: upload.id,
-        uploading: false,
+        uploading:    false,
       }))
       return { ok: true, count: parsed.length }
     } catch (e) {
@@ -287,13 +295,8 @@ export const useFactStore = create((set, get) => ({
   deleteUpload: async (id) => {
     await supabase.from('fact_uploads').delete().eq('id', id)
     const uploads = get().uploads.filter(u => u.id !== id)
-    const latest  = uploads[0]
-    let ppa = []
-    if (latest) {
-      const { data } = await supabase.from('fact_ppa').select('*').eq('upload_id', latest.id)
-      ppa = data || []
-    }
-    set({ uploads, ppa, currUploadId: latest?.id || null })
+    // fact_ppa rows are not tied to a single upload — leave them untouched
+    set({ uploads, currUploadId: uploads[0]?.id || null })
   },
 }))
 

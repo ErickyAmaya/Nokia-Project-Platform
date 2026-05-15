@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
 
@@ -11,6 +11,22 @@ const EV_FILTERS = [
   { key: 'servicio|cw',   label: 'Servicio · CW' },
   { key: 'servicio|tss',  label: 'Servicio · TSS' },
 ]
+
+const DESEMP_STYLE = {
+  A:    { bg: '#fef2f2', color: '#b91c1c' },
+  AA:   { bg: '#fffbeb', color: '#b45309' },
+  AAA:  { bg: '#eff6ff', color: '#1d4ed8' },
+  AAAA: { bg: '#f0fdf4', color: '#166534' },
+}
+function DesempenoBadge({ val }) {
+  if (!val) return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
+  const s = DESEMP_STYLE[val] || { bg: '#f3f4f6', color: '#6b7280' }
+  return (
+    <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}40`, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>
+      {val}
+    </span>
+  )
+}
 
 function applyEvFilter(eventos, row, filtroEv) {
   if (filtroEv === 'todos') return eventos
@@ -74,6 +90,23 @@ export default function FactFacturado() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
+  const PAGE_SIZE = 100
+  const sentinelRef = useRef(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
+
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleCount(n => Math.min(n + PAGE_SIZE, rows.length))
+    }, { threshold: 0.1 })
+    obs.observe(sentinelRef.current)
+    return () => obs.disconnect()
+  }, [rows.length])
+
+  const visibleRows = rows.slice(0, visibleCount)
+
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
@@ -101,13 +134,13 @@ export default function FactFacturado() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                {['Sitio', 'SMP ID', 'SPO', 'MS Name', 'Evento', 'N° Factura', 'Fecha', 'Valor', ''].map(h => (
+                {['Sitio', 'SMP ID', 'Desempeño', 'SPO', 'MS Name', 'Evento', 'N° Factura', 'Fecha', 'Valor', ''].map(h => (
                   <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ row, eventos }) =>
+              {visibleRows.map(({ row, eventos }) =>
                 eventos.map((ev, i) => {
                   const poData = pos.find(p => p.spo_number === row.spo_number)
                   const valor  = poData?.valor ? poData.valor * ev.pct / 100 : null
@@ -117,6 +150,7 @@ export default function FactFacturado() {
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_id}</td>
+                          <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><DesempenoBadge val={row.desempeno} /></td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10 }} rowSpan={eventos.length}>{row.spo_number}</td>
                           <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.ms_name}</td>
                         </>
@@ -132,8 +166,14 @@ export default function FactFacturado() {
                   )
                 })
               )}
+              <tr><td ref={sentinelRef} colSpan={10} style={{ padding: 0, height: 1 }} /></tr>
             </tbody>
           </table>
+          {visibleCount < rows.length && (
+            <div style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, color: '#9ca89c' }}>
+              Mostrando {visibleCount} de {rows.length} — desplázate para cargar más
+            </div>
+          )}
         </div>
       )}
     </>

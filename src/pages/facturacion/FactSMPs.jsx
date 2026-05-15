@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS } from '../../store/useFactStore'
 
 const STATUS_STYLES = {
@@ -56,6 +56,23 @@ export default function FactSMPs() {
     </th>
   )
 
+  const PAGE_SIZE = 100
+  const sentinelRef = useRef(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
+
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleCount(n => Math.min(n + PAGE_SIZE, rows.length))
+    }, { threshold: 0.1 })
+    obs.observe(sentinelRef.current)
+    return () => obs.disconnect()
+  }, [rows.length])
+
+  const visibleRows = rows.slice(0, visibleCount)
+
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
@@ -94,7 +111,7 @@ export default function FactSMPs() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ row, overallStatus, eventos }) => (
+            {visibleRows.map(({ row, overallStatus, eventos }) => (
               <tr key={row.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '6px 10px', fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.customer_site_name || row.site_reference_id}</td>
                 <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
@@ -109,8 +126,14 @@ export default function FactSMPs() {
                 <td style={{ padding: '6px 10px' }}><StatusChip status={overallStatus} /></td>
               </tr>
             ))}
+            <tr><td ref={sentinelRef} colSpan={5 + EVENTOS.length + 1} style={{ padding: 0, height: 1 }} /></tr>
           </tbody>
         </table>
+        {visibleCount < rows.length && (
+          <div style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, color: '#9ca89c' }}>
+            Mostrando {visibleCount} de {rows.length} — desplázate para cargar más
+          </div>
+        )}
       </div>
     </>
   )

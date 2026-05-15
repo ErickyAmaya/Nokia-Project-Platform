@@ -37,6 +37,8 @@ export default function ConsolidadoCW() {
   const [cwSitioId,  setCwSitioId]  = useState('')
   const [cwTipo,     setCwTipo]     = useState('individual')
   const [cwSaving,   setCwSaving]   = useState(false)
+  const [cwSearch,   setCwSearch]   = useState('')
+  const [cwDropOpen, setCwDropOpen] = useState(false)
 
   const navigate            = useNavigate()
   const sitios              = useAppStore(s => s.sitios)
@@ -91,6 +93,7 @@ export default function ConsolidadoCW() {
       const id = cwSitioId
       setCwSitioId('')
       setCwTipo('individual')
+      setCwSearch('')
       navigate(`/liquidador/${id}?view=cw`)
     } finally {
       setCwSaving(false)
@@ -281,7 +284,7 @@ export default function ConsolidadoCW() {
       <ConfirmModalUI />
       <Modal
         open={modalCW}
-        onClose={() => { setModalCW(false); setCwSitioId(''); setCwTipo('individual') }}
+        onClose={() => { setModalCW(false); setCwSitioId(''); setCwTipo('individual'); setCwSearch('') }}
         title="🔧 Asociar CW a Sitio TI"
         footer={
           <>
@@ -294,15 +297,72 @@ export default function ConsolidadoCW() {
       >
         <div className="fg" style={{ marginBottom: 14 }}>
           <label className="fl">Sitio TI *</label>
-          <select className="fc" value={cwSitioId} onChange={e => setCwSitioId(e.target.value)}>
-            <option value="">— Seleccionar sitio —</option>
-            {tiSinCW.map(s => (
-              <option key={s.id} value={s.id}>{s.nombre}</option>
-            ))}
-          </select>
-          {tiSinCW.length === 0 && (
+          {tiSinCW.length === 0 ? (
             <div style={{ fontSize: 11, color: '#9ca89c', marginTop: 4 }}>
               Todos los sitios TI ya tienen CW asociada.
+            </div>
+          ) : (
+            <div style={{ position: 'relative' }}>
+              <input
+                className="fc"
+                type="text"
+                placeholder="Buscar o seleccionar sitio…"
+                value={cwSearch}
+                autoComplete="off"
+                onChange={e => {
+                  setCwSearch(e.target.value)
+                  setCwSitioId('')
+                  setCwDropOpen(true)
+                }}
+                onFocus={() => setCwDropOpen(true)}
+                onBlur={() => setTimeout(() => setCwDropOpen(false), 150)}
+              />
+              {cwSitioId && (
+                <span style={{
+                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                  fontSize: 10, color: '#144E4A', fontWeight: 700, pointerEvents: 'none',
+                }}>✓</span>
+              )}
+              {cwDropOpen && (() => {
+                const q = cwSearch.toLowerCase()
+                const hits = tiSinCW.filter(s => !q || s.nombre.toLowerCase().includes(q))
+                return hits.length > 0 ? (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: '#fff', border: '1px solid #d1d5db', borderRadius: 6,
+                    boxShadow: '0 4px 16px rgba(0,0,0,.13)', maxHeight: 200, overflowY: 'auto',
+                  }}>
+                    {hits.map(s => (
+                      <div
+                        key={s.id}
+                        onMouseDown={() => {
+                          setCwSitioId(s.id)
+                          setCwSearch(s.nombre)
+                          setCwDropOpen(false)
+                        }}
+                        style={{
+                          padding: '8px 12px', cursor: 'pointer', fontSize: 12,
+                          background: cwSitioId === s.id ? '#f0f7f0' : 'transparent',
+                          color: cwSitioId === s.id ? '#144E4A' : '#374151',
+                          fontWeight: cwSitioId === s.id ? 700 : 400,
+                        }}
+                        onMouseEnter={e => { if (cwSitioId !== s.id) e.currentTarget.style.background = '#f9fafb' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = cwSitioId === s.id ? '#f0f7f0' : 'transparent' }}
+                      >
+                        {s.nombre}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: '#fff', border: '1px solid #d1d5db', borderRadius: 6,
+                    padding: '10px 12px', fontSize: 11, color: '#9ca89c',
+                  }}>
+                    Sin resultados
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>

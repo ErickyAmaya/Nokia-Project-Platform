@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
 import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
@@ -47,6 +47,22 @@ function EventoBadge({ ev }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
       {ev.label} · {ev.pct}%
+    </span>
+  )
+}
+
+const DESEMP_STYLE = {
+  A:    { bg: '#fef2f2', color: '#b91c1c' },
+  AA:   { bg: '#fffbeb', color: '#b45309' },
+  AAA:  { bg: '#eff6ff', color: '#1d4ed8' },
+  AAAA: { bg: '#f0fdf4', color: '#166534' },
+}
+function DesempenoBadge({ val }) {
+  if (!val) return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
+  const s = DESEMP_STYLE[val] || { bg: '#f3f4f6', color: '#6b7280' }
+  return (
+    <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}40`, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>
+      {val}
     </span>
   )
 }
@@ -197,6 +213,36 @@ export default function FactPorFacturar() {
     return result
   }, [ppa, invMap, search])
 
+  const PAGE_SIZE = 50
+  const sentinelRef    = useRef(null)
+  const sentinelLibRef = useRef(null)
+  const [visibleCount,    setVisibleCount]    = useState(PAGE_SIZE)
+  const [visibleLibCount, setVisibleLibCount] = useState(PAGE_SIZE)
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE) },    [rows])
+  useEffect(() => { setVisibleLibCount(PAGE_SIZE) }, [libRows])
+
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleCount(n => Math.min(n + PAGE_SIZE, rows.length))
+    }, { threshold: 0.1 })
+    obs.observe(sentinelRef.current)
+    return () => obs.disconnect()
+  }, [rows.length])
+
+  useEffect(() => {
+    if (!sentinelLibRef.current) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) setVisibleLibCount(n => Math.min(n + PAGE_SIZE, libRows.length))
+    }, { threshold: 0.1 })
+    obs.observe(sentinelLibRef.current)
+    return () => obs.disconnect()
+  }, [libRows.length])
+
+  const visibleRows    = rows.slice(0, visibleCount)
+  const visibleLibRows = libRows.slice(0, visibleLibCount)
+
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
@@ -246,11 +292,11 @@ export default function FactPorFacturar() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                <TH>Sitio</TH><TH>SMP ID</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>sGR</TH><TH>Valor PO</TH><TH></TH>
+                <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>sGR</TH><TH>Valor PO</TH><TH></TH>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ row, eventos, cat }) =>
+              {visibleRows.map(({ row, eventos, cat }) =>
                 eventos.map((ev, i) => {
                   const poData = pos.find(p => p.spo_number === row.spo_number)
                   return (
@@ -259,6 +305,7 @@ export default function FactPorFacturar() {
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_id}</td>
+                          <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><DesempenoBadge val={row.desempeno} /></td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><SpoCell spo={row.spo_number} pos={pos} /></td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}>
                             <span style={{ background: `${cat.color}15`, color: cat.color, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{cat.label}</span>
@@ -279,8 +326,14 @@ export default function FactPorFacturar() {
                   )
                 })
               )}
+              <tr><td ref={sentinelRef} colSpan={9} style={{ padding: 0, height: 1 }} /></tr>
             </tbody>
           </table>
+          {visibleCount < rows.length && (
+            <div style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, color: '#9ca89c' }}>
+              Mostrando {visibleCount} de {rows.length} — desplázate para cargar más
+            </div>
+          )}
         </div>
       )}
 
@@ -296,16 +349,17 @@ export default function FactPorFacturar() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 680 }}>
               <thead>
                 <tr style={{ background: '#fffbeb', borderBottom: '2px solid #fcd34d' }}>
-                  <TH>Sitio</TH><TH>SMP ID</TH><TH>SPO</TH><TH>Categoría</TH><TH>Falta</TH><TH>Valor PO</TH>
+                  <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Falta</TH><TH>Valor PO</TH>
                 </tr>
               </thead>
               <tbody>
-                {libRows.map(({ row, cat, missing }) => {
+                {visibleLibRows.map(({ row, cat, missing }) => {
                   const poData = pos.find(p => p.spo_number === row.spo_number)
                   return (
                     <tr key={row.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '7px 10px', fontWeight: 600 }}>{row.customer_site_name || row.site_reference_id}</td>
                       <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
+                      <td style={{ padding: '7px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
                       <td style={{ padding: '7px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
                       <td style={{ padding: '7px 10px' }}>
                         <span style={{ background: `${cat.color}15`, color: cat.color, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{cat.label}</span>
@@ -319,8 +373,14 @@ export default function FactPorFacturar() {
                     </tr>
                   )
                 })}
+              <tr><td ref={sentinelLibRef} colSpan={7} style={{ padding: 0, height: 1 }} /></tr>
               </tbody>
             </table>
+            {visibleLibCount < libRows.length && (
+              <div style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, color: '#9ca89c' }}>
+                Mostrando {visibleLibCount} de {libRows.length} — desplázate para cargar más
+              </div>
+            )}
           </div>
         </>
       )}
