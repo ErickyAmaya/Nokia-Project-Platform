@@ -19,8 +19,8 @@ export default function FactSMPs() {
 
   const [search,   setSearch]   = useState('')
   const [filtro,   setFiltro]   = useState('todos')
-  const [sortCol,  setSortCol]  = useState('customer_site_name')
-  const [sortDir,  setSortDir]  = useState(1)
+  const [sortCol,  setSortCol]  = useState('spo_date')
+  const [sortDir,  setSortDir]  = useState(-1)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -99,8 +99,8 @@ export default function FactSMPs() {
             <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
               <SH col="customer_site_name" label="Sitio" />
               <SH col="smp_id"             label="SMP ID" />
+              <SH col="ms_name"            label="MS/SMP Name" />
               <SH col="spo_number"         label="SPO" />
-              <SH col="ms_name"            label="MS Name" />
               <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>sGR</th>
               {EVENTOS.map(ev => (
                 <th key={ev.key} style={{ padding: '8px 6px', fontWeight: 700, color: ev.color, fontSize: 9, textAlign: 'center', letterSpacing: .3, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
@@ -115,8 +115,8 @@ export default function FactSMPs() {
               <tr key={row.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                 <td style={{ padding: '6px 10px', fontWeight: 600, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.customer_site_name || row.site_reference_id}</td>
                 <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
+                <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>{row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}</td>
                 <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 10 }}>{row.spo_number}</td>
-                <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>{row.ms_name}</td>
                 <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 9, color: row.sgr ? '#144E4A' : '#d4d4d8' }}>{row.sgr || '—'}</td>
                 {EVENTOS.map(ev => {
                   const evData = eventos.find(e => e.key === ev.key)

@@ -30,15 +30,15 @@ export async function descargarPlantillaFacturas(rows) {
 
   ws.views = [{ state: 'frozen', ySplit: 1 }]
 
-  // Nota en col I del header: formato esperado
   ws.getCell('I1').note = 'Formato: YYYY-MM-DD (ej. 2025-04-30)'
 
   // Data rows
   for (const { row, eventos } of rows) {
     for (const ev of eventos) {
+      const spoNum = Number(row.spo_number)
       const dr = ws.addRow({
         sitio:    row.customer_site_name || row.site_reference_id || '',
-        spo:      row.spo_number,
+        spo:      isNaN(spoNum) ? row.spo_number : spoNum,
         smp_id:   row.smp_id || '',
         ms_name:  row.ms_name || '',
         ev_label: ev.label,
@@ -56,6 +56,7 @@ export async function descargarPlantillaFacturas(rows) {
         cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }
         cell.font      = { size: 10, color: { argb: 'FF374151' } }
         cell.alignment = { vertical: 'middle' }
+        if (c === 2) cell.numFmt = '0'  // SPO como número
       }
 
       // Columnas de entrada H-J: fondo blanco con borde verde
@@ -70,6 +71,7 @@ export async function descargarPlantillaFacturas(rows) {
           left:   { style: 'thin', color: { argb: 'FF144E4A' } },
           right:  { style: 'thin', color: { argb: 'FF144E4A' } },
         }
+        if (c === 9) cell.numFmt = 'yyyy-mm-dd'  // columna fecha con formato real de fecha
       }
     }
   }
@@ -82,6 +84,36 @@ export async function descargarPlantillaFacturas(rows) {
   a.download = `plantilla_facturas_${new Date().toISOString().slice(0, 10)}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// Convierte un valor de celda de ExcelJS a string "YYYY-MM-DD" o null
+function parseFechaCell(raw) {
+  if (!raw) return null
+
+  let d
+
+  if (raw instanceof Date) {
+    d = raw
+  } else if (typeof raw === 'number') {
+    // Serial de Excel (días desde 1900-01-01; 25569 = días hasta Unix epoch 1970-01-01)
+    d = new Date(Math.round((raw - 25569) * 86400 * 1000))
+  } else if (typeof raw === 'string') {
+    const s = raw.trim()
+    // ISO YYYY-MM-DD directo — sin pasar por Date para evitar el problema de UTC
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+    d = new Date(s)
+  } else {
+    return null
+  }
+
+  if (!d || isNaN(d.getTime())) return null
+
+  // ExcelJS produce fechas como medianoche UTC (Date.UTC) en todos los casos.
+  // Usar getUTC* evita que la zona horaria local (UTC-5 Colombia) corra el día hacia atrás.
+  const y   = d.getUTCFullYear()
+  const m   = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export async function parsearExcelFacturas(file) {
@@ -101,7 +133,6 @@ export async function parsearExcelFacturas(file) {
     const ev_key  = String(row.getCell(6).value ?? '').trim()
     const pct     = Number(row.getCell(7).value)  || 0
     const num_fac = String(row.getCell(8).value ?? '').trim()
-    const fechaRaw = row.getCell(9).value
     const obs      = String(row.getCell(10).value ?? '').trim()
 
     if (!num_fac) return  // fila vacía → ignorar
@@ -111,11 +142,7 @@ export async function parsearExcelFacturas(file) {
       return
     }
 
-    let fecha = null
-    if (fechaRaw) {
-      const d = fechaRaw instanceof Date ? fechaRaw : new Date(fechaRaw)
-      if (!isNaN(d)) fecha = d.toISOString().split('T')[0]
-    }
+    const fecha = parseFechaCell(row.getCell(9).value)
 
     items.push({
       spo_number:     spo,

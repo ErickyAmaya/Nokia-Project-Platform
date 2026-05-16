@@ -89,8 +89,9 @@ export default function FactSitios() {
   const ppa      = useFactStore(s => s.ppa)
   const invoices = useFactStore(s => s.invoices)
 
-  const [search,   setSearch]   = useState('')
-  const [expanded, setExpanded] = useState({})
+  const [search,          setSearch]          = useState('')
+  const [expanded,        setExpanded]        = useState({})
+  const [showFacturados,  setShowFacturados]  = useState(false)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -107,9 +108,18 @@ export default function FactSitios() {
       map[name].push(row)
     }
     return Object.entries(map)
-      .filter(([name]) => !search || name.toLowerCase().includes(search.toLowerCase()))
+      .filter(([name, smps]) => {
+        if (search && !name.toLowerCase().includes(search.toLowerCase())) return false
+        if (showFacturados) return true
+        return smps.some(row => {
+          const evs   = getEventosRow(row, invMap)
+          const hasPF = evs.some(e => e.status === 'facturar')
+          const hasFC = evs.some(e => e.status === 'facturado')
+          return hasPF || !hasFC
+        })
+      })
       .sort(([a], [b]) => a.localeCompare(b))
-  }, [ppa, search])
+  }, [ppa, search, showFacturados, invMap])
 
   function toggle(name) { setExpanded(e => ({ ...e, [name]: !e[name] })) }
 
@@ -133,7 +143,20 @@ export default function FactSitios() {
         <div className="dash-hdr">
           <div>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Facturación por Sitio</h1>
-            <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: '#4b5563' }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</span>
+              <button
+                onClick={() => setShowFacturados(s => !s)}
+                style={{
+                  fontSize: 10, fontWeight: 700, cursor: 'pointer', borderRadius: 6, padding: '3px 9px',
+                  background: showFacturados ? '#dcfce7' : '#fef3c7',
+                  color:      showFacturados ? '#166534'  : '#92400e',
+                  border:     `1px solid ${showFacturados ? '#86efac' : '#fcd34d'}`,
+                }}
+              >
+                {showFacturados ? '👁 Ocultar Facturados' : '◡ Mostrar Facturados'}
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <SearchableSelect options={siteOptions} value={search} onChange={setSearch} placeholder="Buscar sitio…" />

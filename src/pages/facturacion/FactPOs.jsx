@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useFactStore } from '../../store/useFactStore'
+import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 
 function EditModal({ po, onClose, onSave }) {
@@ -99,6 +100,8 @@ export default function FactPOs() {
   const ppa              = useFactStore(s => s.ppa)
   const rejectedPos      = useFactStore(s => s.rejectedPos)
 
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+
   const [search,         setSearch]         = useState('')
   const [editPO,         setEditPO]         = useState(null)
   const [showRechazados, setShowRechazados] = useState(false)
@@ -123,10 +126,16 @@ export default function FactPOs() {
   const enriched = pos
     .map(po => {
       const ppaRow = ppa.find(r => r.spo_number === po.spo_number)
-      return { ...po, ms_name: ppaRow?.ms_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '' }
+      return { ...po, ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '', spo_date: ppaRow?.spo_date || '' }
     })
     .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.site_id} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.spo_number.localeCompare(b.spo_number))
+    .sort((a, b) => {
+      const ad = a.spo_date || a.doc_date || '', bd = b.spo_date || b.doc_date || ''
+      if (!ad && !bd) return 0
+      if (!ad) return 1
+      if (!bd) return -1
+      return bd.localeCompare(ad)
+    })
 
   const sinPO = [...new Set(ppa.map(r => r.spo_number))].filter(spo => !pos.find(p => p.spo_number === spo))
 
@@ -157,10 +166,12 @@ export default function FactPOs() {
               Ver rechazados ({rejectedPos.length})
             </button>
           )}
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>
-            {uploading ? '⏳ Leyendo…' : '↑ Subir PDF(s) de PO'}
-          </button>
-          <input ref={fileRef} type="file" accept=".pdf" multiple style={{ display: 'none' }} onChange={handleFiles} />
+          {!isViewer && <>
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>
+              {uploading ? '⏳ Leyendo…' : '↑ Subir PDF(s) de PO'}
+            </button>
+            <input ref={fileRef} type="file" accept=".pdf" multiple style={{ display: 'none' }} onChange={handleFiles} />
+          </>}
         </div>
       </div>
 
@@ -179,7 +190,7 @@ export default function FactPOs() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                {['SPO', 'Sitio', 'SMP ID', 'MS Name', 'Fecha PO', 'Valor', 'Proveedor', 'PDF', ''].map(h => (
+                {['SPO', 'Fecha PO', 'Sitio', 'SMP ID', 'MS/SMP Name', 'Valor', 'Proveedor', 'PDF', ''].map(h => (
                   <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
@@ -188,17 +199,17 @@ export default function FactPOs() {
               {enriched.map(po => (
                 <tr key={po.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700 }}>{po.spo_number}</td>
+                  <td style={{ padding: '7px 10px', color: '#555' }}>{po.doc_date || '—'}</td>
                   <td style={{ padding: '7px 10px' }}>{po.customer_site_name}</td>
                   <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{po.smp_id}</td>
-                  <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>{po.ms_name}</td>
-                  <td style={{ padding: '7px 10px', color: '#555' }}>{po.doc_date || '—'}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>{po.smp_name === 'Process_Implementation' ? po.ms_name : po.smp_name}</td>
                   <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A' }}>{fmtCOP(po.valor, po.moneda)}</td>
                   <td style={{ padding: '7px 10px', fontSize: 10, color: '#555', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{po.supplier_name || '—'}</td>
                   <td style={{ padding: '7px 10px' }}>
                     {po.pdf_url ? <a href={po.pdf_url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontSize: 10, fontWeight: 600 }}>Ver PDF</a> : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
                   </td>
                   <td style={{ padding: '7px 10px' }}>
-                    <button onClick={() => setEditPO(po)} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>
+                    {!isViewer && <button onClick={() => setEditPO(po)} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
                   </td>
                 </tr>
               ))}

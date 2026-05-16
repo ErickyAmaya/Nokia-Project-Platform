@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
+import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 
 function isFinal(val) {
@@ -27,6 +28,7 @@ function badge(val) {
 
 // Modal de comentario con textarea
 function FcCell({ value, onSave, siteLabel }) {
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
   const [open, setOpen] = useState(false)
   const [val,  setVal]  = useState(value || '')
 
@@ -46,16 +48,16 @@ function FcCell({ value, onSave, siteLabel }) {
   return (
     <>
       <span
-        onClick={() => setOpen(true)}
-        title="Clic para editar comentario"
+        onClick={isViewer ? undefined : () => setOpen(true)}
+        title={isViewer ? undefined : 'Clic para editar comentario'}
         style={{
-          fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 60, maxWidth: 140,
+          fontSize: 9, cursor: isViewer ? 'default' : 'pointer', display: 'inline-block', minWidth: 60, maxWidth: 140,
           color: value ? '#1e40af' : '#374151',
-          borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
+          borderBottom: isViewer ? 'none' : '1px dashed #bfdbfe', padding: '1px 0',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}
       >
-        {value || '+ Comentario'}
+        {value || (isViewer ? '—' : '+ Comentario')}
       </span>
 
       {open && (
@@ -121,6 +123,7 @@ function FcCell({ value, onSave, siteLabel }) {
 }
 
 function FcDateCell({ value, onSave }) {
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(value || '')
 
@@ -146,15 +149,15 @@ function FcDateCell({ value, onSave }) {
 
   return (
     <span
-      onClick={() => setEditing(true)}
-      title="Clic para editar fecha"
+      onClick={isViewer ? undefined : () => setEditing(true)}
+      title={isViewer ? undefined : 'Clic para editar fecha'}
       style={{
-        fontSize: 9, cursor: 'pointer', display: 'inline-block', minWidth: 55,
+        fontSize: 9, cursor: isViewer ? 'default' : 'pointer', display: 'inline-block', minWidth: 55,
         color: value ? '#1e40af' : '#374151',
-        borderBottom: '1px dashed #bfdbfe', padding: '1px 0',
+        borderBottom: isViewer ? 'none' : '1px dashed #bfdbfe', padding: '1px 0',
       }}
     >
-      {display || '+ Fecha'}
+      {display || (isViewer ? '—' : '+ Fecha')}
     </span>
   )
 }

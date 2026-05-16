@@ -1,9 +1,19 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
+import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
+
+const EV_DATE_COL = {
+  acuerdo:  'acuerdo_ss_date',
+  tss_1:    'ss_tssr_enviado_ppa_date',
+  tss_2:    'ss_tssr_aprob_cliente_ppa_date',
+  cw_1:     'execute_cw_ppa_date',
+  cw_2:     'doc_final_ok_ppa_date',
+  servicio: 'servicio_ejecutado_ppa_date',
+}
 const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
 const EV_FILTERS = [
   { key: 'todos',         label: 'Todos los servicios' },
@@ -75,13 +85,25 @@ function MissingBadge({ missing }) {
   )
 }
 
-function FacturarModal({ row, ev, pos, onClose, onSave }) {
+function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const poData = pos.find(p => p.spo_number === row.spo_number)
 
+  const conflicto = useMemo(() => {
+    const num = form.numero_factura.trim()
+    if (!num) return null
+    const matches = invoices.filter(inv => inv.numero_factura === num)
+    const otraPO  = matches.find(inv => inv.spo_number !== row.spo_number)
+    const mismaPO = matches.find(inv => inv.spo_number === row.spo_number)
+    if (otraPO)  return { tipo: 'otra_po',  spo: otraPO.spo_number }
+    if (mismaPO) return { tipo: 'misma_po', evento: mismaPO.evento }
+    return null
+  }, [form.numero_factura, invoices, row.spo_number])
+
   async function handleSave() {
     if (!form.numero_factura.trim()) { showToast('Ingresa el número de factura', 'err'); return }
+    if (conflicto?.tipo === 'otra_po') return
     setSaving(true)
     try {
       await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.pct, numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null })
@@ -108,13 +130,28 @@ function FacturarModal({ row, ev, pos, onClose, onSave }) {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="fg"><label className="fl">Número de Factura *</label><input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" /></div>
+          <div className="fg">
+            <label className="fl">Número de Factura *</label>
+            <input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" />
+            {conflicto?.tipo === 'misma_po' && (
+              <div style={{ marginTop: 5, fontSize: 10, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ Este número ya se usó en esta PO (evento {conflicto.evento}). Puede continuar si corresponde a un doble porcentaje liberado.
+              </div>
+            )}
+            {conflicto?.tipo === 'otra_po' && (
+              <div style={{ marginTop: 5, fontSize: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 9px' }}>
+                ✕ Este número ya existe en la PO {conflicto.spo}. No es posible usar la misma factura en dos POs distintas.
+              </div>
+            )}
+          </div>
           <div className="fg"><label className="fl">Fecha de Factura</label><input type="date" className="fc" value={form.fecha_factura} onChange={e => setForm(f => ({ ...f, fecha_factura: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Observaciones</label><input className="fc" value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Opcional" /></div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{saving ? 'Guardando…' : '✓ Registrar'}</button>
+          <button onClick={handleSave} disabled={saving || conflicto?.tipo === 'otra_po'} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: conflicto?.tipo === 'otra_po' ? '#d1d5db' : '#144E4A', color: '#fff', cursor: conflicto?.tipo === 'otra_po' ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+            {saving ? 'Guardando…' : '✓ Registrar'}
+          </button>
         </div>
       </div>
     </div>
@@ -127,6 +164,8 @@ export default function FactPorFacturar() {
   const pos              = useFactStore(s => s.pos)
   const registrarFactura = useFactStore(s => s.registrarFactura)
   const importarFacturas = useFactStore(s => s.importarFacturas)
+
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
 
   const [search,    setSearch]    = useState('')
   const [filtroEv,  setFiltroEv]  = useState('todos')
@@ -185,6 +224,17 @@ export default function FactPorFacturar() {
       if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name} ${row.smp_name}`.toLowerCase().includes(search.toLowerCase())) continue
       result.push({ row, eventos: filtered, cat })
     }
+    result.sort((a, b) => {
+      const getMin = ({ row, eventos }) => eventos.reduce((min, ev) => {
+        const d = row[EV_DATE_COL[ev.key]] || ''
+        return (!min || (d && d < min)) ? d : min
+      }, '')
+      const aDate = getMin(a), bDate = getMin(b)
+      if (!aDate && !bDate) return 0
+      if (!aDate) return 1
+      if (!bDate) return -1
+      return aDate.localeCompare(bDate)
+    })
     return result
   }, [ppa, invMap, filtroEv, search])
 
@@ -243,11 +293,23 @@ export default function FactPorFacturar() {
   const visibleRows    = rows.slice(0, visibleCount)
   const visibleLibRows = libRows.slice(0, visibleLibCount)
 
+  const totalPorFacturar = useMemo(() => {
+    let total = 0
+    for (const { row, eventos } of allPendingRows) {
+      const poData = pos.find(p => p.spo_number === row.spo_number)
+      if (!poData?.valor) continue
+      for (const ev of eventos) total += poData.valor * ev.pct / 100
+    }
+    return total
+  }, [allPendingRows, pos])
+
+  const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
+
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (
     <>
-      {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} onClose={() => setModal(null)} onSave={registrarFactura} />}
+      {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
 
       <div className="dash-hdr mb14">
         <div>
@@ -255,6 +317,7 @@ export default function FactPorFacturar() {
             Por Facturar
             {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{rows.length}</span>}
             {libRows.length > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{libRows.length} lib.</span>}
+            {totalPorFacturar > 0 && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{fmtCOP(totalPorFacturar)}</span>}
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {libRows.length} pendientes de liberación</div>
         </div>
@@ -271,14 +334,16 @@ export default function FactPorFacturar() {
           >
             ↓ Plantilla
           </button>
-          <button
-            onClick={() => importRef.current?.click()}
-            disabled={importing}
-            style={{ fontSize: 11, color: '#fff', background: '#144E4A', border: 'none', borderRadius: 8, padding: '6px 13px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .4 }}
-          >
-            {importing ? '⏳ Importando…' : '↑ Importar facturas'}
-          </button>
-          <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportar} />
+          {!isViewer && <>
+            <button
+              onClick={() => importRef.current?.click()}
+              disabled={importing}
+              style={{ fontSize: 11, color: '#fff', background: '#144E4A', border: 'none', borderRadius: 8, padding: '6px 13px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .4 }}
+            >
+              {importing ? '⏳ Importando…' : '↑ Importar facturas'}
+            </button>
+            <input ref={importRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImportar} />
+          </>}
         </div>
       </div>
 
@@ -292,7 +357,7 @@ export default function FactPorFacturar() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>sGR</TH><TH>Valor PO</TH><TH></TH>
+                <TH>Sitio</TH><TH>SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>Valor PO</TH><TH></TH>
               </tr>
             </thead>
             <tbody>
@@ -305,6 +370,7 @@ export default function FactPorFacturar() {
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_id}</td>
+                          <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}</td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><DesempenoBadge val={row.desempeno} /></td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><SpoCell spo={row.spo_number} pos={pos} /></td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}>
@@ -313,14 +379,13 @@ export default function FactPorFacturar() {
                         </>
                       )}
                       <td style={{ padding: '7px 10px' }}><EventoBadge ev={ev} /></td>
-                      <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#144E4A', fontWeight: 600 }}>{row.sgr}</td>
                       <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>
                         {poData?.valor
                           ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * ev.pct / 100)
                           : <span style={{ color: '#d4d4d8' }}>Sin PO</span>}
                       </td>
                       <td style={{ padding: '7px 10px' }}>
-                        <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
+                        {!isViewer && <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>}
                       </td>
                     </tr>
                   )

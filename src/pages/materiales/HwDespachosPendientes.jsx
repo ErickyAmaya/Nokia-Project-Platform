@@ -266,7 +266,7 @@ function AgregarItemModal({ despachoId, bodega, onClose }) {
 }
 
 // ── Tarjeta de despacho ──────────────────────────────────────────
-function DespachoCard({ despacho, onRealizar, onCancelar }) {
+function DespachoCard({ despacho, onRealizar, onCancelar, canEdit }) {
   const [open,       setOpen]       = useState(false)
   const [editando,   setEditando]   = useState(false)
   const [addingItem, setAddingItem] = useState(false)
@@ -394,11 +394,13 @@ function DespachoCard({ despacho, onRealizar, onCancelar }) {
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditando(true)}>
-                ✏ Editar datos
-              </button>
-            </div>
+            canEdit && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditando(true)}>
+                  ✏ Editar datos
+                </button>
+              </div>
+            )
           )}
 
           {/* Tabla de equipos */}
@@ -458,8 +460,8 @@ function DespachoCard({ despacho, onRealizar, onCancelar }) {
                     </td>
                     <td style={{ fontSize: 10, color: '#555' }}>{item.bodega}</td>
                     <td>
-                      <button className="btn-del" title="Quitar del despacho"
-                        onClick={() => handleQuitarItem(idx)}>✕</button>
+                      {canEdit && <button className="btn-del" title="Quitar del despacho"
+                        onClick={() => handleQuitarItem(idx)}>✕</button>}
                     </td>
                   </tr>
                 ))}
@@ -468,10 +470,12 @@ function DespachoCard({ despacho, onRealizar, onCancelar }) {
           </div>
 
           {/* Agregar ítem */}
-          <button className="btn" style={{ fontSize: 10, marginBottom: 14 }}
-            onClick={() => setAddingItem(true)}>
-            + Agregar equipo
-          </button>
+          {canEdit && (
+            <button className="btn" style={{ fontSize: 10, marginBottom: 14 }}
+              onClick={() => setAddingItem(true)}>
+              + Agregar equipo
+            </button>
+          )}
           {addingItem && (
             <AgregarItemModal
               despachoId={despacho.id}
@@ -481,24 +485,26 @@ function DespachoCard({ despacho, onRealizar, onCancelar }) {
           )}
 
           {/* Acciones principales */}
-          <div style={{ display: 'flex', gap: 10, paddingTop: 10,
-            borderTop: '1.5px solid #f0f2f0' }}>
-            <button
-              className="btn"
-              style={{ background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 12, flex: 1 }}
-              onClick={onRealizar}
-              disabled={(despacho.items || []).length === 0}
-            >
-              ✓ Despacho Realizado
-            </button>
-            <button
-              className="btn"
-              style={{ background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: 12 }}
-              onClick={onCancelar}
-            >
-              ✕ Cancelar Sitio
-            </button>
-          </div>
+          {canEdit && (
+            <div style={{ display: 'flex', gap: 10, paddingTop: 10,
+              borderTop: '1.5px solid #f0f2f0' }}>
+              <button
+                className="btn"
+                style={{ background: '#16a34a', color: '#fff', fontWeight: 700, fontSize: 12, flex: 1 }}
+                onClick={onRealizar}
+                disabled={(despacho.items || []).length === 0}
+              >
+                ✓ Despacho Realizado
+              </button>
+              <button
+                className="btn"
+                style={{ background: '#dc2626', color: '#fff', fontWeight: 600, fontSize: 12 }}
+                onClick={onCancelar}
+              >
+                ✕ Cancelar Sitio
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -515,6 +521,9 @@ export default function HwDespachosPendientes() {
 
   const matSitios = useMatStore(s => s.sitios)
   const saveSitio = useMatStore(s => s.saveSitio)
+
+  const user     = useAuthStore(s => s.user)
+  const canEdit  = user?.role !== 'viewer'
 
   const [search, setSearch] = useState('')
   const { confirm, ConfirmModalUI } = useConfirm()
@@ -623,6 +632,7 @@ export default function HwDespachosPendientes() {
             despacho={d}
             onRealizar={() => handleRealizar(d)}
             onCancelar={() => handleCancelar(d)}
+            canEdit={canEdit}
           />
         ))
       )}

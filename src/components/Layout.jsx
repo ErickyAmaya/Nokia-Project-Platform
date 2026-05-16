@@ -121,7 +121,7 @@ export default function Layout({ children }) {
         ? FACT_NAV
         : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
-  const canSwitchModule = user?.modulo === 'all'
+  const canSwitchModule = !!user
   const badge = BADGE[role] || BADGE.viewer
 
   const brand = empresa?.color || '#1a9c1a'

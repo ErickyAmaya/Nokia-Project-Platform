@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
+import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 
 const EV_FILTERS = [
@@ -48,14 +49,65 @@ function EventoBadge({ color, label, pct }) {
   )
 }
 
+function EditFacturaModal({ inv, onClose, onSave }) {
+  const [form, setForm] = useState({
+    numero_factura: inv.numero_factura || '',
+    fecha_factura:  inv.fecha_factura  || '',
+    observaciones:  inv.observaciones  || '',
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!form.numero_factura.trim()) { showToast('Ingresa el número de factura', 'err'); return }
+    setSaving(true)
+    try {
+      await onSave({
+        spo_number:     inv.spo_number,
+        evento:         inv.evento,
+        pct:            inv.pct,
+        numero_factura: form.numero_factura.trim(),
+        fecha_factura:  form.fecha_factura || null,
+        observaciones:  form.observaciones || null,
+      })
+      showToast('Factura actualizada')
+      onClose()
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Editar Factura</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 18 }}>SPO {inv.spo_number} · {inv.evento}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="fg"><label className="fl">Número de Factura *</label><input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Fecha de Factura</label><input type="date" className="fc" value={form.fecha_factura} onChange={e => setForm(f => ({ ...f, fecha_factura: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Observaciones</label><input className="fc" value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} /></div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{saving ? 'Guardando…' : '✓ Guardar'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FactFacturado() {
   const ppa             = useFactStore(s => s.ppa)
   const invoices        = useFactStore(s => s.invoices)
   const pos             = useFactStore(s => s.pos)
   const eliminarFactura = useFactStore(s => s.eliminarFactura)
+  const registrarFactura = useFactStore(s => s.registrarFactura)
 
-  const [search,   setSearch]   = useState('')
-  const [filtroEv, setFiltroEv] = useState('todos')
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+
+  const [search,      setSearch]      = useState('')
+  const [filtroEv,    setFiltroEv]    = useState('todos')
+  const [editInv,     setEditInv]     = useState(null)
+  const [fechaDesde,  setFechaDesde]  = useState('')
+  const [fechaHasta,  setFechaHasta]  = useState('')
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -64,13 +116,25 @@ export default function FactFacturado() {
     for (const row of ppa) {
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturado')
       if (!eventos.length) continue
-      const filtered = applyEvFilter(eventos, row, filtroEv)
+      let filtered = applyEvFilter(eventos, row, filtroEv)
       if (!filtered.length) continue
-      if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name}`.toLowerCase().includes(search.toLowerCase())) continue
+      if (fechaDesde) filtered = filtered.filter(e => (e.invoice?.fecha_factura || '') >= fechaDesde)
+      if (fechaHasta) filtered = filtered.filter(e => (e.invoice?.fecha_factura || '') <= fechaHasta)
+      if (!filtered.length) continue
+      const numFacturas = eventos.map(e => e.invoice?.numero_factura || '').join(' ')
+      if (search && !`${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name} ${numFacturas}`.toLowerCase().includes(search.toLowerCase())) continue
       result.push({ row, eventos: filtered })
     }
+    result.sort((a, b) => {
+      const aDate = a.eventos.reduce((max, e) => { const d = e.invoice?.fecha_factura || ''; return d > max ? d : max }, '')
+      const bDate = b.eventos.reduce((max, e) => { const d = e.invoice?.fecha_factura || ''; return d > max ? d : max }, '')
+      if (!aDate && !bDate) return 0
+      if (!aDate) return 1
+      if (!bDate) return -1
+      return bDate.localeCompare(aDate)
+    })
     return result
-  }, [ppa, invMap, filtroEv, search])
+  }, [ppa, invMap, filtroEv, search, fechaDesde, fechaHasta])
 
   const totalFacturado = useMemo(() => {
     let total = 0
@@ -111,6 +175,7 @@ export default function FactFacturado() {
 
   return (
     <>
+      {editInv && <EditFacturaModal inv={editInv} onClose={() => setEditInv(null)} onSave={registrarFactura} />}
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -119,11 +184,18 @@ export default function FactFacturado() {
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} con facturas registradas</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input className="fc" placeholder="Buscar sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 220 }} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input className="fc" placeholder="Buscar sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
             {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
+          <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />
+          <input type="date" className="fc" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} title="Desde" style={{ fontSize: 11, width: 130 }} />
+          <span style={{ fontSize: 10, color: '#9ca89c' }}>–</span>
+          <input type="date" className="fc" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} title="Hasta" style={{ fontSize: 11, width: 130 }} />
+          {(fechaDesde || fechaHasta) && (
+            <button onClick={() => { setFechaDesde(''); setFechaHasta('') }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>✕</button>
+          )}
         </div>
       </div>
 
@@ -134,7 +206,7 @@ export default function FactFacturado() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
-                {['Sitio', 'SMP ID', 'Desempeño', 'SPO', 'MS Name', 'Evento', 'N° Factura', 'Fecha', 'Valor', ''].map(h => (
+                {['Sitio', 'SMP ID', 'MS/SMP Name', 'Desempeño', 'SPO', 'Evento', 'N° Factura', 'Fecha', 'Valor', ''].map(h => (
                   <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
@@ -150,17 +222,18 @@ export default function FactFacturado() {
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_id}</td>
+                          <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}</td>
                           <td style={{ padding: '7px 10px' }} rowSpan={eventos.length}><DesempenoBadge val={row.desempeno} /></td>
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10 }} rowSpan={eventos.length}>{row.spo_number}</td>
-                          <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }} rowSpan={eventos.length}>{row.ms_name}</td>
                         </>
                       )}
                       <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} /></td>
                       <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A', fontFamily: 'monospace', fontSize: 10 }}>{ev.invoice.numero_factura}</td>
                       <td style={{ padding: '7px 10px', color: '#555' }}>{ev.invoice.fecha_factura || '—'}</td>
                       <td style={{ padding: '7px 10px', color: '#555', fontSize: 10 }}>{valor ? fmtCOP(valor) : <span style={{ color: '#d4d4d8' }}>—</span>}</td>
-                      <td style={{ padding: '7px 10px' }}>
-                        <button onClick={() => handleEliminar(ev.invoice)} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Quitar</button>
+                      <td style={{ padding: '7px 10px', display: 'flex', gap: 6 }}>
+                        {!isViewer && <button onClick={() => setEditInv(ev.invoice)} style={{ fontSize: 10, color: '#144E4A', background: 'none', border: '1px solid #a7c4c2', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
+                        {!isViewer && <button onClick={() => handleEliminar(ev.invoice)} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Quitar</button>}
                       </td>
                     </tr>
                   )

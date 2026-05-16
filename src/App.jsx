@@ -1,5 +1,5 @@
-import { useEffect, lazy, Suspense, Component } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useRef, lazy, Suspense, Component } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useAppStore }  from './store/useAppStore'
 import { useRealtime }  from './hooks/useRealtime'
@@ -100,27 +100,36 @@ function W(page) {
 }
 
 function RoleHome() {
-  const user   = useAuthStore(s => s.user)
-  const role   = user?.role
-  const modulo = user?.modulo
+  return <Navigate to="/modulos" replace />
+}
 
-  // Multi-módulo → selector de módulos
-  if (modulo === 'all')        return <Navigate to="/modulos"    replace />
-  // Módulo materiales directo
-  if (modulo === 'materiales') return <Navigate to="/materiales" replace />
+// After session restoration on refresh, redirect to /modulos once so all roles
+// land on the module home instead of staying on whatever URL was cached.
+function SessionRedirect() {
+  const user    = useAuthStore(s => s.user)
+  const loading = useAuthStore(s => s.loading)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const done = useRef(false)
 
-  // Billing: redirigir según rol
-  if (role === 'TI')        return <Navigate to="/ti"             replace />
-  if (role === 'TSS')       return <Navigate to="/tss"            replace />
-  if (role === 'CW')        return <Navigate to="/cw-consolidado" replace />
-  if (role === 'logistica')   return <Navigate to="/materiales"   replace />
-  if (role === 'facturacion') return <Navigate to="/facturacion" replace />
-  return <Navigate to="/dashboard" replace />
+  useEffect(() => {
+    if (!loading && user && !done.current) {
+      done.current = true
+      const skip = ['/', '/login', '/modulos']
+      if (!skip.includes(location.pathname)) {
+        navigate('/modulos', { replace: true })
+      }
+    }
+  }, [loading, user, navigate, location.pathname])
+
+  return null
 }
 
 function AppRoutes() {
   return (
-    <Routes>
+    <>
+      <SessionRedirect />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/" element={
@@ -128,7 +137,7 @@ function AppRoutes() {
       } />
 
       <Route path="/modulos" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador']}>
+        <ProtectedRoute>
           <Layout><ModuloHomePage /></Layout>
         </ProtectedRoute>
       } />
@@ -141,18 +150,18 @@ function AppRoutes() {
       }>
         <Route index              element={<MatDashboard />} />
         <Route path="inventario"  element={<MatInventario />} />
-        <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatMovimientos /></ProtectedRoute>} />
-        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatSitios /></ProtectedRoute>} />
-        <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatCatalogo /></ProtectedRoute>} />
+        <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT}><MatMovimientos /></ProtectedRoute>} />
+        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT}><MatSitios /></ProtectedRoute>} />
+        <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT}><MatCatalogo /></ProtectedRoute>} />
         <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','coordinador','logistica']}><MatConfig /></ProtectedRoute>} />
-        <Route path="reportes"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><MatReportes /></ProtectedRoute>} />
-        <Route path="hw/dashboard"   element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwDashboard /></ProtectedRoute>} />
-        <Route path="hw/inventario"  element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwInventario /></ProtectedRoute>} />
-        <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwMovimientos /></ProtectedRoute>} />
-        <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwCatalogo /></ProtectedRoute>} />
-        <Route path="hw/fallas"               element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwFallas /></ProtectedRoute>} />
+        <Route path="reportes"    element={<ProtectedRoute allowedRoles={R_MAT}><MatReportes /></ProtectedRoute>} />
+        <Route path="hw/dashboard"   element={<ProtectedRoute allowedRoles={R_MAT}><HwDashboard /></ProtectedRoute>} />
+        <Route path="hw/inventario"  element={<ProtectedRoute allowedRoles={R_MAT}><HwInventario /></ProtectedRoute>} />
+        <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT}><HwMovimientos /></ProtectedRoute>} />
+        <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT}><HwCatalogo /></ProtectedRoute>} />
+        <Route path="hw/fallas"               element={<ProtectedRoute allowedRoles={R_MAT}><HwFallas /></ProtectedRoute>} />
         <Route path="hw/fr-config"           element={<ProtectedRoute allowedRoles={['admin']}><HwFrConfig /></ProtectedRoute>} />
-        <Route path="hw/despachos-pendientes" element={<ProtectedRoute allowedRoles={R_MAT_ED}><HwDespachosPendientes /></ProtectedRoute>} />
+        <Route path="hw/despachos-pendientes" element={<ProtectedRoute allowedRoles={R_MAT}><HwDespachosPendientes /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={
@@ -205,7 +214,7 @@ function AppRoutes() {
 
       {/* ── Módulo Facturación ─────────────────────────────── */}
       <Route path="/facturacion" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','facturacion']}>
+        <ProtectedRoute allowedRoles={['admin','coordinador','facturacion','viewer']}>
           <Layout><FactWrapper /></Layout>
         </ProtectedRoute>
       }>
@@ -233,6 +242,7 @@ function AppRoutes() {
 
       <Route path="*" element={<RoleHome />} />
     </Routes>
+    </>
   )
 }
 

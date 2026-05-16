@@ -1,6 +1,7 @@
 import { useRef, useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, FINAL } from '../../store/useAckStore'
+import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -405,6 +406,8 @@ export default function AckDashboard() {
   const proyectoSel    = useAckStore(s => s.proyectoSel)
   const setProyectoSel = useAckStore(s => s.setProyectoSel)
 
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+
   const [region,   setRegion]   = useState('todos')
   const [soloPend, setSoloPend] = useState(false)
 
@@ -460,7 +463,7 @@ export default function AckDashboard() {
         <p style={{ fontSize: 13, color: '#4b5563', marginBottom: 24 }}>
           No hay datos cargados. Sube el reporte Nokia para comenzar.
         </p>
-        <UploadZone onFile={handleFile} uploading={uploading} />
+        {!isViewer && <UploadZone onFile={handleFile} uploading={uploading} />}
       </div>
     )
   }
@@ -481,7 +484,7 @@ export default function AckDashboard() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <UploadZone onFile={handleFile} uploading={uploading} />
+          {!isViewer && <UploadZone onFile={handleFile} uploading={uploading} />}
         </div>
       </div>
 

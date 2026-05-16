@@ -6,6 +6,13 @@ import { useMatStore }  from '../store/useMatStore'
 import { useAckStore }  from '../store/useAckStore'
 import { useFactStore, buildInvoicesMap, getEventosRow } from '../store/useFactStore'
 
+const MODULE_ACCESS = {
+  billing:     ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW'],
+  materiales:  ['admin', 'coordinador', 'logistica', 'viewer'],
+  rollout:     ['admin', 'coordinador', 'viewer'],
+  facturacion: ['admin', 'coordinador', 'facturacion', 'viewer'],
+}
+
 const MODULOS = [
   {
     id:          'billing',
@@ -212,26 +219,30 @@ export default function ModuloHomePage() {
         gap: 20, width: '100%', maxWidth: 980,
       }}>
         {MODULOS.map(m => {
-          const isH     = hovered === m.id
-          const metrics = getMetrics(m.id)
+          const canAccess = MODULE_ACCESS[m.id]?.includes(user?.role) ?? false
+          const isH       = canAccess && hovered === m.id
+          const metrics   = getMetrics(m.id)
 
           return (
             <div
               key={m.id}
-              onClick={() => navigate(m.ruta)}
-              onMouseEnter={() => setHovered(m.id)}
+              onClick={() => canAccess && navigate(m.ruta)}
+              onMouseEnter={() => canAccess && setHovered(m.id)}
               onMouseLeave={() => setHovered(null)}
               style={{
                 position: 'relative', overflow: 'hidden',
                 background: '#fff',
                 border: `1.5px solid ${isH ? m.color : '#e8eae8'}`,
-                borderRadius: 20, cursor: 'pointer',
+                borderRadius: 20,
+                cursor: canAccess ? 'pointer' : 'not-allowed',
                 display: 'flex', flexDirection: 'column',
+                opacity: canAccess ? 1 : 0.42,
+                filter: canAccess ? 'none' : 'grayscale(60%)',
                 boxShadow: isH
                   ? `0 0 0 4px ${m.color}1a, 0 16px 40px rgba(0,0,0,.1)`
                   : '0 2px 12px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.04)',
                 transform: isH ? 'translateY(-6px)' : 'none',
-                transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s',
+                transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .2s, opacity .2s',
               }}
             >
               {/* Línea de color en el top al hover */}
@@ -254,6 +265,15 @@ export default function ModuloHomePage() {
                 transition: 'opacity .3s, transform .3s',
                 pointerEvents: 'none',
               }} />
+
+              {/* Candado para módulos sin acceso */}
+              {!canAccess && (
+                <div style={{
+                  position: 'absolute', top: 14, right: 16,
+                  fontSize: 13, color: '#a1a1aa',
+                  userSelect: 'none', pointerEvents: 'none',
+                }}>🔒</div>
+              )}
 
               {/* Body: ícono + título + descripción */}
               <div className="mod-card-body" style={{ padding: '32px 28px 20px', flex: 1 }}>
@@ -289,44 +309,42 @@ export default function ModuloHomePage() {
                 padding: '16px 0 12px',
                 display: 'flex', flexDirection: 'column', gap: 10,
               }}>
-                {/* Indicador de filtro activo (solo ACK) */}
-                {m.id === 'rollout' && ackProyectoSel.length > 0 && (
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    fontSize: 10, fontWeight: 600, letterSpacing: .5,
-                    color: m.color, textTransform: 'uppercase',
-                  }}>
-                    <span style={{
-                      width: 5, height: 5, borderRadius: '50%',
-                      background: m.color, display: 'inline-block',
-                    }} />
-                    {ackProyectoSel.length === 1
-                      ? ackProyectoSel[0]
-                      : `${ackProyectoSel.length} proyectos`}
+                {canAccess ? (
+                  <>
+                    {m.id === 'rollout' && ackProyectoSel.length > 0 && (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        fontSize: 10, fontWeight: 600, letterSpacing: .5,
+                        color: m.color, textTransform: 'uppercase',
+                      }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: m.color, display: 'inline-block' }} />
+                        {ackProyectoSel.length === 1 ? ackProyectoSel[0] : `${ackProyectoSel.length} proyectos`}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex' }}>
+                      {metrics.map((met, i) => (
+                        <div key={i} style={{
+                          flex: 1, textAlign: 'center', padding: '0 8px',
+                          borderLeft: i > 0 ? '1px solid #e8eae8' : 'none',
+                        }}>
+                          <div className="mod-metric-val" style={{
+                            fontFamily: "'Barlow Condensed', sans-serif",
+                            fontSize: 26, fontWeight: 400,
+                            color: m.color, lineHeight: 1, marginBottom: 3,
+                          }}>{met.val}</div>
+                          <div className="mod-metric-label" style={{
+                            fontSize: 9.5, fontWeight: 600, letterSpacing: 1,
+                            textTransform: 'uppercase', color: '#a1a1aa',
+                          }}>{met.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 11, color: '#a1a1aa', fontStyle: 'italic', textAlign: 'center', padding: '4px 0' }}>
+                    Sin acceso
                   </div>
                 )}
-                <div style={{ display: 'flex' }}>
-                {metrics.map((met, i) => (
-                  <div key={i} style={{
-                    flex: 1, textAlign: 'center', padding: '0 8px',
-                    borderLeft: i > 0 ? '1px solid #e8eae8' : 'none',
-                  }}>
-                    <div className="mod-metric-val" style={{
-                      fontFamily: "'Barlow Condensed', sans-serif",
-                      fontSize: 26, fontWeight: 400,
-                      color: m.color, lineHeight: 1, marginBottom: 3,
-                    }}>
-                      {met.val}
-                    </div>
-                    <div className="mod-metric-label" style={{
-                      fontSize: 9.5, fontWeight: 600, letterSpacing: 1,
-                      textTransform: 'uppercase', color: '#a1a1aa',
-                    }}>
-                      {met.label}
-                    </div>
-                  </div>
-                ))}
-                </div>
               </div>
 
               {/* Footer CTA */}
@@ -336,13 +354,13 @@ export default function ModuloHomePage() {
               }}>
                 <span className="mod-cta" style={{
                   fontSize: 12, fontWeight: 700, letterSpacing: .4,
-                  color: m.color, textTransform: 'uppercase',
+                  color: canAccess ? m.color : '#a1a1aa', textTransform: 'uppercase',
                 }}>
-                  Abrir {m.corto} →
+                  {canAccess ? `Abrir ${m.corto} →` : 'Sin acceso'}
                 </span>
                 <div style={{
                   width: 6, height: 6, borderRadius: '50%',
-                  background: m.color, opacity: .35,
+                  background: canAccess ? m.color : '#d4d4d8', opacity: .35,
                 }} />
               </div>
             </div>

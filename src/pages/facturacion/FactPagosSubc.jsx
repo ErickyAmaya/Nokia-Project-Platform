@@ -165,6 +165,7 @@ export default function FactPagosSubc() {
   const registrarPago = usePagosStore(s => s.registrarPago)
   const anularPago   = usePagosStore(s => s.anularPago)
   const user         = useAuthStore(s => s.user)
+  const isViewer     = user?.role === 'viewer'
 
   const [expanded,    setExpanded]    = useState({})
   const [activeHito,  setActiveHito]  = useState({})
@@ -346,12 +347,12 @@ export default function FactPagosSubc() {
           onClick={() => setShowInternas(v => !v)}
           style={{
             fontSize: 10, fontWeight: 700, cursor: 'pointer', borderRadius: 6, padding: '5px 10px',
-            background: showInternas ? '#eff6ff' : '#f3f4f6',
-            color:      showInternas ? '#1e40af' : '#6b7280',
-            border: `1px solid ${showInternas ? '#bfdbfe' : '#e0e4e0'}`,
+            background: showInternas ? '#eff6ff' : '#fef3c7',
+            color:      showInternas ? '#1e40af'  : '#92400e',
+            border: `1px solid ${showInternas ? '#bfdbfe' : '#fcd34d'}`,
           }}
         >
-          {showInternas ? '👁 Cuadrilla Interna visible' : 'Cuadrilla Interna oculta'}
+          {showInternas ? '👁 Cuadrilla Interna visible' : '◡ Cuadrilla Interna oculta'}
         </button>
         <span style={{ fontSize: 10, color: '#9ca89c' }}>{filtered.length} sitio{filtered.length !== 1 ? 's' : ''}</span>
       </div>
@@ -503,12 +504,12 @@ export default function FactPagosSubc() {
                             }
                           </td>
                           <td style={{ padding: '8px 10px' }}>
-                            {isPaid ? (
+                            {!isViewer && isPaid ? (
                               <button
                                 onClick={() => handleAnular(hito.pago)}
                                 style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}
                               >Anular</button>
-                            ) : isActive ? (
+                            ) : !isViewer && isActive ? (
                               <button
                                 onClick={() => activeHitoKey === hito.key ? closeReg(site.nombre) : openReg(site, hito.key)}
                                 style={{ fontSize: 10, fontWeight: 700, background: '#FFC000', color: '#92400e', border: 'none', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
@@ -524,7 +525,7 @@ export default function FactPagosSubc() {
                 </table>
 
                 {/* Panel de registro inline */}
-                {activeHitoKey && (
+                {activeHitoKey && !isViewer && (
                   <RegPanel
                     site={site}
                     hitoKey={activeHitoKey}
