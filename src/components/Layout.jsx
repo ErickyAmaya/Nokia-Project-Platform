@@ -16,7 +16,11 @@ const ALL_NAV = [
 ]
 const ADMIN_NAV = [
   { to: '/catalogo', label: 'Catálogo', icon: '📋', id: 'catalogo', roles: ['admin','coordinador'] },
-  { to: '/config',   label: 'Config',   icon: '⚙',  id: 'config',   roles: ['admin'] },
+]
+
+const ADMIN_PANEL_NAV = [
+  { to: '/admin/usuarios', label: 'Usuarios', icon: '👥', id: 'admin-usuarios', roles: ['admin'] },
+  { to: '/admin/config',   label: 'Config',   icon: '⚙',  id: 'admin-config',   roles: ['admin'] },
 ]
 
 // ── Nav Materiales ────────────────────────────────────────────────
@@ -82,6 +86,7 @@ export default function Layout({ children }) {
   const inHw          = location.pathname.startsWith('/materiales/hw')
   const inRollout     = location.pathname.startsWith('/rollout')
   const inFacturacion = location.pathname.startsWith('/facturacion')
+  const inAdmin       = location.pathname.startsWith('/admin')
 
   const empresa = {
     ...empresaBase,
@@ -113,13 +118,15 @@ export default function Layout({ children }) {
     return item.roles.includes(role)
   }
 
-  const allVisible = inMateriales
-    ? (inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
-    : inRollout
-      ? ROLLOUT_NAV
-      : inFacturacion
-        ? FACT_NAV
-        : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+  const allVisible = inAdmin
+    ? ADMIN_PANEL_NAV.filter(canSee)
+    : inMateriales
+      ? (inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
+      : inRollout
+        ? ROLLOUT_NAV
+        : inFacturacion
+          ? FACT_NAV
+          : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   const canSwitchModule = !!user
   const badge = BADGE[role] || BADGE.viewer
@@ -138,17 +145,19 @@ export default function Layout({ children }) {
     fontFamily: "'Barlow', sans-serif",
   }
 
-  const headerTitle = inHw
-    ? 'HW Nokia'
-    : inMateriales
-      ? 'Gestión de Inventarios'
-      : inRollout
-        ? 'ACK'
-        : inFacturacion
-          ? 'Facturación'
-          : location.pathname === '/modulos' || location.pathname === '/'
-            ? 'Project Modules'
-            : 'Liquidador de Actividades'
+  const headerTitle = inAdmin
+    ? 'Panel Admin'
+    : inHw
+      ? 'HW Nokia'
+      : inMateriales
+        ? 'Gestión de Inventarios'
+        : inRollout
+          ? 'ACK'
+          : inFacturacion
+            ? 'Facturación'
+            : location.pathname === '/modulos' || location.pathname === '/'
+              ? 'Project Modules'
+              : 'Liquidador de Actividades'
 
   return (
     <div style={{ minHeight: '100svh', background: '#f0f2f0' }}>
@@ -356,7 +365,7 @@ export default function Layout({ children }) {
 
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
+            {inAdmin ? '⚙ Panel Admin' : inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
           </div>
 
           {canSwitchModule && (

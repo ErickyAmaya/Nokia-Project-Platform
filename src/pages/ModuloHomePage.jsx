@@ -367,6 +367,27 @@ export default function ModuloHomePage() {
           )
         })}
       </div>
+
+      {/* ── Panel Admin (solo admin) ──────────────────────────────── */}
+      {user?.role === 'admin' && (
+        <div
+          onClick={() => navigate('/admin')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10,
+            background: '#fff', border: '1.5px solid #e8eae8',
+            borderRadius: 12, padding: '10px 20px', cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,.05)',
+            transition: 'border-color .2s, box-shadow .2s',
+            fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: .3,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#6b7280'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8eae8'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.05)' }}
+        >
+          <span style={{ fontSize: 15 }}>⚙</span>
+          Panel Admin
+          <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>→</span>
+        </div>
+      )}
     </div>
   )
 }

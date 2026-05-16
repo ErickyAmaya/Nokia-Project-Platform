@@ -1,6 +1,20 @@
 import { useRef, useMemo, useState } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
+import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+function fmtMes(yyyymm) {
+  const [y, m] = yyyymm.split('-')
+  return `${MESES[parseInt(m) - 1]} '${y.slice(2)}`
+}
+function fmtK(v) {
+  if (!v) return '$0'
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(0)}M`
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`
+  return `$${v}`
+}
 
 function RechazadosModal({ items, onClose, onDelete }) {
   return (
@@ -164,6 +178,64 @@ export default function FactDashboard() {
     return Object.values(map).filter(c => c.total > 0)
   }, [ppa, invMap])
 
+  const monthlyData = useMemo(() => {
+    const map = {}
+    for (const inv of invoices) {
+      if (!inv.fecha_factura) continue
+      const ppaRow = ppa.find(r => r.spo_number === inv.spo_number)
+      if (!ppaRow) continue
+      const ev = EVENTOS.find(e => e.key === inv.evento)
+      if (!ev) continue
+      const pct = ppaRow[ev.pctCol] || 0
+      if (!pct) continue
+      const poData = pos.find(p => p.spo_number === inv.spo_number)
+      if (!poData?.valor) continue
+      const key = inv.fecha_factura.slice(0, 7)
+      if (!map[key]) map[key] = 0
+      map[key] += poData.valor * pct / 100
+    }
+    const sorted = Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, valor]) => ({ month, label: fmtMes(month), valor: Math.round(valor) }))
+    return sorted.map((item, i) => {
+      const slice = sorted.slice(Math.max(0, i - 2), i + 1)
+      const avg = slice.reduce((s, x) => s + x.valor, 0) / slice.length
+      return { ...item, tendencia: Math.round(avg) }
+    })
+  }, [invoices, ppa, pos])
+
+  const catValueStats = useMemo(() => {
+    const CAT_KEYS = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
+    const allCats = [...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
+    const map = Object.fromEntries(allCats.map(c => [c.key, { cat: c, fc: 0, pf: 0, lib: 0 }]))
+    for (const row of ppa) {
+      const cat = getSmpCat(row.smp_name)
+      const k   = cat.key in map ? cat.key : 'other'
+      const poData = pos.find(p => p.spo_number === row.spo_number)
+      const valor  = poData?.valor || 0
+      if (!valor) continue
+      const evs    = getEventosRow(row, invMap)
+      const hasPF  = evs.some(e => e.status === 'facturar')
+      const hasFC  = evs.some(e => e.status === 'facturado')
+      const hasGR  = !!row.sgr
+      const hasPct = EVENTOS.some(ev => (row[ev.pctCol] || 0) > 0)
+      for (const ev of evs) {
+        if (ev.status === 'facturar')  map[k].pf += valor * (ev.pct / 100)
+        if (ev.status === 'facturado') map[k].fc += valor * (ev.pct / 100)
+      }
+      if (!hasPF && !hasFC && (!hasGR || !hasPct)) map[k].lib += valor
+    }
+    return CAT_KEYS
+      .filter(k => map[k] && (map[k].fc + map[k].pf + map[k].lib > 0))
+      .map(k => ({
+        label: map[k].cat.label,
+        color: map[k].cat.color,
+        fc:    Math.round(map[k].fc),
+        pf:    Math.round(map[k].pf),
+        lib:   Math.round(map[k].lib),
+      }))
+  }, [ppa, pos, invMap])
+
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -268,6 +340,62 @@ export default function FactDashboard() {
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', letterSpacing: .5, textTransform: 'uppercase' }}>Valor Facturado</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{fmtCOP(stats.valorFacturado)}</div>
                 <div style={{ fontSize: 9, color: '#617561' }}>Según valor de POs cargadas</div>
+              </div>
+            </div>
+          )}
+
+          {/* Gráfica mensual */}
+          {monthlyData.length > 0 && (
+            <div className="card">
+              <div className="card-h"><h2>Facturación mensual</h2></div>
+              <div className="card-b">
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={monthlyData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
+                    <Tooltip
+                      formatter={(val, name) => [fmtCOP(val), name === 'valor' ? 'Facturado' : 'Tendencia 3M']}
+                      labelStyle={{ fontSize: 11, fontWeight: 700 }}
+                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+                    />
+                    <Bar dataKey="valor" fill="#144E4A" radius={[3, 3, 0, 0]} name="valor" />
+                    <Line dataKey="tendencia" stroke="#f59e0b" strokeWidth={2} dot={false} name="tendencia" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563' }}>
+                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#144E4A', borderRadius: 2, marginRight: 4 }} />Facturado (mes)</span>
+                  <span><span style={{ display: 'inline-block', width: 24, height: 2, background: '#f59e0b', borderRadius: 1, marginRight: 4, verticalAlign: 'middle' }} />Tendencia 3 meses</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Valor COP por categoría */}
+          {catValueStats.length > 0 && (
+            <div className="card">
+              <div className="card-h"><h2>Valor COP por categoría</h2></div>
+              <div className="card-b">
+                <ResponsiveContainer width="100%" height={catValueStats.length * 44 + 40}>
+                  <BarChart data={catValueStats} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                    <XAxis type="number" tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={44} />
+                    <Tooltip
+                      formatter={(val, name) => [fmtCOP(val), name === 'fc' ? 'Facturado' : name === 'pf' ? 'Por Facturar' : 'Pend. Liberación']}
+                      labelStyle={{ fontSize: 11, fontWeight: 700 }}
+                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+                    />
+                    <Bar dataKey="fc"  stackId="a" fill="#22c55e" name="fc" />
+                    <Bar dataKey="pf"  stackId="a" fill="#ef4444" name="pf" />
+                    <Bar dataKey="lib" stackId="a" fill="#f59e0b" name="lib" radius={[0, 3, 3, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 9, color: '#4b5563' }}>
+                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4 }} />Facturado</span>
+                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Por Facturar</span>
+                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#f59e0b', borderRadius: 2, marginRight: 4 }} />Pend. Liberación</span>
+                </div>
               </div>
             </div>
           )}

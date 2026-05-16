@@ -7,6 +7,7 @@ import ProtectedRoute   from './components/ProtectedRoute'
 import Layout           from './components/Layout'
 import Toast            from './components/Toast'
 import LoginPage        from './pages/LoginPage'
+import SetPasswordPage  from './pages/SetPasswordPage'
 import Dashboard        from './pages/Dashboard'
 import ConsolidadoTI    from './pages/ConsolidadoTI'
 import ConsolidadoTSS   from './pages/ConsolidadoTSS'
@@ -15,6 +16,8 @@ import GastosPage       from './pages/GastosPage'
 import LiquidadorPage   from './pages/LiquidadorPage'
 import LiquidadorIndexPage from './pages/LiquidadorIndexPage'
 import ModuloHomePage      from './pages/ModuloHomePage'
+import AdminWrapper       from './pages/admin/AdminWrapper'
+import AdminUsuarios      from './pages/admin/AdminUsuarios'
 import MatWrapper         from './pages/materiales/MatWrapper'
 import MatDashboard       from './pages/materiales/MatDashboard'
 import MatInventario      from './pages/materiales/MatInventario'
@@ -130,7 +133,8 @@ function AppRoutes() {
     <>
       <SessionRedirect />
       <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login"        element={<LoginPage />} />
+      <Route path="/set-password" element={<SetPasswordPage />} />
 
       <Route path="/" element={
         <ProtectedRoute><Layout><RoleHome /></Layout></ProtectedRoute>
@@ -208,9 +212,18 @@ function AppRoutes() {
         <ProtectedRoute allowedRoles={R_CATALOG}>{W(<CatalogoPage />)}</ProtectedRoute>
       } />
 
-      <Route path="/config" element={
-        <ProtectedRoute allowedRoles={R_ADMIN}>{W(<ConfigPage />)}</ProtectedRoute>
-      } />
+      {/* ── Panel Admin ────────────────────────────────────── */}
+      <Route path="/admin" element={
+        <ProtectedRoute allowedRoles={R_ADMIN}>
+          <Layout><AdminWrapper /></Layout>
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="/admin/usuarios" replace />} />
+        <Route path="usuarios" element={<AdminUsuarios />} />
+        <Route path="config"   element={<Suspense fallback={<PageLoader />}><ConfigPage /></Suspense>} />
+      </Route>
+
+      <Route path="/config" element={<Navigate to="/admin/config" replace />} />
 
       {/* ── Módulo Facturación ─────────────────────────────── */}
       <Route path="/facturacion" element={
