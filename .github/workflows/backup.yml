@@ -20,11 +20,18 @@ jobs:
 
       - name: Generar backup
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           FILENAME="backup_${TIMESTAMP}.sql.gz"
-          pg_dump "$DATABASE_URL" --schema=public | gzip > "$FILENAME"
+          PGPASSWORD="$DB_PASSWORD" pg_dump \
+            --host="$DB_HOST" \
+            --port=5432 \
+            --username="postgres.tvlskyihhxfnxfgifilk" \
+            --dbname=postgres \
+            --schema=public \
+            | gzip > "$FILENAME"
           echo "BACKUP_FILE=$FILENAME" >> $GITHUB_ENV
           echo "Backup generado: $FILENAME"
 
