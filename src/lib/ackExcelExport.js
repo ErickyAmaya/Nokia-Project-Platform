@@ -31,10 +31,12 @@ function _nokiaWeekLabel(dateInput) {
   return `W${String(week).padStart(2, '0')}`
 }
 
-function applyFiltro(rows, key, filtro) {
-  if (filtro === 'pendientes') return rows.filter(r => !isFin(r[key]))
-  if (filtro === 'cerrados')   return rows.filter(r =>  isFin(r[key]))
-  return rows
+function applyFiltro(rows, key, filtro, estadosOcultos = {}) {
+  const ocultos = estadosOcultos[key] || []
+  let filtered = ocultos.length ? rows.filter(r => !ocultos.includes(r[key])) : rows
+  if (filtro === 'pendientes') return filtered.filter(r => !isFin(r[key]))
+  if (filtro === 'cerrados')   return filtered.filter(r =>  isFin(r[key]))
+  return filtered
 }
 
 function resolveOwnerStr(owner, empresaNombre) {
@@ -297,6 +299,7 @@ export async function exportAckToExcel({
   prevSabana,
   forecasts,
   filtro,
+  estadosOcultos = {},
   currLabel,
   prevLabel,
   hasPrev,
@@ -310,8 +313,8 @@ export async function exportAckToExcel({
 
   for (const p of reportProcesos) {
     const cfg  = procCfg[p.key]
-    const curr = applyFiltro(sabana,     p.key, filtro)
-    const prev = applyFiltro(prevSabana, p.key, filtro)
+    const curr = applyFiltro(sabana,     p.key, filtro, estadosOcultos)
+    const prev = applyFiltro(prevSabana, p.key, filtro, estadosOcultos)
 
     const sheet = wb.addWorksheet(cfg.label.substring(0, 31), {
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 2, paperSize: 9 },

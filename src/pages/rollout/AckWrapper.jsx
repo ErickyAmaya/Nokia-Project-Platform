@@ -4,14 +4,15 @@ import { useAckStore }  from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
 
 export default function AckWrapper() {
-  const loadAll          = useAckStore(s => s.loadAll)
-  const loadUserPrefs    = useAckStore(s => s.loadUserPrefs)
-  const loadForecasts    = useAckStore(s => s.loadForecasts)
-  const initPrefsChannel = useAckStore(s => s.initPrefsChannel)
-  const initRealtimeSync = useAckStore(s => s.initRealtimeSync)
-  const userId           = useAuthStore(s => s.user?.id)
+  const loadAll             = useAckStore(s => s.loadAll)
+  const loadUserPrefs       = useAckStore(s => s.loadUserPrefs)
+  const loadForecasts       = useAckStore(s => s.loadForecasts)
+  const loadEstadosOcultos  = useAckStore(s => s.loadEstadosOcultos)
+  const initPrefsChannel    = useAckStore(s => s.initPrefsChannel)
+  const initRealtimeSync    = useAckStore(s => s.initRealtimeSync)
+  const userId              = useAuthStore(s => s.user?.id)
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => { loadAll(); loadEstadosOcultos() }, [loadAll, loadEstadosOcultos])
 
   // Realtime: nuevo Excel sube → todos recargan sábana
   useEffect(() => { return initRealtimeSync() }, [initRealtimeSync])

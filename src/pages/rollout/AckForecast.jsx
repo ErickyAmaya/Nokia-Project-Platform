@@ -395,19 +395,21 @@ const REPORT_KEYS = ['gap_doc', 'gap_hw_cierre', 'gap_log_inv', 'gap_site_owner'
 const REPORT_PROCESOS = REPORT_KEYS.map(k => PROCESOS.find(p => p.key === k)).filter(Boolean)
 
 // ── Helper filtro (también usado por export) ──────────────────────
-function applyFiltroRows(rows, procesoKey, filtro) {
-  if (filtro === 'pendientes') return rows.filter(r => !isFinal(r[procesoKey]))
-  if (filtro === 'cerrados')   return rows.filter(r =>  isFinal(r[procesoKey]))
-  return rows
+function applyFiltroRows(rows, procesoKey, filtro, estadosOcultos = {}) {
+  const ocultos = estadosOcultos[procesoKey] || []
+  let filtered = ocultos.length ? rows.filter(r => !ocultos.includes(r[procesoKey])) : rows
+  if (filtro === 'pendientes') return filtered.filter(r => !isFinal(r[procesoKey]))
+  if (filtro === 'cerrados')   return filtered.filter(r =>  isFinal(r[procesoKey]))
+  return filtered
 }
 
 // ── Sección de proceso (pantalla) ─────────────────────────────────
-function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro, empresaNombre, expanded, onToggle }) {
+function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, forecasts, filtro, estadosOcultos, empresaNombre, expanded, onToggle }) {
   const cfg     = PROC_CFG[proceso.key]
   const hasPrev = prevRows.length > 0
 
-  const curr = applyFiltroRows(currRows, proceso.key, filtro)
-  const prev = applyFiltroRows(prevRows, proceso.key, filtro)
+  const curr = applyFiltroRows(currRows, proceso.key, filtro, estadosOcultos)
+  const prev = applyFiltroRows(prevRows, proceso.key, filtro, estadosOcultos)
 
   const total  = currRows.length
   const pend   = currRows.filter(r => !isFinal(r[proceso.key])).length
@@ -588,15 +590,228 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
   )
 }
 
+// ── Modal de configuración de estados ocultos ─────────────────────
+function SetupModal({ sabana, estadosOcultos, onSave, onClose }) {
+  const [draft, setDraft]       = useState(() => {
+    const base = {}
+    REPORT_KEYS.forEach(k => { base[k] = [...(estadosOcultos[k] || [])] })
+    return base
+  })
+  const [activeProc, setActiveProc] = useState(REPORT_KEYS[0])
+
+  const statesByProc = useMemo(() => {
+    const map = {}
+    for (const key of REPORT_KEYS) {
+      map[key] = [...new Set(sabana.map(r => r[key]).filter(Boolean))].sort()
+    }
+    return map
+  }, [sabana])
+
+  function toggle(procKey, estado) {
+    const curr = draft[procKey] || []
+    setDraft(d => ({
+      ...d,
+      [procKey]: curr.includes(estado) ? curr.filter(e => e !== estado) : [...curr, estado],
+    }))
+  }
+
+  const totalOcultos = Object.values(draft).reduce((s, arr) => s + arr.length, 0)
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{ background: '#fff', borderRadius: 14, width: 'min(680px, 96vw)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,.25)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ background: '#1a3a5c', color: '#fff', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5 }}>Configurar Reporte Nokia</div>
+            <div style={{ fontSize: 10, opacity: .8, marginTop: 2 }}>
+              Desmarca los estados que no se revisan en reunión — quedan en Seguimiento
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+
+        {/* Process tabs */}
+        <div style={{ display: 'flex', borderBottom: '1.5px solid #e0e4e0', background: '#f8faf8', overflowX: 'auto' }}>
+          {REPORT_KEYS.map(key => {
+            const cfg = PROC_CFG[key]
+            const cnt = (draft[key] || []).length
+            return (
+              <button key={key}
+                onClick={() => setActiveProc(key)}
+                style={{
+                  padding: '9px 14px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                  fontFamily: "'Barlow', sans-serif", fontSize: 10, fontWeight: 700,
+                  letterSpacing: .4, textTransform: 'uppercase',
+                  background: activeProc === key ? '#fff' : 'transparent',
+                  borderBottom: activeProc === key ? `3px solid ${cfg.color}` : '3px solid transparent',
+                  color: activeProc === key ? cfg.color : '#4b5563',
+                  position: 'relative',
+                }}
+              >
+                {cfg.label}
+                {cnt > 0 && (
+                  <span style={{ marginLeft: 5, background: cfg.color, color: '#fff', borderRadius: 10, padding: '1px 5px', fontSize: 8, fontWeight: 800 }}>
+                    {cnt}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Estado checkboxes */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+          {(statesByProc[activeProc] || []).length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af', fontSize: 12 }}>
+              Sin estados en este proceso
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(statesByProc[activeProc] || []).map(estado => {
+                const oculto  = (draft[activeProc] || []).includes(estado)
+                const fin     = isFinal(estado)
+                const code    = estado.split('.')[0]
+                return (
+                  <label key={estado}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+                      borderRadius: 7, cursor: 'pointer',
+                      background: oculto ? '#fef9c3' : '#f8faf8',
+                      border: `1px solid ${oculto ? '#fde68a' : '#e8eae8'}`,
+                      transition: 'background .1s',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!oculto}
+                      onChange={() => toggle(activeProc, estado)}
+                      style={{ width: 15, height: 15, accentColor: PROC_CFG[activeProc].color, cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 10, flex: 1, color: fin ? '#166534' : parseInt(code) <= 300 ? '#854d0e' : '#991b1b', fontWeight: 600 }}>
+                      {estado}
+                    </span>
+                    {oculto && (
+                      <span style={{ fontSize: 8, background: '#fde68a', color: '#78350f', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>
+                        OCULTO
+                      </span>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid #e8eae8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8faf8' }}>
+          <div style={{ fontSize: 10, color: '#6b7280' }}>
+            {totalOcultos === 0
+              ? 'Todos los estados visibles'
+              : `${totalOcultos} estado${totalOcultos !== 1 ? 's' : ''} oculto${totalOcultos !== 1 ? 's' : ''} en el reporte Nokia`
+            }
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setDraft(() => { const b = {}; REPORT_KEYS.forEach(k => { b[k] = [] }); return b })}
+              style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', color: '#4b5563', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}>
+              Mostrar todo
+            </button>
+            <button onClick={onClose}
+              style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', color: '#4b5563', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button onClick={() => onSave(draft)}
+              style={{ padding: '7px 18px', borderRadius: 8, border: 'none', background: '#1a3a5c', color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ── Vista de Seguimiento (estados ocultos del reporte) ────────────
+function SeguimientoView({ sabana, prevSabana, estadosOcultos, forecasts, currLabel, prevLabel, empresaNombre }) {
+  const procesosConOcultos = REPORT_PROCESOS.filter(p => (estadosOcultos[p.key] || []).length > 0)
+
+  if (procesosConOcultos.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b7280' }}>
+      <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>Sin estados ocultos configurados</div>
+      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+        Usa "Configurar Reporte" para ocultar estados que no se revisan con Nokia
+      </div>
+    </div>
+  )
+
+  const hasPrev = prevSabana.length > 0
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11, color: '#6b7280', padding: '8px 14px', background: '#fef9c3', borderRadius: 8, border: '1px solid #fde68a' }}>
+        Estos estados están en seguimiento interno pero <b>no aparecen en el Reporte Nokia ni en el Excel</b>.
+      </div>
+      {procesosConOcultos.map(p => {
+        const cfg     = PROC_CFG[p.key]
+        const ocultos = estadosOcultos[p.key] || []
+        const currRows = sabana.filter(r => ocultos.includes(r[p.key]))
+        const prevRows = prevSabana.filter(r => ocultos.includes(r[p.key]))
+
+        return (
+          <div key={p.key} style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
+            <div style={{ background: cfg.color, padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 7, color: 'rgba(255,255,255,.85)', letterSpacing: 2, textTransform: 'uppercase', fontWeight: 600 }}>Seguimiento · {cfg.nokia}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif" }}>{cfg.label}</div>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', fontFamily: "'Barlow Condensed', sans-serif", textAlign: 'right' }}>
+                {currRows.length}
+                <div style={{ fontSize: 8, color: 'rgba(255,255,255,.85)', fontWeight: 400 }}>actividades</div>
+              </div>
+            </div>
+            <div style={{ padding: 16, background: '#fff' }}>
+              <div style={{ fontSize: 9, color: '#6b7280', marginBottom: 8, fontWeight: 600 }}>
+                Estados excluidos: {ocultos.map(e => (
+                  <span key={e} style={{ display: 'inline-block', marginRight: 6, marginBottom: 4, padding: '1px 7px', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 4, color: '#78350f', fontSize: 8, fontWeight: 700 }}>{e}</span>
+                ))}
+              </div>
+              {hasPrev ? (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>Semana Anterior ({prevLabel})</div>
+                    <NokiaTable rows={prevRows} procesoKey={p.key} label={`${cfg.nokia} - ${prevLabel}`} color={cfg.color} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>Semana Actual ({currLabel})</div>
+                    <NokiaTable rows={currRows} procesoKey={p.key} label={`${cfg.nokia} - ${currLabel}`} color={cfg.color} />
+                  </div>
+                </div>
+              ) : (
+                <NokiaTable rows={currRows} procesoKey={p.key} label={`${cfg.nokia} - ${currLabel || 'Actual'}`} color={cfg.color} />
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
-  const sabanaRaw     = useAckStore(s => s.sabana)
-  const prevSabanaRaw = useAckStore(s => s.prevSabana)
-  const forecasts     = useAckStore(s => s.forecasts)
-  const uploads       = useAckStore(s => s.uploads)
-  const prevUpload    = useAckStore(s => s.prevUpload)
-  const currUpload    = useAckStore(s => s.currUpload || s.uploads[0])
-  const proyectoSel   = useAckStore(s => s.proyectoSel)
+  const sabanaRaw         = useAckStore(s => s.sabana)
+  const prevSabanaRaw     = useAckStore(s => s.prevSabana)
+  const forecasts         = useAckStore(s => s.forecasts)
+  const uploads           = useAckStore(s => s.uploads)
+  const prevUpload        = useAckStore(s => s.prevUpload)
+  const currUpload        = useAckStore(s => s.currUpload || s.uploads[0])
+  const proyectoSel       = useAckStore(s => s.proyectoSel)
+  const estadosOcultos    = useAckStore(s => s.estadosOcultos)
+  const saveEstadosOcultos = useAckStore(s => s.saveEstadosOcultos)
 
   const sabana     = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
@@ -607,7 +822,19 @@ export default function AckForecast() {
   , [prevSabanaRaw, proyectoSel])
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
 
-  const [filtro, setFiltro] = useState('pendientes')
+  const [filtro,     setFiltro]     = useState('pendientes')
+  const [activeView, setActiveView] = useState('reporte')
+  const [setupOpen,  setSetupOpen]  = useState(false)
+
+  const totalOcultos = useMemo(
+    () => Object.values(estadosOcultos).reduce((s, arr) => s + arr.length, 0),
+    [estadosOcultos]
+  )
+
+  async function handleSaveSetup(draft) {
+    await saveEstadosOcultos(draft)
+    setSetupOpen(false)
+  }
 
   // Etiquetas Nokia calculadas desde el par (curr, prev) seleccionado por el store
   const currLabel = currUpload ? nokiaWeekLabel(currUpload.loaded_at) : 'Actual'
@@ -658,6 +885,7 @@ export default function AckForecast() {
         prevSabana,
         forecasts,
         filtro,
+        estadosOcultos,
         currLabel,
         prevLabel,
         hasPrev,
@@ -711,69 +939,134 @@ export default function AckForecast() {
           }
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600 }}>
-            {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <button
-            onClick={handleExcelExport}
-            disabled={exporting}
-            style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e0e4e0' }}>
+            {[
+              { key: 'reporte',     label: 'Reporte Nokia' },
+              { key: 'seguimiento', label: `Seguimiento${totalOcultos > 0 ? ` (${totalOcultos})` : ''}` },
+            ].map(t => (
+              <button key={t.key} onClick={() => setActiveView(t.key)}
+                style={{
+                  padding: '6px 12px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                  background: activeView === t.key ? '#1a3a5c' : '#fff',
+                  color:      activeView === t.key ? '#fff'    : '#4b5563',
+                  transition: 'all .15s',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {activeView === 'reporte' && (
+            <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600 }}>
+              {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          )}
+
+          <button onClick={() => setSetupOpen(true)}
+            style={{ padding: '7px 12px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#fff', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 5 }}
+            title="Configurar estados visibles en el reporte Nokia"
           >
-            {exporting ? '⏳ Generando…' : '⬇ Exportar Excel'}
+            ⚙ Configurar
+            {totalOcultos > 0 && (
+              <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800 }}>
+                {totalOcultos}
+              </span>
+            )}
           </button>
+
+          {activeView === 'reporte' && (
+            <button onClick={handleExcelExport} disabled={exporting}
+              style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {exporting ? '⏳ Generando…' : '⬇ Exportar Excel'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── KPI resumen ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
-        {REPORT_PROCESOS.map(p => {
-          const cfg  = PROC_CFG[p.key]
-          const pend = sabana.filter(r => !isFinal(r[p.key])).length
-          const tot  = sabana.length
-          const pct  = tot ? Math.round(((tot - pend) / tot) * 100) : 0
-          return (
-            <div key={p.key} className="stat" style={{ borderLeftColor: cfg.color, padding: '10px 14px', cursor: 'pointer' }} onClick={() => toggleExpanded(p.key)}>
-              <div style={{ fontSize: 8, fontWeight: 600, color: cfg.color, letterSpacing: .5, marginBottom: 4 }}>{cfg.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", color: pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444' }}>{pct}%</div>
-              <div style={{ fontSize: 9, color: '#4b5563' }}>{pend} pend. · {tot - pend} cerr.</div>
-            </div>
-          )
-        })}
-      </div>
+      {/* ── KPI resumen (solo en reporte) ── */}
+      {activeView === 'reporte' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 16 }}>
+          {REPORT_PROCESOS.map(p => {
+            const cfg     = PROC_CFG[p.key]
+            const visible = applyFiltroRows(sabana, p.key, 'todos', estadosOcultos)
+            const pend    = visible.filter(r => !isFinal(r[p.key])).length
+            const tot     = visible.length
+            const pct     = tot ? Math.round(((tot - pend) / tot) * 100) : 0
+            return (
+              <div key={p.key} className="stat" style={{ borderLeftColor: cfg.color, padding: '10px 14px', cursor: 'pointer' }} onClick={() => toggleExpanded(p.key)}>
+                <div style={{ fontSize: 8, fontWeight: 600, color: cfg.color, letterSpacing: .5, marginBottom: 4 }}>{cfg.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Barlow Condensed', sans-serif", color: pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444' }}>{pct}%</div>
+                <div style={{ fontSize: 9, color: '#4b5563' }}>{pend} pend. · {tot - pend} cerr.</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-      {/* ── Secciones por proceso (en orden definido) ── */}
-      {REPORT_PROCESOS.map(p => (
-        <ScreenProcess
-          key={p.key}
-          proceso={p}
-          currRows={sabana}
-          prevRows={prevSabana}
+      {/* ── Secciones por proceso o Seguimiento ── */}
+      {activeView === 'reporte' ? (
+        REPORT_PROCESOS.map(p => (
+          <ScreenProcess
+            key={p.key}
+            proceso={p}
+            currRows={sabana}
+            prevRows={prevSabana}
+            currLabel={currLabel}
+            prevLabel={prevLabel}
+            forecasts={forecasts}
+            filtro={filtro}
+            estadosOcultos={estadosOcultos}
+            empresaNombre={empresaNombre}
+            expanded={expanded.has(p.key)}
+            onToggle={() => toggleExpanded(p.key)}
+          />
+        ))
+      ) : (
+        <SeguimientoView
+          sabana={sabana}
+          prevSabana={prevSabana}
+          estadosOcultos={estadosOcultos}
+          forecasts={forecasts}
           currLabel={currLabel}
           prevLabel={prevLabel}
-          forecasts={forecasts}
-          filtro={filtro}
           empresaNombre={empresaNombre}
-          expanded={expanded.has(p.key)}
-          onToggle={() => toggleExpanded(p.key)}
         />
-      ))}
+      )}
+
+      {/* ── Modal de configuración ── */}
+      {setupOpen && (
+        <SetupModal
+          sabana={sabana}
+          estadosOcultos={estadosOcultos}
+          onSave={handleSaveSetup}
+          onClose={() => setSetupOpen(false)}
+        />
+      )}
 
       {/* ── Contenido de impresión vía portal (sibling de #root) ── */}
       {createPortal(
         <div id="nokia-print-root">
-          {REPORT_PROCESOS.map(p => (
-            <PrintSlide
-              key={p.key}
-              proceso={p}
-              currRows={sabana}
-              prevRows={prevSabana}
-              currLabel={currLabel}
-              prevLabel={prevLabel}
-              forecasts={forecasts}
-              uploads={uploads}
-              empresaNombre={empresaNombre}
-            />
-          ))}
+          {REPORT_PROCESOS.map(p => {
+            const ocultos = estadosOcultos[p.key] || []
+            const filteredCurr = ocultos.length ? sabana.filter(r => !ocultos.includes(r[p.key])) : sabana
+            const filteredPrev = ocultos.length ? prevSabana.filter(r => !ocultos.includes(r[p.key])) : prevSabana
+            return (
+              <PrintSlide
+                key={p.key}
+                proceso={p}
+                currRows={filteredCurr}
+                prevRows={filteredPrev}
+                currLabel={currLabel}
+                prevLabel={prevLabel}
+                forecasts={forecasts}
+                uploads={uploads}
+                empresaNombre={empresaNombre}
+              />
+            )
+          })}
         </div>,
         document.body
       )}

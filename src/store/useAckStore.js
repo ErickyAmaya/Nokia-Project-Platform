@@ -254,16 +254,17 @@ function findComparePair(uploads) {
 }
 
 export const useAckStore = create((set, get) => ({
-  sabana:        [],
-  prevSabana:    [],
-  prevUpload:    null,
-  currUpload:    null,
-  forecasts:     {},
-  uploads:       [],
-  loading:       false,
-  uploading:     false,
-  proyectoSel:   [],
-  _prefsChannel: null,
+  sabana:         [],
+  prevSabana:     [],
+  prevUpload:     null,
+  currUpload:     null,
+  forecasts:      {},
+  uploads:        [],
+  loading:        false,
+  uploading:      false,
+  proyectoSel:    [],
+  estadosOcultos: {},   // { gap_doc: ['estado1'], gap_hw_cierre: [], ... }
+  _prefsChannel:  null,
 
   // Suscripciones Realtime del módulo ACK — lo llama AckWrapper al montar
   initRealtimeSync: () => {
@@ -443,6 +444,20 @@ export const useAckStore = create((set, get) => ({
     } finally {
       set({ uploading: false })
     }
+  },
+
+  // Estados ocultos del reporte Nokia (compartido, guardado en config)
+  loadEstadosOcultos: async () => {
+    const { data } = await db().from('config').select('value').eq('key', 'ack_estados_ocultos').single()
+    if (data?.value) {
+      try { set({ estadosOcultos: JSON.parse(data.value) }) } catch {}
+    }
+  },
+
+  saveEstadosOcultos: async (ocultos) => {
+    await db().from('config')
+      .upsert({ key: 'ack_estados_ocultos', value: JSON.stringify(ocultos) }, { onConflict: 'key' })
+    set({ estadosOcultos: ocultos })
   },
 
   // Guardar/editar un FC desde la tabla
