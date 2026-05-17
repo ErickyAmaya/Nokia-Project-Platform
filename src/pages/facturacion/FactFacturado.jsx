@@ -41,10 +41,20 @@ function applyEvFilter(eventos, row, filtroEv) {
   return eventos
 }
 
-function EventoBadge({ color, label, pct }) {
+function EventoBadge({ color, label, pct, invoicedPct, absorbed }) {
+  if (absorbed) {
+    return (
+      <span style={{ background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
+        {label} · <span style={{ textDecoration: 'line-through', opacity: .6 }}>{pct}%</span> → Facturado por Acuerdo
+      </span>
+    )
+  }
+  const parcial = invoicedPct != null && invoicedPct < pct
   return (
     <span style={{ background: `${color}18`, border: `1px solid ${color}40`, color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
-      {label} · {pct}%
+      {label} · {parcial
+        ? <>{<span style={{ textDecoration: 'line-through', opacity: .5 }}>{pct}%</span>} → {invoicedPct}%</>
+        : `${invoicedPct ?? pct}%`}
     </span>
   )
 }
@@ -141,7 +151,10 @@ export default function FactFacturado() {
     for (const { row, eventos } of rows) {
       const poData = pos.find(p => p.spo_number === row.spo_number)
       if (!poData?.valor) continue
-      for (const ev of eventos) total += poData.valor * ev.pct / 100
+      for (const ev of eventos) {
+        if (ev.invoice?.absorbed) continue
+        total += poData.valor * (ev.invoice?.pct ?? ev.pct) / 100
+      }
     }
     return total
   }, [rows, pos])
@@ -215,7 +228,7 @@ export default function FactFacturado() {
               {visibleRows.map(({ row, eventos }) =>
                 eventos.map((ev, i) => {
                   const poData = pos.find(p => p.spo_number === row.spo_number)
-                  const valor  = poData?.valor ? poData.valor * ev.pct / 100 : null
+                  const valor  = poData?.valor && !ev.invoice?.absorbed ? poData.valor * (ev.invoice?.pct ?? ev.pct) / 100 : null
                   return (
                     <tr key={`${row.spo_number}|${ev.key}`} style={{ borderTop: '1px solid #f0f0f0' }}>
                       {i === 0 && (
@@ -227,12 +240,12 @@ export default function FactFacturado() {
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10 }} rowSpan={eventos.length}>{row.spo_number}</td>
                         </>
                       )}
-                      <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} /></td>
+                      <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} invoicedPct={ev.invoice?.pct} absorbed={ev.invoice?.absorbed} /></td>
                       <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A', fontFamily: 'monospace', fontSize: 10 }}>{ev.invoice.numero_factura}</td>
                       <td style={{ padding: '7px 10px', color: '#555' }}>{ev.invoice.fecha_factura || '—'}</td>
                       <td style={{ padding: '7px 10px', color: '#555', fontSize: 10 }}>{valor ? fmtCOP(valor) : <span style={{ color: '#d4d4d8' }}>—</span>}</td>
                       <td style={{ padding: '7px 10px', display: 'flex', gap: 6 }}>
-                        {!isViewer && <button onClick={() => setEditInv(ev.invoice)} style={{ fontSize: 10, color: '#144E4A', background: 'none', border: '1px solid #a7c4c2', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
+                        {!isViewer && !ev.invoice?.absorbed && <button onClick={() => setEditInv(ev.invoice)} style={{ fontSize: 10, color: '#144E4A', background: 'none', border: '1px solid #a7c4c2', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
                         {!isViewer && <button onClick={() => handleEliminar(ev.invoice)} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Quitar</button>}
                       </td>
                     </tr>

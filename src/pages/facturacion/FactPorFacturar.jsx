@@ -54,6 +54,23 @@ function SpoCell({ spo, pos }) {
 }
 
 function EventoBadge({ ev }) {
+  const absorbido = ev.status === 'absorbido'
+  const parcial   = ev.invoiceable_pct > 0 && ev.invoiceable_pct < ev.pct
+
+  if (absorbido) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f3f4f6', border: '1px solid #d1d5db', color: '#9ca3af', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4, textDecoration: 'line-through' }}>
+        {ev.label} · {ev.pct}%
+      </span>
+    )
+  }
+  if (parcial) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
+        {ev.label} · <span style={{ textDecoration: 'line-through', opacity: .5 }}>{ev.pct}%</span> → {ev.invoiceable_pct}%
+      </span>
+    )
+  }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
       {ev.label} · {ev.pct}%
@@ -106,7 +123,7 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
     if (conflicto?.tipo === 'otra_po') return
     setSaving(true)
     try {
-      await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.pct, numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null })
+      await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.invoiceable_pct ?? ev.pct, numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null })
       showToast('Factura registrada')
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
@@ -125,7 +142,7 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
           {poData?.valor && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
               <span style={{ color: '#555' }}>Valor estimado</span>
-              <span style={{ fontWeight: 700 }}>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * ev.pct / 100)}</span>
+              <span style={{ fontWeight: 700 }}>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * (ev.invoiceable_pct ?? ev.pct) / 100)}</span>
             </div>
           )}
         </div>
@@ -175,6 +192,14 @@ export default function FactPorFacturar() {
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
+  async function handleCerrarAbsorbido(row, ev) {
+    if (!window.confirm(`¿Cerrar "${ev.label}" del SPO ${row.spo_number} como Facturado por Acuerdo?\nNo se registrará número de factura propio.`)) return
+    try {
+      await registrarFactura({ spo_number: row.spo_number, evento: ev.key, pct: ev.pct, numero_factura: null, absorbed: true })
+      showToast('Registrado como Facturado por Acuerdo')
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
   // Todos los pendientes sin filtros — para la plantilla
   const allPendingRows = useMemo(() => {
     const result = []
@@ -211,13 +236,14 @@ export default function FactPorFacturar() {
     }
   }
 
-  // Lista principal: tienen GR + % → pueden facturarse ahora
+  // Lista principal: tienen GR + % → pueden facturarse ahora (incluye absorbidos para registro visual)
   const rows = useMemo(() => {
     const result = []
     for (const row of ppa) {
       if (!row.sgr) continue
-      const cat    = getSmpCat(row.smp_name)
-      const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
+      const cat     = getSmpCat(row.smp_name)
+      const allEvs  = getEventosRow(row, invMap)
+      const eventos = allEvs.filter(e => e.status === 'facturar' || e.status === 'absorbido')
       if (!eventos.length) continue
       const filtered = applyEvFilter(eventos, row, filtroEv)
       if (!filtered.length) continue
@@ -298,7 +324,7 @@ export default function FactPorFacturar() {
     for (const { row, eventos } of allPendingRows) {
       const poData = pos.find(p => p.spo_number === row.spo_number)
       if (!poData?.valor) continue
-      for (const ev of eventos) total += poData.valor * ev.pct / 100
+      for (const ev of eventos) total += poData.valor * (ev.invoiceable_pct ?? ev.pct) / 100
     }
     return total
   }, [allPendingRows, pos])
@@ -363,9 +389,11 @@ export default function FactPorFacturar() {
             <tbody>
               {visibleRows.map(({ row, eventos, cat }) =>
                 eventos.map((ev, i) => {
-                  const poData = pos.find(p => p.spo_number === row.spo_number)
+                  const poData     = pos.find(p => p.spo_number === row.spo_number)
+                  const absorbido  = ev.status === 'absorbido'
+                  const invPct     = ev.invoiceable_pct ?? ev.pct
                   return (
-                    <tr key={`${row.spo_number}|${ev.key}`} style={{ borderTop: '1px solid #f0f0f0' }}>
+                    <tr key={`${row.spo_number}|${ev.key}`} style={{ borderTop: '1px solid #f0f0f0', background: absorbido ? '#fafafa' : undefined, opacity: absorbido ? .75 : 1 }}>
                       {i === 0 && (
                         <>
                           <td style={{ padding: '7px 10px', fontWeight: 600 }} rowSpan={eventos.length}>{row.customer_site_name || row.site_reference_id}</td>
@@ -378,14 +406,28 @@ export default function FactPorFacturar() {
                           </td>
                         </>
                       )}
-                      <td style={{ padding: '7px 10px' }}><EventoBadge ev={ev} /></td>
-                      <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>
+                      <td style={{ padding: '7px 10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <EventoBadge ev={ev} />
+                          {absorbido && (
+                            <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>
+                              Facturado por Acuerdo
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '7px 10px', fontSize: 10, color: absorbido ? '#9ca3af' : '#555' }}>
                         {poData?.valor
-                          ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * ev.pct / 100)
+                          ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * invPct / 100)
                           : <span style={{ color: '#d4d4d8' }}>Sin PO</span>}
                       </td>
                       <td style={{ padding: '7px 10px' }}>
-                        {!isViewer && <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>}
+                        {!isViewer && !absorbido && (
+                          <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
+                        )}
+                        {!isViewer && absorbido && (
+                          <button onClick={() => handleCerrarAbsorbido(row, ev)} style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Cerrar sin factura</button>
+                        )}
                       </td>
                     </tr>
                   )

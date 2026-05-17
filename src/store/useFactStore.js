@@ -234,10 +234,10 @@ export const useFactStore = create((set, get) => ({
   },
 
   // ── Registrar factura ────────────────────────────────────────────
-  registrarFactura: async ({ spo_number, evento, pct, numero_factura, fecha_factura, observaciones }) => {
+  registrarFactura: async ({ spo_number, evento, pct, numero_factura, fecha_factura, observaciones, absorbed = false }) => {
     const { data, error } = await supabase
       .from('fact_invoices')
-      .upsert({ spo_number, evento, pct, numero_factura, fecha_factura: fecha_factura || null, observaciones },
+      .upsert({ spo_number, evento, pct, numero_factura: numero_factura || null, fecha_factura: fecha_factura || null, observaciones, absorbed },
                { onConflict: 'spo_number,evento' })
       .select().single()
     if (error) throw error
@@ -309,11 +309,26 @@ export function buildInvoicesMap(invoices) {
 
 export function getEventosRow(row, invMap) {
   if (!row.sgr) return []
+
+  // Tras facturar el acuerdo, los eventos normales sólo pueden cobrar lo que queda hasta 100%
+  let remaining = 100 - (row.acuerdo_liberacion || 0)
+
   return EVENTOS
     .filter(e => row[e.pctCol] > 0)
     .map(e => {
-      const inv = invMap[`${row.spo_number}|${e.key}`]
-      return { ...e, pct: row[e.pctCol], invoice: inv || null,
-               status: inv ? 'facturado' : 'facturar' }
+      const inv    = invMap[`${row.spo_number}|${e.key}`]
+      const rawPct = row[e.pctCol]
+
+      let invoiceablePct = rawPct
+      if (e.key !== 'acuerdo') {
+        invoiceablePct = Math.min(rawPct, Math.max(0, remaining))
+        remaining -= invoiceablePct
+      }
+
+      const status = inv
+        ? 'facturado'
+        : invoiceablePct === 0 ? 'absorbido' : 'facturar'
+
+      return { ...e, pct: rawPct, invoiceable_pct: invoiceablePct, invoice: inv || null, status }
     })
 }
