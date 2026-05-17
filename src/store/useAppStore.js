@@ -56,13 +56,18 @@ async function _debouncedSync(id, get, delay = 1500) {
 }
 
 const DEFAULT_EMPRESA = {
-  nombre:           'Empresa',
-  nombre_corto:     'Nokia',
-  logo_url:         '',
-  color_primario:   '#144E4A',
-  tipos_cuadrilla:  [],
-  cliente_nombre:   '',
-  cliente_logo_url: '',
+  nombre:                'Empresa',
+  nombre_corto:          'Nokia',
+  logo_url:              '',
+  logo_icon_url:         '',
+  color_primario:        '#144E4A',
+  tipos_cuadrilla:       [],
+  cliente_nombre:        '',
+  cliente_logo_url:      '',
+  cliente_logo_icon_url: '',
+  dev_nombre:            '',
+  dev_logo_url:          '',
+  dev_logo_icon_url:     '',
 }
 
 export const useAppStore = create((set, get) => ({
