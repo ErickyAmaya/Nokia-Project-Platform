@@ -18,6 +18,7 @@ import LiquidadorIndexPage from './pages/LiquidadorIndexPage'
 import ModuloHomePage      from './pages/ModuloHomePage'
 import AdminWrapper       from './pages/admin/AdminWrapper'
 import AdminUsuarios      from './pages/admin/AdminUsuarios'
+import AdminEstadisticas  from './pages/admin/AdminEstadisticas'
 import MatWrapper         from './pages/materiales/MatWrapper'
 import MatDashboard       from './pages/materiales/MatDashboard'
 import MatInventario      from './pages/materiales/MatInventario'
@@ -219,8 +220,9 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="/admin/usuarios" replace />} />
-        <Route path="usuarios" element={<AdminUsuarios />} />
-        <Route path="config"   element={<Suspense fallback={<PageLoader />}><ConfigPage /></Suspense>} />
+        <Route path="usuarios"     element={<AdminUsuarios />} />
+        <Route path="estadisticas" element={<AdminEstadisticas />} />
+        <Route path="config"       element={<Suspense fallback={<PageLoader />}><ConfigPage /></Suspense>} />
       </Route>
 
       <Route path="/config" element={<Navigate to="/admin/config" replace />} />

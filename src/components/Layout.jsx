@@ -19,8 +19,9 @@ const ADMIN_NAV = [
 ]
 
 const ADMIN_PANEL_NAV = [
-  { to: '/admin/usuarios', label: 'Usuarios', icon: '👥', id: 'admin-usuarios', roles: ['admin'] },
-  { to: '/admin/config',   label: 'Config',   icon: '⚙',  id: 'admin-config',   roles: ['admin'] },
+  { to: '/admin/usuarios',      label: 'Usuarios',      icon: '👥', id: 'admin-usuarios',  roles: ['admin'] },
+  { to: '/admin/estadisticas',  label: 'Estadísticas',  icon: '📊', id: 'admin-stats',     roles: ['admin'] },
+  { to: '/admin/config',        label: 'Config',        icon: '⚙',  id: 'admin-config',    roles: ['admin'] },
 ]
 
 // ── Nav Materiales ────────────────────────────────────────────────

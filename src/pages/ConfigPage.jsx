@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAppStore }   from '../store/useAppStore'
 import { useFactStore }  from '../store/useFactStore'
+import { useMatStore }   from '../store/useMatStore'
 import { showToast }     from '../components/Toast'
 import { supabase }      from '../lib/supabase'
+
+const APP_VERSION = '2.0.0'
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -439,7 +442,116 @@ export default function ConfigPage() {
           </div>
         </div>
         <CalendarioConfig />
+        <BackupCard />
+        <AppInfoCard />
       </div>
     </>
+  )
+}
+
+function BackupCard() {
+  const [busy,    setBusy]    = useState(false)
+  const [lastRun, setLastRun] = useState(null)
+
+  const ACTIONS_URL = 'https://github.com/ErickyAmaya/Nokia-Project-Platform/actions/workflows/backup.yml'
+
+  async function handleBackup() {
+    if (!confirm('¿Generar un backup de la base de datos ahora?')) return
+    setBusy(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-backup', {
+        body: { reason: 'Backup manual desde Panel Admin' }
+      })
+      if (error) throw new Error(error.message)
+      if (data?.error) throw new Error(data.error)
+      const now = new Date().toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      setLastRun(now)
+      showToast('Backup iniciado — estará listo en GitHub Actions en ~1 minuto.')
+    } catch (e) {
+      showToast('Error: ' + e.message, 'err')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Backup de base de datos</h2>
+          <div style={{ fontSize: 11, color: '#617561', marginTop: 3 }}>
+            Backup automático mensual (1° de cada mes) · Retención 90 días
+          </div>
+        </div>
+        <button
+          onClick={handleBackup}
+          disabled={busy}
+          style={{
+            background: busy ? '#9ca3af' : '#144E4A', color: '#fff',
+            border: 'none', borderRadius: 8, padding: '7px 16px',
+            fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
+            fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: .5, flexShrink: 0,
+          }}
+        >
+          {busy ? '⏳ Iniciando…' : '↓ Generar backup ahora'}
+        </button>
+      </div>
+      <div className="card-b" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lastRun && (
+          <div style={{ fontSize: 11, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px', color: '#166534' }}>
+            ✓ Backup iniciado el {lastRun} — espera ~1 minuto y descárgalo desde GitHub Actions.
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#617561' }}>
+          <span>Los backups se guardan como artifacts en GitHub Actions (90 días).</span>
+          <a
+            href={ACTIONS_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: '#144E4A', fontWeight: 700, fontSize: 11, textDecoration: 'none', whiteSpace: 'nowrap', marginLeft: 12 }}
+          >
+            Ver backups en GitHub →
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AppInfoCard() {
+  const catalogo    = useMatStore(s => s.catalogo)
+  const movimientos = useMatStore(s => s.movimientos)
+  const despachos   = useMatStore(s => s.despachos)
+  const bodegas     = useMatStore(s => s.bodegas)
+  const sitios      = useMatStore(s => s.sitios)
+  const syncTime    = new Date().toLocaleString('es-CO')
+
+  const rows = [
+    { label: 'Versión',             value: APP_VERSION },
+    { label: 'Materiales',          value: catalogo.filter(c => c.categoria !== 'PROVEEDORES').length },
+    { label: 'Proveedores',         value: catalogo.filter(c => c.categoria === 'PROVEEDORES').length },
+    { label: 'Movimientos',         value: movimientos.length },
+    { label: 'Despachos',           value: despachos.length },
+    { label: 'Bodegas',             value: bodegas.length },
+    { label: 'Sitios',              value: sitios.length },
+    { label: 'Últ. sincronización', value: syncTime },
+  ]
+
+  return (
+    <div className="card">
+      <div className="card-h"><h2>Información de la App</h2></div>
+      <div className="card-b" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, padding: 0 }}>
+        {rows.map((row, i) => (
+          <div key={row.label} style={{
+            padding: '10px 16px',
+            borderRight:  i % 4 !== 3 ? '1px solid #f0f2f0' : 'none',
+            borderBottom: i < 4       ? '1px solid #f0f2f0' : 'none',
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#9ca89c', marginBottom: 3 }}>{row.label}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{row.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

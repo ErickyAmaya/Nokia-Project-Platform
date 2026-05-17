@@ -29,9 +29,9 @@ export default function SetPasswordPage() {
     // Initialize Supabase — this processes the hash token from the invite link
     const client = initSupabaseClient(empresa.supabaseUrl, empresa.supabaseKey)
 
-    // Listen for the sign-in triggered by the invite hash
+    // Listen for events triggered by invite or password-recovery hash
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') && session) {
         localStorage.setItem(LS_DOMAIN_KEY, domain)
         setReady(true)
       }

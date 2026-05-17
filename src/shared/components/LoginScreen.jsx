@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { getEmpresaByDomain, getDomainFromEmail } from '../../config/empresas'
+import { initSupabaseClient } from '../../lib/supabase'
 
 // ── LoginScreen ───────────────────────────────────────────────────
 // Detecta la empresa por dominio del email mientras el usuario escribe.
@@ -11,17 +12,39 @@ export default function LoginScreen() {
   const loading  = useAuthStore(s => s.loading)
   const navigate = useNavigate()
 
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [empresa,  setEmpresa]  = useState(null)
-  const [error,    setError]    = useState('')
-  const [busy,     setBusy]     = useState(false)
+  const [email,      setEmail]      = useState('')
+  const [password,   setPassword]   = useState('')
+  const [empresa,    setEmpresa]    = useState(null)
+  const [error,      setError]      = useState('')
+  const [busy,       setBusy]       = useState(false)
+  const [view,       setView]       = useState('login') // 'login' | 'forgot' | 'sent'
+  const [resetBusy,  setResetBusy]  = useState(false)
+  const [resetError, setResetError] = useState('')
 
   // Detección de empresa en tiempo real
   useEffect(() => {
     const domain = getDomainFromEmail(email)
     setEmpresa(domain ? getEmpresaByDomain(domain) : null)
   }, [email])
+
+  async function handleReset(e) {
+    e.preventDefault()
+    if (!empresa) return
+    setResetBusy(true)
+    setResetError('')
+    try {
+      const domain = getDomainFromEmail(email)
+      const client = initSupabaseClient(empresa.supabaseUrl, empresa.supabaseKey)
+      const redirectTo = `${window.location.origin}/set-password?empresa=${domain}`
+      const { error: err } = await client.auth.resetPasswordForEmail(email, { redirectTo })
+      if (err) throw err
+      setView('sent')
+    } catch (err) {
+      setResetError(err.message)
+    } finally {
+      setResetBusy(false)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -104,69 +127,143 @@ export default function LoginScreen() {
         </div>
 
         {/* ── Form ── */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px 28px 20px' }}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Correo electrónico</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="usuario@empresa.com"
-              autoFocus
-              required
-              style={inputStyle}
-            />
-          </div>
+        <div style={{ padding: '24px 28px 20px' }}>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={labelStyle}>Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              style={inputStyle}
-            />
-          </div>
-
-          {error && (
-            <div style={{
-              marginBottom: 14, padding: '9px 13px',
-              background: '#fef2f2', border: '1px solid #fecaca',
-              borderRadius: 8, fontSize: 12, color: '#dc2626',
-            }}>
-              {error}
+          {/* Vista: enviado */}
+          {view === 'sent' ? (
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📧</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#09090b', marginBottom: 6 }}>Correo enviado</div>
+              <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>
+                Revisa tu bandeja de entrada en <strong>{email}</strong> y sigue el link para restablecer tu contraseña.
+              </div>
+              <button
+                onClick={() => setView('login')}
+                style={{ fontSize: 12, color: CN, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              >
+                ← Volver al login
+              </button>
             </div>
-          )}
 
-          {!empresa && email.includes('@') && email.split('@')[1]?.length > 2 && (
-            <div style={{
-              marginBottom: 14, padding: '9px 13px',
-              background: '#fffbeb', border: '1px solid #fde68a',
-              borderRadius: 8, fontSize: 12, color: '#92400e',
-            }}>
-              El dominio <strong>@{getDomainFromEmail(email)}</strong> no está registrado en la plataforma
-            </div>
-          )}
+          /* Vista: olvidé contraseña */
+          ) : view === 'forgot' ? (
+            <form onSubmit={handleReset}>
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#09090b', marginBottom: 4 }}>Restablecer contraseña</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16, lineHeight: 1.5 }}>
+                  Ingresa tu email y te enviaremos un link para crear una nueva contraseña.
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Correo electrónico</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="usuario@empresa.com"
+                  autoFocus
+                  required
+                  style={inputStyle}
+                />
+              </div>
+              {resetError && (
+                <div style={{ marginBottom: 14, padding: '9px 13px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626' }}>
+                  {resetError}
+                </div>
+              )}
+              {!empresa && email.includes('@') && email.split('@')[1]?.length > 2 && (
+                <div style={{ marginBottom: 14, padding: '9px 13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                  El dominio <strong>@{getDomainFromEmail(email)}</strong> no está registrado
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={resetBusy || !empresa}
+                style={{
+                  width: '100%', padding: '12px 0',
+                  background: empresa ? CN : '#9ca3af',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  fontSize: 14, fontWeight: 700, cursor: empresa ? 'pointer' : 'not-allowed',
+                  opacity: resetBusy ? 0.7 : 1,
+                  fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1, marginBottom: 14,
+                }}
+              >
+                {resetBusy ? 'Enviando…' : 'Enviar link'}
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => { setView('login'); setResetError('') }}
+                  style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  ← Volver al login
+                </button>
+              </div>
+            </form>
 
-          <button
-            type="submit"
-            disabled={busy || loading || !empresa}
-            style={{
-              width: '100%', padding: '12px 0',
-              background: empresa ? CN : '#9ca3af',
-              color: '#fff', border: 'none', borderRadius: 8,
-              fontSize: 14, fontWeight: 700, cursor: empresa ? 'pointer' : 'not-allowed',
-              transition: 'background 0.3s ease, opacity 0.2s',
-              opacity: (busy || loading) ? 0.7 : 1,
-              fontFamily: "'Barlow Condensed', sans-serif",
-              letterSpacing: 1,
-            }}
-          >
-            {busy ? 'Ingresando…' : 'Ingresar'}
-          </button>
-        </form>
+          /* Vista: login normal */
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Correo electrónico</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="usuario@empresa.com"
+                  autoFocus
+                  required
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label style={labelStyle}>Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ textAlign: 'right', marginBottom: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => { setView('forgot'); setError('') }}
+                  style={{ fontSize: 11, color: CN, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+              {error && (
+                <div style={{ marginBottom: 14, padding: '9px 13px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626' }}>
+                  {error}
+                </div>
+              )}
+              {!empresa && email.includes('@') && email.split('@')[1]?.length > 2 && (
+                <div style={{ marginBottom: 14, padding: '9px 13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                  El dominio <strong>@{getDomainFromEmail(email)}</strong> no está registrado en la plataforma
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={busy || loading || !empresa}
+                style={{
+                  width: '100%', padding: '12px 0',
+                  background: empresa ? CN : '#9ca3af',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  fontSize: 14, fontWeight: 700, cursor: empresa ? 'pointer' : 'not-allowed',
+                  transition: 'background 0.3s ease, opacity 0.2s',
+                  opacity: (busy || loading) ? 0.7 : 1,
+                  fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1,
+                }}
+              >
+                {busy ? 'Ingresando…' : 'Ingresar'}
+              </button>
+            </form>
+          )}
+        </div>
 
         {/* ── Footer "Diseñado por Scytel" ── */}
         <div style={{

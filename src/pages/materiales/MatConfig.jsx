@@ -298,32 +298,6 @@ export default function MatConfig() {
         </div>{/* fin columna derecha */}
       </div>{/* fin flex contenedor */}
 
-      {/* ── Fila 3: Info de la App (stats horizontales) ── */}
-      <div className="card" style={{ marginBottom:16 }}>
-        <div className="card-h"><h2>Información de la App</h2></div>
-        <div className="card-b" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:0 }}>
-          {[
-            { label:'Versión',            value: VERSION },
-            { label:'Materiales',         value: catalogo.filter(c => c.categoria !== 'PROVEEDORES').length },
-            { label:'Proveedores',        value: catalogo.filter(c => c.categoria === 'PROVEEDORES').length },
-            { label:'Movimientos',        value: movimientos.length },
-            { label:'Despachos',          value: despachos.length },
-            { label:'Bodegas',            value: bodegas.length },
-            { label:'Sitios',             value: sitios.length },
-            { label:'Últ. sincronización',value: syncTime },
-          ].map((row, i) => (
-            <div key={row.label} style={{
-              padding:'10px 16px',
-              borderRight: i % 4 !== 3 ? '1px solid #f0f2f0' : 'none',
-              borderBottom: i < 4 ? '1px solid #f0f2f0' : 'none',
-            }}>
-              <div style={{ fontSize:9, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:'#9ca89c', marginBottom:3 }}>{row.label}</div>
-              <div style={{ fontWeight:700, fontSize:13, color:'#0a0a0a' }}>{row.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ── Historial de Cambios (ancho completo) ── */}
       <div className="card">
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
