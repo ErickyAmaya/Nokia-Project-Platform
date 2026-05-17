@@ -153,7 +153,7 @@ export default function FactFacturado() {
       if (!poData?.valor) continue
       for (const ev of eventos) {
         if (ev.invoice?.absorbed) continue
-        total += poData.valor * (ev.invoice?.pct ?? ev.pct) / 100
+        total += poData.valor * ev.invoiceable_pct / 100
       }
     }
     return total
@@ -228,7 +228,7 @@ export default function FactFacturado() {
               {visibleRows.map(({ row, eventos }) =>
                 eventos.map((ev, i) => {
                   const poData = pos.find(p => p.spo_number === row.spo_number)
-                  const valor  = poData?.valor && !ev.invoice?.absorbed ? poData.valor * (ev.invoice?.pct ?? ev.pct) / 100 : null
+                  const valor  = poData?.valor && !ev.invoice?.absorbed ? poData.valor * ev.invoiceable_pct / 100 : null
                   return (
                     <tr key={`${row.spo_number}|${ev.key}`} style={{ borderTop: '1px solid #f0f0f0' }}>
                       {i === 0 && (
@@ -240,7 +240,7 @@ export default function FactFacturado() {
                           <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10 }} rowSpan={eventos.length}>{row.spo_number}</td>
                         </>
                       )}
-                      <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} invoicedPct={ev.invoice?.pct} absorbed={ev.invoice?.absorbed} /></td>
+                      <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} invoicedPct={ev.invoiceable_pct} absorbed={ev.invoice?.absorbed} /></td>
                       <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A', fontFamily: 'monospace', fontSize: 10 }}>{ev.invoice.numero_factura}</td>
                       <td style={{ padding: '7px 10px', color: '#555' }}>{ev.invoice.fecha_factura || '—'}</td>
                       <td style={{ padding: '7px 10px', color: '#555', fontSize: 10 }}>{valor ? fmtCOP(valor) : <span style={{ color: '#d4d4d8' }}>—</span>}</td>
