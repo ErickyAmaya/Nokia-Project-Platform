@@ -486,6 +486,200 @@ export const useHwStore = create((set, get) => ({
     get()._broadcastChange()
   },
 
+  // ── Carga masiva Nokia ───────────────────────────────────────────
+
+  // Parsea Reporte Semanal Nokia.xlsx → upsert hw_equipos (serializados)
+  // y agrega movimientos ENTRADA (sin serial, agrupados por cod_material+ubicacion)
+  uploadReporteSemanal: async (file, { onProgress } = {}) => {
+    const XLSX = await import('xlsx')
+    const buffer = await file.arrayBuffer()
+    const wb = XLSX.read(new Uint8Array(buffer), { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+    const rows = allRows.slice(1).filter(r => r.some(c => String(c).trim()))
+
+    const catalogo = get().hwCatalogo
+    const catalogoMap = new Map(catalogo.map(c => [String(c.cod_material), c.id]))
+
+    // Col [1] = "Ubicacion / Bodega" (SITIO / POPAYAN / Transferencia)
+    // Col [8] = "Estado" (Asignado / Disponible)
+    // Col [9] = "Asignado A" = nombre real del sitio cuando ubicacion=SITIO
+    const mapEstado = ubicacion => {
+      const up = String(ubicacion || '').toUpperCase()
+      if (up.includes('SITIO')) return 'en_sitio'
+      if (up.includes('TRANSFER')) return 'en_transito'
+      return 'en_bodega'
+    }
+
+    const now = new Date().toISOString()
+    const fechaHoy = now.slice(0, 10)
+
+    // Cols: [0]ss_e2e [1]ubicacion/bodega [2]tipo_fuente [3]so [4]cod_material
+    //       [5]descripcion [6]cantidad [7]serial [8]estado_nokia [9]asignado_a [10]comentario [11]nokia_id
+    const serialRows = rows.filter(r => String(r[7] || '').trim())
+    const bulkRows   = rows.filter(r => !String(r[7] || '').trim())
+
+    // Deduplicar por serial (el archivo puede tener filas repetidas)
+    const seenSerials = new Map()
+    for (const r of serialRows) {
+      const serial     = String(r[7]).trim()
+      const ubicacion  = String(r[1] || '').trim()
+      const asignadoA  = String(r[9] || '').trim()
+      const enSitio    = ubicacion.toUpperCase().includes('SITIO')
+      const enTransfer = ubicacion.toUpperCase().includes('TRANSFER')
+      // SITIO → ubicacion_actual = nombre del sitio (col[9])
+      // TRANSFER → ubicacion_actual = nombre del SS (col[9])
+      // Bodega → ubicacion_actual = nombre de la bodega (col[1])
+      const ubicacionReal = (enSitio || enTransfer) ? (asignadoA || ubicacion) : (ubicacion || null)
+      seenSerials.set(serial, {
+        serial,
+        catalogo_id:      catalogoMap.get(String(r[4] || '').trim()) || null,
+        estado:           mapEstado(ubicacion),
+        ubicacion_actual: ubicacionReal,
+        so:               String(r[3] || '').trim() || null,
+        nokia_estado:     String(r[8] || '').trim() || null,
+        nokia_id:         String(r[11] || '').trim() || null,
+        asignado_a:       asignadoA || null,
+        tipo_fuente:      String(r[2] || '').trim() || null,
+        nokia_sync_at:    now,
+        condicion:        'bueno',
+        notas:            String(r[10] || '').trim() || null,
+      })
+    }
+    const equiposPayloads = [...seenSerials.values()]
+
+    const BATCH = 100
+    let equiposInserted = 0
+    const totalOps = equiposPayloads.length + 1
+    for (let i = 0; i < equiposPayloads.length; i += BATCH) {
+      const batch = equiposPayloads.slice(i, i + BATCH)
+      const { error } = await db().from('hw_equipos')
+        .upsert(batch, { onConflict: 'serial' })
+      if (error) throw error
+      equiposInserted += batch.length
+      onProgress?.({ done: equiposInserted, total: totalOps })
+    }
+
+    // Crear sitios en mat_sitios para equipos en_sitio (solo nuevos)
+    const sitiosUnicos = [...new Set(
+      equiposPayloads.filter(e => e.estado === 'en_sitio' && e.ubicacion_actual).map(e => e.ubicacion_actual)
+    )]
+    let sitiosCreados = 0
+    if (sitiosUnicos.length > 0) {
+      const { data: existentes } = await db().from('mat_sitios').select('nombre')
+      const nombresExistentes = new Set((existentes || []).map(s => s.nombre?.toLowerCase()))
+      const nuevos = sitiosUnicos.filter(n => !nombresExistentes.has(n.toLowerCase()))
+      if (nuevos.length > 0) {
+        const { error } = await db().from('mat_sitios')
+          .insert(nuevos.map(nombre => ({ nombre, regional: '', activo: true })))
+        if (error) throw error
+        sitiosCreados = nuevos.length
+      }
+    }
+
+    // Limpiar movimientos NOKIA_REPORTE previos antes de re-insertar (evita duplicados en re-subida)
+    await db().from('hw_movimientos').delete().eq('fuente', 'NOKIA_REPORTE')
+
+    // Agregar no-serial: agrupar por cod_material + ubicacion
+    const aggMap = new Map()
+    for (const r of bulkRows) {
+      const codMat    = String(r[4] || '').trim()
+      const ubicacion = String(r[1] || '').trim()
+      const key = `${codMat}|${ubicacion}`
+      if (!aggMap.has(key)) aggMap.set(key, { codMat, ubicacion, cantidad: 0, so: String(r[3] || '').trim() })
+      aggMap.get(key).cantidad += Number(r[6]) || 1
+    }
+    const movPayloads = [...aggMap.values()].map(agg => ({
+      catalogo_id:  catalogoMap.get(agg.codMat) || null,
+      tipo:         'ENTRADA',
+      fuente:       'NOKIA_REPORTE',
+      fecha:        fechaHoy,
+      cantidad:     agg.cantidad,
+      destino:      agg.ubicacion || null,
+      destino_tipo: 'bodega',
+      so:           agg.so || null,
+      notas:        'Carga inicial Reporte Semanal Nokia',
+    }))
+    if (movPayloads.length > 0) {
+      const { error } = await db().from('hw_movimientos').insert(movPayloads)
+      if (error) throw error
+    }
+    onProgress?.({ done: totalOps, total: totalOps })
+
+    await get().loadAll()
+    const sinCatalogo = equiposPayloads.filter(e => !e.catalogo_id).length
+    return { equipos: equiposInserted, movimientos: movPayloads.length, sinCatalogo, sitios: sitiosCreados }
+  },
+
+  // Parsea Kardex Nokia CSV → inserta en hw_movimientos deduplicando por nokia_md5
+  uploadKardex: async (file, { onProgress } = {}) => {
+    const text = await file.text()
+    const lines = text.split(/\r?\n/)
+
+    function parseRow(line) {
+      const result = []; let field = '', inQ = false
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i]
+        if (c === '"') { if (inQ && line[i+1] === '"') { field += '"'; i++ } else inQ = !inQ }
+        else if (c === ',' && !inQ) { result.push(field); field = '' }
+        else field += c
+      }
+      result.push(field); return result
+    }
+
+    const catalogo = get().hwCatalogo
+    const catalogoMap = new Map(catalogo.map(c => [String(c.cod_material), c.id]))
+
+    // Col[0] = id_abastecimiento_hw_kardex — ID único por movimiento en el sistema Nokia.
+    // Se guarda en nokia_md5 para dedup en re-subidas.
+    // Cols CSV: [0]nokia_id [5]so [6]so_local [7]cod_material [10]cantidad [11]tipo_material
+    //           [13]tipo_fuente [14]tipo_movimiento [15]fecha [18]serial
+    const { data: existingIds } = await db()
+      .from('hw_movimientos').select('nokia_md5').not('nokia_md5', 'is', null)
+    const existingSet = new Set((existingIds || []).map(r => r.nokia_md5))
+
+    const movPayloads = []
+    let skipped = 0
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const c = parseRow(line)
+      const nokiaId = c[0]?.trim()
+      if (!nokiaId || existingSet.has(nokiaId)) { skipped++; continue }
+      const fechaRaw = c[15]?.trim()
+      movPayloads.push({
+        catalogo_id:   catalogoMap.get(c[7]?.trim()) || null,
+        tipo:          c[14]?.trim() || 'ENTRADA',
+        fuente:        'NOKIA_KARDEX',
+        tipo_fuente:   c[13]?.trim() || null,
+        tipo_material: c[11]?.trim() || null,
+        fecha:         fechaRaw ? fechaRaw.slice(0, 10) : null,
+        cantidad:      Number(c[10]?.trim()) || 1,
+        so:            c[5]?.trim() || c[6]?.trim() || null,
+        serial:        c[18]?.trim() || null,
+        nokia_md5:     nokiaId,
+        destino:       null,
+        destino_tipo:  null,
+        origen:        null,
+        origen_tipo:   null,
+        notas:         null,
+      })
+    }
+
+    const BATCH = 200
+    let inserted = 0
+    for (let i = 0; i < movPayloads.length; i += BATCH) {
+      const batch = movPayloads.slice(i, i + BATCH)
+      const { error } = await db().from('hw_movimientos').insert(batch)
+      if (error) throw error
+      inserted += batch.length
+      onProgress?.({ done: inserted, total: movPayloads.length })
+    }
+
+    await get().loadAll()
+    return { inserted, skipped }
+  },
+
   // Cancela un despacho pendiente → todo el HW regresa al inventario
   cancelarDespacho: async (despachoId) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)

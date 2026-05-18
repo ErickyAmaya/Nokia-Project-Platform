@@ -325,7 +325,7 @@ export const useAckStore = create((set, get) => ({
         .from('user_prefs')
         .select('ack_proyectos')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       set({ proyectoSel: data?.ack_proyectos ?? [] })
     } catch { /* tabla no existe aún o sin conexión — ignorar */ }
   },

@@ -77,7 +77,7 @@ export default function HwInventario() {
   const [visibleEquipos, setVisibleEquipos] = useState(100)
   const sentinelEqRef = useRef(null)
 
-  const canEdit = ['admin'].includes(user?.role)
+  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
 
   useEffect(() => { loadAll() }, [])
   useEffect(() => { setVisibleEquipos(100) }, [expanded])
@@ -123,10 +123,11 @@ export default function HwInventario() {
 
         if (equipos.length === 0 && movsSinSerial.length === 0) return null
 
-        const enBodega = equipos.filter(e => e.estado === 'en_bodega')
-        const enSitio  = equipos.filter(e => e.estado === 'en_sitio')
-        const stock    = enBodega.length + ssStock
-        const total    = equipos.length + ssEntrada
+        const enBodega   = equipos.filter(e => e.estado === 'en_bodega')
+        const enSitio    = equipos.filter(e => e.estado === 'en_sitio')
+        const enTransito = equipos.filter(e => e.estado === 'en_transito')
+        const stock      = enBodega.length + ssStock
+        const total      = equipos.length + ssEntrada
         const bodegaCount = {}
         let unnamedEnBodega = 0
         enBodega.forEach(e => {
@@ -140,7 +141,7 @@ export default function HwInventario() {
 
         const isMts     = MTS_CATS.has(String(cat.cod_material))
 
-        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }
+        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, enTransito: enTransito.length, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }
       })
       .filter(r => {
         if (!r) return false
@@ -162,9 +163,10 @@ export default function HwInventario() {
     return {
       tipos:    rows.length,
       totalUds: hwEquipos.length + ssUdsTotal,
-      enBodega: hwEquipos.filter(e => e.estado === 'en_bodega').length + ssStockTotal,
-      enSitio:  hwEquipos.filter(e => e.estado === 'en_sitio').length,
-      agotados: rows.filter(r => r.stock === 0).length,
+      enBodega:   hwEquipos.filter(e => e.estado === 'en_bodega').length + ssStockTotal,
+      enSitio:    hwEquipos.filter(e => e.estado === 'en_sitio').length,
+      enTransito: hwEquipos.filter(e => e.estado === 'en_transito').length,
+      agotados:   rows.filter(r => r.stock === 0).length,
     }
   }, [rows, hwEquipos])
 
@@ -256,13 +258,14 @@ export default function HwInventario() {
       {massUpload && <HwMassUploadModal onClose={() => setMassUpload(false)} />}
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:14 }}>
         {[
-          { label:'Tipos de Equipo', value: kpis.tipos,    color:'#264D4A' },
-          { label:'Total Unidades',  value: kpis.totalUds, color:'#264D4A' },
-          { label:'En Bodega',       value: kpis.enBodega, color:'#1a6130' },
-          { label:'En Sitio',        value: kpis.enSitio,  color:'#1e40af' },
-          { label:'Tipos Agotados',  value: kpis.agotados, color:'#c0392b' },
+          { label:'Tipos de Equipo', value: kpis.tipos,      color:'#264D4A' },
+          { label:'Total Unidades',  value: kpis.totalUds,   color:'#264D4A' },
+          { label:'En Bodega',       value: kpis.enBodega,   color:'#1a6130' },
+          { label:'En Sitio',        value: kpis.enSitio,    color:'#1e40af' },
+          { label:'Transferencia',   value: kpis.enTransito, color:'#856404' },
+          { label:'Tipos Agotados',  value: kpis.agotados,   color:'#c0392b' },
         ].map(k => (
           <div key={k.label} style={{ background:'#fff', borderRadius:8, borderLeft:`4px solid ${k.color}`, padding:'10px 14px', boxShadow:'0 1px 4px rgba(0,0,0,.06)' }}>
             <div style={{ fontSize:8, fontWeight:600, letterSpacing:1.2, textTransform:'uppercase', color:'#555f55', marginBottom:4 }}>{k.label}</div>
@@ -320,6 +323,7 @@ export default function HwInventario() {
                   <th>BODEGA</th>
                   <th style={{ textAlign:'center' }}>STOCK</th>
                   <th style={{ textAlign:'center' }}>EN SITIO</th>
+                  <th style={{ textAlign:'center' }}>TRANSFER.</th>
                   <th style={{ textAlign:'center' }}>TOTAL</th>
                   <th>STATUS</th>
                 </tr>
@@ -330,7 +334,7 @@ export default function HwInventario() {
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }) => {
+                {rows.map(({ cat, equipos, stock, enSitio, enTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }) => {
                   const isOpen = expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
@@ -357,6 +361,9 @@ export default function HwInventario() {
                       <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#1e40af' }}>
                         {enSitio}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
                       </td>
+                      <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color: enTransito > 0 ? '#856404' : '#9ca89c' }}>
+                        {enTransito || '—'}
+                      </td>
                       <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#555f55' }}>
                         {total}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
                       </td>
@@ -368,7 +375,7 @@ export default function HwInventario() {
                     // ── Fila expandida: seriales + sin-serial ──
                     isOpen && (
                       <tr key={`${cat.id}-exp`}>
-                        <td colSpan={9} style={{ padding:0, borderTop:`2px solid #1a9c1a` }}>
+                        <td colSpan={10} style={{ padding:0, borderTop:`2px solid #1a9c1a` }}>
                           <div style={{ background:'#f8fdf8' }}>
 
                             {/* ── Seriales ── */}

@@ -5,7 +5,6 @@ import { useAuthStore } from '../../store/authStore'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
-import DespachoModal from '../../components/materiales/DespachoModal'
 
 const HW_ESTADO_CFG = {
   en_bodega:       { label:'En Bodega',      bg:'#d4edda', color:'#1a6130' },
@@ -33,7 +32,9 @@ export default function MatSitios() {
   const location    = useLocation()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [search,          setSearch]         = useState(location.state?.search || '')
+  const [search,   setSearch]   = useState(location.state?.search || '')
+  const [filReg,   setFilReg]   = useState('')
+  const [expanded, setExpanded] = useState(null)
 
   // Auto-expandir el sitio si viene desde un link directo
   useEffect(() => {
@@ -42,9 +43,6 @@ export default function MatSitios() {
     const match = sitios.find(x => x.nombre?.toLowerCase() === s.toLowerCase())
     if (match) setExpanded(match.id ?? match.nombre)
   }, [location.state?.search, sitios])
-  const [filReg,          setFilReg]         = useState('')
-  const [expanded,        setExpanded]       = useState(null)
-  const [despachoDestino, setDespachoDestino]= useState(null)
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
 
@@ -126,10 +124,6 @@ export default function MatSitios() {
     <div>
       <ConfirmModalUI />
 
-      {despachoDestino !== null && (
-        <DespachoModal defaultDestino={despachoDestino} onClose={() => setDespachoDestino(null)} />
-      )}
-
       <div className="card">
         <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <h2 style={{ color:'#FFFFFF', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
@@ -177,9 +171,13 @@ export default function MatSitios() {
 
                   return (
                     <React.Fragment key={rowKey}>
-                      <tr style={{ background: isOpen ? '#f0fdf4' : undefined, borderBottom: isOpen ? 'none' : undefined }}>
+                      <tr
+                        style={{ background: isOpen ? '#f0fdf4' : undefined, borderBottom: isOpen ? 'none' : undefined, cursor:'pointer' }}
+                        onClick={() => setExpanded(isOpen ? null : rowKey)}
+                      >
                         <td style={{ color:'#9ca89c', fontSize:11 }}>{i + 1}</td>
                         <td style={{ fontWeight:700 }}>
+                          <span style={{ marginRight:6, fontSize:10, color:'#6b7280' }}>{isOpen ? '▼' : '▶'}</span>
                           {s.nombre}
                           {(() => {
                             const pend = pendientes.filter(p => p.sitio?.toLowerCase() === s.nombre?.toLowerCase())
@@ -208,29 +206,14 @@ export default function MatSitios() {
                             : <span className="badge" style={{ background:'#fde8e7', color:'#c0392b' }}>Sin Materiales</span>
                           }
                         </td>
-                        <td style={{ whiteSpace:'nowrap' }}>
-                          <div style={{ display:'flex', gap:4 }}>
+                        <td style={{ whiteSpace:'nowrap' }} onClick={e => e.stopPropagation()}>
+                          {canEdit && (
                             <button
-                              onClick={() => setExpanded(isOpen ? null : rowKey)}
-                              style={{ padding:'3px 9px', fontSize:10, fontWeight:700, borderRadius:20, border:'none',
-                                background: isOpen ? '#264D4A' : '#1a9c1a', color:'#fff', cursor:'pointer' }}>
-                              {isOpen ? '▲ Cerrar' : 'Ver Materiales'}
+                              onClick={() => handleDelete(s)}
+                              style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:20, border:'none', background:'#922b21', color:'#fff', cursor:'pointer' }}>
+                              Eliminar
                             </button>
-                            {canEdit && (
-                              <button
-                                onClick={() => setDespachoDestino(s.nombre)}
-                                style={{ padding:'3px 8px', fontSize:10, fontWeight:700, borderRadius:20, border:'none', background:'#c0392b', color:'#fff', cursor:'pointer' }}>
-                                + Despacho
-                              </button>
-                            )}
-                            {canEdit && (
-                              <button
-                                onClick={() => handleDelete(s)}
-                                style={{ padding:'3px 8px', fontSize:10, fontWeight:600, borderRadius:20, border:'none', background:'#922b21', color:'#fff', cursor:'pointer' }}>
-                                Eliminar
-                              </button>
-                            )}
-                          </div>
+                          )}
                         </td>
                       </tr>
 

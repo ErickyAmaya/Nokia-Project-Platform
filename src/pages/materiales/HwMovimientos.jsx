@@ -9,6 +9,14 @@ import { useConfirm } from '../../components/ConfirmModal'
 import HwDespachoModal from '../../components/materiales/HwDespachoModal'
 import HwSkytoolDespachoModal from '../../components/materiales/HwSkytoolDespachoModal'
 
+const ESTADO_OPTS_TR = [
+  { value:'en_transito',     label:'En Tránsito'     },
+  { value:'en_sitio',        label:'En Sitio'        },
+  { value:'en_bodega',       label:'En Bodega'       },
+  { value:'retornado_nokia', label:'Retornado Nokia' },
+  { value:'retornado_ss',    label:'Retornado SS'    },
+]
+
 const TIPO_LUGAR = [
   { value:'nokia',  label:'Nokia' },
   { value:'bodega', label:'Bodega Ingetel' },
@@ -221,6 +229,11 @@ export default function HwMovimientos() {
   const user               = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
+  const [activeTab,       setActiveTab]       = useState('movimientos')
+  const [transferSearch,  setTransferSearch]  = useState('')
+  const [transferEdit,    setTransferEdit]    = useState(null)
+  const [transferForm,    setTransferForm]    = useState({})
+  const [transferSaving,  setTransferSaving]  = useState(false)
   const [modalTipo,    setModalTipo]    = useState(null)
   const [saving,       setSaving]       = useState(false)
   const [search,       setSearch]       = useState('')
@@ -241,6 +254,34 @@ export default function HwMovimientos() {
   const returnToRef  = useRef(null)
   const canEdit   = ['admin','logistica'].includes(user?.role)
   const canDelete = ['admin'].includes(user?.role)
+  const isAdmin   = user?.role === 'admin'
+
+  function openTransferEdit(e) {
+    setTransferForm({
+      estado:           e.estado,
+      ubicacion_actual: e.ubicacion_actual || '',
+      so:               e.so || '',
+      nokia_estado:     e.nokia_estado || '',
+      condicion:        e.condicion || 'bueno',
+      notas:            e.notas || '',
+    })
+    setTransferEdit(e)
+  }
+
+  async function handleTransferSave() {
+    setTransferSaving(true)
+    try {
+      const changes = isAdmin
+        ? { estado: transferForm.estado, ubicacion_actual: transferForm.ubicacion_actual || null,
+            so: transferForm.so || null, nokia_estado: transferForm.nokia_estado || null,
+            condicion: transferForm.condicion, notas: transferForm.notas || null }
+        : { notas: transferForm.notas || null }
+      await updateHwEquipo(transferEdit.id, changes)
+      showToast('Guardado')
+      setTransferEdit(null)
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setTransferSaving(false) }
+  }
 
   useEffect(() => { loadAll() }, [])
   useEffect(() => { setVisibleCount(100) }, [search, filTipo, filDate])
@@ -717,31 +758,133 @@ export default function HwMovimientos() {
         )
       })()}
 
-      <div className="card" style={{ marginBottom:14 }}>
+      <div className="card" style={{ marginBottom:14, position:'sticky', top:0, zIndex:10, background:'#fff' }}>
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2>Movimientos HW Nokia ({rows.length})</h2>
-          {canEdit && (
+          <div style={{ display:'flex', gap:0, alignItems:'center' }}>
+            {[
+              { id:'movimientos',    label:`Movimientos (${rows.length})` },
+              { id:'transferencias', label:`Transferencias (${hwEquipos.filter(e => e.estado === 'en_transito').length})` },
+            ].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                style={{ padding:'6px 18px', fontSize:12, fontWeight:700, border:'none', cursor:'pointer', borderRadius: t.id === 'movimientos' ? '8px 0 0 8px' : '0 8px 8px 0',
+                  background: activeTab === t.id ? '#D6F9F2' : 'transparent',
+                  color:      activeTab === t.id ? '#264D4A'  : '#9ca89c' }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {canEdit && activeTab === 'movimientos' && (
             <button className="btn bp btn-sm" onClick={() => setDespachoPickerOpen(true)}>
               + Nuevo Despacho
             </button>
           )}
         </div>
-        <div className="card-b">
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <input className="fc" placeholder="Buscar serial, SO, origen, destino…" value={search}
-              onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }} />
-            <input type="date" className="fc" value={filDate}
-              onChange={e => setFilDate(e.target.value)} style={{ maxWidth:150 }} />
-            <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:130 }}>
-              <option value="">Todos</option>
-              <option value="ENTRADA">Entradas</option>
-              <option value="SALIDA">Salidas</option>
-            </select>
+        {activeTab === 'movimientos' && (
+          <div className="card-b">
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              <input className="fc" placeholder="Buscar serial, SO, origen, destino…" value={search}
+                onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }} />
+              <input type="date" className="fc" value={filDate}
+                onChange={e => setFilDate(e.target.value)} style={{ maxWidth:150 }} />
+              <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:130 }}>
+                <option value="">Todos</option>
+                <option value="ENTRADA">Entradas</option>
+                <option value="SALIDA">Salidas</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
+        {activeTab === 'transferencias' && (
+          <div className="card-b">
+            <input className="fc" placeholder="Buscar serial, SS, descripción, ID transferencia…"
+              value={transferSearch} onChange={e => setTransferSearch(e.target.value)} />
+          </div>
+        )}
       </div>
 
-      <div className="card">
+      {/* ── Tab Transferencias ── */}
+      {activeTab === 'transferencias' && (() => {
+        const q = transferSearch.toLowerCase()
+        const enTransito = hwEquipos.filter(e => {
+          if (e.estado !== 'en_transito') return false
+          if (!q) return true
+          const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+          return `${e.serial || ''} ${e.ubicacion_actual || ''} ${cat?.descripcion || ''} ${e.nokia_estado || ''} ${e.so || ''}`.toLowerCase().includes(q)
+        })
+        const porSS = {}
+        enTransito.forEach(e => {
+          const ss = e.ubicacion_actual || 'Sin SS'
+          if (!porSS[ss]) porSS[ss] = []
+          porSS[ss].push(e)
+        })
+        return (
+          <div className="card">
+            <div className="card-b" style={{ padding:0 }}>
+              {enTransito.length === 0 ? (
+                <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:13 }}>
+                  No hay equipos en transferencia
+                </div>
+              ) : Object.entries(porSS).map(([ss, items]) => (
+                <div key={ss}>
+                  <div style={{ background:'#fef3c7', borderBottom:'2px solid #fcd34d', padding:'8px 16px',
+                    display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13,
+                      color:'#92400e', letterSpacing:1, textTransform:'uppercase' }}>
+                      SS: {ss}
+                    </span>
+                    <span style={{ fontSize:11, color:'#856404', fontWeight:600 }}>{items.length} equipo(s)</span>
+                  </div>
+                  <div style={{ overflowX:'auto' }}>
+                    <table className="tbl" style={{ fontSize:11 }}>
+                      <thead>
+                        <tr style={{ background:'#fffbeb' }}>
+                          {['SERIAL','DESCRIPCIÓN','ID TRANSFERENCIA','SO','NOTAS'].map(h => (
+                            <th key={h} style={{ padding:'5px 12px', color:'#92400e', fontWeight:700,
+                              fontSize:10, textAlign:'left', borderBottom:'1px solid #fcd34d', whiteSpace:'nowrap' }}>{h}</th>
+                          ))}
+                          {canEdit && <th style={{ padding:'5px 12px', borderBottom:'1px solid #fcd34d' }}></th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((e, idx) => {
+                          const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+                          return (
+                            <tr key={e.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fffbeb', borderBottom:'1px solid #fef3c7' }}>
+                              <td style={{ padding:'6px 12px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>
+                                {e.serial}
+                              </td>
+                              <td style={{ padding:'6px 12px', maxWidth:200, fontWeight:500 }}>
+                                {cat?.descripcion || '—'}
+                              </td>
+                              <td style={{ padding:'6px 12px', fontFamily:"'Barlow Condensed',sans-serif", color:'#856404', fontWeight:600 }}>
+                                {e.nokia_estado || '—'}
+                              </td>
+                              <td style={{ padding:'6px 12px', color:'#144E4A', fontWeight:600 }}>
+                                {e.so || '—'}
+                              </td>
+                              <td style={{ padding:'6px 12px', color:'#9ca89c', fontSize:10 }}>
+                                {e.notas || '—'}
+                              </td>
+                              {canEdit && (
+                                <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}
+                                  onClick={ev => ev.stopPropagation()}>
+                                  <button className="btn-edit" style={{ fontSize:11 }} onClick={() => openTransferEdit(e)}>✏</button>
+                                </td>
+                              )}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      <div className="card" style={{ display: activeTab === 'transferencias' ? 'none' : undefined }}>
         <div className="card-b" style={{ padding:0, overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 220px)' }}>
           <table className="tbl">
             <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}><tr>
@@ -849,6 +992,77 @@ export default function HwMovimientos() {
                 <button onClick={() => setAltModal(null)}
                   style={{ padding:'6px 12px', fontSize:11, fontWeight:700, borderRadius:6, border:'none', background:'#f0f2f0', color:'#555f55', cursor:'pointer' }}>
                   Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Editar Transferencia ── */}
+      {transferEdit && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:800,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:440 }}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              borderBottom:'3px solid #856404', borderRadius:'12px 12px 0 0' }}>
+              <div>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:14, letterSpacing:1 }}>
+                  EDITAR TRANSFERENCIA
+                </div>
+                <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:800, color:'#fcd34d', marginTop:1 }}>
+                  {transferEdit.serial}
+                </div>
+              </div>
+              <button onClick={() => setTransferEdit(null)}
+                style={{ background:'none', border:'none', color:'#9ca89c', fontSize:22, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              {isAdmin && (<>
+                <div>
+                  <label className="fl">Estado</label>
+                  <select className="fc" value={transferForm.estado}
+                    onChange={e => setTransferForm(p => ({ ...p, estado: e.target.value }))}>
+                    {ESTADO_OPTS_TR.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="fl">SS / Ubicación Actual</label>
+                  <input className="fc" value={transferForm.ubicacion_actual}
+                    onChange={e => setTransferForm(p => ({ ...p, ubicacion_actual: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="fl">ID Transferencia Nokia</label>
+                  <input className="fc" value={transferForm.nokia_estado}
+                    onChange={e => setTransferForm(p => ({ ...p, nokia_estado: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="fl">SO (Sales Order)</label>
+                  <input className="fc" value={transferForm.so}
+                    onChange={e => setTransferForm(p => ({ ...p, so: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="fl">Condición</label>
+                  <select className="fc" value={transferForm.condicion}
+                    onChange={e => setTransferForm(p => ({ ...p, condicion: e.target.value }))}>
+                    <option value="nuevo">Nuevo</option>
+                    <option value="usado">Usado</option>
+                    <option value="dañado">Dañado</option>
+                  </select>
+                </div>
+              </>)}
+              <div>
+                <label className="fl">Notas</label>
+                <textarea className="fc" rows={3} value={transferForm.notas}
+                  onChange={e => setTransferForm(p => ({ ...p, notas: e.target.value }))}
+                  style={{ resize:'vertical', fontSize:12 }} />
+              </div>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+                <button className="btn bou" onClick={() => setTransferEdit(null)}>Cancelar</button>
+                <button className="btn" onClick={handleTransferSave} disabled={transferSaving}
+                  style={{ background:'#856404', color:'#fff', border:'none', opacity: transferSaving ? .7 : 1 }}>
+                  {transferSaving ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             </div>
