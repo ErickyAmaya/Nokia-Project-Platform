@@ -9,6 +9,14 @@ import { useConfirm } from '../../components/ConfirmModal'
 import HwDespachoModal from '../../components/materiales/HwDespachoModal'
 import HwSkytoolDespachoModal from '../../components/materiales/HwSkytoolDespachoModal'
 
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
 const ESTADO_OPTS_TR = [
   { value:'en_transito',     label:'En Tránsito'     },
   { value:'en_sitio',        label:'En Sitio'        },
@@ -868,7 +876,7 @@ export default function HwMovimientos() {
                               {canEdit && (
                                 <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}
                                   onClick={ev => ev.stopPropagation()}>
-                                  <button className="btn-edit" style={{ fontSize:11 }} onClick={() => openTransferEdit(e)}>✏</button>
+                                  <button className="btn-edit" onClick={() => openTransferEdit(e)}><IconEdit /></button>
                                 </td>
                               )}
                             </tr>

@@ -62,9 +62,9 @@ export default function HwInventario() {
   const saveSitio        = useMatStore(s => s.saveSitio)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [search,    setSearch]    = useState('')
-  const [filTipo,   setFilTipo]   = useState('')
-  const [filStatus, setFilStatus] = useState('')
+  const [search,         setSearch]         = useState('')
+  const [filNokiaEstado, setFilNokiaEstado] = useState('')
+  const [filStatus,      setFilStatus]      = useState('')
   const [expanded,  setExpanded]  = useState(null)
   const [editModal, setEditModal] = useState(null)
   const [editForm,  setEditForm]  = useState({})
@@ -145,7 +145,7 @@ export default function HwInventario() {
       })
       .filter(r => {
         if (!r) return false
-        if (filTipo   && r.cat.tipo_material !== filTipo)   return false
+        if (filNokiaEstado && !r.equipos.some(e => e.nokia_estado === filNokiaEstado)) return false
         if (filStatus === 'agotado' && r.stock !== 0)       return false
         if (filStatus === 'stock'   && r.stock === 0)       return false
         if (q) {
@@ -154,7 +154,13 @@ export default function HwInventario() {
         }
         return true
       })
-  }, [hwCatalogo, hwEquipos, hwMovimientos, search, filTipo, filStatus])
+  }, [hwCatalogo, hwEquipos, hwMovimientos, search, filNokiaEstado, filStatus])
+
+  // ── Opciones únicas de nokia_estado para el filtro ──────────────
+  const nokiaEstadoOpts = useMemo(() => {
+    const vals = new Set(hwEquipos.map(e => e.nokia_estado).filter(Boolean))
+    return [...vals].sort()
+  }, [hwEquipos])
 
   // ── KPIs ────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -300,11 +306,9 @@ export default function HwInventario() {
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
             <input className="fc" placeholder="Buscar descripción o cód. equipo…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }} />
-            <select className="fc" value={filTipo} onChange={e => setFilTipo(e.target.value)} style={{ maxWidth:130 }}>
-              <option value="">Todos los tipos</option>
-              <option value="Partes">Partes</option>
-              <option value="Grupos">Grupos</option>
-              <option value="HWS">HWS</option>
+            <select className="fc" value={filNokiaEstado} onChange={e => setFilNokiaEstado(e.target.value)} style={{ maxWidth:180 }}>
+              <option value="">Todos los estados Nokia</option>
+              {nokiaEstadoOpts.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
             <select className="fc" value={filStatus} onChange={e => setFilStatus(e.target.value)} style={{ maxWidth:130 }}>
               <option value="">Todos los status</option>
