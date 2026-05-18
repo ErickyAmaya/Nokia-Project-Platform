@@ -173,8 +173,8 @@ export default function HwDashboard() {
   return (
     <div>
       {/* KPIs (sticky) */}
-      <div style={{ position:'sticky', top:0, zIndex:10, background:'#f0f2f0', paddingBottom:8, marginBottom:8,
-        boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
+      <div style={{ position:'sticky', top:'calc(124px + env(safe-area-inset-top))', zIndex:15,
+        background:'#f0f2f0', paddingTop:8, paddingBottom:8, marginBottom:8, boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:10 }}>
           <KpiCard label="Total Equipos"    value={totalEquipos}   color={C.dark}   />
           <KpiCard label="En Bodega"        value={enBodega}       color={C.green}  />

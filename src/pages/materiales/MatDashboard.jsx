@@ -281,8 +281,8 @@ export default function MatDashboard() {
       </div>
 
       {/* ── KPIs (sticky) ── */}
-      <div style={{ position:'sticky', top:0, zIndex:10, background:'#f0f2f0', paddingBottom:8, marginBottom:8,
-        boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
+      <div style={{ position:'sticky', top:'calc(124px + env(safe-area-inset-top))', zIndex:15,
+        background:'#f0f2f0', paddingTop:8, paddingBottom:8, marginBottom:8, boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
         <div className="kpi-grid" style={{ marginBottom:8 }}>
           <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />
           <KpiCard label="En Stock"               value={kpis.enStock}           color={C.green}  />
