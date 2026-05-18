@@ -172,18 +172,20 @@ export default function HwDashboard() {
 
   return (
     <div>
-      {/* KPIs */}
-      <SectionTitle>Resumen</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
-        <KpiCard label="Total Equipos"    value={totalEquipos}   color={C.dark}   />
-        <KpiCard label="En Bodega"        value={enBodega}       color={C.green}  />
-        <KpiCard label="En Sitio"         value={enSitio}        color={C.blue}   />
-        <KpiCard label="En Reparación"    value={enReparacion}   color={C.amber}  />
-        <KpiCard label="Fallas Registradas" value={totalFallas}  color={C.red}    />
-        <KpiCard label="Movimientos (Mes)" value={movMes}        color={C.teal}   />
-        {alertas.length > 0 && (
-          <KpiCard label="Alertas Stock"  value={alertas.length} color={C.red}    />
-        )}
+      {/* KPIs (sticky) */}
+      <div style={{ position:'sticky', top:0, zIndex:10, background:'#f0f2f0', paddingBottom:8, marginBottom:8,
+        boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:10 }}>
+          <KpiCard label="Total Equipos"    value={totalEquipos}   color={C.dark}   />
+          <KpiCard label="En Bodega"        value={enBodega}       color={C.green}  />
+          <KpiCard label="En Sitio"         value={enSitio}        color={C.blue}   />
+          <KpiCard label="En Reparación"    value={enReparacion}   color={C.amber}  />
+          <KpiCard label="Fallas Registradas" value={totalFallas}  color={C.red}    />
+          <KpiCard label="Movimientos (Mes)" value={movMes}        color={C.teal}   />
+          {alertas.length > 0 && (
+            <KpiCard label="Alertas Stock"  value={alertas.length} color={C.red}    />
+          )}
+        </div>
       </div>
 
       {/* Gráficas */}

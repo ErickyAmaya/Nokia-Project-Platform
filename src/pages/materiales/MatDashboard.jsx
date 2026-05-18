@@ -280,20 +280,21 @@ export default function MatDashboard() {
         )}
       </div>
 
-      {/* ── KPIs fila 1 ── */}
-      <div className="kpi-grid">
-        <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />
-        <KpiCard label="En Stock"               value={kpis.enStock}           color={C.green}  />
-        <KpiCard label="Bajo Mínimo"            value={kpis.bajoMin}           color={C.amber}  />
-        <KpiCard label="Agotados"               value={kpis.agotados}          color={C.red}    />
-      </div>
-
-      {/* ── KPIs fila 2 ── */}
-      <div className="kpi-grid" style={{ marginBottom:16 }}>
-        <KpiCard label="Valor Inventario TI"  value={matCop(kpis.valTI)}    color={C.dark}   />
-        <KpiCard label="Valor Inventario CW"  value={matCop(kpis.valCW)}    color={C.purple} />
-        <KpiCard label="Total Entradas"       value={matCop(kpis.entradas)} color={C.green}  />
-        <KpiCard label="Total Salidas"        value={matCop(kpis.salidas)}  color={C.red}    />
+      {/* ── KPIs (sticky) ── */}
+      <div style={{ position:'sticky', top:0, zIndex:10, background:'#f0f2f0', paddingBottom:8, marginBottom:8,
+        boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
+        <div className="kpi-grid" style={{ marginBottom:8 }}>
+          <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />
+          <KpiCard label="En Stock"               value={kpis.enStock}           color={C.green}  />
+          <KpiCard label="Bajo Mínimo"            value={kpis.bajoMin}           color={C.amber}  />
+          <KpiCard label="Agotados"               value={kpis.agotados}          color={C.red}    />
+        </div>
+        <div className="kpi-grid">
+          <KpiCard label="Valor Inventario TI"  value={matCop(kpis.valTI)}    color={C.dark}   />
+          <KpiCard label="Valor Inventario CW"  value={matCop(kpis.valCW)}    color={C.purple} />
+          <KpiCard label="Total Entradas"       value={matCop(kpis.entradas)} color={C.green}  />
+          <KpiCard label="Total Salidas"        value={matCop(kpis.salidas)}  color={C.red}    />
+        </div>
       </div>
 
       {/* ── Analytics de Proveedores ── */}
