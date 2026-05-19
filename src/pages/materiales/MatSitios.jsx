@@ -104,9 +104,13 @@ export default function MatSitios() {
   const filtered = useMemo(() => sitios.filter(s => {
     const q = search.toLowerCase()
     if (filReg && s.regional !== filReg) return false
-    if (q && !`${s.nombre} ${s.regional}`.toLowerCase().includes(q)) return false
-    return true
-  }), [sitios, search, filReg])
+    if (!q) return true
+    if (`${s.nombre} ${s.regional}`.toLowerCase().includes(q)) return true
+    const sNombre = s.nombre.toLowerCase()
+    if (hwEquipos.some(e => e.ubicacion_actual?.toLowerCase() === sNombre && e.so?.toLowerCase().includes(q))) return true
+    if (hwMovimientos.some(m => m.tipo === 'SALIDA' && !m.serial && m.destino?.toLowerCase() === sNombre && m.so?.toLowerCase().includes(q))) return true
+    return false
+  }), [sitios, search, filReg, hwEquipos, hwMovimientos])
 
   async function handleDelete(s) {
     const ok = await confirm('Eliminar Sitio', `¿Eliminar "${s.nombre}"?`)
@@ -166,7 +170,7 @@ export default function MatSitios() {
                 {filtered.map((s, i) => {
                   const rowKey = s.id ?? s.nombre ?? i
                   const sd     = sitioData[rowKey] || sitioData[s.nombre] || { movCount:0, despCount:0, valorTotal:0, materiales:[] }
-                  const isOpen = expanded === rowKey
+                  const isOpen = search ? true : expanded === rowKey
                   const hasMovs = sd.movCount > 0
 
                   return (
@@ -398,9 +402,10 @@ export default function MatSitios() {
                                 const ssByCat = {}
                                 movsSinSerial.forEach(m => {
                                   if (!ssByCat[m.catalogo_id]) {
-                                    ssByCat[m.catalogo_id] = { cat: hwCatalogo.find(c => c.id === m.catalogo_id), cantidad: 0 }
+                                    ssByCat[m.catalogo_id] = { cat: hwCatalogo.find(c => c.id === m.catalogo_id), cantidad: 0, sos: [] }
                                   }
                                   ssByCat[m.catalogo_id].cantidad += (m.cantidad || 0)
+                                  if (m.so && !ssByCat[m.catalogo_id].sos.includes(m.so)) ssByCat[m.catalogo_id].sos.push(m.so)
                                 })
                                 const ssItems = Object.values(ssByCat)
                                 const totalHW = hwEnSitio.length + ssItems.reduce((a, x) => a + x.cantidad, 0)
@@ -427,7 +432,7 @@ export default function MatSitios() {
                                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                                           <thead>
                                             <tr style={{ background:'#eff6ff' }}>
-                                              {['SERIAL','CÓD. EQUIPO','DESCRIPCIÓN','CANTIDAD','ESTADO','CONDICIÓN'].map(h => (
+                                              {['SERIAL','SO','CÓD. EQUIPO','DESCRIPCIÓN','CANTIDAD','ESTADO','CONDICIÓN'].map(h => (
                                                 <th key={h} style={{ padding:'5px 10px', color:'#1e40af', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #bfdbfe', whiteSpace:'nowrap' }}>{h}</th>
                                               ))}
                                             </tr>
@@ -440,6 +445,9 @@ export default function MatSitios() {
                                               return (
                                                 <tr key={e.id} style={{ background: (idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
+                                                    {e.so || <span style={{ color:'#9ca89c' }}>—</span>}
+                                                  </td>
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{cat?.cod_material || '—'}</td>
                                                   <td style={{ padding:'5px 10px', fontWeight:600 }}>{cat?.descripcion || '—'}</td>
                                                   <td style={{ padding:'5px 10px', fontWeight:700, textAlign:'center' }}>1</td>
@@ -454,6 +462,11 @@ export default function MatSitios() {
                                             {ssItems.map((x, idx) => (
                                               <tr key={x.cat?.id ?? idx} style={{ background: (hwEnSitio.length + idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
                                                 <td style={{ padding:'5px 10px', fontSize:9, fontStyle:'italic', color:'#9ca89c' }}>No Aplica</td>
+                                                <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#144E4A' }}>
+                                                  {x.sos.length > 0
+                                                    ? (x.sos.length > 2 ? `${x.sos.slice(0,2).join(', ')}…` : x.sos.join(', '))
+                                                    : <span style={{ color:'#9ca89c' }}>—</span>}
+                                                </td>
                                                 <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, color:'#264D4A' }}>{x.cat?.cod_material || '—'}</td>
                                                 <td style={{ padding:'5px 10px', fontWeight:600 }}>{x.cat?.descripcion || '—'}</td>
                                                 <td style={{ padding:'5px 10px', fontWeight:800, fontSize:13, color:'#264D4A', textAlign:'center' }}>

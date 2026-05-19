@@ -252,10 +252,9 @@ export default function HwMovimientos() {
   const [despachoOpen,       setDespachoOpen]       = useState(false)
   const [skytoolOpen,        setSkytoolOpen]        = useState(false)
   const [despachoPickerOpen, setDespachoPickerOpen] = useState(false)
-  const [visibleCount, setVisibleCount] = useState(100)
-  const [soDetail,     setSoDetail]     = useState(null) // sales order string to show detail
+  const [expandedGroups, setExpandedGroups] = useState({})
+  const [soDetail,       setSoDetail]       = useState(null)
   const prevOrigenRef = useRef(null)
-  const sentinelRef   = useRef(null)
 
   const navigate     = useNavigate()
   const location     = useLocation()
@@ -292,16 +291,6 @@ export default function HwMovimientos() {
   }
 
   useEffect(() => { loadAll() }, [])
-  useEffect(() => { setVisibleCount(100) }, [search, filTipo, filDate])
-  useEffect(() => {
-    const el = sentinelRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) setVisibleCount(c => c + 100)
-    }, { rootMargin: '150px' })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [visibleCount])
 
   // Auto-abrir modal si viene desde Inventario HW
   useEffect(() => {
@@ -625,13 +614,24 @@ export default function HwMovimientos() {
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
-    return hwMovimientos.filter(m => {
-      if (filTipo && m.tipo !== filTipo) return false
-      if (filDate && !m.fecha?.startsWith(filDate)) return false
-      if (q && !`${m.serial} ${m.so || ''} ${m.sales_order || ''} ${m.origen || ''} ${m.destino || ''}`.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [hwMovimientos, search, filTipo, filDate])
+    return hwCatalogo
+      .map(cat => {
+        let movs = hwMovimientos.filter(m => m.catalogo_id === cat.id)
+        if (filTipo) movs = movs.filter(m => m.tipo === filTipo)
+        if (filDate) movs = movs.filter(m => m.fecha?.startsWith(filDate))
+        if (q) {
+          const catMatch = `${cat.descripcion} ${cat.cod_material || ''}`.toLowerCase().includes(q)
+          if (!catMatch) {
+            movs = movs.filter(m =>
+              `${m.serial || ''} ${m.so || ''} ${m.sales_order || ''} ${m.origen || ''} ${m.destino || ''}`.toLowerCase().includes(q)
+            )
+          }
+        }
+        if (movs.length === 0) return null
+        return { cat, movs: movs.sort((a, b) => (b.fecha || b.created_at || '') > (a.fecha || a.created_at || '') ? 1 : -1) }
+      })
+      .filter(Boolean)
+  }, [hwCatalogo, hwMovimientos, search, filTipo, filDate])
 
   const accentColor = modalTipo === 'ENTRADA' ? '#1a9c1a' : '#c0392b'
 
@@ -770,7 +770,7 @@ export default function HwMovimientos() {
         <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div style={{ display:'flex', gap:0, alignItems:'center' }}>
             {[
-              { id:'movimientos',    label:`Movimientos (${rows.length})` },
+              { id:'movimientos',    label:`Movimientos (${rows.reduce((s, r) => s + r.movs.length, 0)})` },
               { id:'transferencias', label:`Transferencias (${hwEquipos.filter(e => e.estado === 'en_transito').length})` },
             ].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
@@ -790,7 +790,7 @@ export default function HwMovimientos() {
         {activeTab === 'movimientos' && (
           <div className="card-b">
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <input className="fc" placeholder="Buscar serial, SO, origen, destino…" value={search}
+              <input className="fc" placeholder="Buscar tipo de equipo, cód., serial, SO, origen, destino…" value={search}
                 onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }} />
               <input type="date" className="fc" value={filDate}
                 onChange={e => setFilDate(e.target.value)} style={{ maxWidth:150 }} />
@@ -892,72 +892,117 @@ export default function HwMovimientos() {
         )
       })()}
 
-      <div className="card" style={{ display: activeTab === 'transferencias' ? 'none' : undefined }}>
-        <div className="card-b" style={{ padding:0, overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 220px)' }}>
-          <table className="tbl">
-            <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}><tr>
-              <th>Fecha</th><th>Tipo</th><th>Cant.</th><th>Serial</th><th>Equipo</th>
-              <th>Origen</th><th>Destino</th><th>SO / Doc</th>
-              {canDelete && <th></th>}
-            </tr></thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin movimientos registrados</td></tr>
-              )}
-              {rows.slice(0, visibleCount).map(m => {
-                const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
-                return (
-                  <tr key={m.id}>
-                    <td style={{ fontSize:10, whiteSpace:'nowrap', color:'#0a0a0a' }}>{m.fecha}</td>
-                    <td>
-                      <span style={{ fontWeight:700, fontSize:10, color: m.tipo==='ENTRADA'?'#1a6130':'#c0392b' }}>{m.tipo}</span>
-                    </td>
-                    <td style={{ textAlign:'center', fontWeight:700, fontSize:12 }}>{m.cantidad ?? 1}</td>
-                    <td style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#144E4A' }}>
-                      {m.serial || <span style={{ color:'#9ca89c', fontSize:9 }}>sin serial</span>}
-                    </td>
-                    <td style={{ fontSize:10, maxWidth:160 }}>{cat?.descripcion || '—'}</td>
-                    <td style={{ fontSize:10 }}>
-                      <span style={{ color:'#9ca89c', fontSize:9, textTransform:'uppercase', marginRight:3 }}>{m.origen_tipo}</span>
-                      {m.origen}
-                    </td>
-                    <td style={{ fontSize:10, fontWeight:600 }}>
-                      <span style={{ color:'#9ca89c', fontSize:9, textTransform:'uppercase', marginRight:3 }}>{m.destino_tipo}</span>
-                      {m.destino_tipo === 'sitio' && m.destino ? (
-                        <button
-                          onClick={() => navigate('/materiales/sitios', { state: { search: m.destino } })}
-                          style={{ background:'none', border:'none', padding:0, color:'#1e40af', fontWeight:700, fontSize:10, cursor:'pointer', textDecoration:'underline' }}>
-                          {m.destino}
-                        </button>
-                      ) : m.destino}
-                    </td>
-                    <td>
-                      {(m.so || m.sales_order)
-                        ? <button onClick={() => setSoDetail(m.so || m.sales_order)}
-                            style={{ background:'none', border:'none', padding:0, cursor:'pointer',
-                              fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700,
-                              color:'#1e40af', textDecoration:'underline' }}>
-                            {m.so || m.sales_order}
-                          </button>
-                        : <span style={{ color:'#9ca89c' }}>—</span>
-                      }
-                    </td>
-                    {canDelete && (
-                      <td><button className="btn-del" onClick={() => handleDelete(m)}>✕</button></td>
-                    )}
-                  </tr>
-                )
-              })}
-              {visibleCount < rows.length && (
-                <tr><td ref={sentinelRef} colSpan={canDelete ? 9 : 8}
-                  style={{ padding:'10px', textAlign:'center', color:'#9ca89c', fontSize:10 }}>
-                  Mostrando {visibleCount} de {rows.length} — cargando más…
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+      {activeTab === 'movimientos' && (
+        <div className="card">
+          <div className="card-b" style={{ padding:0 }}>
+            {rows.length === 0 ? (
+              <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:13 }}>
+                Sin movimientos registrados
+              </div>
+            ) : rows.map(({ cat, movs }) => {
+              const isOpen = search ? true : !!expandedGroups[cat.id]
+              const entCount = movs.filter(m => m.tipo === 'ENTRADA').length
+              const salCount = movs.filter(m => m.tipo === 'SALIDA').length
+              const VISIBLE = 200
+              return (
+                <div key={cat.id} style={{ borderBottom:'1px solid #e8f0e8' }}>
+                  <div
+                    onClick={() => setExpandedGroups(p => ({ ...p, [cat.id]: !p[cat.id] }))}
+                    style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', cursor:'pointer',
+                      background: isOpen ? '#f0fdf4' : '#fff', userSelect:'none' }}>
+                    <span style={{ fontSize:12, color:'#9ca89c', minWidth:12 }}>{isOpen ? '▲' : '▼'}</span>
+                    <div style={{ flex:1, display:'flex', alignItems:'center', gap:10 }}>
+                      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:13, color:'#1e40af', minWidth:60 }}>{cat.cod_material || '—'}</span>
+                      <span style={{ fontWeight:700, fontSize:12, color:'#264D4A' }}>{cat.descripcion}</span>
+                    </div>
+                    <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:10, background:'#d4edda', color:'#1a6130' }}>E: {entCount}</span>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:10, background:'#fde8e7', color:'#c0392b' }}>S: {salCount}</span>
+                      <span style={{ fontSize:10, color:'#9ca89c' }}>{movs.length} movs.</span>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{ overflowX:'auto', borderTop:'1px solid #e8f0e8' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                        <thead style={{ position:'sticky', top:0, zIndex:1, background:'#f8f8f8' }}>
+                          <tr>
+                            {['TIPO','SO','SERIAL','FECHA','CANT.','ORIGEN','DESTINO','NOTAS', canDelete && ''].filter(h => h !== false).map(h => (
+                              <th key={h} style={{ padding:'5px 10px', textAlign: h==='CANT.'?'center':'left', fontWeight:700, fontSize:10, color:'#374151', borderBottom:'2px solid #e5e7eb', whiteSpace:'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {movs.slice(0, VISIBLE).map((m, i) => {
+                            const isEnt = m.tipo === 'ENTRADA'
+                            return (
+                              <tr key={m.id} style={{
+                                background: isEnt ? (i%2===0?'#f0fdf4':'#e8f5e8') : (i%2===0?'#fff9f9':'#fee8e7'),
+                                borderBottom:'1px solid #f0f2f0'
+                              }}>
+                                <td style={{ padding:'5px 10px', whiteSpace:'nowrap' }}>
+                                  <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:8,
+                                    background: isEnt?'#d4edda':'#fde8e7', color: isEnt?'#1a6130':'#c0392b' }}>
+                                    {m.tipo}
+                                  </span>
+                                </td>
+                                <td style={{ padding:'5px 10px' }}>
+                                  {(m.so || m.sales_order)
+                                    ? <button onClick={() => setSoDetail(m.so || m.sales_order)}
+                                        style={{ background:'none', border:'none', padding:0, cursor:'pointer',
+                                          fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:700,
+                                          color:'#1e40af', textDecoration:'underline' }}>
+                                        {m.so || m.sales_order}
+                                      </button>
+                                    : <span style={{ color:'#9ca89c' }}>—</span>}
+                                </td>
+                                <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>
+                                  {m.serial || <span style={{ color:'#9ca89c', fontSize:9 }}>sin serial</span>}
+                                </td>
+                                <td style={{ padding:'5px 10px', color:'#555f55', whiteSpace:'nowrap' }}>{m.fecha || '—'}</td>
+                                <td style={{ padding:'5px 10px', textAlign:'center', fontWeight:700, color: isEnt?'#1a6130':'#c0392b' }}>
+                                  {isEnt?'+':'−'}{m.cantidad ?? 1}
+                                </td>
+                                <td style={{ padding:'5px 10px', fontSize:10 }}>
+                                  <span style={{ color:'#9ca89c', fontSize:9, marginRight:3 }}>{m.origen_tipo}</span>
+                                  {m.origen || '—'}
+                                </td>
+                                <td style={{ padding:'5px 10px', fontSize:10, fontWeight:600 }}>
+                                  <span style={{ color:'#9ca89c', fontSize:9, marginRight:3 }}>{m.destino_tipo}</span>
+                                  {m.destino_tipo === 'sitio' && m.destino
+                                    ? <button onClick={() => navigate('/materiales/sitios', { state:{ search: m.destino } })}
+                                        style={{ background:'none', border:'none', padding:0, color:'#1e40af', fontWeight:700, fontSize:10, cursor:'pointer', textDecoration:'underline' }}>
+                                        {m.destino}
+                                      </button>
+                                    : (m.destino || '—')}
+                                </td>
+                                <td style={{ padding:'5px 10px', color:'#9ca89c', fontSize:10, maxWidth:160, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                  {m.notas || '—'}
+                                </td>
+                                {canDelete && (
+                                  <td style={{ padding:'5px 8px' }}>
+                                    <button className="btn-del" onClick={() => handleDelete(m)}>✕</button>
+                                  </td>
+                                )}
+                              </tr>
+                            )
+                          })}
+                          {movs.length > VISIBLE && (
+                            <tr>
+                              <td colSpan={canDelete ? 9 : 8} style={{ padding:'8px 16px', textAlign:'center', color:'#9ca89c', fontSize:11 }}>
+                                Mostrando {VISIBLE} de {movs.length} — usa los filtros para reducir la lista
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Mini-modal: bodega alternativa ── */}
       {altModal && (

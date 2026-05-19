@@ -5,7 +5,6 @@ import { useMatStore } from '../../store/useMatStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwEntradaSalidaModal from '../../components/materiales/HwEntradaSalidaModal'
-import HwMassUploadModal from '../../components/materiales/HwMassUploadModal'
 
 const CAT_FORM_DEFAULT = { cod_material:'', id_parte:'', descripcion:'', tipo_material:'Partes', aplica_serial:false, notas:'', activo:true }
 
@@ -45,6 +44,14 @@ function titleCase(str) {
   return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
 }
 
+function hl(text, q) {
+  if (!text) return null
+  if (!q) return text
+  const i = text.toLowerCase().indexOf(q.toLowerCase())
+  if (i < 0) return text
+  return <>{text.slice(0, i)}<mark style={{ background:'#fde047', padding:'0 1px', borderRadius:2 }}>{text.slice(i, i + q.length)}</mark>{text.slice(i + q.length)}</>
+}
+
 export default function HwInventario() {
   const hwEquipos        = useHwStore(s => s.hwEquipos)
   const hwCatalogo       = useHwStore(s => s.hwCatalogo)
@@ -70,8 +77,7 @@ export default function HwInventario() {
   const [editForm,  setEditForm]  = useState({})
   const [editSaving,setEditSaving]= useState(false)
   const [modalTipo, setModalTipo] = useState(null)   // 'ENTRADA' | 'SALIDA' | null
-  const [massUpload,setMassUpload]= useState(false)
-  const [catModal,  setCatModal]  = useState(null)   // catalog item being edited (sin serial)
+const [catModal,  setCatModal]  = useState(null)   // catalog item being edited (sin serial)
   const [catForm,   setCatForm]   = useState({})
   const [catSaving, setCatSaving] = useState(false)
   const [visibleEquipos, setVisibleEquipos] = useState(100)
@@ -99,13 +105,21 @@ export default function HwInventario() {
         const equipos = hwEquipos.filter(e => e.catalogo_id === cat.id)
 
         // Movimientos sin serial para este tipo
-        const movsSinSerial   = hwMovimientos.filter(m => m.catalogo_id === cat.id && !m.serial)
-        const ssEntrada       = movsSinSerial.filter(m => m.tipo === 'ENTRADA').reduce((s, m) => s + (m.cantidad || 0), 0)
-        const ssSalida        = movsSinSerial.filter(m => m.tipo === 'SALIDA').reduce((s, m) => s + (m.cantidad || 0), 0)
-        const ssStock         = Math.max(0, ssEntrada - ssSalida)
-        const ssEnSitio       = movsSinSerial
-          .filter(m => m.tipo === 'SALIDA' && m.destino_tipo === 'sitio')
-          .reduce((s, m) => s + (m.cantidad || 0), 0)
+        const movsSinSerial = hwMovimientos.filter(m => m.catalogo_id === cat.id && !m.serial)
+        // Movimientos Nokia sin-serial son snapshots de ubicación independientes, no flujo neto
+        const ssStock = movsSinSerial.reduce((s, m) => {
+          if (m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega') return s + (m.cantidad || 0)
+          return s
+        }, 0)
+        const ssEnSitio = movsSinSerial.reduce((s, m) => {
+          if (m.tipo === 'SALIDA' && m.destino_tipo === 'sitio') return s + (m.cantidad || 0)
+          return s
+        }, 0)
+        const ssEnTransito = movsSinSerial.reduce((s, m) => {
+          if (m.tipo === 'SALIDA' && (m.destino_tipo === 'nokia' || m.destino_tipo === 'ss')) return s + (m.cantidad || 0)
+          return s
+        }, 0)
+        const ssTotal = ssStock + ssEnSitio + ssEnTransito
 
         // Stock sin serial por bodega: ENTRADA destino_tipo=bodega menos SALIDA origen_tipo=bodega
         const ssBodegaMap = {}
@@ -127,7 +141,8 @@ export default function HwInventario() {
         const enSitio    = equipos.filter(e => e.estado === 'en_sitio')
         const enTransito = equipos.filter(e => e.estado === 'en_transito')
         const stock      = enBodega.length + ssStock
-        const total      = equipos.length + ssEntrada
+        const total      = equipos.length + ssTotal
+        const totalEnTransito = enTransito.length + ssEnTransito
         const bodegaCount = {}
         let unnamedEnBodega = 0
         enBodega.forEach(e => {
@@ -141,7 +156,7 @@ export default function HwInventario() {
 
         const isMts     = MTS_CATS.has(String(cat.cod_material))
 
-        return { cat, equipos, stock, enSitio: enSitio.length + ssEnSitio, enTransito: enTransito.length, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }
+        return { cat, equipos, enBodega, stock, enSitio: enSitio.length + ssEnSitio, enTransito: totalEnTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssTotal, ssBodegaMap, ssBodegaLabel, isMts }
       })
       .filter(r => {
         if (!r) return false
@@ -149,8 +164,10 @@ export default function HwInventario() {
         if (filStatus === 'agotado' && r.stock !== 0)       return false
         if (filStatus === 'stock'   && r.stock === 0)       return false
         if (q) {
-          const soText = r.movsSinSerial.map(m => m.so || '').join(' ')
-          if (!`${r.cat.descripcion} ${r.cat.cod_material || ''} ${soText}`.toLowerCase().includes(q)) return false
+          const soMov    = r.movsSinSerial.map(m => m.so || '').join(' ')
+          const soEquipo = r.equipos.map(e => e.so || '').join(' ')
+          const seriales = r.equipos.map(e => e.serial || '').join(' ')
+          if (!`${r.cat.descripcion} ${r.cat.cod_material || ''} ${soMov} ${soEquipo} ${seriales}`.toLowerCase().includes(q)) return false
         }
         return true
       })
@@ -165,10 +182,10 @@ export default function HwInventario() {
   // ── KPIs ────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const ssStockTotal = rows.reduce((s, r) => s + (r.ssStock || 0), 0)
-    const ssUdsTotal   = rows.reduce((s, r) => s + (r.movsSinSerial?.filter(m => m.tipo==='ENTRADA').reduce((a, m) => a + (m.cantidad||0), 0) || 0), 0)
+    const ssTotalUds   = rows.reduce((s, r) => s + (r.ssTotal || 0), 0)
     return {
       tipos:    rows.length,
-      totalUds: hwEquipos.length + ssUdsTotal,
+      totalUds: hwEquipos.length + ssTotalUds,
       enBodega:   hwEquipos.filter(e => e.estado === 'en_bodega').length + ssStockTotal,
       enSitio:    hwEquipos.filter(e => e.estado === 'en_sitio').length,
       enTransito: hwEquipos.filter(e => e.estado === 'en_transito').length,
@@ -261,9 +278,7 @@ export default function HwInventario() {
       {modalTipo && (
         <HwEntradaSalidaModal tipo={modalTipo} onClose={() => setModalTipo(null)} />
       )}
-      {massUpload && <HwMassUploadModal onClose={() => setMassUpload(false)} />}
-
-      {/* KPIs */}
+{/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:14 }}>
         {[
           { label:'Tipos de Equipo', value: kpis.tipos,      color:'#264D4A' },
@@ -290,11 +305,7 @@ export default function HwInventario() {
                 onClick={() => setModalTipo('ENTRADA')}>
                 + Entrada
               </button>
-              <button className="btn btn-sm" style={{ background:'#0369a1', color:'#fff' }}
-                onClick={() => setMassUpload(true)}>
-                ⬆ Carga Masiva
-              </button>
-              <button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
+<button className="btn btn-sm" style={{ background:'#c0392b', color:'#fff' }}
                 onClick={() => setModalTipo('SALIDA')}>
                 + Salida
               </button>
@@ -304,7 +315,7 @@ export default function HwInventario() {
         <div className="card-b">
           {/* Filtros */}
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-            <input className="fc" placeholder="Buscar descripción o cód. equipo…" value={search}
+            <input className="fc" placeholder="Buscar descripción, cód., serial o SO…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:200 }} />
             <select className="fc" value={filNokiaEstado} onChange={e => setFilNokiaEstado(e.target.value)} style={{ maxWidth:180 }}>
               <option value="">Todos los estados Nokia</option>
@@ -338,8 +349,8 @@ export default function HwInventario() {
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
                 )}
-                {rows.map(({ cat, equipos, stock, enSitio, enTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssEntrada, ssBodegaLabel, isMts }) => {
-                  const isOpen = expanded === cat.id
+                {rows.map(({ cat, equipos, enBodega, stock, enSitio, enTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssTotal, ssBodegaMap, ssBodegaLabel, isMts }) => {
+                  const isOpen = search ? true : expanded === cat.id
                   const tipoBg = cat.tipo_material==='Grupos'?'#eff6ff': cat.tipo_material==='HWS'?'#fef3cd':'#f0fdf4'
                   const tipoCl = cat.tipo_material==='Grupos'?'#1e40af': cat.tipo_material==='HWS'?'#92400e':'#166534'
 
@@ -376,156 +387,128 @@ export default function HwInventario() {
                       </td>
                     </tr>,
 
-                    // ── Fila expandida: seriales + sin-serial ──
+                    // ── Fila expandida: solo unidades en bodega ──
                     isOpen && (
                       <tr key={`${cat.id}-exp`}>
                         <td colSpan={10} style={{ padding:0, borderTop:`2px solid #1a9c1a` }}>
                           <div style={{ background:'#f8fdf8' }}>
+                            <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
+                                {cat.descripcion} — En Bodega
+                              </span>
+                              <span style={{ fontSize:10, color:'#D6F9F2' }}>Disponible: {stock}{isMts && ' mts'}</span>
+                            </div>
 
-                            {/* ── Seriales ── */}
-                            {equipos.length > 0 && (<>
-                              <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
-                                  {cat.descripcion}
-                                </span>
-                                <span style={{ fontSize:10, color:'#D6F9F2' }}>{equipos.length} unidad(es)</span>
-                              </div>
-                              <div style={{ overflowX:'auto' }}>
-                                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                  <thead>
-                                    <tr style={{ background:'#f0f7f0' }}>
-                                      {['CANT.','SO','SERIAL','ESTADO','UBICACIÓN ACTUAL','CONDICIÓN',canEdit && 'ACCIONES'].filter(Boolean).map(h => (
-                                        <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {equipos.slice(0, visibleEquipos).map((e, idx) => {
-                                      const est = ESTADO_CFG[e.estado] || ESTADO_CFG.en_bodega
-                                      return (
-                                        <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
-                                          <td style={{ padding:'6px 10px', fontWeight:700, textAlign:'center', color:'#555f55' }}>1</td>
-                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
-                                            {e.so || <span style={{ color:'#9ca89c' }}>—</span>}
-                                          </td>
-                                          <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>{e.serial}</td>
-                                          <td style={{ padding:'6px 10px' }}>
-                                            <span className="badge" style={{ background:est.bg, color:est.color, fontSize:9 }}>{est.label}</span>
-                                          </td>
-                                          <td style={{ padding:'6px 10px', color:'#555f55' }}>{e.ubicacion_actual || '—'}</td>
-                                          <td style={{ padding:'6px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
-                                          {canEdit && (
-                                            <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }}
-                                              onClick={ev => ev.stopPropagation()}>
-                                              <button className="btn-edit" onClick={() => openEdit(e)}
-                                                style={{ marginRight:4 }}><IconEdit /></button>
-                                              <button className="btn-del" onClick={() => handleDelete(e)}>✕</button>
-                                            </td>
-                                          )}
-                                        </tr>
-                                      )
-                                    })}
-                                    {visibleEquipos < equipos.length && (
-                                      <tr><td ref={sentinelEqRef} colSpan={canEdit ? 7 : 6}
-                                        style={{ padding:'8px 10px', textAlign:'center', color:'#9ca89c', fontSize:10 }}>
-                                        Mostrando {visibleEquipos} de {equipos.length} — cargando más…
-                                      </td></tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </>)}
-
-                            {/* ── Sin serial: kardex de movimientos por SO ── */}
-                            {movsSinSerial.length > 0 && (() => {
-                              if (ssStock === 0 && ssEnSitio === 0) return null
-                              const st = statusInfo(ssStock)
-                              const movsOrdenados = [...movsSinSerial].sort((a, b) =>
-                                new Date(b.fecha || b.created_at) - new Date(a.fecha || a.created_at)
-                              )
-                              return (
-                                <div style={{ borderTop: equipos.length > 0 ? '1px solid #d4edda' : 'none', overflowX:'auto' }}>
-                                  {/* Sub-header con totales */}
-                                  <div style={{ background:'#264D4A', padding:'6px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6 }}>
-                                    <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:12, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
-                                      {cat.descripcion} — SIN SERIAL
-                                    </span>
-                                    <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-                                      <span style={{ fontSize:10, color:'#D6F9F2' }}>
-                                        Stock: <strong>{ssStock}</strong>{isMts && ' mts'}
-                                      </span>
-                                      <span style={{ fontSize:10, color:'#D6F9F2' }}>
-                                        En Sitio: <strong>{ssEnSitio}</strong>
-                                      </span>
-                                      <span style={{ fontSize:10, color:'#9ca89c' }}>
-                                        Total recibido: {ssEntrada}
-                                      </span>
-                                      <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
-                                      {canEdit && (
-                                        <span onClick={ev => ev.stopPropagation()} style={{ display:'flex', gap:4 }}>
-                                          <button className="btn-edit" onClick={() => openCatEdit(cat)}><IconEdit /></button>
-                                          <button className="btn-del" onClick={() => handleDeleteCat(cat)}>✕</button>
-                                        </span>
-                                      )}
+                            {stock === 0 ? (
+                              (() => {
+                                const locMap = {}
+                                equipos.forEach(e => {
+                                  const key = `${e.estado}||${e.ubicacion_actual || '—'}`
+                                  if (!locMap[key]) locMap[key] = { estado: e.estado, loc: e.ubicacion_actual || '—', count: 0 }
+                                  locMap[key].count++
+                                })
+                                movsSinSerial.filter(m => m.tipo === 'SALIDA').forEach(m => {
+                                  const est = m.destino_tipo === 'sitio' ? 'en_sitio' : m.destino_tipo === 'nokia' ? 'en_transito' : (m.destino_tipo || 'otro')
+                                  const key = `${est}||${m.destino || '—'}`
+                                  if (!locMap[key]) locMap[key] = { estado: est, loc: m.destino || '—', count: 0 }
+                                  locMap[key].count += (m.cantidad || 1)
+                                })
+                                const locs = Object.values(locMap).sort((a, b) => b.count - a.count)
+                                return (
+                                  <div style={{ padding:'16px 20px', textAlign:'center' }}>
+                                    <div style={{ fontSize:12, fontWeight:700, color:'#1e40af', marginBottom:10 }}>
+                                      Todo desplegado — sin stock en bodega
                                     </div>
+                                    {locs.length > 0 && (
+                                      <div style={{ display:'flex', flexWrap:'wrap', gap:6, justifyContent:'center', maxWidth:800, margin:'0 auto' }}>
+                                        {locs.map((l, i) => {
+                                          const cfg = ESTADO_CFG[l.estado] || { bg:'#f3f4f6', color:'#374151' }
+                                          return (
+                                            <span key={i} style={{ fontSize:10, fontWeight:600, padding:'3px 10px', borderRadius:12, background:cfg.bg, color:cfg.color }}>
+                                              {l.loc}: {l.count}{isMts ? ' mts' : ''}
+                                            </span>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
-                                  {/* Tabla kardex */}
-                                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                                    <thead>
-                                      <tr style={{ background:'#f0f7f0' }}>
-                                        {['TIPO','SO','FECHA','BODEGA','CANT.','DESTINO','NOTAS'].map(h => (
-                                          <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10,
-                                            textAlign: h === 'CANT.' ? 'center' : 'left',
-                                            borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {movsOrdenados.map((m, i) => {
-                                        const isEnt = m.tipo === 'ENTRADA'
-                                        return (
-                                          <tr key={m.id} style={{
-                                            background: isEnt
-                                              ? (i % 2 === 0 ? '#f0fdf4' : '#e8f5e8')
-                                              : (i % 2 === 0 ? '#fff9f9' : '#fee8e7'),
-                                            borderBottom:'1px solid #e8f5e8',
-                                          }}>
-                                            <td style={{ padding:'5px 10px', whiteSpace:'nowrap' }}>
-                                              <span className="badge" style={{
-                                                background: isEnt ? '#d4edda' : '#fde8e7',
-                                                color: isEnt ? '#1a6130' : '#c0392b', fontSize:9,
-                                              }}>{m.tipo}</span>
+                                )
+                              })()
+                            ) : (
+                              <>
+                                {enBodega.length > 0 && (
+                                  <div style={{ overflowX:'auto' }}>
+                                    <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                      <thead>
+                                        <tr style={{ background:'#f0f7f0' }}>
+                                          {['SO','SERIAL','UBICACIÓN','CONDICIÓN', canEdit && 'ACCIONES'].filter(Boolean).map(h => (
+                                            <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign:'left', borderBottom:'2px solid #c8e6c8', whiteSpace:'nowrap' }}>{h}</th>
+                                          ))}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {enBodega.map((e, idx) => (
+                                          <tr key={e.id} style={{ background: idx%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                            <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
+                                              {e.so ? hl(e.so, search) : <span style={{ color:'#9ca89c' }}>—</span>}
                                             </td>
-                                            <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#144E4A' }}>
-                                              {m.so || <span style={{ color:'#9ca89c', fontWeight:400 }}>—</span>}
-                                            </td>
-                                            <td style={{ padding:'5px 10px', color:'#555f55', whiteSpace:'nowrap' }}>
-                                              {(m.fecha || m.created_at || '').slice(0, 10) || '—'}
-                                            </td>
-                                            <td style={{ padding:'5px 10px', color:'#555f55' }}>
-                                              {isEnt ? (m.destino || '—') : (m.origen || '—')}
-                                            </td>
-                                            <td style={{ padding:'5px 10px', fontWeight:700, textAlign:'center',
-                                              color: isEnt ? '#1a6130' : '#c0392b' }}>
-                                              {isEnt ? '+' : '−'}{m.cantidad || 1}
-                                              {isMts && <span style={{ fontWeight:400, fontSize:9, color:'#9ca89c', marginLeft:2 }}>mts</span>}
-                                            </td>
-                                            <td style={{ padding:'5px 10px', color:'#555f55', fontSize:10 }}>
-                                              {isEnt ? (m.origen || '—') : (m.destino || '—')}
-                                            </td>
-                                            <td style={{ padding:'5px 10px', color:'#9ca89c', fontSize:10, maxWidth:180,
-                                              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                                              {m.notas || '—'}
-                                            </td>
+                                            <td style={{ padding:'6px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#264D4A' }}>{e.serial}</td>
+                                            <td style={{ padding:'6px 10px', color:'#555f55' }}>{e.ubicacion_actual || '—'}</td>
+                                            <td style={{ padding:'6px 10px', color:'#9ca89c', textTransform:'capitalize' }}>{e.condicion}</td>
+                                            {canEdit && (
+                                              <td style={{ padding:'6px 10px', whiteSpace:'nowrap' }} onClick={ev => ev.stopPropagation()}>
+                                                <button className="btn-edit" onClick={() => openEdit(e)} style={{ marginRight:4 }}><IconEdit /></button>
+                                                <button className="btn-del" onClick={() => handleDelete(e)}>✕</button>
+                                              </td>
+                                            )}
                                           </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )
-                            })()}
-
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                                {ssStock > 0 && (() => {
+                                  const bodEntries = Object.entries(ssBodegaMap).filter(([,n]) => n > 0)
+                                  return (
+                                    <div style={{ borderTop: enBodega.length > 0 ? '1px solid #d4edda' : 'none' }}>
+                                      <div style={{ background:'#264D4A', padding:'5px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:11, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>
+                                          Sin Serial — Bodega
+                                        </span>
+                                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                                          <span style={{ fontSize:10, color:'#D6F9F2' }}>Total: {ssStock}{isMts && ' mts'}</span>
+                                          {canEdit && (
+                                            <span onClick={ev => ev.stopPropagation()} style={{ display:'flex', gap:4 }}>
+                                              <button className="btn-edit" onClick={() => openCatEdit(cat)}><IconEdit /></button>
+                                              <button className="btn-del" onClick={() => handleDeleteCat(cat)}>✕</button>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                                        <thead>
+                                          <tr style={{ background:'#f0f7f0' }}>
+                                            {['BODEGA','CANTIDAD'].map(h => (
+                                              <th key={h} style={{ padding:'5px 10px', color:'#264D4A', fontWeight:700, fontSize:10, textAlign: h==='CANTIDAD'?'center':'left', borderBottom:'2px solid #c8e6c8' }}>{h}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {bodEntries.map(([bod, n], i) => (
+                                            <tr key={bod} style={{ background: i%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
+                                              <td style={{ padding:'6px 10px', fontWeight:600, color:'#264D4A' }}>{titleCase(bod)}</td>
+                                              <td style={{ padding:'6px 10px', textAlign:'center', fontWeight:800, fontSize:13, color:'#264D4A' }}>
+                                                {n}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )
+                                })()}
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
