@@ -342,6 +342,53 @@ export default function AdminUsuarios() {
             </div>
           )}
         </div>
+
+        {/* ── Card Roles y Permisos ── */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card-h">
+            <h2 style={{ margin: 0 }}>Roles y Permisos</h2>
+            <div style={{ fontSize: 11, color: '#617561', marginTop: 2 }}>Referencia de accesos por rol</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr style={{ background: '#f8faf8' }}>
+                  {['Módulo / Acción', 'Admin', 'Coordinador', 'Facturación', 'Logística', 'TI', 'TSS', 'CW', 'Viewer'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Módulo / Acción' ? 'left' : 'center', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, borderBottom: '1px solid #e8eae8', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { modulo: 'Dashboard General',       admin:true,  coord:true,  fact:false, log:false, ti:false,  tss:false, cw:false,  viewer:true  },
+                  { modulo: 'Analítica',               admin:true,  coord:true,  fact:false, log:false, ti:true,   tss:true,  cw:true,   viewer:true  },
+                  { modulo: 'Facturación',             admin:true,  coord:true,  fact:true,  log:false, ti:false,  tss:false, cw:false,  viewer:true  },
+                  { modulo: 'Materiales — ver',        admin:true,  coord:true,  fact:false, log:true,  ti:false,  tss:false, cw:false,  viewer:true  },
+                  { modulo: 'Materiales — editar',     admin:true,  coord:true,  fact:false, log:true,  ti:false,  tss:false, cw:false,  viewer:false },
+                  { modulo: 'HW Nokia — Carga',        admin:true,  coord:true,  fact:false, log:true,  ti:false,  tss:false, cw:false,  viewer:false },
+                  { modulo: 'HW FR Config',            admin:true,  coord:false, fact:false, log:false, ti:false,  tss:false, cw:false,  viewer:false },
+                  { modulo: 'Consolidado TI',          admin:true,  coord:true,  fact:false, log:false, ti:true,   tss:false, cw:false,  viewer:true  },
+                  { modulo: 'Consolidado TSS',         admin:true,  coord:true,  fact:false, log:false, ti:false,  tss:true,  cw:false,  viewer:true  },
+                  { modulo: 'Consolidado CW',          admin:true,  coord:true,  fact:false, log:false, ti:false,  tss:false, cw:true,   viewer:true  },
+                  { modulo: 'Catálogo',                admin:true,  coord:true,  fact:false, log:false, ti:false,  tss:false, cw:false,  viewer:false },
+                  { modulo: 'Admin — Usuarios',        admin:true,  coord:false, fact:false, log:false, ti:false,  tss:false, cw:false,  viewer:false },
+                ].map((row, i) => (
+                  <tr key={row.modulo} style={{ background: i % 2 === 0 ? '#fff' : '#f8faf8', borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 600, color: '#264D4A', whiteSpace: 'nowrap' }}>{row.modulo}</td>
+                    {[row.admin, row.coord, row.fact, row.log, row.ti, row.tss, row.cw, row.viewer].map((tiene, j) => (
+                      <td key={j} style={{ textAlign: 'center', padding: '8px 12px' }}>
+                        {tiene
+                          ? <span style={{ color: '#166534', fontSize: 14 }}>✓</span>
+                          : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </>
   )
