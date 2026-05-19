@@ -339,7 +339,7 @@ export default function FactPorFacturar() {
 
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Por Facturar
             {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{rows.length}</span>}
             {libRows.length > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{libRows.length} lib.</span>}

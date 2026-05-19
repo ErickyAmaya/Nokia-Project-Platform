@@ -79,7 +79,7 @@ export default function FactSMPs() {
     <>
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Todos los SMPs</h1>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, margin: 0 }}>Todos los SMPs</h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} de {ppa.length} SPOs</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

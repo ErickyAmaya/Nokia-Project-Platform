@@ -142,7 +142,7 @@ export default function FactSitios() {
       <div style={{ position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10, background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
         <div className="dash-hdr">
           <div>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Facturación por Sitio</h1>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, margin: 0 }}>Facturación por Sitio</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <span style={{ fontSize: 11, color: '#4b5563' }}>{sites.length} sitio{sites.length !== 1 ? 's' : ''}</span>
               <button
