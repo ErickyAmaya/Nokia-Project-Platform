@@ -37,7 +37,10 @@ async function callAdminFn(action, body = {}) {
   const { data, error } = await supabase.functions.invoke('admin-users', {
     body: { action, ...body },
   })
-  if (error) throw new Error(error.message)
+  if (error) {
+    const detail = await error.context?.json?.().catch(() => null)
+    throw new Error(detail?.error || error.message)
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }
