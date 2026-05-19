@@ -11,6 +11,7 @@ export async function descargarPlantillaFacturas(rows) {
     { header: 'SPO',           key: 'spo',      width: 14 },
     { header: 'SMP ID',        key: 'smp_id',   width: 22 },
     { header: 'MS Name',       key: 'ms_name',  width: 30 },
+    { header: 'SMP Name',      key: 'smp_name', width: 30 },
     { header: 'Evento',        key: 'ev_label', width: 20 },
     { header: 'Evento Key',    key: 'ev_key',   width: 14 },
     { header: '%',             key: 'pct',      width: 6  },
@@ -30,7 +31,7 @@ export async function descargarPlantillaFacturas(rows) {
 
   ws.views = [{ state: 'frozen', ySplit: 1 }]
 
-  ws.getCell('I1').note = 'Formato: YYYY-MM-DD (ej. 2025-04-30)'
+  ws.getCell('J1').note = 'Formato: YYYY-MM-DD (ej. 2025-04-30)'
 
   // Data rows
   for (const { row, eventos } of rows) {
@@ -41,6 +42,7 @@ export async function descargarPlantillaFacturas(rows) {
         spo:      isNaN(spoNum) ? row.spo_number : spoNum,
         smp_id:   row.smp_id || '',
         ms_name:  row.ms_name || '',
+        smp_name: row.smp_name || '',
         ev_label: ev.label,
         ev_key:   ev.key,
         pct:      ev.pct,
@@ -50,8 +52,8 @@ export async function descargarPlantillaFacturas(rows) {
       })
       dr.height = 18
 
-      // Columnas de referencia A-G: fondo gris claro, no editar
-      for (let c = 1; c <= 7; c++) {
+      // Columnas de referencia A-H: fondo gris claro, no editar
+      for (let c = 1; c <= 8; c++) {
         const cell = dr.getCell(c)
         cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }
         cell.font      = { size: 10, color: { argb: 'FF374151' } }
@@ -59,8 +61,8 @@ export async function descargarPlantillaFacturas(rows) {
         if (c === 2) cell.numFmt = '0'  // SPO como número
       }
 
-      // Columnas de entrada H-J: fondo blanco con borde verde
-      for (let c = 8; c <= 10; c++) {
+      // Columnas de entrada I-K: fondo blanco con borde verde
+      for (let c = 9; c <= 11; c++) {
         const cell = dr.getCell(c)
         cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
         cell.font      = { size: 10 }
@@ -71,7 +73,7 @@ export async function descargarPlantillaFacturas(rows) {
           left:   { style: 'thin', color: { argb: 'FF144E4A' } },
           right:  { style: 'thin', color: { argb: 'FF144E4A' } },
         }
-        if (c === 9) cell.numFmt = 'yyyy-mm-dd'  // columna fecha con formato real de fecha
+        if (c === 10) cell.numFmt = 'yyyy-mm-dd'  // columna fecha con formato real de fecha
       }
     }
   }
