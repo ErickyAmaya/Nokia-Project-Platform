@@ -15,7 +15,18 @@ export const EMPRESAS = {
     supabaseUrl:  import.meta.env.VITE_INGETEL_URL,
     supabaseKey:  import.meta.env.VITE_INGETEL_KEY,
     logoUrl:      'https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/Ingetel_SoloLogo.png',
-    color:        '#144E4A',  // color primario (barra de navegación, botones)
+    color:        '#144E4A',
+    modulo:       'nokia-billing',
+  },
+
+  'ingetelsas.com.co': {
+    id:           'ingetel',
+    nombre:       'INGETEL',
+    nombre_corto: 'Ingetel',
+    supabaseUrl:  import.meta.env.VITE_INGETEL_URL,
+    supabaseKey:  import.meta.env.VITE_INGETEL_KEY,
+    logoUrl:      'https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/Ingetel_SoloLogo.png',
+    color:        '#144E4A',
     modulo:       'nokia-billing',
   },
 
