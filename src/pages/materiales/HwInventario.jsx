@@ -348,6 +348,7 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
                   <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>
                     {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
                   </td></tr>
+
                 )}
                 {rows.map(({ cat, equipos, enBodega, stock, enSitio, enTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssTotal, ssBodegaMap, ssBodegaLabel, isMts }) => {
                   const isOpen = search ? true : expanded === cat.id
@@ -371,16 +372,16 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
                         })()}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:800, fontSize:14, color: stock === 0 ? '#c0392b' : '#1a6130' }}>
-                        {stock}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                        {stock}{isMts && <span style={{ fontWeight:600, fontSize:10, color:'#1e40af', marginLeft:2 }}>mts</span>}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#1e40af' }}>
-                        {enSitio}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                        {enSitio}{isMts && <span style={{ fontWeight:600, fontSize:10, color:'#1e40af', marginLeft:2 }}>mts</span>}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color: enTransito > 0 ? '#856404' : '#9ca89c' }}>
                         {enTransito || '—'}
                       </td>
                       <td style={{ textAlign:'center', fontWeight:700, fontSize:12, color:'#555f55' }}>
-                        {total}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                        {total}{isMts && <span style={{ fontWeight:600, fontSize:10, color:'#1e40af', marginLeft:2 }}>mts</span>}
                       </td>
                       <td>
                         <span className="badge" style={{ background:st.bg, color:st.color, fontSize:9 }}>{st.label}</span>
@@ -498,7 +499,7 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
                                             <tr key={bod} style={{ background: i%2===0?'#fff':'#f0fdf4', borderBottom:'1px solid #e8f5e8' }}>
                                               <td style={{ padding:'6px 10px', fontWeight:600, color:'#264D4A' }}>{titleCase(bod)}</td>
                                               <td style={{ padding:'6px 10px', textAlign:'center', fontWeight:800, fontSize:13, color:'#264D4A' }}>
-                                                {n}{isMts && <span style={{ fontWeight:400, fontSize:10, color:'#9ca89c', marginLeft:2 }}>mts</span>}
+                                                {n}{isMts && <span style={{ fontWeight:600, fontSize:10, color:'#1e40af', marginLeft:2 }}>mts</span>}
                                               </td>
                                             </tr>
                                           ))}
