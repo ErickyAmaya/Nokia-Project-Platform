@@ -191,9 +191,9 @@ export default function FactFacturado() {
       {editInv && <EditFacturaModal inv={editInv} onClose={() => setEditInv(null)} onSave={registrarFactura} />}
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Facturado
-            {totalFacturado > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{fmtCOP(totalFacturado)}</span>}
+            {totalFacturado > 0 && <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{fmtCOP(totalFacturado)}</span>}
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} con facturas registradas</div>
         </div>

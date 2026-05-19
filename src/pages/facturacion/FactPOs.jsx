@@ -146,10 +146,10 @@ export default function FactPOs() {
 
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             POs
             {rejectedPos.length > 0 && (
-              <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 9px', cursor: 'pointer' }} onClick={() => setShowRechazados(true)}>
+              <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px', cursor: 'pointer' }} onClick={() => setShowRechazados(true)}>
                 {rejectedPos.length} rechazado{rejectedPos.length !== 1 ? 's' : ''}
               </span>
             )}
