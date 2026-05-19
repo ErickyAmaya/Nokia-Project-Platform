@@ -120,7 +120,7 @@ function SessionRedirect() {
   useEffect(() => {
     if (!loading && user && !done.current) {
       done.current = true
-      const skip = ['/', '/login', '/modulos']
+      const skip = ['/', '/login', '/modulos', '/set-password']
       if (!skip.includes(location.pathname)) {
         navigate('/modulos', { replace: true })
       }
