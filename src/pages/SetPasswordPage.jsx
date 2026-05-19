@@ -16,34 +16,36 @@ export default function SetPasswordPage() {
   const [done,     setDone]     = useState(false)
 
   useEffect(() => {
-    // Get empresa domain from query param (set by the invite redirectTo URL)
+    // Derive empresa from query param, hash, or fallback to ingetel.com
     const params = new URLSearchParams(window.location.search)
-    const domain = params.get('empresa') || 'ingetel.com'
-    const empresa = getEmpresaByDomain(domain)
+    const paramDomain = params.get('empresa')
 
-    if (!empresa) {
-      setError('Enlace de invitación inválido. Contacta al administrador.')
-      return
-    }
+    // Use ingetel.com as default — all current empresas share the same Supabase
+    const bootstrapDomain = paramDomain || 'ingetel.com'
+    const empresa = getEmpresaByDomain(bootstrapDomain) || getEmpresaByDomain('ingetel.com')
 
     // Initialize Supabase — this processes the hash token from the invite link
     const client = initSupabaseClient(empresa.supabaseUrl, empresa.supabaseKey)
 
+    const handleSession = (session) => {
+      if (!session) return
+      // Derive the real domain from the session user's email
+      const email = session.user?.email || ''
+      const emailDomain = email.split('@')[1]?.toLowerCase() || bootstrapDomain
+      const resolvedDomain = getEmpresaByDomain(emailDomain) ? emailDomain : bootstrapDomain
+      localStorage.setItem(LS_DOMAIN_KEY, resolvedDomain)
+      setReady(true)
+    }
+
     // Listen for events triggered by invite or password-recovery hash
     const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') && session) {
-        localStorage.setItem(LS_DOMAIN_KEY, domain)
-        setReady(true)
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+        handleSession(session)
       }
     })
 
     // Also check if session already exists (SDK may have processed hash synchronously)
-    client.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        localStorage.setItem(LS_DOMAIN_KEY, domain)
-        setReady(true)
-      }
-    })
+    client.auth.getSession().then(({ data: { session } }) => handleSession(session))
 
     return () => subscription.unsubscribe()
   }, [])

@@ -56,7 +56,7 @@ function InviteModal({ onClose, onSuccess, empresaDomain }) {
     if (!form.email.trim() || !form.nombre.trim()) return
     setSaving(true)
     try {
-      const redirectTo = `${window.location.origin}/set-password?empresa=${empresaDomain}`
+      const redirectTo = `${window.location.origin}/set-password`
       await callAdminFn('invite', {
         email:      form.email.trim().toLowerCase(),
         nombre:     form.nombre.trim(),
