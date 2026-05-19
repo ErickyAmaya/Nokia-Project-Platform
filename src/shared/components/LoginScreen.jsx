@@ -275,7 +275,7 @@ export default function LoginScreen() {
             Diseñado por
           </span>
           <img
-            src="https://raw.githubusercontent.com/ErickyAmaya/Nokia-Project-Platform/main/SCYTEL%20solologo.png"
+            src="/Scytel-logo.png"
             alt="Scytel"
             style={{ height: 16, width: 'auto', display: 'block', objectFit: 'contain' }}
           />
