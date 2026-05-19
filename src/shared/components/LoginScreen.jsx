@@ -275,7 +275,7 @@ export default function LoginScreen() {
             Diseñado por
           </span>
           <img
-            src="/Scytel-logo.png"
+            src="https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/SCYTEL%20solologo.png"
             alt="Scytel"
             style={{ height: 16, width: 'auto', display: 'block', objectFit: 'contain' }}
           />

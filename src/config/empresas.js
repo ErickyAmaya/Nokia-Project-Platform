@@ -14,7 +14,7 @@ export const EMPRESAS = {
     nombre_corto: 'Ingetel',
     supabaseUrl:  import.meta.env.VITE_INGETEL_URL,
     supabaseKey:  import.meta.env.VITE_INGETEL_KEY,
-    logoUrl:      '/Ingetel_logo.png',
+    logoUrl:      'https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/Ingetel_SoloLogo.png',
     color:        '#144E4A',  // color primario (barra de navegación, botones)
     modulo:       'nokia-billing',
   },
@@ -26,7 +26,7 @@ export const EMPRESAS = {
     nombre_corto: 'Scytel',
     supabaseUrl:  import.meta.env.VITE_INGETEL_URL,
     supabaseKey:  import.meta.env.VITE_INGETEL_KEY,
-    logoUrl:      '/Scytel-logo.png',
+    logoUrl:      'https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/SCYTEL%20solologo.png',
     color:        '#1a4f7a',
     modulo:       'nokia-billing',
   },
