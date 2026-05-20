@@ -111,10 +111,12 @@ export default function Dashboard() {
             onChange={e => setSearch(e.target.value)}
           />
           <input type="date" className="fc" style={{ fontSize: 11 }}
-            value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} />
+            value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}
+            placeholder="Desde" title="Fecha desde" />
           <span style={{ fontSize: 11, color: '#9ca89c' }}>—</span>
           <input type="date" className="fc" style={{ fontSize: 11 }}
-            value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} />
+            value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}
+            placeholder="Hasta" title="Fecha hasta" />
           <select className="fc" value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
             {tcOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
