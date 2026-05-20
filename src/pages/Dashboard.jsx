@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
 import { calcSitio, hasSN } from '../lib/calcSitio'
-import { cop, pct, mcls, mfcls, MESES_FULL } from '../lib/catalog'
+import { cop, pct, mcls, mfcls } from '../lib/catalog'
 import { buildTCOptions, matchTipoCuadrilla, sinExternas } from '../lib/cuadrilla'
 import NuevoSitioModal from '../modals/NuevoSitioModal'
 import NuevoTSSModal from '../modals/NuevoTSSModal'
-
-const YEARS = ['2026', '2025', '2024']
 
 function StatCard({ label, value, sub, borderColor }) {
   return (
@@ -26,83 +24,10 @@ function TipoBadge({ sitio }) {
   return <span className="badge bg-k" style={{ fontSize: 8 }}>TI</span>
 }
 
-function DateFilter({ value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const { year, mes } = value
-
-  function label() {
-    if (year === 'todos') return 'Todas las Fechas'
-    if (mes === 'todos') return year
-    return `${MESES_FULL[parseInt(mes)]} ${year}`
-  }
-
-  function pick(y, m) {
-    onChange({ year: y, mes: String(m) })
-  }
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <button
-        className="btn bou btn-sm"
-        onClick={() => setOpen(o => !o)}
-        style={{ whiteSpace: 'nowrap' }}
-      >
-        {label()} ▾
-      </button>
-      {open && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position: 'absolute', top: 'calc(100% + 4px)', left: 0,
-            background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8,
-            boxShadow: '0 2px 12px rgba(0,0,0,.1)', zIndex: 500,
-            minWidth: 200, padding: 8,
-          }}>
-            <div
-              className="fp-all"
-              style={{ fontSize: 10, padding: '4px 8px', cursor: 'pointer', borderBottom: '1px solid #e0e4e0', marginBottom: 4, fontWeight: 600 }}
-              onClick={() => { pick('todos', 'todos'); setOpen(false) }}
-            >
-              ✓ Todas las Fechas
-            </div>
-            {YEARS.map(y => (
-              <div key={y}>
-                <div
-                  style={{
-                    fontWeight: 700, fontSize: 11, padding: '4px 8px', cursor: 'pointer', borderRadius: 4,
-                    background: year === y && mes === 'todos' ? '#e8f7e8' : 'transparent',
-                    color: year === y && mes === 'todos' ? '#0d6e0d' : 'inherit',
-                  }}
-                  onClick={() => { pick(y, 'todos'); setOpen(false) }}
-                >
-                  {year === y ? '▾ ' : '▸ '}{y}
-                </div>
-                {year === y && MESES_FULL.map((m, mi) => (
-                  <div
-                    key={mi}
-                    style={{
-                      fontSize: 10, padding: '3px 8px 3px 24px', cursor: 'pointer', borderRadius: 4,
-                      background: mes === String(mi) ? '#e8f7e8' : 'transparent',
-                      color: mes === String(mi) ? '#0d6e0d' : 'inherit',
-                      fontWeight: mes === String(mi) ? 700 : 400,
-                    }}
-                    onClick={() => { pick(y, mi); setOpen(false) }}
-                  >
-                    {m}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const [search,      setSearch]      = useState('')
-  const [dateFilter,  setDateFilter]  = useState({ year: 'todos', mes: 'todos' })
+  const [fechaDesde,  setFechaDesde]  = useState('')
+  const [fechaHasta,  setFechaHasta]  = useState('')
   const [cuadrilla,   setCuadrilla]   = useState('todos')
   const [modalSitio,  setModalSitio]  = useState(false)
   const [modalTSS,    setModalTSS]    = useState(false)
@@ -128,14 +53,12 @@ export default function Dashboard() {
   // Filter + sort sites
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    const { year, mes } = dateFilter
     return sitios.filter(s => {
       if (!matchTipoCuadrilla(s, subcs, cuadrilla)) return false
-      if (year !== 'todos' || mes !== 'todos') {
+      if (fechaDesde || fechaHasta) {
         if (!s.fecha) return false
-        const d = new Date(s.fecha)
-        if (year !== 'todos' && d.getFullYear() !== parseInt(year)) return false
-        if (mes  !== 'todos' && d.getMonth() !== parseInt(mes))    return false
+        if (fechaDesde && s.fecha < fechaDesde) return false
+        if (fechaHasta && s.fecha > fechaHasta) return false
       }
       if (q) {
         const hay = `${s.nombre} ${s.lc} ${s.ciudad} ${s.cat}`.toLowerCase()
@@ -143,7 +66,7 @@ export default function Dashboard() {
       }
       return true
     }).sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0))
-  }, [sitios, search, dateFilter, cuadrilla, subcs])
+  }, [sitios, search, fechaDesde, fechaHasta, cuadrilla, subcs])
 
   // Calculations
   const calcs = useMemo(
@@ -187,7 +110,11 @@ export default function Dashboard() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <DateFilter value={dateFilter} onChange={setDateFilter} />
+          <input type="date" className="fc" style={{ fontSize: 11 }}
+            value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} />
+          <span style={{ fontSize: 11, color: '#9ca89c' }}>—</span>
+          <input type="date" className="fc" style={{ fontSize: 11 }}
+            value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} />
           <select className="fc" value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
             {tcOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
