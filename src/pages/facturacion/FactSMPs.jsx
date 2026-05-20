@@ -16,6 +16,7 @@ function StatusChip({ status }) {
 export default function FactSMPs() {
   const ppa      = useFactStore(s => s.ppa)
   const invoices = useFactStore(s => s.invoices)
+  const loading  = useFactStore(s => s.loading)
 
   const [search,   setSearch]   = useState('')
   const [filtro,   setFiltro]   = useState('todos')
@@ -73,6 +74,7 @@ export default function FactSMPs() {
 
   const visibleRows = rows.slice(0, visibleCount)
 
+  if (loading)     return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Cargando datos…</div>
   if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
 
   return (

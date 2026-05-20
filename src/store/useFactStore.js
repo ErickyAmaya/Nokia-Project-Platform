@@ -107,17 +107,17 @@ export const useFactStore = create((set, get) => ({
 
   // ── Cargar todo ─────────────────────────────────────────────────
   loadAll: async () => {
+    if (get().loading) return
     set({ loading: true })
     try {
-      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }] = await Promise.all([
+      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
         supabase.from('fact_pos').select('*'),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
         supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
+        supabase.from('fact_ppa').select('*'),
       ])
-
-      const { data: ppaData } = await supabase.from('fact_ppa').select('*')
       set({
         ppa:          ppaData   || [],
         uploads:      uploads   || [],

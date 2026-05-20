@@ -56,7 +56,6 @@ const FACT_NAV = [
   { to: '/facturacion',              label: 'Dashboard',      icon: '📊', id: 'fact-dashboard', exact: true },
   { to: '/facturacion/por-facturar', label: 'Por Facturar',   icon: '📄', id: 'fact-pf'        },
   { to: '/facturacion/facturado',    label: 'Facturado',      icon: '✓',  id: 'fact-fc'        },
-  { to: '/facturacion/sitios',       label: 'Fact. Sitios',   icon: '📍', id: 'fact-sitios'    },
   { to: '/facturacion/pos',          label: 'POs',            icon: '📁', id: 'fact-pos'       },
   { to: '/facturacion/smps',         label: 'Todos los SMPs', icon: '🗂', id: 'fact-smps'      },
   { to: '/facturacion/pagos-subc',   label: 'Pagos SubC',     icon: '💳', id: 'fact-pagos'     },

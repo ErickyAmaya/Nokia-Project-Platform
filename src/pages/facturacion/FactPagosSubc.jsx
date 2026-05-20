@@ -155,6 +155,7 @@ function RegPanel({ site, hitoKey, formData, onFormChange, onRegistrar, onClose,
 
 export default function FactPagosSubc() {
   const ppa          = useFactStore(s => s.ppa)
+  const loading      = useFactStore(s => s.loading)
   const sitios       = useAppStore(s => s.sitios)
   const gastos       = useAppStore(s => s.gastos)
   const subcs        = useAppStore(s => s.subcs)
@@ -308,6 +309,7 @@ export default function FactPagosSubc() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
+  if (loading)     return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Cargando datos…</div>
   if (!ppa.length) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>
       Sin datos. Carga el PPA Nokia desde el Dashboard.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -57,85 +57,106 @@ export default function ModuloHomePage() {
   const user          = useAuthStore(s => s.user)
   const [hovered, setHovered] = useState(null)
 
-  // ── Métricas Liquidador (siempre disponible tras login) ──────────
+  // ── Datos de stores ──────────────────────────────────────────────
   const sitios         = useAppStore(s => s.sitios)
-  const liqTotal       = sitios.length
-  const liqProceso     = sitios.filter(s => s.estado !== 'final').length
-  const liqFinal       = sitios.filter(s => s.estado === 'final').length
-
-  // ── Métricas Materiales ──────────────────────────────────────────
   const matCatalogo    = useMatStore(s => s.catalogo)
   const matStock       = useMatStore(s => s.stock)
   const matDespachos   = useMatStore(s => s.despachos)
-  const loadMat        = useMatStore(s => s.loadAll)
-  const matLoaded      = matCatalogo.length > 0
-  const matAlertas     = matCatalogo.filter(c => {
-    if (!c.stock_minimo || c.stock_minimo <= 0) return false
-    const total = matStock
-      .filter(s => s.catalogo_id === c.id)
-      .reduce((acc, s) => acc + (s.stock_actual || 0), 0)
-    return total < c.stock_minimo
-  }).length
-
-  // ── Métricas Rollout ACK (respeta filtro proyectoSel) ───────────
   const ackSabana      = useAckStore(s => s.sabana)
   const ackForecasts   = useAckStore(s => s.forecasts)
   const ackUploads     = useAckStore(s => s.uploads)
   const ackProyectoSel = useAckStore(s => s.proyectoSel)
-  const loadAck        = useAckStore(s => s.loadAll)
-  const ackLoaded      = ackSabana.length > 0 || ackUploads.length > 0
+  const factPPA        = useFactStore(s => s.ppa)
+  const factInvoices   = useFactStore(s => s.invoices)
 
-  // Aplicar el mismo filtro de proyecto que usa AckDashboard
+  const matLoaded  = matCatalogo.length > 0
+  const ackLoaded  = ackSabana.length > 0 || ackUploads.length > 0
+  const factLoaded = factPPA.length > 0
+  const liqLoaded  = sitios.length > 0
+
   const ackFiltered = ackProyectoSel.length > 0
     ? ackSabana.filter(r => ackProyectoSel.includes(r.proyecto_alcance))
     : ackSabana
 
-  // ── Métricas Facturación ─────────────────────────────────────────
-  const factPPA      = useFactStore(s => s.ppa)
-  const factInvoices = useFactStore(s => s.invoices)
-  const loadFact     = useFactStore(s => s.loadAll)
-  const factLoaded   = factPPA.length > 0
+  const factInvMap = useMemo(() => buildInvoicesMap(factInvoices), [factInvoices])
 
-  // Pre-carga silenciosa de Materiales, ACK y Facturación
-  useEffect(() => { loadMat() }, [loadMat])
-  useEffect(() => { loadAck() }, [loadAck])
-  useEffect(() => { loadFact() }, [loadFact])
+  // ── Métricas calculadas (actuales) ───────────────────────────────
+  const liveMetrics = useMemo(() => {
+    const matAlertas = matCatalogo.filter(c => {
+      if (!c.stock_minimo || c.stock_minimo <= 0) return false
+      const total = matStock
+        .filter(s => s.catalogo_id === c.id)
+        .reduce((acc, s) => acc + (s.stock_actual || 0), 0)
+      return total < c.stock_minimo
+    }).length
 
-  // ── Helper: "—" si el store todavía no tiene datos ──────────────
-  const n = (loaded, val) => loaded ? val : '—'
+    const factPorFact = factPPA.filter(row => {
+      if (!row.sgr) return false
+      return getEventosRow(row, factInvMap).some(e => e.status === 'facturar')
+    }).length
+    const factFacturado = factPPA.filter(row => {
+      if (!row.sgr) return false
+      return getEventosRow(row, factInvMap).some(e => e.status === 'facturado')
+    }).length
+
+    return {
+      liqTotal:     sitios.length,
+      liqProceso:   sitios.filter(s => s.estado !== 'final').length,
+      liqFinal:     sitios.filter(s => s.estado === 'final').length,
+      matTotal:     matCatalogo.length,
+      matAlertas,
+      matDespachos: matDespachos.length,
+      ackTotal:     ackFiltered.length,
+      ackConFC:     ackFiltered.filter(r => ackForecasts[r.smp]).length,
+      ackPend:      ackFiltered.filter(r => r.procesos_cierre_ph2).length,
+      factTotal:    factPPA.length,
+      factPorFact,
+      factFacturado,
+    }
+  }, [sitios, matCatalogo, matStock, matDespachos, ackFiltered, ackForecasts, factPPA, factInvMap])
+
+  // ── Cache stale-while-revalidate en localStorage ─────────────────
+  const CACHE_KEY = 'home_metrics_v1'
+  const [cachedMetrics, setCachedMetrics] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY)) } catch { return null }
+  })
+  const savedRef = useRef(false)
+
+  useEffect(() => {
+    const allLoaded = liqLoaded && matLoaded && ackLoaded && factLoaded
+    if (!allLoaded || savedRef.current) return
+    savedRef.current = true
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(liveMetrics)) } catch {}
+    setCachedMetrics(liveMetrics)
+  }, [liqLoaded, matLoaded, ackLoaded, factLoaded, liveMetrics])
+
+  // Usar live si disponible, cache si no
+  const m = (loaded, liveVal, cacheKey) => {
+    if (loaded) return liveVal
+    return cachedMetrics?.[cacheKey] ?? '—'
+  }
 
   function getMetrics(id) {
     if (id === 'billing') return [
-      { val: liqTotal,    label: 'Sitios'      },
-      { val: liqProceso,  label: 'En proceso'  },
-      { val: liqFinal,    label: 'Finalizados' },
+      { val: m(liqLoaded, liveMetrics.liqTotal,     'liqTotal'),    label: 'Sitios'      },
+      { val: m(liqLoaded, liveMetrics.liqProceso,   'liqProceso'),  label: 'En proceso'  },
+      { val: m(liqLoaded, liveMetrics.liqFinal,     'liqFinal'),    label: 'Finalizados' },
     ]
     if (id === 'materiales') return [
-      { val: n(matLoaded, matCatalogo.length), label: 'Materiales'   },
-      { val: n(matLoaded, matAlertas),         label: 'Alertas stock' },
-      { val: n(matLoaded, matDespachos.length),label: 'Despachos'    },
+      { val: m(matLoaded, liveMetrics.matTotal,    'matTotal'),    label: 'Materiales'   },
+      { val: m(matLoaded, liveMetrics.matAlertas,  'matAlertas'),  label: 'Alertas stock' },
+      { val: m(matLoaded, liveMetrics.matDespachos,'matDespachos'),label: 'Despachos'    },
     ]
     if (id === 'rollout') return [
-      { val: n(ackLoaded, ackFiltered.length),                                        label: 'SMPs'        },
-      { val: n(ackLoaded, ackFiltered.filter(r => ackForecasts[r.smp]).length),       label: 'Con FC'      },
-      { val: n(ackLoaded, ackFiltered.filter(r => r.procesos_cierre_ph2).length),     label: 'Pendientes'  },
+      { val: m(ackLoaded, liveMetrics.ackTotal,  'ackTotal'),  label: 'SMPs'       },
+      { val: m(ackLoaded, liveMetrics.ackConFC,  'ackConFC'),  label: 'Con FC'     },
+      { val: m(ackLoaded, liveMetrics.ackPend,   'ackPend'),   label: 'Pendientes' },
     ]
-    if (id === 'facturacion') {
-      const invMap   = buildInvoicesMap(factInvoices)
-      const porFact  = factLoaded ? factPPA.filter(row => {
-        if (!row.sgr) return false
-        return getEventosRow(row, invMap).some(e => e.status === 'facturar')
-      }).length : '—'
-      const facturado = factLoaded ? factPPA.filter(row => {
-        if (!row.sgr) return false
-        return getEventosRow(row, invMap).some(e => e.status === 'facturado')
-      }).length : '—'
-      return [
-        { val: n(factLoaded, factPPA.length),  label: 'SMPs'        },
-        { val: n(factLoaded, porFact),          label: 'Por facturar' },
-        { val: n(factLoaded, facturado),        label: 'Facturado'   },
-      ]
-    }
+    if (id === 'facturacion') return [
+      { val: m(factLoaded, liveMetrics.factTotal,      'factTotal'),      label: 'SMPs'        },
+      { val: m(factLoaded, liveMetrics.factPorFact,    'factPorFact'),    label: 'Por facturar' },
+      { val: m(factLoaded, liveMetrics.factFacturado,  'factFacturado'),  label: 'Facturado'   },
+    ]
     return []
   }
 

@@ -351,39 +351,63 @@ export const useAckStore = create((set, get) => ({
     if (get().loading) return
     set({ loading: true, proyectoSel: [] })
     try {
-      // Cargar prefs de usuario y uploads en paralelo
-      const [, { data: uploads }] = await Promise.all([
+      // Leer IDs cacheados para lanzar todo en paralelo sin esperar la lista de uploads
+      let cachedCurrId = null, cachedPrevId = null
+      try {
+        const c = JSON.parse(localStorage.getItem('ack_upload_ids') || 'null')
+        if (c) { cachedCurrId = c.curr; cachedPrevId = c.prev }
+      } catch {}
+
+      // Lanzar todo en paralelo: prefs + uploads + sabanas (usando IDs cacheados)
+      const [, { data: uploads }, sabCacheRes, fcRes, prevCacheRes] = await Promise.all([
         get().loadUserPrefs(),
         db().from('ack_uploads').select('*').order('loaded_at', { ascending: false }).limit(30),
+        cachedCurrId
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedCurrId)
+          : Promise.resolve({ data: null }),
+        db().from('ack_forecast').select('*'),
+        cachedPrevId
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedPrevId)
+          : Promise.resolve({ data: null }),
       ])
 
       if (!uploads?.length) {
         set({ sabana: [], prevSabana: [], prevUpload: null, currUpload: null, uploads: [], loading: false })
+        localStorage.removeItem('ack_upload_ids')
         return
       }
 
       const { currUpload, prevUpload } = findComparePair(uploads)
 
-      // 2. Cargar sabana actual + anterior en paralelo con forecasts
-      const [sabRes, fcRes, prevRes] = await Promise.all([
-        db().from('ack_sabana').select('*').eq('upload_id', currUpload.id),
-        db().from('ack_forecast').select('*'),
-        prevUpload
-          ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)
-          : Promise.resolve({ data: [] }),
-      ])
-
       const fcMap = {}
       for (const f of (fcRes.data || [])) fcMap[f.smp] = f
 
-      set({
-        sabana:     sabRes.data  || [],
-        prevSabana: prevRes.data || [],
-        prevUpload,
-        currUpload,
-        forecasts:  fcMap,
-        uploads,
-      })
+      // Si los IDs cacheados coinciden → usar datos ya descargados (1 RTT total)
+      // Si no coinciden (nuevo upload) → refetch con los IDs correctos
+      const cacheHit = cachedCurrId === currUpload.id
+      let sabana, prevSabana
+
+      if (cacheHit) {
+        sabana     = sabCacheRes.data || []
+        prevSabana = (prevUpload && cachedPrevId === prevUpload.id)
+          ? (prevCacheRes.data || [])
+          : (prevUpload ? (await db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)).data || [] : [])
+      } else {
+        // IDs cambiaron → recargar sabanas con los correctos
+        const [sabRes, prevRes] = await Promise.all([
+          db().from('ack_sabana').select('*').eq('upload_id', currUpload.id),
+          prevUpload
+            ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)
+            : Promise.resolve({ data: [] }),
+        ])
+        sabana     = sabRes.data  || []
+        prevSabana = prevRes.data || []
+      }
+
+      // Guardar IDs en caché para la próxima sesión
+      try { localStorage.setItem('ack_upload_ids', JSON.stringify({ curr: currUpload.id, prev: prevUpload?.id || null })) } catch {}
+
+      set({ sabana, prevSabana, prevUpload, currUpload, forecasts: fcMap, uploads })
     } finally {
       set({ loading: false })
     }

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { useFactStore } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -102,9 +102,10 @@ export default function FactPOs() {
 
   const isViewer = useAuthStore(s => s.user?.role === 'viewer')
 
-  const [search,         setSearch]         = useState('')
-  const [editPO,         setEditPO]         = useState(null)
-  const [showRechazados, setShowRechazados] = useState(false)
+  const [search,          setSearch]          = useState('')
+  const [editPO,          setEditPO]          = useState(null)
+  const [showRechazados,  setShowRechazados]  = useState(false)
+  const [sinPdfExpanded,  setSinPdfExpanded]  = useState(false)
 
   const [compact, setCompact] = useState(
     typeof window !== 'undefined' && window.innerHeight < 600
@@ -150,7 +151,25 @@ export default function FactPOs() {
       return bd.localeCompare(ad)
     })
 
-  const sinPO = [...new Set(ppa.map(r => r.spo_number))].filter(spo => !pos.find(p => p.spo_number === spo))
+  // SPOs del PPA que no tienen PDF cargado (sin PO o con PO pero sin pdf_url)
+  const sinPdf = useMemo(() => {
+    const posMap = new Map(pos.map(p => [p.spo_number, p]))
+    const spoSeen = new Map()
+    for (const row of ppa) {
+      if (!row.spo_number || spoSeen.has(row.spo_number)) continue
+      spoSeen.set(row.spo_number, {
+        spo:   row.spo_number,
+        sitio: row.customer_site_name || row.site_reference_id || '',
+        smp:   row.smp_name === 'Process_Implementation' ? row.ms_name : (row.smp_name || ''),
+      })
+    }
+    const result = []
+    for (const [spo, info] of spoSeen) {
+      const po = posMap.get(spo)
+      if (!po || !po.pdf_url) result.push(info)
+    }
+    return result.sort((a, b) => a.sitio.localeCompare(b.sitio) || a.spo.localeCompare(b.spo))
+  }, [ppa, pos])
 
   return (
     <>
@@ -169,7 +188,7 @@ export default function FactPOs() {
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>
             {pos.length} PO{pos.length !== 1 ? 's' : ''} cargada{pos.length !== 1 ? 's' : ''}
-            {sinPO.length > 0 && <span style={{ marginLeft: 10, color: '#f59e0b', fontWeight: 600 }}>{sinPO.length} SPO{sinPO.length > 1 ? 's' : ''} sin PO</span>}
+            {sinPdf.length > 0 && <span style={{ marginLeft: 10, color: '#b45309', fontWeight: 600 }}>⚠ {sinPdf.length} sin PDF</span>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -188,9 +207,45 @@ export default function FactPOs() {
         </div>
       </div>
 
-      {sinPO.length > 0 && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 11, color: '#92400e' }}>
-          <strong>SPOs sin PO cargada:</strong> {sinPO.slice(0, 8).join(', ')}{sinPO.length > 8 ? ` y ${sinPO.length - 8} más…` : ''}
+      {sinPdf.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
+          <div
+            onClick={() => setSinPdfExpanded(e => !e)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <span style={{ fontSize: 15 }}>⚠</span>
+            <span style={{ fontWeight: 700, color: '#92400e', fontSize: 12 }}>
+              {sinPdf.length} SPO{sinPdf.length !== 1 ? 's' : ''} sin PDF
+            </span>
+            <span style={{ color: '#b45309', fontSize: 11 }}>
+              — aparecen en el PPA pero aún no tienen documento cargado
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#b45309', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              {sinPdfExpanded ? '▲ Ocultar' : '▼ Ver lista'}
+            </span>
+          </div>
+          {sinPdfExpanded && (
+            <div style={{ borderTop: '1px solid #fde68a', maxHeight: 240, overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: '#fef9e7', position: 'sticky', top: 0 }}>
+                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>SPO Number</th>
+                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>Sitio</th>
+                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>SMP / MS Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sinPdf.map(({ spo, sitio, smp }) => (
+                    <tr key={spo} style={{ borderTop: '1px solid #fef3c7' }}>
+                      <td style={{ padding: '5px 12px', fontFamily: 'monospace', fontWeight: 700, color: '#92400e', fontSize: 10 }}>{spo}</td>
+                      <td style={{ padding: '5px 12px', color: '#78350f', fontSize: 11 }}>{sitio}</td>
+                      <td style={{ padding: '5px 12px', color: '#78350f', fontSize: 10 }}>{smp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

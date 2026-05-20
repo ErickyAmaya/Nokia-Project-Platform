@@ -111,20 +111,24 @@ export const useAppStore = create((set, get) => ({
 
   // ── Data actions ─────────────────────────────────────────────────
   loadData: async () => {
-    const { data: sitiosData, error } = await supabase
-      .from('sitios')
-      .select('*')
-      .order('created_at', { ascending: true })
-
-    if (error || !sitiosData) return false
-
-    const [{ data: gastosData }, { data: liqCWData }, { data: subcData }, { data: catCWData }, { data: catTIData }] = await Promise.all([
+    const [sitiosRes, gastosRes, liqCWRes, subcRes, catCWRes, catTIRes] = await Promise.all([
+      supabase.from('sitios').select('*').order('created_at', { ascending: true }),
       supabase.from('gastos').select('*'),
       supabase.from('liquidaciones_cw').select('*'),
       supabase.from('subcontratistas').select('*').order('lc'),
       supabase.from('catalogo_cw').select('*').order('actividad_id'),
       supabase.from('catalogo_ti').select('*').order('seccion').order('id'),
     ])
+
+    const sitiosData = sitiosRes.data
+    const error      = sitiosRes.error
+    const gastosData = gastosRes.data
+    const liqCWData  = liqCWRes.data
+    const subcData   = subcRes.data
+    const catCWData  = catCWRes.data
+    const catTIData  = catTIRes.data
+
+    if (error || !sitiosData) return false
 
     const currentSitios = get().sitios
     // Sites are CW-active if sitios.tiene_cw OR a liquidaciones_cw row exists for them.

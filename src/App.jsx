@@ -2,6 +2,10 @@ import { useEffect, useRef, lazy, Suspense, Component } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { useAppStore }  from './store/useAppStore'
+import { useMatStore }  from './store/useMatStore'
+import { useHwStore }   from './store/useHwStore'
+import { useAckStore }  from './store/useAckStore'
+import { useFactStore } from './store/useFactStore'
 import { useRealtime }  from './hooks/useRealtime'
 import ProtectedRoute   from './components/ProtectedRoute'
 import Layout           from './components/Layout'
@@ -48,7 +52,6 @@ const FactPorFacturar = lazy(() => import('./pages/facturacion/FactPorFacturar')
 const FactFacturado   = lazy(() => import('./pages/facturacion/FactFacturado'))
 const FactPOs         = lazy(() => import('./pages/facturacion/FactPOs'))
 const FactSMPs        = lazy(() => import('./pages/facturacion/FactSMPs'))
-const FactSitios      = lazy(() => import('./pages/facturacion/FactSitios'))
 const FactPagosSubc   = lazy(() => import('./pages/facturacion/FactPagosSubc'))
 
 // Other heavy pages: lazy-load so xlsx + recharts don't block initial bundle
@@ -238,7 +241,6 @@ function AppRoutes() {
         <Route index                    element={<FactDashboard />} />
         <Route path="por-facturar"      element={<FactPorFacturar />} />
         <Route path="facturado"         element={<FactFacturado />} />
-        <Route path="sitios"            element={<FactSitios />} />
         <Route path="pos"               element={<FactPOs />} />
         <Route path="smps"              element={<FactSMPs />} />
         <Route path="pagos-subc"        element={<FactPagosSubc />} />
@@ -270,6 +272,10 @@ export default function App() {
   const loadEmpresaConfig = useAppStore(s => s.loadEmpresaConfig)
   const initAppSync       = useAppStore(s => s.initRealtimeSync)
   const user              = useAuthStore(s => s.user)
+  const loadMat           = useMatStore(s => s.loadAll)
+  const loadHw            = useHwStore(s => s.loadAll)
+  const loadAck           = useAckStore(s => s.loadAll)
+  const loadFact          = useFactStore(s => s.loadAll)
 
   // Realtime subscriptions (active when logged in)
   const rtStatus = useRealtime()
@@ -279,13 +285,17 @@ export default function App() {
     initSession()
   }, [initSession])
 
-  // Load data once authenticated
+  // Load all stores in parallel once authenticated — starts before any page mounts
   useEffect(() => {
     if (user) {
       loadData()
       loadEmpresaConfig()
+      loadMat()
+      loadHw()
+      loadAck()
+      loadFact()
     }
-  }, [user, loadData, loadEmpresaConfig])
+  }, [user, loadData, loadEmpresaConfig, loadMat, loadHw, loadAck, loadFact])
 
   // Broadcast channel — notifica a otros dispositivos cuando este hace cambios
   useEffect(() => {
