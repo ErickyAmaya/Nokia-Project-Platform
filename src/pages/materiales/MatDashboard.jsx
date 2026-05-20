@@ -51,6 +51,19 @@ export default function MatDashboard() {
   const [filCat,   setFilCat]   = useState('')  // '' | 'TI' | 'CW'
   const [filSitio, setFilSitio] = useState('')  // nombre del sitio destino
 
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  useEffect(() => {
+    function onResize() { setCompact(window.innerHeight < 600) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
   // Highlight desde alerta de stock
   useEffect(() => {
     const hid = location.state?.highlightCatalogId
@@ -280,8 +293,8 @@ export default function MatDashboard() {
         )}
       </div>
 
-      {/* ── KPIs (sticky) ── */}
-      <div style={{ position:'sticky', top:'calc(124px + env(safe-area-inset-top))', zIndex:15,
+      {/* ── KPIs (sticky en portrait, normal en landscape) ── */}
+      <div style={{ ...(compact ? {} : { position:'sticky', top:'calc(124px + env(safe-area-inset-top))', zIndex:15 }),
         background:'#f0f2f0', paddingTop:8, paddingBottom:8, marginBottom:8, boxShadow:'0 2px 8px rgba(0,0,0,.07)' }}>
         <div className="kpi-grid" style={{ marginBottom:8 }}>
           <KpiCard label="Valor Inventario Total" value={matCop(kpis.valor)}    color={C.blue}   />

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useFactStore } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -106,6 +106,19 @@ export default function FactPOs() {
   const [editPO,         setEditPO]         = useState(null)
   const [showRechazados, setShowRechazados] = useState(false)
 
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  useEffect(() => {
+    function onResize() { setCompact(window.innerHeight < 600) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
   async function handleFiles(e) {
     const files = [...(e.target.files || [])]
     if (!files.length) return
@@ -186,7 +199,7 @@ export default function FactPOs() {
           {pos.length === 0 ? 'Sube los PDFs de PO para registrar los valores.' : 'Sin resultados.'}
         </div>
       ) : (
-        <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
+        <div className="card" style={{ overflow: 'auto', maxHeight: compact ? 'calc(100vh - 210px)' : '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>

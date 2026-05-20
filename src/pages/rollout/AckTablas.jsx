@@ -349,6 +349,25 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
   const cfg = PROC_CONFIG[procesoKey]
   const sentinelRef = useRef(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  // narrow = portrait móvil: las 3 columnas sticky-left (410px) superan el ancho de pantalla
+  const [narrow, setNarrow] = useState(
+    typeof window !== 'undefined' && window.innerWidth < 600
+  )
+  useEffect(() => {
+    function onResize() {
+      setCompact(window.innerHeight < 600)
+      setNarrow(window.innerWidth < 600)
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
@@ -428,13 +447,13 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
       <div style={{ fontSize: 11, color: '#555f55', marginBottom: 8 }}>
         {statsLabel}
       </div>
-      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
-        <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: compact ? 'calc(100vh - 200px)' : 'calc(100vh - 320px)' }}>
+        <table className="tbl" style={{ fontSize: 10, minWidth: 900, borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th style={{ position: 'sticky', top: 0, left: 0,   zIndex: 4, background: '#f8f9f8', minWidth: 120 }}>Sitio</th>
-              <th style={{ position: 'sticky', top: 0, left: 120, zIndex: 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
-              <th style={{ position: 'sticky', top: 0, left: 250, zIndex: 4, background: '#f8f9f8', minWidth: 160, boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>SMP</th>
+              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#f8f9f8', minWidth: 120 }}>Sitio</th>
+              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 120 }), zIndex: narrow ? 3 : 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
+              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 250 }), zIndex: narrow ? 3 : 4, background: '#f8f9f8', minWidth: 160, ...(narrow ? {} : { boxShadow: '2px 0 4px rgba(0,0,0,.06)' }) }}>SMP</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Sub Proyecto</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
               <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
@@ -449,9 +468,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
               const fin = isFinal(r[procesoKey])
               return (
                 <tr key={r.smp} style={{ opacity: fin ? 0.65 : 1, background: fin ? '#f0fdf4' : undefined }}>
-                  <td style={{ position: 'sticky', left: 0,   zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.site_name}</td>
-                  <td style={{ position: 'sticky', left: 120, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
-                  <td style={{ position: 'sticky', left: 250, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555', boxShadow: '2px 0 4px rgba(0,0,0,.06)' }}>{r.smp}</td>
+                  <td style={{ position: 'sticky', left: 0, zIndex: 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.site_name}</td>
+                  <td style={{ position: 'sticky', ...(narrow ? {} : { left: 120 }), zIndex: narrow ? 1 : 2, background: fin ? '#f0fdf4' : '#fff', fontWeight: 600, whiteSpace: 'nowrap', fontSize: 9 }}>{r.main_smp}</td>
+                  <td style={{ position: 'sticky', ...(narrow ? {} : { left: 250 }), zIndex: narrow ? 1 : 2, background: fin ? '#f0fdf4' : '#fff', fontFamily: 'monospace', fontSize: 8, color: '#555', ...(narrow ? {} : { boxShadow: '2px 0 4px rgba(0,0,0,.06)' }) }}>{r.smp}</td>
                   <td style={{ whiteSpace: 'nowrap', fontSize: 9, color: '#666' }}>{r.sub_proyecto || '—'}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: (r.semanas_integracion || 0) > 104 ? '#ef4444' : '#555' }}>
                     {r.semanas_integracion || '—'}

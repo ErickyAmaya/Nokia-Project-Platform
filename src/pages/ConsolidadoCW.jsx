@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
@@ -50,6 +50,19 @@ export default function ConsolidadoCW() {
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const isViewer = user?.role === 'viewer'
+
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  useEffect(() => {
+    function onResize() { setCompact(window.innerHeight < 600) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
 
   // TI sites WITHOUT CW (candidates for Agregar CW)
   const tiSinCW = useMemo(() =>
@@ -162,8 +175,8 @@ export default function ConsolidadoCW() {
 
       {/* ── Table ──────────────────────────────────────────── */}
       <div className="card">
-        <div style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 340px)' }}>
-          <table className="tbl" style={{ minWidth: 900 }}>
+        <div style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: compact ? 'calc(100vh - 200px)' : 'calc(100vh - 340px)' }}>
+          <table className="tbl" style={{ minWidth: compact ? 600 : 900 }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
               <tr>
                 <th style={{ minWidth: 160 }}>Sitio TI</th>

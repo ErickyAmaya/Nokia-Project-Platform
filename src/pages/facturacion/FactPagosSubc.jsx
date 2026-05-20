@@ -174,6 +174,25 @@ export default function FactPagosSubc() {
   const [filtroEst,   setFiltroEst]   = useState('todos')
   const [showInternas, setShowInternas] = useState(true)
 
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  const [narrow, setNarrow] = useState(
+    typeof window !== 'undefined' && window.innerWidth < 600
+  )
+  useEffect(() => {
+    function onResize() {
+      setCompact(window.innerHeight < 600)
+      setNarrow(window.innerWidth < 600)
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
   useEffect(() => { loadPagos() }, [loadPagos])
 
   const sitioMap = useMemo(() => {
@@ -297,7 +316,7 @@ export default function FactPagosSubc() {
 
   return (
     <>
-      <div style={{ position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10, background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
+      <div style={{ ...((compact || narrow) ? {} : { position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10 }), background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
       {/* Header */}
       <div className="dash-hdr mb14">
         <div>
@@ -307,28 +326,28 @@ export default function FactPagosSubc() {
       </div>
 
       {/* KPI cards — solo SubC */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 18 }}>
-        <div className="card" style={{ padding: '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 4 }}>Total SubC (Liquidador)</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#144E4A', lineHeight: 1.1 }}>{fmtCOP(kpis.totalSubcG)}</div>
-          <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 3 }}>{kpis.count} sitios SubC · {internaCount} cuadrilla{internaCount !== 1 ? 's' : ''} interna{internaCount !== 1 ? 's' : ''}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
+        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 3 }}>Total SubC</div>
+          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#144E4A', lineHeight: 1.1 }}>{fmtCOP(kpis.totalSubcG)}</div>
+          <div style={{ fontSize: 9, color: '#9ca89c', marginTop: 2 }}>{kpis.count} sitios · {internaCount} internas</div>
         </div>
-        <div className="card" style={{ padding: '14px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#166534', marginBottom: 4 }}>Total Pagado</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#166534', lineHeight: 1.1 }}>{fmtCOP(kpis.pagadoG)}</div>
-          <div style={{ fontSize: 10, color: '#166534', marginTop: 3 }}>{kpis.pctG}% del total</div>
+        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#166534', marginBottom: 3 }}>Total Pagado</div>
+          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#166534', lineHeight: 1.1 }}>{fmtCOP(kpis.pagadoG)}</div>
+          <div style={{ fontSize: 9, color: '#166534', marginTop: 2 }}>{kpis.pctG}% del total</div>
         </div>
-        <div className="card" style={{ padding: '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 4 }}>Pendiente por Pagar</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#b45309', lineHeight: 1.1 }}>{fmtCOP(kpis.pendienteG)}</div>
-          <div style={{ fontSize: 10, color: '#9ca89c', marginTop: 3 }}>{100 - kpis.pctG}% restante</div>
+        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 3 }}>Pendiente</div>
+          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#b45309', lineHeight: 1.1 }}>{fmtCOP(kpis.pendienteG)}</div>
+          <div style={{ fontSize: 9, color: '#9ca89c', marginTop: 2 }}>{100 - kpis.pctG}% restante</div>
         </div>
-        <div className="card" style={{ padding: '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 6 }}>Progreso Global</div>
-          <div style={{ height: 8, background: '#e0e7ff', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ height: 8, width: `${kpis.pctG}%`, background: '#6366f1', borderRadius: 4, transition: 'width .4s' }} />
+        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 4 }}>Progreso</div>
+          <div style={{ height: 7, background: '#e0e7ff', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: 7, width: `${kpis.pctG}%`, background: '#6366f1', borderRadius: 4, transition: 'width .4s' }} />
           </div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#4338ca', marginTop: 5 }}>{kpis.pctG}%</div>
+          <div style={{ fontSize: narrow ? 13 : 14, fontWeight: 800, color: '#4338ca', marginTop: 4 }}>{kpis.pctG}%</div>
         </div>
       </div>
 

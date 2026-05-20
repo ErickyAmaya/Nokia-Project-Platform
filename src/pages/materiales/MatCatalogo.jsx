@@ -270,7 +270,7 @@ export default function MatCatalogo() {
             ))}
           </div>
 
-          <div style={{ overflowX:'auto' }}>
+          <div className="tbl-scroll">
             {/* ── Vista Proveedores ── */}
             {isProveedoresTab ? (
               <table className="tbl">

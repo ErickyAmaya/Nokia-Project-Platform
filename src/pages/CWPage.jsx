@@ -222,6 +222,20 @@ export default function CWPage() {
   const { confirm, ConfirmModalUI } = useConfirm()
   const [searchParams] = useSearchParams()
 
+  // Compact = landscape iPhone or small viewport — disable inner scroll, use single-column layout
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  useEffect(() => {
+    function onResize() { setCompact(window.innerHeight < 600) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
   const isViewer = user?.role === 'viewer'
   const isAdmin  = user?.role === 'admin'
   const isCoord  = user?.role === 'coord'
@@ -402,7 +416,7 @@ export default function CWPage() {
               </div>
             </div>
             <div className="card-b">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10 }}>
                 <div className="fg" style={{ marginBottom: 0 }}>
                   <label className="fl">SMP / Código Nokia</label>
                   <input
@@ -440,7 +454,7 @@ export default function CWPage() {
           </div>
 
           {/* ── Dual tables: Nokia (left) + SubC (right) ──── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 14 }}>
 
             {/* NOKIA CW */}
             <div className="card">
@@ -459,8 +473,8 @@ export default function CWPage() {
                   )}
                 </div>
               </div>
-              <div style={{ padding: 0, overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
-                <table className="tbl" style={{ minWidth: 440 }}>
+              <div style={{ padding: 0, overflowX: 'auto', ...(compact ? {} : { maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }) }}>
+                <table className="tbl" style={{ minWidth: compact ? 320 : 440 }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                     <tr>
                       <th style={{ minWidth: 200 }}>Actividad CW</th>
@@ -535,8 +549,8 @@ export default function CWPage() {
                 <h2 style={{ color: '#000' }}>SubC — Costo CW</h2>
                 <span className="badge" style={{ background: '#FFC000', color: '#000', fontSize: 10 }}>{liq.lc || 'SubC CW'}</span>
               </div>
-              <div style={{ padding: 0, overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
-                <table className="tbl" style={{ minWidth: 440 }}>
+              <div style={{ padding: 0, overflowX: 'auto', ...(compact ? {} : { maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }) }}>
+                <table className="tbl" style={{ minWidth: compact ? 320 : 440 }}>
                   <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                     <tr>
                       {[
@@ -588,7 +602,7 @@ export default function CWPage() {
           </div>
 
           {/* ── Utilidad & Acciones ───────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: compact ? '1fr' : '1fr 260px', gap: 14 }}>
             <div className="card">
               <div className="card-h"><h2>Utilidad &amp; Margen CW</h2></div>
               <div className="card-b">

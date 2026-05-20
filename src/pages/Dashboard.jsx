@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
@@ -31,6 +31,19 @@ export default function Dashboard() {
   const [cuadrilla,   setCuadrilla]   = useState('todos')
   const [modalSitio,  setModalSitio]  = useState(false)
   const [modalTSS,    setModalTSS]    = useState(false)
+
+  const [compact, setCompact] = useState(
+    typeof window !== 'undefined' && window.innerHeight < 600
+  )
+  useEffect(() => {
+    function onResize() { setCompact(window.innerHeight < 600) }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
 
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
@@ -167,7 +180,7 @@ export default function Dashboard() {
         {/* Sites table */}
         <div className="card">
           <div className="card-h"><h2>Sitios del Proyecto ({calcs.length})</h2></div>
-          <div style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+          <div style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: compact ? 'calc(100vh - 200px)' : 'calc(100vh - 320px)' }}>
             <table className="tbl" id="tbl-dash">
               <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr>
@@ -235,7 +248,7 @@ export default function Dashboard() {
           {/* Margin bars */}
           <div className="card">
             <div className="card-h"><h2>Márgenes</h2></div>
-            <div className="card-b" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 400px)' }}>
+            <div className="card-b" style={{ overflowY: 'auto', maxHeight: compact ? 'calc(100vh - 220px)' : 'calc(100vh - 400px)' }}>
               {calcs.length === 0 && (
                 <p style={{ fontSize: 11, color: '#9ca89c', textAlign: 'center' }}>Sin datos</p>
               )}
