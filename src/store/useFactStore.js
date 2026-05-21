@@ -99,6 +99,7 @@ export const useFactStore = create((set, get) => ({
   uploads:     [],
   invoices:    [],
   pos:         [],
+  historial:   [],
   calendar:    [],
   rejectedPos: [],
   loading:     false,
@@ -110,19 +111,21 @@ export const useFactStore = create((set, get) => ({
     if (get().loading) return
     set({ loading: true })
     try {
-      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }] = await Promise.all([
+      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }, { data: hist }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
         supabase.from('fact_pos').select('*'),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
         supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
         supabase.from('fact_ppa').select('*'),
+        supabase.from('fact_pos_historial').select('*').order('changed_at', { ascending: false }),
       ])
       set({
         ppa:          ppaData   || [],
         uploads:      uploads   || [],
         invoices:     invoices  || [],
         pos:          pos       || [],
+        historial:    hist      || [],
         calendar:     cal       || [],
         rejectedPos:  rejected  || [],
         currUploadId: uploads?.[0]?.id || null,
@@ -224,6 +227,45 @@ export const useFactStore = create((set, get) => ({
     }
   },
 
+  // ── Confirmar actualización de PO (reemplaza PDF + registra historial) ──
+  confirmarActualizacionPO: async ({ file, extracted, existing, changedBy }) => {
+    set({ uploading: true })
+    try {
+      // 1. Subir nuevo PDF
+      const path = `pos/${extracted.spo_number}_${Date.now()}.pdf`
+      const { error: stErr } = await supabase.storage.from('facturacion').upload(path, file, { upsert: false })
+      if (stErr) throw stErr
+      const { data: urlData } = supabase.storage.from('facturacion').getPublicUrl(path)
+
+      // 2. Eliminar PDF anterior
+      if (existing.pdf_url) {
+        const oldPath = existing.pdf_url.match(/\/facturacion\/(.+?)(?:\?|$)/)?.[1]
+        if (oldPath) await supabase.storage.from('facturacion').remove([oldPath])
+      }
+
+      // 3. Actualizar fact_pos
+      const record = { ...extracted, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
+      const { data, error } = await supabase
+        .from('fact_pos').update(record).eq('spo_number', extracted.spo_number).select().single()
+      if (error) throw error
+
+      // 4. Registrar historial
+      const { data: hRow } = await supabase.from('fact_pos_historial')
+        .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes: computeChanges(existing, extracted), old_pdf_url: existing.pdf_url })
+        .select().single()
+
+      set(s => ({
+        pos:      s.pos.map(p => p.spo_number === data.spo_number ? data : p),
+        historial: hRow ? [hRow, ...s.historial] : s.historial,
+        uploading: false,
+      }))
+      return { ok: true, data }
+    } catch (e) {
+      set({ uploading: false })
+      return { ok: false, error: e.message }
+    }
+  },
+
   // ── Actualizar PO manualmente ────────────────────────────────────
   actualizarPO: async (id, updates) => {
     const { data, error } = await supabase
@@ -301,6 +343,19 @@ export const useFactStore = create((set, get) => ({
 }))
 
 // ── Helpers exportables ──────────────────────────────────────────
+export function computeChanges(existing, extracted) {
+  const FIELDS = ['valor', 'moneda', 'smp_id', 'supplier_name', 'payment_terms', 'pci_description', 'doc_date']
+  const changes = {}
+  for (const key of FIELDS) {
+    const oldVal = existing[key] ?? null
+    const newVal = extracted[key] ?? null
+    if (newVal !== null && String(oldVal ?? '') !== String(newVal ?? '')) {
+      changes[key] = { old: oldVal, new: newVal }
+    }
+  }
+  return changes
+}
+
 export function buildInvoicesMap(invoices) {
   const map = {}
   for (const inv of invoices) map[`${inv.spo_number}|${inv.evento}`] = inv

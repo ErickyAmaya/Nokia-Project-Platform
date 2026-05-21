@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
-import { useFactStore } from '../../store/useFactStore'
+import { useFactStore, computeChanges } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
+import { parsePOPdf } from '../../lib/pdfParser'
 
 function EditModal({ po, onClose, onSave }) {
   const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', smp_id: po.smp_id || '', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '' })
@@ -90,20 +91,149 @@ function RechazadosModal({ items, onClose, onDelete }) {
   )
 }
 
-export default function FactPOs() {
-  const fileRef          = useRef(null)
-  const uploadPOPdf      = useFactStore(s => s.uploadPOPdf)
-  const actualizarPO     = useFactStore(s => s.actualizarPO)
-  const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
-  const uploading        = useFactStore(s => s.uploading)
-  const pos              = useFactStore(s => s.pos)
-  const ppa              = useFactStore(s => s.ppa)
-  const rejectedPos      = useFactStore(s => s.rejectedPos)
+const fmtVal = (v, mon = 'COP') => v != null
+  ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: mon, maximumFractionDigits: 0 }).format(v)
+  : '—'
 
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+const PO_FIELDS = [
+  { key: 'valor',           label: 'Valor',             fmt: (v, mon) => fmtVal(v, mon) },
+  { key: 'moneda',          label: 'Moneda',            fmt: v => v || '—' },
+  { key: 'smp_id',          label: 'SMP ID',            fmt: v => v || '—' },
+  { key: 'supplier_name',   label: 'Proveedor',         fmt: v => v || '—' },
+  { key: 'payment_terms',   label: 'Condición de pago', fmt: v => v || '—' },
+  { key: 'pci_description', label: 'Descripción PCI',   fmt: v => v || '—' },
+  { key: 'doc_date',        label: 'Fecha PO',          fmt: v => v || '—' },
+]
+
+function UpdateConfirmModal({ preview, invoices, uploading, onClose, onConfirm }) {
+  const { extracted, existing, changes } = preview
+  const hasChanges  = Object.keys(changes).length > 0
+  const hasInvoices = invoices.some(inv => inv.spo_number === existing.spo_number)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 540, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Actualización de PO</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 16 }}>SPO {extracted.spo_number} · ya existe un registro en la plataforma</div>
+
+        <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', marginBottom: 14 }}>
+          <thead>
+            <tr style={{ background: '#f8faf8', borderBottom: '1px solid #e8eae8' }}>
+              {['Campo', 'Actual', 'Nuevo PDF'].map(h => (
+                <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: 10, color: '#555' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {PO_FIELDS.map(({ key, label, fmt }) => {
+              const changed = key in changes
+              return (
+                <tr key={key} style={{ borderTop: '1px solid #f0f0f0', background: changed ? '#fefce8' : undefined }}>
+                  <td style={{ padding: '6px 10px', color: '#555', fontWeight: changed ? 700 : 400 }}>{label}</td>
+                  <td style={{ padding: '6px 10px', fontSize: 10, color: changed ? '#b45309' : '#374151', textDecoration: changed ? 'line-through' : undefined }}>
+                    {fmt(existing[key], existing.moneda)}
+                  </td>
+                  <td style={{ padding: '6px 10px', fontSize: 10, color: changed ? '#166534' : '#374151', fontWeight: changed ? 700 : 400 }}>
+                    {fmt(extracted[key], extracted.moneda)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {hasChanges ? (
+          <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e', marginBottom: 10 }}>
+            ⚠ {Object.keys(changes).length} campo{Object.keys(changes).length !== 1 ? 's' : ''} con cambios detectados. El PDF anterior será eliminado.
+          </div>
+        ) : (
+          <div style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#6b7280', marginBottom: 10 }}>
+            ℹ Sin cambios detectados. El PDF será reemplazado de todas formas.
+          </div>
+        )}
+
+        {hasInvoices && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#991b1b', marginBottom: 10 }}>
+            ⚠ Esta PO tiene facturas registradas. El valor en Facturado se recalculará con el nuevo valor.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={onConfirm} disabled={uploading} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: uploading ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: uploading ? .6 : 1 }}>
+            {uploading ? '⏳ Actualizando…' : '✓ Confirmar actualización'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HistorialModal({ spo_number, historial, onClose }) {
+  const items = historial.filter(h => h.spo_number === spo_number)
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 700 }}>Historial de actualizaciones</div>
+            <div style={{ fontSize: 11, color: '#4b5563' }}>SPO {spo_number}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#4b5563' }}>✕</button>
+        </div>
+        {items.map((h, i) => {
+          const changesArr = Object.entries(h.changes || {})
+          return (
+            <div key={h.id} style={{ borderTop: i > 0 ? '1px solid #f0f0f0' : undefined, paddingTop: i > 0 ? 14 : 0, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 5, padding: '1px 7px' }}>
+                  {new Date(h.changed_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+                {h.changed_by && <span style={{ fontSize: 10, color: '#6b7280' }}>{h.changed_by}</span>}
+              </div>
+              {changesArr.length === 0 ? (
+                <div style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>Sin cambios detectados — PDF reemplazado</div>
+              ) : (
+                changesArr.map(([key, { old: oldVal, new: newVal }]) => {
+                  const field = PO_FIELDS.find(f => f.key === key)
+                  return (
+                    <div key={key} style={{ fontSize: 11, color: '#374151', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700 }}>{field?.label || key}:</span>{' '}
+                      <span style={{ textDecoration: 'line-through', color: '#b45309' }}>{oldVal ?? '—'}</span>
+                      {' → '}
+                      <span style={{ color: '#166534', fontWeight: 700 }}>{newVal ?? '—'}</span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default function FactPOs() {
+  const fileRef                  = useRef(null)
+  const uploadPOPdf              = useFactStore(s => s.uploadPOPdf)
+  const confirmarActualizacionPO = useFactStore(s => s.confirmarActualizacionPO)
+  const actualizarPO             = useFactStore(s => s.actualizarPO)
+  const deleteRejectedPo         = useFactStore(s => s.deleteRejectedPo)
+  const uploading                = useFactStore(s => s.uploading)
+  const pos                      = useFactStore(s => s.pos)
+  const ppa                      = useFactStore(s => s.ppa)
+  const invoices                 = useFactStore(s => s.invoices)
+  const historial                = useFactStore(s => s.historial)
+  const rejectedPos              = useFactStore(s => s.rejectedPos)
+
+  const user     = useAuthStore(s => s.user)
+  const isViewer = user?.role === 'viewer'
 
   const [search,          setSearch]          = useState('')
   const [editPO,          setEditPO]          = useState(null)
+  const [updatePreview,   setUpdatePreview]   = useState(null)  // { file, extracted, existing, changes }
+  const [historialModal,  setHistorialModal]  = useState(null)  // spo_number
   const [showRechazados,  setShowRechazados]  = useState(false)
   const [sinPdfExpanded,  setSinPdfExpanded]  = useState(false)
 
@@ -123,19 +253,62 @@ export default function FactPOs() {
   async function handleFiles(e) {
     const files = [...(e.target.files || [])]
     if (!files.length) return
-    let ok = 0, lastErr = ''
+    e.target.value = ''
+
+    const parsed = []
     for (const file of files) {
+      try {
+        const extracted = await parsePOPdf(file)
+        if (!extracted.spo_number) { showToast(`${file.name}: no se pudo extraer el SPO`, 'err'); continue }
+        parsed.push({ file, extracted })
+      } catch (err) {
+        showToast(`Error al leer ${file.name}: ${err.message}`, 'err')
+      }
+    }
+
+    const newPOs      = parsed.filter(({ extracted }) => !pos.find(p => p.spo_number === extracted.spo_number))
+    const existingPOs = parsed.filter(({ extracted }) =>  pos.find(p => p.spo_number === extracted.spo_number))
+
+    // Nuevas POs: subir directamente
+    let ok = 0, lastErr = ''
+    for (const { file } of newPOs) {
       const result = await uploadPOPdf(file)
       result.ok ? ok++ : (lastErr = result.error || 'error desconocido')
     }
     if (ok)      showToast(`${ok} PO${ok > 1 ? 's' : ''} cargada${ok > 1 ? 's' : ''}`)
     if (lastErr) showToast(`Error al leer PDF: ${lastErr}`, 'err')
-    e.target.value = ''
+
+    // POs existentes: mostrar modal de confirmación (primera de la lista)
+    if (existingPOs.length > 1) {
+      showToast(`${existingPOs.length} POs ya existen — confírmalas una a la vez`, 'err')
+    }
+    if (existingPOs.length >= 1) {
+      const { file, extracted } = existingPOs[0]
+      const existing = pos.find(p => p.spo_number === extracted.spo_number)
+      setUpdatePreview({ file, extracted, existing, changes: computeChanges(existing, extracted) })
+    }
   }
 
-  const fmtCOP = (v, mon) => v
-    ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: mon || 'COP', maximumFractionDigits: 0 }).format(v)
-    : '—'
+  async function handleConfirmarActualizacion() {
+    if (!updatePreview) return
+    const result = await confirmarActualizacionPO({ ...updatePreview, changedBy: user?.email })
+    if (result.ok) {
+      showToast('PO actualizada correctamente')
+      setUpdatePreview(null)
+    } else {
+      showToast('Error al actualizar: ' + result.error, 'err')
+    }
+  }
+
+  const historialMap = useMemo(() => {
+    const map = {}
+    for (const h of historial) {
+      if (!map[h.spo_number]) map[h.spo_number] = h  // ya ordenado desc por changed_at
+    }
+    return map
+  }, [historial])
+
+  const fmtCOP = (v, mon) => fmtVal(v, mon)
 
   const ppaMap = useMemo(() => new Map(ppa.map(r => [r.spo_number, r])), [ppa])
 
@@ -176,6 +349,8 @@ export default function FactPOs() {
   return (
     <>
       {editPO && <EditModal po={editPO} onClose={() => setEditPO(null)} onSave={actualizarPO} />}
+      {updatePreview && <UpdateConfirmModal preview={updatePreview} invoices={invoices} uploading={uploading} onClose={() => setUpdatePreview(null)} onConfirm={handleConfirmarActualizacion} />}
+      {historialModal && <HistorialModal spo_number={historialModal} historial={historial} onClose={() => setHistorialModal(null)} />}
       {showRechazados && <RechazadosModal items={rejectedPos} onClose={() => setShowRechazados(false)} onDelete={deleteRejectedPo} />}
 
       <div className="dash-hdr mb14">
@@ -276,7 +451,17 @@ export default function FactPOs() {
                   <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A' }}>{fmtCOP(po.valor, po.moneda)}</td>
                   <td style={{ padding: '7px 10px', fontSize: 10, color: '#555', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{po.supplier_name || '—'}</td>
                   <td style={{ padding: '7px 10px' }}>
-                    {po.pdf_url ? <a href={po.pdf_url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontSize: 10, fontWeight: 600 }}>Ver PDF</a> : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {po.pdf_url ? <a href={po.pdf_url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontSize: 10, fontWeight: 600 }}>Ver PDF</a> : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
+                      {historialMap[po.spo_number] && (
+                        <span
+                          onClick={() => setHistorialModal(po.spo_number)}
+                          style={{ fontSize: 9, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          Actualizado · {new Date(historialMap[po.spo_number].changed_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '7px 10px' }}>
                     {!isViewer && <button onClick={() => setEditPO(po)} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
