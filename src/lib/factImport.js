@@ -132,10 +132,10 @@ export async function parsearExcelFacturas(file) {
     if (idx === 1) return
 
     const spo     = String(row.getCell(2).value ?? '').trim()
-    const ev_key  = String(row.getCell(6).value ?? '').trim()
-    const pct     = Number(row.getCell(7).value)  || 0
-    const num_fac = String(row.getCell(8).value ?? '').trim()
-    const obs      = String(row.getCell(10).value ?? '').trim()
+    const ev_key  = String(row.getCell(7).value ?? '').trim()   // col 7 = Evento Key
+    const pct     = Number(row.getCell(8).value)  || 0          // col 8 = %
+    const num_fac = String(row.getCell(9).value ?? '').trim()   // col 9 = Núm. Factura
+    const obs     = String(row.getCell(11).value ?? '').trim()  // col 11 = Observaciones
 
     if (!num_fac) return  // fila vacía → ignorar
 
@@ -144,7 +144,7 @@ export async function parsearExcelFacturas(file) {
       return
     }
 
-    const fecha = parseFechaCell(row.getCell(9).value)
+    const fecha = parseFechaCell(row.getCell(10).value)  // col 10 = Fecha Factura
 
     items.push({
       spo_number:     spo,
