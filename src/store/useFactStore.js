@@ -308,16 +308,22 @@ export function buildInvoicesMap(invoices) {
 }
 
 export function getEventosRow(row, invMap) {
-  if (!row.sgr) return []
+  if (!row.sgr) {
+    // Sin GR: mostrar solo facturas de acuerdo especial registradas antes de tener GR
+    return EVENTOS
+      .map(e => ({ e, inv: invMap[`${row.spo_number}|${e.key}`] }))
+      .filter(({ inv }) => inv?.absorbed)
+      .map(({ e, inv }) => ({ ...e, pct: inv.pct || 100, invoiceable_pct: inv.pct || 100, invoice: inv, status: 'facturado' }))
+  }
 
-  // Tras facturar el acuerdo, los eventos normales sólo pueden cobrar lo que queda hasta 100%
   let remaining = 100 - (row.acuerdo_liberacion || 0)
 
   return EVENTOS
-    .filter(e => row[e.pctCol] > 0)
+    .filter(e => row[e.pctCol] > 0 || invMap[`${row.spo_number}|${e.key}`]?.absorbed)
     .map(e => {
       const inv    = invMap[`${row.spo_number}|${e.key}`]
-      const rawPct = row[e.pctCol]
+      // Si el PPA no tiene % pero hay acuerdo especial, usar el pct de la factura
+      const rawPct = row[e.pctCol] || (inv?.absorbed ? (inv.pct || 100) : 0)
 
       let invoiceablePct = rawPct
       if (e.key !== 'acuerdo') {

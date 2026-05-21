@@ -346,7 +346,7 @@ export default function FactFacturado() {
                         {catItems.map(({ row, eventos }) =>
                           eventos.map((ev, i) => {
                             const poData = pos.find(p => p.spo_number === row.spo_number)
-                            const valor  = poData?.valor && !ev.invoice?.absorbed ? poData.valor * ev.invoiceable_pct / 100 : null
+                            const valor  = poData?.valor ? poData.valor * ev.invoiceable_pct / 100 : null
                             return (
                               <tr key={`${row.spo_number}|${ev.key}`} style={{ borderTop: '1px solid #f0f0f0', background: '#fff' }}>
                                 {i === 0 && (

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, Fragment } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAckStore }  from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
@@ -119,15 +119,28 @@ function HitoBadge({ ssDate, status }) {
   return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
 }
 
-function HitoBar({ label, pct, color, status }) {
+function HitoBar({ label, pct, color, status, onClick }) {
+  const [hovered, setHovered] = useState(false)
   if (status === 'done') return (
     <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
       ✓ {label}
     </span>
   )
   if (status === 'ready') return (
-    <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-      ● {label}
+    <span
+      onClick={onClick}
+      onMouseEnter={() => onClick && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? '#fee2e2' : '#fef3c7',
+        color:      hovered ? '#991b1b' : '#92400e',
+        border:     hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
+        borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
+        whiteSpace: 'nowrap', cursor: onClick ? 'pointer' : 'default',
+        transition: 'all .15s',
+      }}
+    >
+      {hovered ? '+ Registrar' : `● ${label}`}
     </span>
   )
   return (
@@ -216,6 +229,62 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
   )
 }
 
+function AcuerdoEspecialModal({ row, onClose, onSave }) {
+  const [form, setForm] = useState({ numero_factura: '', fecha_factura: '', observaciones: '' })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!form.numero_factura.trim()) { showToast('Ingresa el número de factura', 'err'); return }
+    setSaving(true)
+    try {
+      await onSave({
+        spo_number:     row.spo_number,
+        evento:         'servicio',
+        pct:            100,
+        numero_factura: form.numero_factura.trim(),
+        fecha_factura:  form.fecha_factura || null,
+        observaciones:  form.observaciones || null,
+        absorbed:       true,
+      })
+      showToast('Acuerdo especial registrado')
+      onClose()
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Acuerdo Especial</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 6 }}>{row.customer_site_name} · SPO {row.spo_number}</div>
+        <div style={{ fontSize: 10, color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '6px 10px', marginBottom: 16 }}>
+          {row.ms_name} · Facturado por acuerdo especial sin registro en PPA
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="fg">
+            <label className="fl">Número de Factura *</label>
+            <input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" />
+          </div>
+          <div className="fg">
+            <label className="fl">Fecha de Factura</label>
+            <input type="date" className="fc" value={form.fecha_factura} onChange={e => setForm(f => ({ ...f, fecha_factura: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl">Observaciones</label>
+            <input className="fc" value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Opcional" />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: saving ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: saving ? .6 : 1 }}>
+            {saving ? 'Guardando…' : '✓ Registrar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FactPorFacturar() {
   const ppa              = useFactStore(s => s.ppa)
   const invoices         = useFactStore(s => s.invoices)
@@ -247,6 +316,7 @@ export default function FactPorFacturar() {
 
   const [search,    setSearch]    = useState('')
   const [filtroEv,  setFiltroEv]  = useState('todos')
+  const [acuerdoModal, setAcuerdoModal] = useState(null)  // row para AcuerdoEspecialModal
   const [modal,     setModal]     = useState(null)
   const [importing,  setImporting]  = useState(false)
   const importRef = useRef(null)
@@ -425,8 +495,12 @@ export default function FactPorFacturar() {
     const pendienteLib  = []
     const bloqueadoAck  = []
     const noCompletados = []
+  const IMPL_MS = new Set(['SS MOS ok', 'SS Integracion ok', 'SS Aceptacion final ok', 'SS Instalacion ok'])
+
     for (const item of libRows) {
-      if (item.cat.key !== 'impl') continue  // solo Implementación en No Completados
+      if (item.cat.key !== 'impl') continue
+      if (!IMPL_MS.has(item.row.ms_name)) continue  // solo hitos de implementación Nokia
+      if (invMap[`${item.row.spo_number}|servicio`]) continue  // ya tiene factura registrada
       const r = rolloutMap.get((item.row.smp_id || '').toUpperCase())
       if (!r) { noCompletados.push({ ...item, rollout: null }); continue }
       const ms = item.row.ms_name
@@ -567,6 +641,7 @@ export default function FactPorFacturar() {
   return (
     <>
       {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
+      {acuerdoModal && <AcuerdoEspecialModal row={acuerdoModal} onClose={() => setAcuerdoModal(null)} onSave={registrarFactura} />}
 
       <div className="dash-hdr mb14">
         <div>
@@ -822,9 +897,8 @@ export default function FactPorFacturar() {
                     {noCompletadosBySite.map(({ siteName, smps, totalPct }) => {
                       const isExpanded = expandedSites.has(siteName)
                       return (
-                        <>
+                        <Fragment key={siteName}>
                           <tr
-                            key={`site-${siteName}`}
                             onClick={() => toggleSite(siteName)}
                             style={{ cursor: 'pointer', background: '#fffbeb', borderTop: '2px solid #fde68a' }}
                           >
@@ -846,29 +920,35 @@ export default function FactPorFacturar() {
                               </div>
                             </td>
                           </tr>
-                          {isExpanded && smps.map(({ row, missing, rollout }) => (
-                            <tr key={`smp-${row.spo_number}`} style={{ borderTop: '1px solid #fef9ee', background: '#fefdf9' }}>
-                              <td style={{ padding: '6px 10px 6px 26px', fontFamily: 'monospace', fontSize: 9, color: '#555' }}>{row.smp_id}</td>
-                              <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>
-                                {row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}
-                              </td>
-                              <td style={{ padding: '6px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
-                              <td style={{ padding: '6px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
-                              <td style={{ padding: '6px 10px' }}><MissingBadge missing={missing} /></td>
-                              <td style={{ padding: '6px 10px' }}>
-                                {rollout ? (
-                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                    <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" status={getHitoBarStatus(row.smp_id, 'SS MOS ok', rollout.mosPct)} />
-                                    {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" status={getHitoBarStatus(row.smp_id, 'SS Integracion ok', rollout.intgPct)} />}
-                                    {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" status={getHitoBarStatus(row.smp_id, 'SS Aceptacion final ok', rollout.acepPct)} />}
-                                  </div>
-                                ) : (
-                                  <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>Sin datos Rollout</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </>
+                          {isExpanded && smps.map(({ row, missing, rollout }) => {
+                            const onHitoClick = !isViewer ? ms => {
+                              const r = ppaByHito.get(`${row.smp_id}|${ms}`) || row
+                              setAcuerdoModal(r)
+                            } : null
+                            return (
+                              <tr key={`smp-${row.spo_number}`} style={{ borderTop: '1px solid #fef9ee', background: '#fefdf9' }}>
+                                <td style={{ padding: '6px 10px 6px 26px', fontFamily: 'monospace', fontSize: 9, color: '#555' }}>{row.smp_id}</td>
+                                <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>
+                                  {row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}
+                                </td>
+                                <td style={{ padding: '6px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
+                                <td style={{ padding: '6px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
+                                <td style={{ padding: '6px 10px' }}><MissingBadge missing={missing} /></td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  {rollout ? (
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                      <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" status={getHitoBarStatus(row.smp_id, 'SS MOS ok', rollout.mosPct)} onClick={onHitoClick ? () => onHitoClick('SS MOS ok') : undefined} />
+                                      {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" status={getHitoBarStatus(row.smp_id, 'SS Integracion ok', rollout.intgPct)} onClick={onHitoClick ? () => onHitoClick('SS Integracion ok') : undefined} />}
+                                      {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" status={getHitoBarStatus(row.smp_id, 'SS Aceptacion final ok', rollout.acepPct)} onClick={onHitoClick ? () => onHitoClick('SS Aceptacion final ok') : undefined} />}
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>Sin datos Rollout</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </Fragment>
                       )
                     })}
                   </tbody>
