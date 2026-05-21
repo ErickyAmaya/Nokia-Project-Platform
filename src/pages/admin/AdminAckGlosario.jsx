@@ -94,10 +94,35 @@ export default function AdminAckGlosario() {
     e.preventDefault()
     if (!form.gap.trim() || !form.area.trim()) { showToast('Gap y Área son obligatorios', 'err'); return }
     setAdding(true)
+    const seq  = form.secuencia ? Number(form.secuencia) : null
+    const area = form.area.trim()
+
+    // Si hay secuencia y ya existe en esa área, desplazar los estados con seq >= nueva
+    if (seq !== null) {
+      const conflict = rows.some(r => r.area === area && r.secuencia === seq)
+      if (conflict) {
+        const { error: shiftErr } = await supabase.rpc('shift_ack_glosario_seq', {
+          p_area: area,
+          p_from: seq,
+        })
+        if (shiftErr) {
+          showToast('Error al reordenar secuencias: ' + shiftErr.message, 'err')
+          setAdding(false)
+          return
+        }
+        // Actualizar secuencias en estado local
+        setRows(prev => prev.map(r =>
+          r.area === area && r.secuencia !== null && r.secuencia >= seq
+            ? { ...r, secuencia: r.secuencia + 1 }
+            : r
+        ))
+      }
+    }
+
     const { data, error } = await supabase.from('ack_glosario').insert({
       gap:              form.gap.trim(),
-      area:             form.area.trim(),
-      secuencia:        form.secuencia ? Number(form.secuencia) : null,
+      area,
+      secuencia:        seq,
       descripcion:      form.descripcion.trim() || null,
       gestion:          form.gestion.trim() || null,
       se_puede_liberar: form.se_puede_liberar,
