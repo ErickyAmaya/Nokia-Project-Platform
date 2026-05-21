@@ -117,7 +117,17 @@ function HitoBadge({ ssDate, status }) {
   return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
 }
 
-function HitoBar({ label, pct, color }) {
+function HitoBar({ label, pct, color, status }) {
+  if (status === 'done') return (
+    <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      ✓ {label}
+    </span>
+  )
+  if (status === 'ready') return (
+    <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      ● {label}
+    </span>
+  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 72 }}>
       <div style={{ fontSize: 8, color: '#6b7280', fontWeight: 600 }}>{label}</div>
@@ -402,13 +412,27 @@ export default function FactPorFacturar() {
     return { pendienteLib, noCompletados }
   }, [libRows, rolloutMap])
 
+  const rowsSpoSet  = useMemo(() => new Set(rows.map(r => r.row.spo_number)), [rows])
+  const libSpoSet   = useMemo(() => new Set(libRows.map(r => r.row.spo_number)), [libRows])
+  const ppaByHito   = useMemo(() => new Map(ppa.map(r => [`${r.smp_id}|${r.ms_name}`, r])), [ppa])
+
+  // Returns 'done' (facturado), 'ready' (100% sin facturar), or null (en progreso)
+  function getHitoBarStatus(smpId, msName, pct) {
+    if (pct < 100) return null
+    const r = ppaByHito.get(`${smpId}|${msName}`)
+    if (!r) return 'ready'
+    if (libSpoSet.has(r.spo_number) || rowsSpoSet.has(r.spo_number)) return 'ready'
+    if (r.sgr) {
+      const evs = getEventosRow(r, invMap)
+      if (evs.length > 0 && evs.every(e => e.status === 'facturado')) return 'done'
+    }
+    return 'ready'
+  }
+
   // Build one row per SMP with hito status for display and export
   const pendienteLibBySmp = useMemo(() => {
-    const rowsSpoSet = new Set(rows.map(r => r.row.spo_number))
-    const libSpoSet  = new Set(libRows.map(r => r.row.spo_number))
-
     function hitoStatus(smpId, msName) {
-      const r = ppa.find(p => p.smp_id === smpId && p.ms_name === msName)
+      const r = ppaByHito.get(`${smpId}|${msName}`)
       if (!r) return null
       if (libSpoSet.has(r.spo_number))  return 'pendiente'
       if (rowsSpoSet.has(r.spo_number)) return 'por_facturar'
@@ -440,7 +464,7 @@ export default function FactPorFacturar() {
       result.push({ ...item, hitoMOS, hitoIntg, hitoAcep })
     }
     return result
-  }, [pendienteLib, rows, libRows, ppa, invMap])
+  }, [pendienteLib, rowsSpoSet, libSpoSet, ppaByHito, invMap])
 
   // Group noCompletados by site, dedup SMPs within each site, sort by total progress % DESC
   const noCompletadosBySite = useMemo(() => {
@@ -744,10 +768,10 @@ export default function FactPorFacturar() {
                               <td style={{ padding: '6px 10px' }}><MissingBadge missing={missing} /></td>
                               <td style={{ padding: '6px 10px' }}>
                                 {rollout ? (
-                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" />
-                                    {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" />}
-                                    {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" />}
+                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" status={getHitoBarStatus(row.smp_id, 'SS MOS ok', rollout.mosPct)} />
+                                    {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" status={getHitoBarStatus(row.smp_id, 'SS Integracion ok', rollout.intgPct)} />}
+                                    {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" status={getHitoBarStatus(row.smp_id, 'SS Aceptacion final ok', rollout.acepPct)} />}
                                   </div>
                                 ) : (
                                   <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>Sin datos Rollout</span>
