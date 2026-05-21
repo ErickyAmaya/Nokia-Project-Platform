@@ -215,6 +215,7 @@ export default function FactPorFacturar() {
   const user       = useAuthStore(s => s.user)
   const isViewer   = user?.role === 'viewer'
   const canUploadRollout = ['admin', 'coordinador'].includes(user?.role)
+  const canClearRollout  = user?.role === 'admin'
 
   const [search,    setSearch]    = useState('')
   const [filtroEv,  setFiltroEv]  = useState('todos')
@@ -642,7 +643,7 @@ export default function FactPorFacturar() {
                 <span style={{ fontSize: 10, color: '#6b7280' }}>
                   {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
-                {canUploadRollout && (
+                {canClearRollout && (
                   <button
                     onClick={handleClearRollout}
                     style={{ fontSize: 10, color: '#9ca3af', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}
