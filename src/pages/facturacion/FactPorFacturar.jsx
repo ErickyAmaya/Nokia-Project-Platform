@@ -420,12 +420,13 @@ export default function FactPorFacturar() {
     (ackGlosario || []).filter(r => r.area === 'ONAIR').map(r => r.gap)
   ), [ackGlosario])
 
-  // Split libRows per hito: pendienteLib / bloqueadoAck / noCompletados
+  // Split libRows per hito: pendienteLib / bloqueadoAck / noCompletados (solo impl)
   const { pendienteLib, bloqueadoAck, noCompletados } = useMemo(() => {
     const pendienteLib  = []
     const bloqueadoAck  = []
     const noCompletados = []
     for (const item of libRows) {
+      if (item.cat.key !== 'impl') continue  // solo Implementación en No Completados
       const r = rolloutMap.get((item.row.smp_id || '').toUpperCase())
       if (!r) { noCompletados.push({ ...item, rollout: null }); continue }
       const ms = item.row.ms_name
