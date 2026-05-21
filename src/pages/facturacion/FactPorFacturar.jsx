@@ -410,6 +410,17 @@ export default function FactPorFacturar() {
     return result
   }, [ppa, invMap, search])
 
+  // Mapa ACK: smp_id → { gap_hw_cierre, gap_on_air }
+  const ackMap = useMemo(() => new Map(sabana.map(r => [r.smp_id, r])), [sabana])
+
+  // Sets de estados bloqueantes por área (desde glosario)
+  const hwCierreBlocking = useMemo(() => new Set(
+    (ackGlosario || []).filter(r => r.area === 'HW_Cierre').map(r => r.gap)
+  ), [ackGlosario])
+  const onAirBlocking = useMemo(() => new Set(
+    (ackGlosario || []).filter(r => r.area === 'ONAIR' || r.area === 'OnAir').map(r => r.gap)
+  ), [ackGlosario])
+
   // Split libRows per hito: pendienteLib / bloqueadoAck / noCompletados
   const { pendienteLib, bloqueadoAck, noCompletados } = useMemo(() => {
     const pendienteLib  = []
@@ -447,17 +458,6 @@ export default function FactPorFacturar() {
   const rowsSpoSet  = useMemo(() => new Set(rows.map(r => r.row.spo_number)), [rows])
   const libSpoSet   = useMemo(() => new Set(libRows.map(r => r.row.spo_number)), [libRows])
   const ppaByHito   = useMemo(() => new Map(ppa.map(r => [`${r.smp_id}|${r.ms_name}`, r])), [ppa])
-
-  // Mapa ACK: smp_id → { gap_hw_cierre, gap_on_air }
-  const ackMap = useMemo(() => new Map(sabana.map(r => [r.smp_id, r])), [sabana])
-
-  // Sets de estados bloqueantes por área (desde glosario)
-  const hwCierreBlocking = useMemo(() => new Set(
-    (ackGlosario || []).filter(r => r.area === 'HW_Cierre').map(r => r.gap)
-  ), [ackGlosario])
-  const onAirBlocking = useMemo(() => new Set(
-    (ackGlosario || []).filter(r => r.area === 'ONAIR' || r.area === 'OnAir').map(r => r.gap)
-  ), [ackGlosario])
 
   // Returns 'done' (facturado), 'ready' (100% sin facturar), or null (en progreso)
   function getHitoBarStatus(smpId, msName, pct) {
