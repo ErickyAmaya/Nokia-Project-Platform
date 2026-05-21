@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
+import { useAckStore }  from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
+import { supabase }     from '../../lib/supabase'
 import { showToast } from '../../components/Toast'
 import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
 import { parsearRollout, saveRolloutData, loadRolloutData, exportarSolicitudLib, saveRolloutToSupabase, loadRolloutFromSupabase } from '../../lib/rolloutImport'
@@ -222,9 +224,26 @@ export default function FactPorFacturar() {
   const registrarFactura = useFactStore(s => s.registrarFactura)
   const importarFacturas = useFactStore(s => s.importarFacturas)
 
+  const sabana = useAckStore(s => s.sabana)
+
   const user       = useAuthStore(s => s.user)
   const isViewer   = user?.role === 'viewer'
   const canUploadRollout = ['admin', 'coordinador'].includes(user?.role)
+
+  // Glosario ACK — estados bloqueantes (cache en localStorage)
+  const [ackGlosario, setAckGlosario] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ack_glosario_v1') || 'null') } catch { return null }
+  })
+  useEffect(() => {
+    supabase.from('ack_glosario').select('gap, area, se_puede_liberar')
+      .eq('se_puede_liberar', false)
+      .then(({ data }) => {
+        if (data) {
+          setAckGlosario(data)
+          try { localStorage.setItem('ack_glosario_v1', JSON.stringify(data)) } catch {}
+        }
+      })
+  }, [])
 
   const [search,    setSearch]    = useState('')
   const [filtroEv,  setFiltroEv]  = useState('todos')
@@ -391,9 +410,10 @@ export default function FactPorFacturar() {
     return result
   }, [ppa, invMap, search])
 
-  // Split libRows per hito using ms_name: each PO goes to pendienteLib only if ITS specific hito is SS-certified
-  const { pendienteLib, noCompletados } = useMemo(() => {
+  // Split libRows per hito: pendienteLib / bloqueadoAck / noCompletados
+  const { pendienteLib, bloqueadoAck, noCompletados } = useMemo(() => {
     const pendienteLib  = []
+    const bloqueadoAck  = []
     const noCompletados = []
     for (const item of libRows) {
       const r = rolloutMap.get((item.row.smp_id || '').toUpperCase())
@@ -403,18 +423,41 @@ export default function FactPorFacturar() {
                    : ms === 'SS Integracion ok'      ? r.intgSS
                    : ms === 'SS Aceptacion final ok' ? r.acepSS
                    : null
-      if (hitoSS) {
-        pendienteLib.push({ ...item, rollout: r })
-      } else {
-        noCompletados.push({ ...item, rollout: r })
+      if (!hitoSS) { noCompletados.push({ ...item, rollout: r }); continue }
+
+      // Para Integración: verificar si ACK bloquea
+      if (ms === 'SS Integracion ok' && ackGlosario) {
+        const ack = ackMap.get(item.row.smp_id)
+        const hwBlocked  = ack?.gap_hw_cierre && hwCierreBlocking.has(ack.gap_hw_cierre)
+        const onBlocked  = ack?.gap_on_air    && onAirBlocking.has(ack.gap_on_air)
+        if (hwBlocked || onBlocked) {
+          bloqueadoAck.push({ ...item, rollout: r, ackEstado: {
+            hw_cierre: ack?.gap_hw_cierre || null,
+            on_air:    ack?.gap_on_air    || null,
+            hwBlocked, onBlocked,
+          }})
+          continue
+        }
       }
+      pendienteLib.push({ ...item, rollout: r })
     }
-    return { pendienteLib, noCompletados }
-  }, [libRows, rolloutMap])
+    return { pendienteLib, bloqueadoAck, noCompletados }
+  }, [libRows, rolloutMap, ackGlosario, ackMap, hwCierreBlocking, onAirBlocking])
 
   const rowsSpoSet  = useMemo(() => new Set(rows.map(r => r.row.spo_number)), [rows])
   const libSpoSet   = useMemo(() => new Set(libRows.map(r => r.row.spo_number)), [libRows])
   const ppaByHito   = useMemo(() => new Map(ppa.map(r => [`${r.smp_id}|${r.ms_name}`, r])), [ppa])
+
+  // Mapa ACK: smp_id → { gap_hw_cierre, gap_on_air }
+  const ackMap = useMemo(() => new Map(sabana.map(r => [r.smp_id, r])), [sabana])
+
+  // Sets de estados bloqueantes por área (desde glosario)
+  const hwCierreBlocking = useMemo(() => new Set(
+    (ackGlosario || []).filter(r => r.area === 'HW_Cierre').map(r => r.gap)
+  ), [ackGlosario])
+  const onAirBlocking = useMemo(() => new Set(
+    (ackGlosario || []).filter(r => r.area === 'ONAIR' || r.area === 'OnAir').map(r => r.gap)
+  ), [ackGlosario])
 
   // Returns 'done' (facturado), 'ready' (100% sin facturar), or null (en progreso)
   function getHitoBarStatus(smpId, msName, pct) {
@@ -702,6 +745,52 @@ export default function FactPorFacturar() {
                         <td style={{ padding: '7px 10px' }}><HitoBadge ssDate={hitoIntg.ssDate} status={hitoIntg.status} /></td>
                         <td style={{ padding: '7px 10px' }}><HitoBadge ssDate={hitoAcep.ssDate} status={hitoAcep.status} /></td>
                         <td style={{ padding: '7px 10px' }}><MissingBadge missing={missing} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ── Bloqueados en ACK ── */}
+          {bloqueadoAck.length > 0 && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#991b1b' }}>
+                  Bloqueados en ACK
+                </div>
+                <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                  {bloqueadoAck.length}
+                </span>
+                <div style={{ fontSize: 11, color: '#4b5563' }}>— NDPD al 100% en Integración pero bloqueados por estado ACK</div>
+              </div>
+              <div className="card" style={{ overflow: 'auto', maxHeight: '40vh', marginBottom: 16 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 780 }}>
+                  <thead>
+                    <tr style={{ background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
+                      <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Falta</TH>
+                      <TH>Estado HW_Cierre</TH><TH>Estado OnAir</TH>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bloqueadoAck.map(({ row, cat, missing, ackEstado }) => (
+                      <tr key={`${row.spo_number}|${row.ms_name}`} style={{ borderTop: '1px solid #fef2f2' }}>
+                        <td style={{ padding: '7px 10px', fontWeight: 600 }}>{row.customer_site_name || row.site_reference_id}</td>
+                        <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
+                        <td style={{ padding: '7px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
+                        <td style={{ padding: '7px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
+                        <td style={{ padding: '7px 10px' }}><MissingBadge missing={missing} /></td>
+                        <td style={{ padding: '7px 10px' }}>
+                          {ackEstado.hwBlocked
+                            ? <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', whiteSpace: 'nowrap' }}>{ackEstado.hw_cierre}</span>
+                            : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
+                        </td>
+                        <td style={{ padding: '7px 10px' }}>
+                          {ackEstado.onBlocked
+                            ? <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', whiteSpace: 'nowrap' }}>{ackEstado.on_air}</span>
+                            : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
