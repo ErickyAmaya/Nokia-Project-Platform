@@ -37,6 +37,11 @@ export default function AdminAckGlosario() {
       })
   }, [])
 
+  async function reloadRows() {
+    const { data, error } = await supabase.from('ack_glosario').select('*').order('area').order('secuencia')
+    if (!error && data) setRows(data)
+  }
+
   const byArea = useMemo(() => {
     const map = new Map()
     for (const r of rows) {
@@ -83,21 +88,14 @@ export default function AdminAckGlosario() {
     const { error } = await supabase.from('ack_glosario').delete().eq('id', row.id)
     if (error) { showToast('Error al eliminar: ' + error.message, 'err'); setDeleting(null); return }
 
-    // Shift down los estados que estaban después del eliminado
     if (row.secuencia !== null) {
       const toShift = rows.filter(r => r.id !== row.id && r.area === row.area && r.secuencia !== null && r.secuencia > row.secuencia)
       if (toShift.length > 0) {
         await Promise.all(toShift.map(r => supabase.from('ack_glosario').update({ secuencia: r.secuencia - 1 }).eq('id', r.id)))
-        setRows(prev => prev
-          .filter(r => r.id !== row.id)
-          .map(r => r.area === row.area && r.secuencia !== null && r.secuencia > row.secuencia ? { ...r, secuencia: r.secuencia - 1 } : r)
-        )
-      } else {
-        setRows(prev => prev.filter(r => r.id !== row.id))
       }
-    } else {
-      setRows(prev => prev.filter(r => r.id !== row.id))
     }
+
+    await reloadRows()
     showToast('Estado eliminado')
     setDeleting(null)
   }
@@ -130,21 +128,21 @@ export default function AdminAckGlosario() {
       }
     }
 
-    const { data, error } = await supabase.from('ack_glosario').insert({
+    const { error } = await supabase.from('ack_glosario').insert({
       gap:              form.gap.trim(),
       area,
       secuencia:        seq,
       descripcion:      form.descripcion.trim() || null,
       gestion:          form.gestion.trim() || null,
       se_puede_liberar: form.se_puede_liberar,
-    }).select().single()
+    })
     if (error) {
       showToast('Error al agregar: ' + error.message, 'err')
     } else {
-      setRows(prev => [...prev, data].sort((a, b) => a.area.localeCompare(b.area) || (a.secuencia || 0) - (b.secuencia || 0)))
       setForm(EMPTY_FORM)
       showToast('Estado agregado')
     }
+    await reloadRows()
     setAdding(false)
   }
 
