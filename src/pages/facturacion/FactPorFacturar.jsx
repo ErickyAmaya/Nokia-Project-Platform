@@ -264,14 +264,13 @@ export default function FactPorFacturar() {
     loadRolloutFromSupabase()
       .then(data => {
         if (!data) return
-        // Solo actualizar si Supabase tiene datos más recientes que el cache local
         if (!rolloutTs || data.ts > rolloutTs) {
           setRolloutItems(data.items)
           setRolloutTs(data.ts)
           saveRolloutData(data.items)
         }
       })
-      .catch(() => {})
+      .catch(() => { showToast('No se pudo cargar el Rollout desde Supabase', 'err') })
       .finally(() => setRolloutLoading(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
