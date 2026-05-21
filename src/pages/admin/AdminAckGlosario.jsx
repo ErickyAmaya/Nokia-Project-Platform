@@ -81,12 +81,24 @@ export default function AdminAckGlosario() {
     if (!window.confirm(`¿Eliminar el estado "${row.gap}" (${row.area})?`)) return
     setDeleting(row.id)
     const { error } = await supabase.from('ack_glosario').delete().eq('id', row.id)
-    if (error) {
-      showToast('Error al eliminar: ' + error.message, 'err')
+    if (error) { showToast('Error al eliminar: ' + error.message, 'err'); setDeleting(null); return }
+
+    // Shift down los estados que estaban después del eliminado
+    if (row.secuencia !== null) {
+      const toShift = rows.filter(r => r.id !== row.id && r.area === row.area && r.secuencia !== null && r.secuencia > row.secuencia)
+      if (toShift.length > 0) {
+        await Promise.all(toShift.map(r => supabase.from('ack_glosario').update({ secuencia: r.secuencia - 1 }).eq('id', r.id)))
+        setRows(prev => prev
+          .filter(r => r.id !== row.id)
+          .map(r => r.area === row.area && r.secuencia !== null && r.secuencia > row.secuencia ? { ...r, secuencia: r.secuencia - 1 } : r)
+        )
+      } else {
+        setRows(prev => prev.filter(r => r.id !== row.id))
+      }
     } else {
       setRows(prev => prev.filter(r => r.id !== row.id))
-      showToast('Estado eliminado')
     }
+    showToast('Estado eliminado')
     setDeleting(null)
   }
 
