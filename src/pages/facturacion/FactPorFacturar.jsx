@@ -715,7 +715,7 @@ export default function FactPorFacturar() {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#92400e' }}>
-                  No Completados
+                  No Completados (NDPD)
                 </div>
                 <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
                   {noCompletados.length}
