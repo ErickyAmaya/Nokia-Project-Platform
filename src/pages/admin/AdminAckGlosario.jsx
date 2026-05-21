@@ -99,18 +99,17 @@ export default function AdminAckGlosario() {
 
     // Si hay secuencia y ya existe en esa área, desplazar los estados con seq >= nueva
     if (seq !== null) {
-      const conflict = rows.some(r => r.area === area && r.secuencia === seq)
-      if (conflict) {
-        const { error: shiftErr } = await supabase.rpc('shift_ack_glosario_seq', {
-          p_area: area,
-          p_from: seq,
-        })
+      const toShift = rows.filter(r => r.area === area && r.secuencia !== null && r.secuencia >= seq)
+      if (toShift.length > 0) {
+        const results = await Promise.all(
+          toShift.map(r => supabase.from('ack_glosario').update({ secuencia: r.secuencia + 1 }).eq('id', r.id))
+        )
+        const shiftErr = results.find(r => r.error)?.error
         if (shiftErr) {
           showToast('Error al reordenar secuencias: ' + shiftErr.message, 'err')
           setAdding(false)
           return
         }
-        // Actualizar secuencias en estado local
         setRows(prev => prev.map(r =>
           r.area === area && r.secuencia !== null && r.secuencia >= seq
             ? { ...r, secuencia: r.secuencia + 1 }
@@ -215,7 +214,11 @@ export default function AdminAckGlosario() {
                       <td style={{ padding: '6px 10px', textAlign: 'center' }}>
                         {deleting === row.id
                           ? <span style={{ fontSize: 10, color: '#9ca3af' }}>…</span>
-                          : <button onClick={() => handleDelete(row)} style={{ background: 'none', border: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '0 4px', lineHeight: 1 }} title="Eliminar estado">✕</button>
+                          : <button
+                              onClick={() => handleDelete(row)}
+                              title="Eliminar estado"
+                              style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, lineHeight: 1 }}
+                            >✕</button>
                         }
                       </td>
                     </tr>
