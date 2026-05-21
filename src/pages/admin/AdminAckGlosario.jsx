@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { showToast } from '../../components/Toast'
 
-const AREAS_ORDER = ['HW_Cierre', 'ONAIR', 'OnAir', 'DOC', 'LI', 'LOG_INV', 'SO', 'SO_DEC']
+const AREAS_ORDER = ['HW_Cierre', 'ONAIR', 'DOC', 'LI', 'LOG_INV', 'SO', 'SO_DEC']
 const AREA_COLOR  = {
-  HW_Cierre: '#ef4444', ONAIR: '#0ea5e9', OnAir: '#0ea5e9',
+  HW_Cierre: '#ef4444', ONAIR: '#0ea5e9',
   DOC: '#10b981', LI: '#f59e0b', LOG_INV: '#f59e0b',
   SO: '#8b5cf6', SO_DEC: '#8b5cf6',
 }
@@ -18,11 +18,12 @@ function LibBadge({ value, onClick }) {
 }
 
 export default function AdminAckGlosario() {
-  const [rows,    setRows]    = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving,  setSaving]  = useState(null)  // id being saved
-  const [form,    setForm]    = useState(EMPTY_FORM)
-  const [adding,  setAdding]  = useState(false)
+  const [rows,      setRows]      = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [saving,    setSaving]    = useState(null)   // id being saved
+  const [deleting,  setDeleting]  = useState(null)   // id being deleted
+  const [form,      setForm]      = useState(EMPTY_FORM)
+  const [adding,    setAdding]    = useState(false)
   const [filtroArea, setFiltroArea] = useState('todos')
 
   useEffect(() => {
@@ -74,6 +75,19 @@ export default function AdminAckGlosario() {
       setRows(prev => prev.map(r => r.id === row.id ? { ...r, se_puede_liberar: next } : r))
     }
     setSaving(null)
+  }
+
+  async function handleDelete(row) {
+    if (!window.confirm(`¿Eliminar el estado "${row.gap}" (${row.area})?`)) return
+    setDeleting(row.id)
+    const { error } = await supabase.from('ack_glosario').delete().eq('id', row.id)
+    if (error) {
+      showToast('Error al eliminar: ' + error.message, 'err')
+    } else {
+      setRows(prev => prev.filter(r => r.id !== row.id))
+      showToast('Estado eliminado')
+    }
+    setDeleting(null)
   }
 
   async function handleAdd(e) {
@@ -157,6 +171,7 @@ export default function AdminAckGlosario() {
                     <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10 }}>Descripción</th>
                     <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, whiteSpace: 'nowrap' }}>Gestión</th>
                     <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: '#555', fontSize: 10, whiteSpace: 'nowrap' }}>Se puede liberar</th>
+                    <th style={{ padding: '6px 10px', width: 32 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -170,6 +185,12 @@ export default function AdminAckGlosario() {
                         {saving === row.id
                           ? <span style={{ fontSize: 10, color: '#9ca3af' }}>…</span>
                           : <LibBadge value={row.se_puede_liberar} onClick={() => cycleValue(row)} />
+                        }
+                      </td>
+                      <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                        {deleting === row.id
+                          ? <span style={{ fontSize: 10, color: '#9ca3af' }}>…</span>
+                          : <button onClick={() => handleDelete(row)} style={{ background: 'none', border: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '0 4px', lineHeight: 1 }} title="Eliminar estado">✕</button>
                         }
                       </td>
                     </tr>

@@ -418,7 +418,7 @@ export default function FactPorFacturar() {
     (ackGlosario || []).filter(r => r.area === 'HW_Cierre').map(r => r.gap)
   ), [ackGlosario])
   const onAirBlocking = useMemo(() => new Set(
-    (ackGlosario || []).filter(r => r.area === 'ONAIR' || r.area === 'OnAir').map(r => r.gap)
+    (ackGlosario || []).filter(r => r.area === 'ONAIR').map(r => r.gap)
   ), [ackGlosario])
 
   // Split libRows per hito: pendienteLib / bloqueadoAck / noCompletados
