@@ -227,7 +227,9 @@ export default function AdminAckGlosario() {
                           : <button
                               onClick={() => handleDelete(row)}
                               title="Eliminar estado"
-                              style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, lineHeight: 1 }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#dc2626' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#9ca3af' }}
+                              style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#9ca3af', cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, lineHeight: 1 }}
                             >✕</button>
                         }
                       </td>
