@@ -105,7 +105,7 @@ const PO_FIELDS = [
   { key: 'doc_date',        label: 'Fecha PO',          fmt: v => v || '—' },
 ]
 
-function UpdateConfirmModal({ preview, invoices, uploading, onClose, onConfirm }) {
+function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueIndex, onClose, onConfirm }) {
   const { extracted, existing, changes } = preview
   const hasChanges  = Object.keys(changes).length > 0
   const hasInvoices = invoices.some(inv => inv.spo_number === existing.spo_number)
@@ -113,7 +113,14 @@ function UpdateConfirmModal({ preview, invoices, uploading, onClose, onConfirm }
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 540, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Actualización de PO</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700 }}>Actualización de PO</div>
+          {queueTotal > 1 && (
+            <span style={{ fontSize: 10, fontWeight: 700, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px' }}>
+              {queueTotal - queueIndex} de {queueTotal}
+            </span>
+          )}
+        </div>
         <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 16 }}>SPO {extracted.spo_number} · ya existe un registro en la plataforma</div>
 
         <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', marginBottom: 14 }}>
@@ -159,7 +166,9 @@ function UpdateConfirmModal({ preview, invoices, uploading, onClose, onConfirm }
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
-          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>
+            {queueTotal > 1 ? 'Omitir' : 'Cancelar'}
+          </button>
           <button onClick={onConfirm} disabled={uploading} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: uploading ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: uploading ? .6 : 1 }}>
             {uploading ? '⏳ Actualizando…' : '✓ Confirmar actualización'}
           </button>
@@ -232,7 +241,8 @@ export default function FactPOs() {
 
   const [search,          setSearch]          = useState('')
   const [editPO,          setEditPO]          = useState(null)
-  const [updatePreview,   setUpdatePreview]   = useState(null)  // { file, extracted, existing, changes }
+  const [updatePreview,   setUpdatePreview]   = useState(null)   // { file, extracted, existing, changes }
+  const [pendingUpdates,  setPendingUpdates]  = useState([])    // cola de POs existentes por confirmar
   const [historialModal,  setHistorialModal]  = useState(null)  // spo_number
   const [showRechazados,  setShowRechazados]  = useState(false)
   const [sinPdfExpanded,  setSinPdfExpanded]  = useState(false)
@@ -278,14 +288,26 @@ export default function FactPOs() {
     if (ok)      showToast(`${ok} PO${ok > 1 ? 's' : ''} cargada${ok > 1 ? 's' : ''}`)
     if (lastErr) showToast(`Error al leer PDF: ${lastErr}`, 'err')
 
-    // POs existentes: mostrar modal de confirmación (primera de la lista)
-    if (existingPOs.length > 1) {
-      showToast(`${existingPOs.length} POs ya existen — confírmalas una a la vez`, 'err')
+    // POs existentes: encolar y mostrar modal para la primera
+    if (existingPOs.length > 0) {
+      const queue = existingPOs.map(({ file, extracted }) => {
+        const existing = pos.find(p => p.spo_number === extracted.spo_number)
+        return { file, extracted, existing, changes: computeChanges(existing, extracted) }
+      })
+      if (queue.length > 1) showToast(`${queue.length} POs ya existen — confírmalas una a una`, 'err')
+      const [first, ...rest] = queue
+      setUpdatePreview(first)
+      setPendingUpdates(rest)
     }
-    if (existingPOs.length >= 1) {
-      const { file, extracted } = existingPOs[0]
-      const existing = pos.find(p => p.spo_number === extracted.spo_number)
-      setUpdatePreview({ file, extracted, existing, changes: computeChanges(existing, extracted) })
+  }
+
+  function advanceUpdateQueue() {
+    if (pendingUpdates.length > 0) {
+      const [next, ...rest] = pendingUpdates
+      setUpdatePreview(next)
+      setPendingUpdates(rest)
+    } else {
+      setUpdatePreview(null)
     }
   }
 
@@ -293,11 +315,12 @@ export default function FactPOs() {
     if (!updatePreview) return
     const result = await confirmarActualizacionPO({ ...updatePreview, changedBy: user?.email })
     if (result.ok) {
-      showToast('PO actualizada correctamente')
-      setUpdatePreview(null)
+      const remaining = pendingUpdates.length
+      showToast(`PO actualizada${remaining > 0 ? ` — ${remaining} pendiente${remaining !== 1 ? 's' : ''}` : ' correctamente'}`)
     } else {
       showToast('Error al actualizar: ' + result.error, 'err')
     }
+    advanceUpdateQueue()
   }
 
   const historialMap = useMemo(() => {
@@ -349,7 +372,7 @@ export default function FactPOs() {
   return (
     <>
       {editPO && <EditModal po={editPO} onClose={() => setEditPO(null)} onSave={actualizarPO} />}
-      {updatePreview && <UpdateConfirmModal preview={updatePreview} invoices={invoices} uploading={uploading} onClose={() => setUpdatePreview(null)} onConfirm={handleConfirmarActualizacion} />}
+      {updatePreview && <UpdateConfirmModal preview={updatePreview} invoices={invoices} uploading={uploading} queueTotal={pendingUpdates.length + 1} queueIndex={pendingUpdates.length} onClose={advanceUpdateQueue} onConfirm={handleConfirmarActualizacion} />}
       {historialModal && <HistorialModal spo_number={historialModal} historial={historial} onClose={() => setHistorialModal(null)} />}
       {showRechazados && <RechazadosModal items={rejectedPos} onClose={() => setShowRechazados(false)} onDelete={deleteRejectedPo} />}
 
