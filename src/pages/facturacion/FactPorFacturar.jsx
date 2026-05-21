@@ -3,7 +3,7 @@ import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
-import { parsearRollout, saveRolloutData, loadRolloutData, clearRolloutData, exportarSolicitudLib } from '../../lib/rolloutImport'
+import { parsearRollout, saveRolloutData, loadRolloutData, clearRolloutData, exportarSolicitudLib, saveRolloutToSupabase, loadRolloutFromSupabase, clearRolloutFromSupabase } from '../../lib/rolloutImport'
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
 
@@ -212,7 +212,9 @@ export default function FactPorFacturar() {
   const registrarFactura = useFactStore(s => s.registrarFactura)
   const importarFacturas = useFactStore(s => s.importarFacturas)
 
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const user       = useAuthStore(s => s.user)
+  const isViewer   = user?.role === 'viewer'
+  const canUploadRollout = ['admin', 'coordinador'].includes(user?.role)
 
   const [search,    setSearch]    = useState('')
   const [filtroEv,  setFiltroEv]  = useState('todos')
@@ -223,8 +225,26 @@ export default function FactPorFacturar() {
   const _savedRollout               = useMemo(() => loadRolloutData(), [])
   const [rolloutItems, setRolloutItems] = useState(() => _savedRollout?.items || null)
   const [rolloutTs,    setRolloutTs]    = useState(() => _savedRollout?.ts    || null)
+  const [rolloutLoading, setRolloutLoading] = useState(false)
   const [expandedSites, setExpandedSites] = useState(new Set())
   const rolloutRef = useRef(null)
+
+  // Cargar Rollout desde Supabase al montar (fuente de verdad compartida)
+  useEffect(() => {
+    setRolloutLoading(true)
+    loadRolloutFromSupabase()
+      .then(data => {
+        if (!data) return
+        // Solo actualizar si Supabase tiene datos más recientes que el cache local
+        if (!rolloutTs || data.ts > rolloutTs) {
+          setRolloutItems(data.items)
+          setRolloutTs(data.ts)
+          saveRolloutData(data.items)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setRolloutLoading(false))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -236,22 +256,29 @@ export default function FactPorFacturar() {
   async function handleRolloutUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setRolloutLoading(true)
     try {
       const items = await parsearRollout(file)
+      await saveRolloutToSupabase(items, user?.email)
       saveRolloutData(items)
       setRolloutItems(items)
       setRolloutTs(Date.now())
       showToast(`Rollout cargado: ${items.length} SMPs`)
     } catch (err) {
-      showToast('Error al leer Rollout: ' + err.message, 'err')
-    } finally { e.target.value = '' }
+      showToast('Error al cargar Rollout: ' + err.message, 'err')
+    } finally { e.target.value = ''; setRolloutLoading(false) }
   }
 
-  function handleClearRollout() {
-    clearRolloutData()
-    setRolloutItems(null)
-    setRolloutTs(null)
-    setExpandedSites(new Set())
+  async function handleClearRollout() {
+    try {
+      await clearRolloutFromSupabase()
+      clearRolloutData()
+      setRolloutItems(null)
+      setRolloutTs(null)
+      setExpandedSites(new Set())
+    } catch {
+      showToast('Error al limpiar Rollout', 'err')
+    }
   }
 
   async function handleExportSolicitud() {
@@ -598,29 +625,38 @@ export default function FactPorFacturar() {
         <>
           {/* ── Widget de carga Rollout Details ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => rolloutRef.current?.click()}
-              style={{ fontSize: 11, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
-            >
-              {rolloutItems ? '↺ Actualizar Rollout' : '↑ Cargar Rollout Details'}
-            </button>
-            <input ref={rolloutRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleRolloutUpload} />
+            {canUploadRollout && (
+              <>
+                <button
+                  onClick={() => rolloutRef.current?.click()}
+                  disabled={rolloutLoading}
+                  style={{ fontSize: 11, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: '5px 12px', cursor: rolloutLoading ? 'default' : 'pointer', fontWeight: 600, whiteSpace: 'nowrap', opacity: rolloutLoading ? .6 : 1 }}
+                >
+                  {rolloutLoading ? '⏳ Cargando…' : rolloutItems ? '↺ Actualizar Rollout' : '↑ Cargar Rollout Details'}
+                </button>
+                <input ref={rolloutRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleRolloutUpload} />
+              </>
+            )}
             {rolloutItems ? (
               <>
                 <span style={{ fontSize: 10, color: '#6b7280' }}>
                   {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
-                <button
-                  onClick={handleClearRollout}
-                  style={{ fontSize: 10, color: '#9ca3af', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}
-                >
-                  ✕ Limpiar
-                </button>
+                {canUploadRollout && (
+                  <button
+                    onClick={handleClearRollout}
+                    style={{ fontSize: 10, color: '#9ca3af', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}
+                  >
+                    ✕ Limpiar
+                  </button>
+                )}
               </>
             ) : (
-              <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>
-                Carga el Rollout Details para separar SMPs certificados por Nokia
-              </span>
+              !rolloutLoading && (
+                <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>
+                  {canUploadRollout ? 'Carga el Rollout Details para separar SMPs certificados por Nokia' : 'Sin datos de Rollout — contacta a un coordinador para cargar el archivo'}
+                </span>
+              )
             )}
           </div>
 

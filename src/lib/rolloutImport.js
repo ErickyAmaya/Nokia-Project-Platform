@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 const LS_KEY = 'rollout_nokia_data'
 
 // Column numbers are 1-based (ExcelJS convention)
@@ -79,6 +81,38 @@ export function loadRolloutData() {
 
 export function clearRolloutData() {
   try { localStorage.removeItem(LS_KEY) } catch {}
+}
+
+// ── Supabase persistence ──────────────────────────────────────────
+
+export async function saveRolloutToSupabase(items, uploadedBy) {
+  // Borrar el upload anterior y guardar el nuevo
+  await supabase.from('rollout_uploads').delete().gte('uploaded_at', '2000-01-01T00:00:00Z')
+  const { error } = await supabase.from('rollout_uploads').insert({
+    uploaded_by:  uploadedBy || null,
+    items_count:  items.length,
+    items,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function loadRolloutFromSupabase() {
+  const { data, error } = await supabase
+    .from('rollout_uploads')
+    .select('uploaded_at, uploaded_by, items_count, items')
+    .order('uploaded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return {
+    items:      data.items,
+    ts:         new Date(data.uploaded_at).getTime(),
+    uploadedBy: data.uploaded_by,
+  }
+}
+
+export async function clearRolloutFromSupabase() {
+  await supabase.from('rollout_uploads').delete().gte('uploaded_at', '2000-01-01T00:00:00Z')
 }
 
 export async function exportarSolicitudLib(smps) {
