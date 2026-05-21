@@ -228,6 +228,7 @@ export default function FactPorFacturar() {
   const [rolloutTs,    setRolloutTs]    = useState(() => _savedRollout?.ts    || null)
   const [rolloutLoading, setRolloutLoading] = useState(false)
   const [expandedSites, setExpandedSites] = useState(new Set())
+  const [confirmLimpiar, setConfirmLimpiar] = useState(false)
   const rolloutRef = useRef(null)
 
   // Cargar Rollout desde Supabase al montar (fuente de verdad compartida)
@@ -271,12 +272,14 @@ export default function FactPorFacturar() {
   }
 
   async function handleClearRollout() {
+    setConfirmLimpiar(false)
     try {
       await clearRolloutFromSupabase()
       clearRolloutData()
       setRolloutItems(null)
       setRolloutTs(null)
       setExpandedSites(new Set())
+      showToast('Rollout eliminado')
     } catch {
       showToast('Error al limpiar Rollout', 'err')
     }
@@ -512,6 +515,20 @@ export default function FactPorFacturar() {
 
   return (
     <>
+      {confirmLimpiar && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#b91c1c' }}>Limpiar Rollout</div>
+            <p style={{ fontSize: 12, color: '#4b5563', margin: '0 0 20px' }}>
+              Esta acción eliminará el Rollout de Supabase. Todos los usuarios dejarán de ver <strong>Pendiente Liberación</strong> hasta que se cargue un nuevo archivo. ¿Confirmas?
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmLimpiar(false)} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+              <button onClick={handleClearRollout} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Sí, limpiar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
 
       <div className="dash-hdr mb14">
@@ -645,8 +662,8 @@ export default function FactPorFacturar() {
                 </span>
                 {canClearRollout && (
                   <button
-                    onClick={handleClearRollout}
-                    style={{ fontSize: 10, color: '#9ca3af', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 9px', cursor: 'pointer' }}
+                    onClick={() => setConfirmLimpiar(true)}
+                    style={{ fontSize: 10, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontWeight: 600 }}
                   >
                     ✕ Limpiar
                   </button>

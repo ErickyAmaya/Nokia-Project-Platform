@@ -137,9 +137,11 @@ export default function FactPOs() {
     ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: mon || 'COP', maximumFractionDigits: 0 }).format(v)
     : '—'
 
-  const enriched = pos
+  const ppaMap = useMemo(() => new Map(ppa.map(r => [r.spo_number, r])), [ppa])
+
+  const enriched = useMemo(() => pos
     .map(po => {
-      const ppaRow = ppa.find(r => r.spo_number === po.spo_number)
+      const ppaRow = ppaMap.get(po.spo_number)
       return { ...po, ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '', spo_date: ppaRow?.spo_date || '' }
     })
     .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.site_id} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
@@ -149,7 +151,7 @@ export default function FactPOs() {
       if (!ad) return 1
       if (!bd) return -1
       return bd.localeCompare(ad)
-    })
+    }), [pos, ppaMap, search])
 
   // SPOs del PPA que no tienen PDF cargado (sin PO o con PO pero sin pdf_url)
   const sinPdf = useMemo(() => {

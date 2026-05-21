@@ -8,6 +8,8 @@ function PageLoader() {
 
 export default function FactWrapper() {
   const loadAll = useFactStore(s => s.loadAll)
-  useEffect(() => { loadAll() }, [loadAll])
+  const ppa     = useFactStore(s => s.ppa)
+  // Solo cargar si no hay datos en memoria — App.jsx ya dispara la carga al login
+  useEffect(() => { if (!ppa.length) loadAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return <Suspense fallback={<PageLoader />}><Outlet /></Suspense>
 }
