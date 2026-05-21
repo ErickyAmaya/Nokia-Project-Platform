@@ -21,10 +21,10 @@ create policy "ack_glosario_read" on ack_glosario
 create policy "ack_glosario_write" on ack_glosario
   for all to authenticated
   using (
-    (select role from profiles where id = auth.uid()) = 'admin'
+    (select role from user_roles where id = auth.uid()) = 'admin'
   )
   with check (
-    (select role from profiles where id = auth.uid()) = 'admin'
+    (select role from user_roles where id = auth.uid()) = 'admin'
   );
 
 -- ── Seed: estados del glosario ────────────────────────────────────────
