@@ -111,6 +111,10 @@ export const useFactStore = create((set, get) => ({
     if (get().loading) return
     set({ loading: true })
     try {
+      // Limpiar POs rechazadas con más de 3 días (respaldo client-side al pg_cron)
+      const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      await supabase.from('fact_rejected_pos').delete().lt('rejected_at', cutoff)
+
       const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }, { data: hist }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
