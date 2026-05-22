@@ -145,7 +145,7 @@ const C = {
 }
 
 // ── Invoice card ───────────────────────────────────────────────────
-function InvCard({ inv, pending, blocked, remaining }) {
+function InvCard({ inv, pending, blocked, remaining, poValor = 0 }) {
   if (pending) {
     return (
       <div style={{
@@ -179,14 +179,15 @@ function InvCard({ inv, pending, blocked, remaining }) {
       </div>
     )
   }
-  const monto = inv.monto || inv.valor || 0
+  // monto = pct% del valor PO (fact_invoices no tiene campo monto directo)
+  const monto = ((inv.pct || 0) * poValor / 100)
   return (
     <div style={{
       flex: 1, minWidth: 140, borderRadius: 10, padding: '10px 12px',
       border: '1.5px solid #bfdbfe', background: '#eff6ff',
     }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 2 }}>
-        {inv.numero_factura || `Fact. #${inv.id || '—'}`}
+        {inv.numero_factura || inv.evento || '—'}
       </div>
       <div style={{
         fontFamily: "'Barlow Condensed', sans-serif",
@@ -248,10 +249,10 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   const doneCount    = statuses.filter(s => s === 'done').length
   const implPct      = Math.round((doneCount / milestones.length) * 100)
 
-  // Facturación calcs
+  // Facturación calcs — fact_invoices usa pct, no monto directo
   const totalPo     = sitePo?.valor || 0
-  const totalBilled = siteInvoices.reduce((acc, inv) => acc + (inv.monto || inv.valor || 0), 0)
-  const factPct     = totalPo > 0 ? Math.round((totalBilled / totalPo) * 100) : 0
+  const totalBilled = siteInvoices.reduce((acc, inv) => acc + ((inv.pct || 0) * totalPo / 100), 0)
+  const factPct     = siteInvoices.reduce((acc, inv) => acc + (inv.pct || 0), 0)
   const remaining   = totalPo - totalBilled
 
   if (!smpId) return null
@@ -544,7 +545,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
 
                 {/* Invoice cards */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {siteInvoices.map((inv, i) => <InvCard key={i} inv={inv} />)}
+                  {siteInvoices.map((inv, i) => <InvCard key={i} inv={inv} poValor={totalPo} />)}
                   {remaining > 0 && (
                     <InvCard pending blocked={onAirBlocked} remaining={remaining} />
                   )}
