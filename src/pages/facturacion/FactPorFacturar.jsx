@@ -648,10 +648,10 @@ export default function FactPorFacturar() {
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Por Facturar
             {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{rows.length}</span>}
-            {libRows.length > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{libRows.length} lib.</span>}
             {totalPorFacturar > 0 && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{fmtCOP(totalPorFacturar)}</span>}
+            {(pendienteLib.length + bloqueadoAck.length + noCompletados.length) > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{pendienteLib.length + bloqueadoAck.length + noCompletados.length} NDPD</span>}
           </h1>
-          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {libRows.length} pendientes de liberación</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {pendienteLib.length + bloqueadoAck.length + noCompletados.length} hitos NDPD en seguimiento</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
