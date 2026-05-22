@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
+import { useAlertsStore } from '../store/useAlertsStore'
+import { useFactStore }  from '../store/useFactStore'
+import { useMatStore }   from '../store/useMatStore'
+import { useHwStore }    from '../store/useHwStore'
+import { useAckStore }   from '../store/useAckStore'
+import AlertsPanel, { BellButton } from './AlertsPanel'
+import SiteSearchModal  from './SiteSearchModal'
+import SiteTimelineModal from './SiteTimelineModal'
 
 // ── Nav Liquidador (Billing) ──────────────────────────────────────
 const ALL_NAV = [
@@ -74,8 +82,11 @@ const BADGE = {
 }
 
 export default function Layout({ children }) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [rtStatus,   setRtStatus]   = useState(window.__rtStatus || 'connecting')
+  const [drawerOpen,   setDrawerOpen]   = useState(false)
+  const [alertsOpen,   setAlertsOpen]   = useState(false)
+  const [searchOpen,   setSearchOpen]   = useState(false)
+  const [timelineSmp,  setTimelineSmp]  = useState(null)
+  const [rtStatus,     setRtStatus]     = useState(window.__rtStatus || 'connecting')
 
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)
@@ -83,6 +94,39 @@ export default function Layout({ children }) {
   const logoutApp     = useAppStore(s => s.logout)
   const navigate      = useNavigate()
   const location      = useLocation()
+
+  // ── Alertas ────────────────────────────────────────────────────────
+  const computeAlerts  = useAlertsStore(s => s.compute)
+  const dismissedIds   = useAlertsStore(s => s.dismissedIds)
+  const allAlerts      = useAlertsStore(s => s.alerts)
+  const role          = user?.role || 'viewer'
+
+  const pos                 = useFactStore(s => s.pos)
+  const invoices            = useFactStore(s => s.invoices)
+  const catalogo            = useMatStore(s => s.catalogo)
+  const stock               = useMatStore(s => s.stock)
+  const hwDespachosPendientes = useHwStore(s => s.hwDespachosPendientes)
+  const hwEquipos           = useHwStore(s => s.hwEquipos)
+  const forecasts           = useAckStore(s => s.forecasts)
+  const sabana              = useAckStore(s => s.sabana)
+
+  const alertRoles = ['facturacion', 'admin', 'coordinador', 'logistica', 'TI', 'TSS', 'CW']
+
+  const unreadCount = useMemo(() => {
+    if (!alertRoles.includes(role)) return 0
+    return allAlerts.filter(a => a.roles.includes(role) && !dismissedIds.has(a.id)).length
+  }, [allAlerts, dismissedIds, role])
+
+  // Recomputa alertas cuando cambian los datos o la ruta
+  useEffect(() => {
+    if (!user) return
+    computeAlerts({ pos, invoices, catalogo, stock, hwDespachosPendientes, hwEquipos, forecasts, sabana })
+  }, [pos, invoices, catalogo, stock, hwDespachosPendientes, hwEquipos, forecasts, sabana, user])
+
+  function handleOpenAlerts() {
+    computeAlerts({ pos, invoices, catalogo, stock, hwDespachosPendientes, hwEquipos, forecasts, sabana })
+    setAlertsOpen(true)
+  }
 
   const inMateriales  = location.pathname.startsWith('/materiales')
   const inHw          = location.pathname.startsWith('/materiales/hw')
@@ -106,14 +150,28 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('rt-status', handler)
   }, [])
 
+  // Evento global para abrir el timeline desde cualquier página (ej. AckSitios)
+  useEffect(() => {
+    function handler(e) { setTimelineSmp(e.detail?.smp || null) }
+    window.addEventListener('open-site-timeline', handler)
+    return () => window.removeEventListener('open-site-timeline', handler)
+  }, [])
+
+  // ⌘K global shortcut para la búsqueda
+  useEffect(() => {
+    function handler(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   useEffect(() => {
     if (empresa?.color) {
       document.documentElement.style.setProperty('--g', empresa.color)
       document.documentElement.style.setProperty('--brand', empresa.color)
     }
   }, [empresa?.color])
-
-  const role = user?.role || 'viewer'
 
   function canSee(item) {
     if (!item.roles) return true
@@ -226,6 +284,27 @@ export default function Layout({ children }) {
             >
               ⊞ Módulos
             </button>
+          )}
+
+          {/* Búsqueda global de sitios */}
+          {user && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              title="Buscar sitio (⌘K)"
+              style={{
+                background: 'none', border: '1px solid #e0e4e0', borderRadius: 6,
+                cursor: 'pointer', padding: '3px 8px', color: '#6b7280',
+                display: 'flex', alignItems: 'center', gap: 4, transition: 'all .15s',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </button>
+          )}
+
+          {alertRoles.includes(role) && (
+            <BellButton onClick={handleOpenAlerts} unreadCount={unreadCount} />
           )}
 
           {(empresa.clienteLogoUrl || empresa.clienteNombre) && (
@@ -447,6 +526,20 @@ export default function Layout({ children }) {
           </div>
         </div>
       </div>
+
+      {/* ── Alerts Panel ───────────────────────────────────────── */}
+      <AlertsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />
+
+      {/* ── Site Search + Timeline ──────────────────────────────── */}
+      <SiteSearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={smp => { setTimelineSmp(smp); setSearchOpen(false) }}
+      />
+      <SiteTimelineModal
+        smpId={timelineSmp}
+        onClose={() => setTimelineSmp(null)}
+      />
 
       {/* ── Page content ───────────────────────────────────────── */}
       <main className="page-main" style={{

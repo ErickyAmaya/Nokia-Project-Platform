@@ -115,21 +115,19 @@ export const useFactStore = create((set, get) => ({
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
       await supabase.from('fact_rejected_pos').delete().lt('rejected_at', cutoff)
 
-      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }, { data: hist }] = await Promise.all([
+      const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
         supabase.from('fact_invoices').select('*'),
         supabase.from('fact_pos').select('*'),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
         supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
         supabase.from('fact_ppa').select('*'),
-        supabase.from('fact_pos_historial').select('*').order('changed_at', { ascending: false }),
       ])
       set({
         ppa:          ppaData   || [],
         uploads:      uploads   || [],
         invoices:     invoices  || [],
         pos:          pos       || [],
-        historial:    hist      || [],
         calendar:     cal       || [],
         rejectedPos:  rejected  || [],
         currUploadId: uploads?.[0]?.id || null,
@@ -229,6 +227,13 @@ export const useFactStore = create((set, get) => ({
       set({ uploading: false })
       return { ok: false, error: e.message }
     }
+  },
+
+  // ── Cargar historial de POs (lazy, solo desde FactPOs) ──────────────────
+  loadHistorial: async () => {
+    const { data } = await supabase
+      .from('fact_pos_historial').select('*').order('changed_at', { ascending: false })
+    set({ historial: data || [] })
   },
 
   // ── Confirmar actualización de PO (reemplaza PDF + registra historial) ──

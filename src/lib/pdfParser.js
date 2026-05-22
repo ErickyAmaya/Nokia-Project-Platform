@@ -1,14 +1,22 @@
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.js?url'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+// pdfjs-dist se carga dinámicamente la primera vez que se parsea un PDF,
+// para no añadir ~2MB al bundle inicial de la app.
+let _pdfjs = null
+async function getPdfjs() {
+  if (_pdfjs) return _pdfjs
+  const lib = await import('pdfjs-dist')
+  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.js?url')).default
+  lib.GlobalWorkerOptions.workerSrc = workerUrl
+  _pdfjs = lib
+  return lib
+}
 
 async function extractText(file) {
+  const pdfjsLib    = await getPdfjs()
   const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const pdf         = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   let text = ''
   for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i)
+    const page    = await pdf.getPage(i)
     const content = await page.getTextContent()
     text += content.items.map(it => it.str).join(' ') + '\n'
   }
@@ -30,20 +38,18 @@ export async function parsePOPdf(file) {
   }
   console.log('[pdfParser] texto extraído (primeros 1500 chars):\n', text.slice(0, 1500))
 
-  // SPO: varios patrones posibles según versión del PDF Nokia
   const spo = grab(text, /Purchase Doc(?:ument)? Number[:\s]+(\d+)/)
            || grab(text, /PO Number[:\s]+(\d+)/)
            || grab(text, /Order Number[:\s]+(\d+)/)
            || grab(text, /\bPO\s+(\d{7,})\b/)
-           || grab(file.name, /PO[\s_]?(\d{5,})/)   // fallback desde el nombre del archivo
+           || grab(file.name, /PO[\s_]?(\d{5,})/)
 
-  const docDate       = grab(text, /Doc(?:ument)? Date[:\s]+(\S+)/)
-                     || grab(text, /Date[:\s]+(\d{2}[./]\d{2}[./]\d{4})/)
-  const supplierName  = grab(text, /Supplier Name[:\s]+(.+?)(?:\s{2,}|Supplier Number:|$)/m)
-  const paymentTerms  = grab(text, /Payment Terms[:\s]+(.+?)(?:\s{2,}|Supplier|NSN|$)/m)
-  const pciDesc       = grab(text, /PCI Description[:\s]+(.+?)(?:\s*$|\n)/m)
+  const docDate      = grab(text, /Doc(?:ument)? Date[:\s]+(\S+)/)
+                    || grab(text, /Date[:\s]+(\d{2}[./]\d{2}[./]\d{4})/)
+  const supplierName = grab(text, /Supplier Name[:\s]+(.+?)(?:\s{2,}|Supplier Number:|$)/m)
+  const paymentTerms = grab(text, /Payment Terms[:\s]+(.+?)(?:\s{2,}|Supplier|NSN|$)/m)
+  const pciDesc      = grab(text, /PCI Description[:\s]+(.+?)(?:\s*$|\n)/m)
 
-  // Total Value: "4.180.241,00 COP" o "COP 4.180.241,00"
   const valueMatch = text.match(/Total Value[:\s]+([\d.,]+)\s+([A-Z]{3})\b/)
                   || text.match(/\b([A-Z]{3})\s+([\d.,]+)/)
   let rawValue, moneda = 'COP', valor = null
@@ -54,11 +60,9 @@ export async function parsePOPdf(file) {
     valor    = parseFloat(rawValue.replace(/\./g, '').replace(',', '.')) || null
   }
 
-  // Free Text: "PO_BOG1008_BOG.Tenerife_SMP-WO-0264209" o "CAL0248_CAL.San Carlos_SMP-WO-0266410"
   const ftMatch  = text.match(/Free Text[:\s]+([\w._\- ]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/i)
   const freeText = ftMatch?.[1]?.trim() || ''
   const parts    = freeText.split('_')
-  // Saltar prefijo "PO" si está presente
   const start    = parts[0].toUpperCase() === 'PO' ? 1 : 0
   const smpIdx   = parts.findIndex(p => /SMP-WO-/i.test(p))
   const siteId   = parts[start] || ''

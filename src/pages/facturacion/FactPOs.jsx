@@ -227,6 +227,7 @@ export default function FactPOs() {
   const fileRef                  = useRef(null)
   const uploadPOPdf              = useFactStore(s => s.uploadPOPdf)
   const confirmarActualizacionPO = useFactStore(s => s.confirmarActualizacionPO)
+  const loadHistorial            = useFactStore(s => s.loadHistorial)
   const actualizarPO             = useFactStore(s => s.actualizarPO)
   const deleteRejectedPo         = useFactStore(s => s.deleteRejectedPo)
   const uploading                = useFactStore(s => s.uploading)
@@ -246,6 +247,9 @@ export default function FactPOs() {
   const [historialModal,  setHistorialModal]  = useState(null)  // spo_number
   const [showRechazados,  setShowRechazados]  = useState(false)
   const [sinPdfExpanded,  setSinPdfExpanded]  = useState(false)
+
+  // Carga historial solo al entrar a esta página (no en el loadAll global)
+  useEffect(() => { loadHistorial() }, [loadHistorial])
 
   const [compact, setCompact] = useState(
     typeof window !== 'undefined' && window.innerHeight < 600

@@ -209,7 +209,13 @@ function SitioRow({ mainSmp, smps }) {
           {open ? '▼' : '▶'}
         </td>
         <td style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
-          {siteName}
+          <span
+            onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: mainSmp } })) }}
+            title="Ver Timeline del sitio"
+            style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+          >
+            {siteName}
+          </span>
           {stats.todos && (
             <span style={{
               marginLeft: 8, fontSize: 8, fontWeight: 800, color: '#166534',
