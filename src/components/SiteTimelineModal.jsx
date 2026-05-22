@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAckStore }  from '../store/useAckStore'
 import { useFactStore } from '../store/useFactStore'
 import { getSupabaseClient } from '../lib/supabase'
@@ -66,6 +67,13 @@ const ICONS = {
       <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
     </svg>
   ),
+  truck: (c = '#fff') => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="15" height="13" rx="1"/>
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+      <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+    </svg>
+  ),
   bolt: (c = '#fff') => (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
@@ -101,6 +109,7 @@ const ICONS = {
 // ── GAP done values ────────────────────────────────────────────────
 const GAP_DONE_HWC = '9999.Finalizado_SS_E2E'
 const GAP_DONE_SO  = '9999.Aprobado'
+const GAP_DONE_LI  = '9999.Finalizada'
 const GAP_DONE_OA  = ['9999. Producción', '70. Producción', '9999.Producción']
 
 // ── Milestone definitions ──────────────────────────────────────────
@@ -109,22 +118,24 @@ function buildMilestones(rollout, forecast, sabana) {
   const intgDate = rollout?.intgSS || sabana?.integracion
   const soDate   = rollout?.acepSS || null
 
-  const mosDone   = !!(mosDate  && isPast(mosDate))
-  const intgDone  = !!(intgDate && isPast(intgDate))
-  const hwcDone   = sabana?.gap_hw_cierre === GAP_DONE_HWC
-  const docDone   = !!(sabana?.gap_doc && String(sabana.gap_doc).startsWith('9999'))
-  const soDone    = (sabana?.gap_site_owner === GAP_DONE_SO) || !!(soDate && isPast(soDate))
-  const onAirDone = GAP_DONE_OA.some(v => sabana?.gap_on_air === v)
-  const closeDone = mosDone && hwcDone && intgDone && docDone && soDone && onAirDone
+  const mosDone    = !!(mosDate  && isPast(mosDate))
+  const intgDone   = !!(intgDate && isPast(intgDate))
+  const hwcDone    = sabana?.gap_hw_cierre === GAP_DONE_HWC
+  const docDone    = !!(sabana?.gap_doc && String(sabana.gap_doc).startsWith('9999'))
+  const soDone     = (sabana?.gap_site_owner === GAP_DONE_SO) || !!(soDate && isPast(soDate))
+  const logInvDone = sabana?.gap_log_inv === GAP_DONE_LI
+  const onAirDone  = GAP_DONE_OA.some(v => sabana?.gap_on_air === v)
+  const closeDone  = mosDone && hwcDone && intgDone && docDone && soDone && logInvDone && onAirDone
 
   return [
-    { id: 'mos',   label: 'MOS',           iconKey: 'tower',    isDone: mosDone,   date: mosDate,  fcDate: null,                          blocking: false, gapRaw: null },
-    { id: 'hwc',   label: 'HW Cierre',     iconKey: 'hardware', isDone: hwcDone,   date: null,     fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre },
-    { id: 'intg',  label: 'Integración',   iconKey: 'signal',   isDone: intgDone,  date: intgDate, fcDate: null,                          blocking: false, gapRaw: null },
-    { id: 'doc',   label: 'Documentación', iconKey: 'doc',      isDone: docDone,   date: null,     fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc },
-    { id: 'so',    label: 'Entrega SO',    iconKey: 'person',   isDone: soDone,    date: soDate,   fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner },
-    { id: 'onair', label: 'On Air',        iconKey: 'bolt',     isDone: onAirDone, date: null,     fcDate: forecast?.fc_avance_on_air,     blocking: true,  gapRaw: sabana?.gap_on_air },
-    { id: 'close', label: 'Cerrado',       iconKey: 'check',    isDone: closeDone, date: null,     fcDate: forecast?.fc_cierre_on_air,     blocking: false, gapRaw: null },
+    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    date: mosDate,  fcDate: null,                          blocking: false, gapRaw: null },
+    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    date: null,     fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre },
+    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   date: intgDate, fcDate: null,                          blocking: false, gapRaw: null },
+    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,     fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc },
+    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: soDate,   fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner },
+    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,     fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv },
+    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: null,     fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air },
+    { id: 'close',  label: 'Cerrado',          iconKey: 'check',    isDone: closeDone,  date: null,     fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null },
   ]
 }
 
@@ -206,8 +217,13 @@ function InvCard({ inv, pending, blocked, remaining, poValor = 0 }) {
   )
 }
 
+// Normaliza una cadena: minúsculas, sin tildes, sin espacios extra
+// eslint-disable-next-line no-misleading-character-class
+function normStr(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim() }
+
 // ── Main component ─────────────────────────────────────────────────
 export default function SiteTimelineModal({ smpId, onClose }) {
+  const navigate = useNavigate()
   const [rolloutItem, setRolloutItem] = useState(null)
   const [loading, setLoading] = useState(false)
   const [hoveredMs, setHoveredMs] = useState(null)
@@ -216,6 +232,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   const sabana     = useAckStore(s => s.sabana)
   const pos        = useFactStore(s => s.pos)
   const invoices   = useFactStore(s => s.invoices)
+  const ppa        = useFactStore(s => s.ppa)
 
   // Load rollout data for this SMP
   useEffect(() => {
@@ -236,23 +253,95 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   // Derived data
   const sabanaRow    = useMemo(() => sabana.find(r => r.smp === smpId || r.main_smp === smpId), [sabana, smpId])
   const forecast     = useMemo(() => forecasts[smpId] || {}, [forecasts, smpId])
-  const sitePo       = useMemo(() => pos.find(p => p.smp_id === smpId || p.site_name === sabanaRow?.site_name), [pos, smpId, sabanaRow])
-  const siteInvoices = useMemo(() => sitePo ? invoices.filter(inv => inv.spo_number === sitePo.spo_number) : [], [invoices, sitePo])
+
+
+  // PPA es la fuente de verdad para identidad del sitio.
+  // Los PDFs (fact_pos) no son confiables para site_name/site_id/smp_id —
+  // Nokia usa campos distintos en el PDF que pueden tener datos de otro sitio.
+  const sitePpa = useMemo(() => {
+    const normSiteName = normStr(sabanaRow?.site_name)
+    if (!normSiteName) return []
+    return ppa.filter(p => normStr(p.customer_site_name) === normSiteName)
+  }, [ppa, sabanaRow])
+
+  // Incluir un PO de fact_pos solo si el PPA lo confirma como de este sitio.
+  // Esto garantiza que solo aportamos valor monetario desde PDFs, sin contaminar
+  // la identidad del sitio con datos incorrectos del campo Delivery Address.
+  const sitePos = useMemo(() => {
+    const sitePpaSpos = new Set(sitePpa.map(p => p.spo_number))
+    return pos.filter(p => sitePpaSpos.has(p.spo_number))
+  }, [pos, sitePpa])
+
+  // Unión: pos enriched con ms_name del PPA + entradas sintéticas para SPOs sin PDF
+  const allSitePos = useMemo(() => {
+    const ppaIdx = new Map(ppa.map(p => [p.spo_number, p]))
+    const enriched = sitePos.map(p => {
+      const ppaRow = ppaIdx.get(p.spo_number)
+      return ppaRow ? { ...p, ms_name: ppaRow.ms_name, smp_name: ppaRow.smp_name } : p
+    })
+    const existingSpos = new Set(sitePos.map(p => p.spo_number))
+    const synthetic = sitePpa
+      .filter(p => p.spo_number && !existingSpos.has(p.spo_number))
+      .map(p => ({
+        spo_number: p.spo_number, smp_id: p.smp_id,
+        site_name: p.customer_site_name, site_id: p.site_reference_id,
+        pci_description: null, smp_name: p.smp_name, ms_name: p.ms_name,
+        valor: null, _fromPpa: true,
+      }))
+
+    // Solo los 3 hitos de facturación NDPD: SS MOS ok, SS Integración ok, SS Aceptación final ok.
+    // Excluye TSS, CW, CR, ADJ y cualquier otro tipo de servicio.
+    const isNdpdImpl = po => {
+      const ms = (po.ms_name || '').toLowerCase()
+      // ms_name es el campo más confiable (viene del PPA Nokia)
+      if (ms) return ms.includes('mos') || ms.includes('integ') || ms.includes('acept') || ms.includes('final') || ms.includes('acceptance')
+      // Fallback: pci_description del PDF
+      const pci = (po.pci_description || '').toLowerCase()
+      if (pci) return pci.includes('mos') || pci.includes('integ') || pci.includes('acept') || pci.includes('final')
+      // Último recurso: smp_name con patrón de implementación Nokia
+      return /Process_Implementation|IMP_ADJ/i.test(po.smp_name || '')
+    }
+
+    return [...enriched, ...synthetic].filter(isNdpdImpl)
+  }, [sitePos, sitePpa, ppa])
+
+  const siteInvoices = useMemo(() => {
+    const spoSet = new Set(allSitePos.map(p => p.spo_number))
+    return invoices.filter(inv => spoSet.has(inv.spo_number))
+  }, [invoices, allSitePos])
 
   const milestones = useMemo(() => buildMilestones(rolloutItem, forecast, sabanaRow), [rolloutItem, forecast, sabanaRow])
   const statuses   = useMemo(() => milestones.map((ms, i) => getMsStatus(ms, i, milestones)), [milestones])
 
-  const onAirBlocked = statuses[5] === 'blocked'
-  const siteName     = sabanaRow?.site_name || sitePo?.site_name || smpId
-  const siteCode     = sitePo?.site_id || '—'
+  const onAirBlocked = statuses[6] === 'blocked'
+  const siteName     = sabanaRow?.site_name || allSitePos[0]?.site_name || smpId
+  const siteCode     = allSitePos[0]?.site_id || '—'
   const region       = sabanaRow?.region || '—'
   const doneCount    = statuses.filter(s => s === 'done').length
   const implPct      = Math.round((doneCount / milestones.length) * 100)
 
-  // Facturación calcs — fact_invoices usa pct, no monto directo
-  const totalPo     = sitePo?.valor || 0
-  const totalBilled = siteInvoices.reduce((acc, inv) => acc + ((inv.pct || 0) * totalPo / 100), 0)
-  const factPct     = siteInvoices.reduce((acc, inv) => acc + (inv.pct || 0), 0)
+  // Facturación calcs — agrupado por SPO, pct * po.valor
+  const totalPo     = allSitePos.reduce((acc, p) => acc + (p.valor || 0), 0)
+  const totalBilled = allSitePos.reduce((acc, po) => {
+    const poInvs = siteInvoices.filter(inv => inv.spo_number === po.spo_number)
+    return acc + poInvs.reduce((s, inv) => s + ((inv.pct || 0) * (po.valor || 0) / 100), 0)
+  }, 0)
+  // Si hay SPOs sin valor (sin PDF), el denominador monetario excluye su peso → muestra 100% incorrecto.
+  // En ese caso usar peso igualitario por SPO (cada SPO = 1/N), más honesto que el cálculo monetario parcial.
+  const hasSyntheticPos = allSitePos.some(p => p._fromPpa && !p.valor)
+  const factPct = (() => {
+    if (allSitePos.length === 0) return 0
+    if (!hasSyntheticPos && totalPo > 0) return Math.round((totalBilled / totalPo) * 100)
+    // Peso igualitario: fracción facturada de cada SPO promediada
+    const fracs = allSitePos.map(po => {
+      if (!po.valor) return 0
+      const billed = siteInvoices
+        .filter(inv => inv.spo_number === po.spo_number)
+        .reduce((s, inv) => s + ((inv.pct || 0) * po.valor / 100), 0)
+      return po.valor > 0 ? billed / po.valor : 0
+    })
+    return Math.round((fracs.reduce((a, f) => a + f, 0) / allSitePos.length) * 100)
+  })()
   const remaining   = totalPo - totalBilled
 
   if (!smpId) return null
@@ -327,19 +416,23 @@ export default function SiteTimelineModal({ smpId, onClose }) {
           }}>×</button>
         </div>
 
-        {/* ── Blocking banner ── */}
+        {/* ── Alert banners ── */}
         {onAirBlocked && (
-          <div style={{
-            background: '#fff1f2', borderBottom: '1px solid #fecaca',
-            padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
-          }}>
-            {ICONS.warn('#dc2626')}
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#991b1b' }}>
-              On Air pendiente — bloquea liberación y cierre del sitio.
-            </span>
-            <span style={{ fontSize: 11, color: '#b91c1c', marginLeft: 4 }}>
-              Las facturas pendientes quedan retenidas hasta que Nokia confirme la señal.
-            </span>
+          <div style={{ padding: '10px 24px 0', flexShrink: 0 }}>
+            <div style={{
+              background: '#fff1f2', border: '1.5px solid #fca5a5', borderRadius: 12,
+              padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12,
+            }}>
+              <div style={{ flexShrink: 0, marginTop: 1 }}>{ICONS.warn('#dc2626')}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', lineHeight: 1.3 }}>
+                  On Air pendiente — bloquea liberación y cierre del sitio
+                </div>
+                <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 3, lineHeight: 1.4 }}>
+                  Nokia no ha confirmado la señal. Las facturas de Integración y Cierre quedan retenidas hasta resolución.
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -383,7 +476,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               )}
 
               {/* Circles grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', width: '100%', position: 'relative', zIndex: 2 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', width: '100%', position: 'relative', zIndex: 2 }}>
                 {milestones.map((ms, idx) => {
                   const st   = statuses[idx]
                   const col  = C[st]
@@ -411,7 +504,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             </div>
 
             {/* Labels grid — separado del riel para dar espacio */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginTop: 14, marginBottom: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', marginTop: 14, marginBottom: 8 }}>
               {milestones.map((ms, idx) => {
                 const st        = statuses[idx]
                 const col       = C[st]
@@ -495,68 +588,176 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#bfdbfe,transparent)' }}/>
             </div>
 
-            {sitePo ? (
-              <div style={{
-                background: '#fff', borderRadius: 14, padding: '16px 20px',
-                border: '1.5px solid #e5e7eb', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-              }}>
-                {/* PO header + progress bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, letterSpacing: .5, textTransform: 'uppercase' }}>Orden de Compra</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginTop: 2 }}>
-                      SPO <span style={{ color: '#2563eb' }}>{sitePo.spo_number}</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, letterSpacing: .5, textTransform: 'uppercase' }}>Valor total PO</div>
-                    <div style={{
-                      fontFamily: "'Barlow Condensed', sans-serif",
-                      fontSize: 17, fontWeight: 800, color: '#111827', marginTop: 2,
-                    }}>{fmtCOP(totalPo)}</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 220 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
-                      <div style={{
-                        fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: 22, fontWeight: 800, lineHeight: 1,
-                        color: factPct >= 100 ? '#16a34a' : '#2563eb',
-                      }}>{factPct}%</div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: '#374151' }}>
-                          {fmtCOP(totalBilled)} facturado
+            {allSitePos.length > 0 ? (() => {
+              // MOS=0, HW Cierre=1, Integración=2, Doc=3, Entrega SO=4, Log.Inversa=5, On Air=6, Cerrado=7
+              const SLOT_LABEL = { 0: 'MOS', 2: 'Integración', 7: 'Aceptación Final' }
+              const STD_SLOTS  = [0, 2, 7]
+
+              // Color según % facturado
+              function factColor(pct)    { return pct >= 100 ? '#16a34a' : pct > 0 ? '#f59e0b' : '#dc2626' }
+              function factGradient(pct) { return pct >= 100 ? 'linear-gradient(90deg,#16a34a,#4ade80)' : pct > 0 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)' : '#dc2626' }
+              function factBg(pct)       { return pct >= 100 ? '#f0fdf4' : pct > 0 ? '#fffbeb' : '#fff1f2' }
+              function factBorder(pct)   { return pct >= 100 ? '#16a34a' : pct > 0 ? '#f59e0b' : '#dc2626' }
+
+              // Detectar columna del hito.
+              // Prioridad: ms_name (Nokia label explícito) > pci_description (PDF) > SPO order (fallback)
+              // NO se usa smp_name: todas las SPOs de un sitio suelen tener "impl" en ese campo.
+              function spoMsIdx(po) {
+                const msn = (po.ms_name || '').toLowerCase()
+                const pci = (po.pci_description || '').toLowerCase()
+                // ms_name: campo más confiable — contiene el hito Nokia ("SS MOS ok", "SS Integracion ok", etc.)
+                if (msn.includes('mos'))                                              return 0
+                if (msn.includes('integ'))                                            return 2
+                if (msn.includes('acept') || msn.includes('final') || msn.includes('acceptance') || msn.includes('cierre')) return 7
+                // pci_description: extraído del PDF
+                if (pci.includes('mos'))                                              return 0
+                if (pci.includes('integ'))                                            return 2
+                if (pci.includes('acept') || pci.includes('final'))                  return 7
+                return null  // → fallback por orden de spo_number (Nokia emite cronológicamente)
+              }
+              const colMap = {}
+              const keywordMapped = new Set()
+              allSitePos.forEach(po => {
+                const idx = spoMsIdx(po)
+                if (idx !== null && !colMap[idx]) { colMap[idx] = po; keywordMapped.add(po.spo_number) }
+              })
+
+              // Las no detectadas se ordenan por spo_number asc y se asignan a slots libres [0, 2, 6]
+              const undetected = allSitePos
+                .filter(po => !keywordMapped.has(po.spo_number))
+                .sort((a, b) => String(a.spo_number).localeCompare(String(b.spo_number)))
+              const freeStd = STD_SLOTS.filter(i => !colMap[i])
+              undetected.forEach((po, i) => {
+                if (freeStd[i] !== undefined) colMap[freeStd[i]] = po
+              })
+
+              return (
+                <div>
+                  {/* Cards alineadas al grid de 7 hitos */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 0, marginBottom: 10 }}>
+                    {milestones.map((ms, idx) => {
+                      const po = colMap[idx]
+                      if (!po) return <div key={ms.id} />
+                      const poInvs   = siteInvoices.filter(inv => inv.spo_number === po.spo_number)
+                      const poBilled = poInvs.reduce((s, inv) => s + ((inv.pct || 0) * (po.valor || 0) / 100), 0)
+                      const poPct    = po.valor > 0 ? Math.round((poBilled / po.valor) * 100) : 0
+                      const poRemain = (po.valor || 0) - poBilled
+                      const slotLabel = SLOT_LABEL[idx] || ms.label
+                      return (
+                        <div key={ms.id} style={{ padding: '0 4px' }}>
+                          <div style={{
+                            borderRadius: 12, border: `2px solid ${factBorder(poPct)}`,
+                            background: factBg(poPct), padding: '10px 12px',
+                            boxShadow: `0 2px 8px rgba(0,0,0,.08)`,
+                          }}>
+                            {/* Etiqueta del hito + checkmark */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                              <span style={{
+                                fontSize: 8, fontWeight: 800, letterSpacing: .8, textTransform: 'uppercase',
+                                padding: '1px 6px', borderRadius: 8,
+                                background: factBorder(poPct), color: '#fff',
+                              }}>{slotLabel}</span>
+                              {poPct >= 100 && (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              )}
+                            </div>
+                            {/* SPO number */}
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: '#6b7280', letterSpacing: .5, textTransform: 'uppercase' }}>SPO</div>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: '#2563eb', lineHeight: 1.2 }}>{po.spo_number}</div>
+                            </div>
+                            {/* barra y % eliminados — las SPOs se facturan al 100%, el color/borde ya lo indica */}
+                            {/* Facturas */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                              {poInvs.map((inv, i) => {
+                                const monto = ((inv.pct || 0) * (po.valor || 0) / 100)
+                                return (
+                                  <div key={i} style={{
+                                    background: 'rgba(255,255,255,.7)', borderRadius: 8,
+                                    padding: '6px 8px', border: '1px solid rgba(37,99,235,.15)',
+                                  }}>
+                                    <div style={{ fontSize: 9, color: '#6b7280', marginBottom: 1 }}>
+                                      {inv.numero_factura || inv.evento || `#${inv.id}`}
+                                    </div>
+                                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                                      {fmtCOP(monto)}
+                                    </div>
+                                    <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 2 }}>{fmt(inv.fecha_factura) || '—'}</div>
+                                    <span style={{
+                                      fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
+                                      padding: '1px 5px', borderRadius: 8, marginTop: 3, display: 'inline-block',
+                                      background: '#dbeafe', color: '#1d4ed8',
+                                    }}>✓ Emitida</span>
+                                  </div>
+                                )
+                              })}
+                              {poRemain > 0 && (
+                                <div style={{
+                                  background: 'rgba(255,255,255,.6)', borderRadius: 8,
+                                  padding: '6px 8px', border: '1px solid rgba(220,38,38,.2)',
+                                }}>
+                                  <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 1 }}>Por facturar</div>
+                                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>
+                                    {fmtCOP(poRemain)}
+                                  </div>
+                                  <span style={{
+                                    fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
+                                    padding: '1px 5px', borderRadius: 8, marginTop: 3, display: 'inline-block',
+                                    background: '#fee2e2', color: '#dc2626',
+                                  }}>Pendiente</span>
+                                </div>
+                              )}
+                              {poInvs.length === 0 && poRemain <= 0 && (
+                                <div style={{
+                                  background: 'rgba(255,255,255,.6)', borderRadius: 8,
+                                  padding: '6px 8px', border: '1px solid rgba(220,38,38,.2)',
+                                }}>
+                                  <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 4 }}>
+                                    {po._fromPpa ? 'Sin PDF cargado' : 'Sin facturas'}
+                                  </div>
+                                  <span style={{
+                                    fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
+                                    padding: '1px 5px', borderRadius: 8, display: 'inline-block',
+                                    background: '#fee2e2', color: '#dc2626',
+                                  }}>{po._fromPpa ? '⏳ Pendiente' : 'Sin registro'}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: 8, color: '#9ca3af', fontWeight: 600, letterSpacing: .5, textTransform: 'uppercase' }}>
-                          de {fmtCOP(totalPo)}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ height: 10, background: '#f1f5f9', borderRadius: 10, overflow: 'hidden' }}>
+                      )
+                    })}
+                  </div>
+
+                  {/* Barra total al fondo */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: '#f8fafc', borderRadius: 10, padding: '8px 14px',
+                    border: '1px solid #e2e8f0',
+                  }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .8, flexShrink: 0 }}>
+                      Total facturado
+                    </span>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#111827', flexShrink: 0 }}>
+                      {fmtCOP(totalBilled)}
+                    </span>
+                    <div style={{ flex: 1, height: 7, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' }}>
                       <div style={{
-                        height: '100%', borderRadius: 10, transition: 'width .6s',
+                        height: '100%', borderRadius: 6, transition: 'width .6s',
                         width: `${Math.min(factPct, 100)}%`,
-                        background: factPct >= 100
-                          ? 'linear-gradient(90deg,#16a34a,#4ade80)'
-                          : 'linear-gradient(90deg,#2563eb,#60a5fa)',
+                        background: factGradient(factPct),
                       }}/>
                     </div>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 800, color: factColor(factPct), flexShrink: 0 }}>
+                      {factPct}%
+                    </span>
+                    <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0 }}>de {fmtCOP(totalPo)}</span>
                   </div>
                 </div>
-
-                {/* Invoice cards */}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {siteInvoices.map((inv, i) => <InvCard key={i} inv={inv} poValor={totalPo} />)}
-                  {remaining > 0 && (
-                    <InvCard pending blocked={onAirBlocked} remaining={remaining} />
-                  )}
-                  {siteInvoices.length === 0 && remaining <= 0 && (
-                    <div style={{ fontSize: 12, color: '#9ca3af', padding: '8px 0' }}>
-                      Sin facturas registradas
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
+              )
+            })() : (
               <div style={{
                 background: '#fff', borderRadius: 14, padding: '20px',
                 border: '1.5px solid #e5e7eb', textAlign: 'center',
@@ -576,7 +777,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
         }}>
           <span style={{ fontSize: 11, color: '#6b7280' }}>
             Implementación: <strong style={{ color: '#111827' }}>{doneCount}/{milestones.length}</strong> hitos
-            {sitePo && (
+            {allSitePos.length > 0 && (
               <> · Facturación: <strong style={{ color: factPct >= 100 ? '#16a34a' : '#2563eb' }}>{factPct}%</strong>
               {remaining > 0 && <> · Pendiente: <strong style={{ color: onAirBlocked ? '#dc2626' : '#374151' }}>{fmtCOP(remaining)}</strong></>}
               </>
@@ -587,18 +788,27 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             <button style={{
               background: 'none', border: '1.5px solid #fca5a5', color: '#dc2626',
               borderRadius: 8, padding: '7px 14px', fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               fontFamily: "'Barlow', sans-serif",
             }}>
               {ICONS.warn('#dc2626')} Escalar bloqueo On Air
             </button>
           )}
-          <button onClick={onClose} style={{
-            background: '#1a7a4a', color: '#fff', border: 'none',
-            borderRadius: 8, padding: '7px 16px', fontSize: 11, fontWeight: 700,
-            cursor: 'pointer', fontFamily: "'Barlow', sans-serif",
-          }}>
-            Cerrar
+          <button
+            onClick={() => { onClose(); navigate(`/rollout/ack/sitios`) }}
+            style={{
+              background: '#1a7a4a', color: '#fff', border: 'none',
+              borderRadius: 8, padding: '7px 16px', fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+              fontFamily: "'Barlow', sans-serif",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Ir al ACK de este sitio
           </button>
         </div>
 

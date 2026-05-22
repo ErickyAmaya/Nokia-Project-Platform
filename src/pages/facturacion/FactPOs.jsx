@@ -344,7 +344,7 @@ export default function FactPOs() {
       const ppaRow = ppaMap.get(po.spo_number)
       return { ...po, ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '', spo_date: ppaRow?.spo_date || '' }
     })
-    .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.site_id} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.ms_name} ${po.smp_name} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       const ad = a.spo_date || a.doc_date || '', bd = b.spo_date || b.doc_date || ''
       if (!ad && !bd) return 0
