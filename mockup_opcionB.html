@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Opción B</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f0; }
+
+  /* ── HEADER ── */
+  .header {
+    background: #0a0a0a;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 300;
+    border-bottom: 3px solid #144E4A;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-box {
+    background: #144E4A;
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: .5px;
+  }
+  .header-title {
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .3px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .user-badge {
+    background: #1a3a38;
+    color: #7ecfc0;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    border: 1px solid #2a5a56;
+  }
+  .user-name {
+    color: #aaa;
+    font-size: 11px;
+  }
+
+  /* ── MÓDULO TOGGLE (fila 1 del nav) ── */
+  .mod-toggle-bar {
+    background: #fff;
+    border-bottom: 1px solid #e0e4e0;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 38px;
+  }
+  .mod-toggle-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  .mod-btn {
+    padding: 5px 16px;
+    border-radius: 20px;
+    border: 1.5px solid transparent;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: .3px;
+    transition: all .15s;
+    text-transform: uppercase;
+  }
+  .mod-btn.mat {
+    background: #f0f4f0;
+    color: #144E4A;
+    border-color: #c4d8c4;
+  }
+  .mod-btn.mat.active {
+    background: #144E4A;
+    color: #fff;
+    border-color: #144E4A;
+  }
+  .mod-btn.hw {
+    background: #f0f4f0;
+    color: #1d4ed8;
+    border-color: #c4d3f8;
+  }
+  .mod-btn.hw.active {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
+  }
+
+  /* ── SUB-NAV (fila 2 del nav) ── */
+  .sub-nav {
+    background: #fff;
+    border-bottom: 2px solid #e0e4e0;
+    display: flex;
+    align-items: stretch;
+    padding: 0 20px;
+    gap: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    overflow-x: auto;
+  }
+  .nav-item {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #555f55;
+    padding: 9px 12px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .nav-item:hover { color: #144E4A; }
+  .nav-item.active-mat {
+    color: #144E4A;
+    border-bottom-color: #144E4A;
+  }
+  .nav-item.active-hw {
+    color: #1d4ed8;
+    border-bottom-color: #1d4ed8;
+  }
+
+  /* ── CONTENIDO ── */
+  .content {
+    padding: 24px 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #0a0a0a;
+    margin-bottom: 4px;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .page-sub {
+    font-size: 11px;
+    color: #617561;
+    margin-bottom: 20px;
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .kpi {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border-left: 4px solid #144E4A;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .kpi.blue { border-left-color: #1d4ed8; }
+  .kpi.amber { border-left-color: #d68910; }
+  .kpi.red { border-left-color: #c0392b; }
+  .kpi-label {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #9ca89c;
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0a0a0a;
+    line-height: 1;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #555f55;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f2f0;
+  }
+
+  .section-note {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #1e40af;
+    margin-top: 16px;
+  }
+
+  /* Fake chart bars */
+  .bar-group { display: flex; gap: 8px; align-items: flex-end; height: 80px; padding: 0 4px; }
+  .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .bar { border-radius: 4px 4px 0 0; width: 100%; }
+  .bar-label { font-size: 8px; color: #9ca89c; text-align: center; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .table-mock { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .table-mock th {
+    background: #f8faf8;
+    color: #9ca89c;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 2px solid #e8eae8;
+  }
+  .table-mock td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f4f4f4;
+    color: #374151;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge.open { background: #fef3cd; color: #856404; }
+  .badge.sent { background: #dbeafe; color: #1e40af; }
+  .badge.closed { background: #d4edda; color: #1a6130; }
+  .badge.in { background: #d4edda; color: #166534; }
+  .badge.out { background: #fde8e7; color: #c0392b; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-box">NK</div>
+    <span class="header-title">Nokia Project Platform</span>
+  </div>
+  <div class="header-right">
+    <span class="user-name">erick.amaya</span>
+    <span class="user-badge">Admin</span>
+  </div>
+</div>
+
+<!-- TOGGLE BAR -->
+<div class="mod-toggle-bar">
+  <span class="mod-toggle-label">Módulo</span>
+  <button class="mod-btn mat active" id="btn-mat" onclick="switchTo('mat')">📦 Materiales</button>
+  <button class="mod-btn hw" id="btn-hw" onclick="switchTo('hw')">📡 HW Nokia</button>
+</div>
+
+<!-- SUB-NAV MATERIALES -->
+<div class="sub-nav" id="nav-mat">
+  <span class="nav-item active-mat">Dashboard</span>
+  <span class="nav-item">Inventario</span>
+  <span class="nav-item">Movimientos</span>
+  <span class="nav-item">Sitios</span>
+  <span class="nav-item">Catálogo</span>
+  <span class="nav-item">Reportes</span>
+  <span class="nav-item">Config</span>
+</div>
+
+<!-- SUB-NAV HW NOKIA -->
+<div class="sub-nav" id="nav-hw" style="display:none">
+  <span class="nav-item active-hw">Dashboard HW</span>
+  <span class="nav-item">Inventario HW</span>
+  <span class="nav-item">Movimientos HW</span>
+  <span class="nav-item">Catálogo HW</span>
+  <span class="nav-item">HW en Falla</span>
+</div>
+
+<!-- CONTENIDO -->
+<div class="content">
+
+  <!-- Materiales content -->
+  <div id="content-mat">
+    <div class="page-title">Dashboard · Materiales</div>
+    <div class="page-sub">Resumen general del inventario Ingetel</div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Materiales</div><div class="kpi-value">68</div></div>
+      <div class="kpi blue"><div class="kpi-label">Movimientos</div><div class="kpi-value">142</div></div>
+      <div class="kpi amber"><div class="kpi-label">Despachos</div><div class="kpi-value">23</div></div>
+      <div class="kpi red"><div class="kpi-label">Alertas Stock</div><div class="kpi-value">4</div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Entradas vs Salidas (últimos 6 meses)</div>
+        <div class="bar-group">
+          <div class="bar-wrap"><div class="bar" style="height:45px;background:#144E4A"></div><div class="bar-label">Dic</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:60px;background:#144E4A"></div><div class="bar-label">Ene</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:30px;background:#144E4A"></div><div class="bar-label">Feb</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:70px;background:#144E4A"></div><div class="bar-label">Mar</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:50px;background:#144E4A"></div><div class="bar-label">Abr</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:40px;background:#144E4A"></div><div class="bar-label">May</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Stock por Bodega</div>
+        <table class="table-mock">
+          <thead><tr><th>Bodega</th><th>Ítems</th></tr></thead>
+          <tbody>
+            <tr><td>Bodega Cali</td><td>38</td></tr>
+            <tr><td>Bodega Bogotá</td><td>21</td></tr>
+            <tr><td>Bodega Medellín</td><td>9</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- HW Nokia content -->
+  <div id="content-hw" style="display:none">
+    <div class="page-title">Dashboard · HW Nokia</div>
+    <div class="page-sub">Estado del inventario de hardware Nokia · Ingetel 2026</div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Equipos</div><div class="kpi-value">47</div></div>
+      <div class="kpi blue"><div class="kpi-label">En Bodega</div><div class="kpi-value">28</div></div>
+      <div class="kpi amber"><div class="kpi-label">En Sitio</div><div class="kpi-value">12</div></div>
+      <div class="kpi red"><div class="kpi-label">Fallas Abiertas</div><div class="kpi-value">3</div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Equipos por Estado</div>
+        <div class="bar-group">
+          <div class="bar-wrap"><div class="bar" style="height:70px;background:#1d4ed8"></div><div class="bar-label">Bodega</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:35px;background:#1d4ed8"></div><div class="bar-label">Sitio</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:20px;background:#1d4ed8"></div><div class="bar-label">En SS</div></div>
+          <div class="bar-wrap"><div class="bar" style="height:10px;background:#c0392b"></div><div class="bar-label">Falla</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Failure Reports recientes</div>
+        <table class="table-mock">
+          <thead><tr><th>Serial</th><th>Sitio</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr><td style="font-family:monospace;color:#1d4ed8">DH211160552</td><td>CAL.Gaitan</td><td><span class="badge open">Abierto</span></td></tr>
+            <tr><td style="font-family:monospace;color:#1d4ed8">DH211160483</td><td>CAL.Vipasa</td><td><span class="badge sent">Enviado</span></td></tr>
+            <tr><td style="font-family:monospace;color:#1d4ed8">AS180830870</td><td>MED.Robledo</td><td><span class="badge closed">Cerrado</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Últimos Movimientos HW</div>
+      <table class="table-mock">
+        <thead><tr><th>Tipo</th><th>Serial</th><th>Origen</th><th>Destino</th><th>Fecha</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge in">Entrada</span></td>
+            <td style="font-family:monospace">DH211160552</td>
+            <td>DSV Bogotá</td>
+            <td>Bodega Cali</td>
+            <td style="color:#9ca89c">2026-04-28</td>
+          </tr>
+          <tr>
+            <td><span class="badge out">Salida</span></td>
+            <td style="font-family:monospace">AS180830870</td>
+            <td>Bodega Cali</td>
+            <td>CAL.Gaitan</td>
+            <td style="color:#9ca89c">2026-04-25</td>
+          </tr>
+          <tr>
+            <td><span class="badge in">Entrada</span></td>
+            <td style="font-family:monospace">1M181600414</td>
+            <td>Nokia DSV</td>
+            <td>Bodega Medellín</td>
+            <td style="color:#9ca89c">2026-04-20</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-note">
+      💡 <strong>HW Nokia</strong> funciona de forma independiente a Materiales — cada módulo tiene su propio inventario, movimientos y catálogo. Un usuario en Materiales y otro en HW Nokia trabajan sin interferencia.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTo(mod) {
+    const isMat = mod === 'mat';
+
+    document.getElementById('btn-mat').className = 'mod-btn mat' + (isMat ? ' active' : '');
+    document.getElementById('btn-hw').className  = 'mod-btn hw'  + (!isMat ? ' active' : '');
+
+    document.getElementById('nav-mat').style.display  = isMat ? 'flex' : 'none';
+    document.getElementById('nav-hw').style.display   = !isMat ? 'flex' : 'none';
+
+    document.getElementById('content-mat').style.display = isMat ? 'block' : 'none';
+    document.getElementById('content-hw').style.display  = !isMat ? 'block' : 'none';
+  }
+
+  // Hacer clickeables los nav items
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const parent = this.closest('.sub-nav');
+      parent.querySelectorAll('.nav-item').forEach(i => i.className = 'nav-item');
+      const cls = parent.id === 'nav-hw' ? 'nav-item active-hw' : 'nav-item active-mat';
+      this.className = cls;
+    });
+  });
+</script>
+</body>
+</html>
