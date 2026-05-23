@@ -45,6 +45,7 @@ import AckDashboard       from './pages/rollout/AckDashboard'
 import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
 import AckForecast        from './pages/rollout/AckForecast'
+import MapaSitios         from './pages/rollout/MapaSitios'
 import FactWrapper from './pages/facturacion/FactWrapper'
 
 // Fact pages: lazy-load so they don't bloat the initial bundle
@@ -259,6 +260,7 @@ function AppRoutes() {
         <Route path="ack/tablas"      element={<AckTablas />} />
         <Route path="ack/sitios"      element={<AckSitios />} />
         <Route path="ack/forecast"    element={<AckForecast />} />
+        <Route path="mapa"            element={<MapaSitios />} />
       </Route>
 
       <Route path="*" element={<RoleHome />} />

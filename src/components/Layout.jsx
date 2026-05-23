@@ -59,6 +59,7 @@ const ROLLOUT_NAV = [
   { to: '/rollout/ack/tablas',   label: 'Tablas',     icon: '📋', id: 'ack-tablas'    },
   { to: '/rollout/ack/sitios',   label: 'Por Sitio',  icon: '📍', id: 'ack-sitios'    },
   { to: '/rollout/ack/forecast', label: 'Reportes',   icon: '🖨', id: 'ack-forecast'  },
+  { to: '/rollout/mapa',        label: 'Mapa',       icon: '🗺', id: 'rollout-mapa'  },
 ]
 
 const FACT_NAV = [
