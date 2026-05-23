@@ -17,6 +17,7 @@ const ALL_NAV = [
   { to: '/ti',             label: 'TI',         icon: '📡', id: 'ti',             roles: ['admin','coordinador','TI','viewer'] },
   { to: '/tss',            label: 'TSS',        icon: '📡', id: 'tss',            roles: ['admin','coordinador','TSS','viewer'] },
   { to: '/cw-consolidado', label: 'CW',         icon: '🔧', id: 'cw-consolidado', roles: ['admin','coordinador','CW','viewer'] },
+  { to: '/ubicacion',      label: 'Ubicación',  icon: '📍', id: 'ubicacion',      roles: ['TI','TSS','admin','coordinador'] },
   { to: '/liquidador',     label: 'Liquidador', icon: '💰', id: 'liquidador',     roles: null },
   { to: '/gastos',         label: 'Gastos',     icon: '💳', id: 'gastos',         roles: ['admin','coordinador','viewer'] },
   { to: '/reportes',       label: 'Reportes',   icon: '📄', id: 'reportes',       roles: ['admin','coordinador','viewer'] },

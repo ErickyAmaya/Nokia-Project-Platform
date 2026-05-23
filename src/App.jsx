@@ -11,6 +11,7 @@ import ProtectedRoute   from './components/ProtectedRoute'
 import Layout           from './components/Layout'
 import Toast            from './components/Toast'
 import LoginPage        from './pages/LoginPage'
+import UbicacionPage   from './pages/UbicacionPage'
 import SetPasswordPage  from './pages/SetPasswordPage'
 import Dashboard        from './pages/Dashboard'
 import ConsolidadoTI    from './pages/ConsolidadoTI'
@@ -125,7 +126,7 @@ function SessionRedirect() {
   useEffect(() => {
     if (!loading && user && !done.current) {
       done.current = true
-      const skip = ['/', '/login', '/modulos', '/set-password']
+      const skip = ['/', '/login', '/modulos', '/set-password', '/ubicacion']
       if (!skip.includes(location.pathname)) {
         navigate('/modulos', { replace: true })
       }
@@ -194,6 +195,12 @@ function AppRoutes() {
 
       <Route path="/cw-consolidado" element={
         <ProtectedRoute allowedRoles={R_CW}><Layout><ConsolidadoCW /></Layout></ProtectedRoute>
+      } />
+
+      <Route path="/ubicacion" element={
+        <ProtectedRoute allowedRoles={['admin','coordinador','TI','TSS']}>
+          <Layout><UbicacionPage /></Layout>
+        </ProtectedRoute>
       } />
 
       <Route path="/liquidador" element={

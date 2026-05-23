@@ -1,15 +1,18 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet'
+import { useNavigate } from 'react-router-dom'
+import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet'
+import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import * as XLSX from 'xlsx'
 import { getSupabaseClient } from '../../lib/supabase'
-import { useAckStore } from '../../store/useAckStore'
+import { useAckStore }  from '../../store/useAckStore'
+import { useAppStore }  from '../../store/useAppStore'
+import { useAuthStore } from '../../store/authStore'
 
-// Normaliza nombre para cruce: minúsculas, sin tildes, sin espacios extra
 function norm(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 }
 
-// Color del pin según progreso ACK
 function pinColor(stats) {
   if (!stats) return { fill: '#94a3b8', stroke: '#64748b', label: 'Sin datos ACK' }
   if (stats.todos)       return { fill: '#16a34a', stroke: '#15803d', label: 'Cerrado' }
@@ -25,20 +28,117 @@ function isFinal(val) {
 
 const PROCESOS = ['gap_hw_cierre','gap_on_air','gap_doc','gap_site_owner','gap_log_inv']
 
-// Vuela el mapa al pin seleccionado
+const PROCESO_LABELS = {
+  gap_hw_cierre:  'HW Cierre',
+  gap_on_air:     'On Air',
+  gap_doc:        'Documentación',
+  gap_site_owner: 'Site Owner',
+  gap_log_inv:    'Log. Inventario',
+}
+
+function routeStopIcon(color, order) {
+  return divIcon({
+    className: '',
+    iconSize:     [30, 30],
+    iconAnchor:   [15, 15],
+    tooltipAnchor:[0, -18],
+    html: `<div style="
+      width:30px;height:30px;background:${color.fill};border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-size:12px;font-weight:700;
+      border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);
+    ">${order}</div>`,
+  })
+}
+
+function towerIcon(color, isSelected) {
+  const size = isSelected ? 40 : 28
+  const fs   = isSelected ? 17 : 12
+  const bw   = isSelected ? 2.5 : 1.5
+  return divIcon({
+    className: '',
+    iconSize:     [size, size],
+    iconAnchor:   [size / 2, size / 2],
+    tooltipAnchor:[0, -(size / 2 + 4)],
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;position:relative;">
+      <div class="${isSelected ? 'twring-anim' : ''}" style="
+        position:absolute;inset:0;border-radius:50%;
+        border:${bw}px solid ${color.fill};
+        opacity:${isSelected ? 0.95 : 0.7};
+      "></div>
+      ${isSelected ? `<div class="twring-anim2" style="
+        position:absolute;inset:0;border-radius:50%;
+        border:2px solid ${color.fill};
+        opacity:0.95;
+      "></div>` : ''}
+      <span style="font-size:${fs}px;line-height:1;position:relative;
+        filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));">🗼</span>
+    </div>`,
+  })
+}
+
+function lcLiveIcon(lcName) {
+  const initials = (lcName || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  return divIcon({
+    className: '',
+    iconSize:     [36, 36],
+    iconAnchor:   [18, 18],
+    tooltipAnchor:[0, -22],
+    html: `<div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;position:relative;">
+      <div class="lc-live-ring" style="position:absolute;inset:0;border-radius:50%;border:2.5px solid #16a34a;opacity:0.9;"></div>
+      <div style="width:26px;height:26px;background:#16a34a;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        color:#fff;font-size:10px;font-weight:700;border:2px solid #fff;
+        position:relative;z-index:1;">${initials}</div>
+    </div>`,
+  })
+}
+
+function lcCurrentIcon(color) {
+  const size = 48
+  return divIcon({
+    className: '',
+    iconSize:     [size, size],
+    iconAnchor:   [size / 2, size / 2],
+    tooltipAnchor:[0, -(size / 2 + 4)],
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;position:relative;">
+      <div class="lc-ring1" style="position:absolute;inset:2px;border-radius:50%;border:2.5px solid #2563eb;opacity:0.95;"></div>
+      <div class="lc-ring2" style="position:absolute;inset:2px;border-radius:50%;border:2px solid #2563eb;opacity:0.9;"></div>
+      <div style="position:absolute;inset:10px;border-radius:50%;border:1.5px solid ${color.fill};opacity:0.75;"></div>
+      <span style="font-size:15px;line-height:1;position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));">🗼</span>
+      <div style="position:absolute;top:1px;right:1px;width:18px;height:18px;background:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;font-size:11px;z-index:2;">👷</div>
+    </div>`,
+  })
+}
+
 function FlyTo({ pin }) {
   const map = useMap()
   useEffect(() => {
-    if (pin) map.flyTo([pin.lat, pin.lng], 14, { duration: 1.2 })
+    if (pin) map.flyTo([pin.lat, pin.lng], 16, { duration: 1.2 })
   }, [pin, map])
   return null
 }
 
-// Buscador con dropdown
+function FitBounds({ lcFilter, pins }) {
+  const map     = useMap()
+  const prevRef = useRef(null)
+  useEffect(() => {
+    if (!lcFilter || !pins.length) return
+    if (prevRef.current === lcFilter) return
+    prevRef.current = lcFilter
+    if (pins.length === 1) {
+      map.flyTo([pins[0].lat, pins[0].lng], 14, { duration: 1.4 })
+      return
+    }
+    map.flyToBounds(pins.map(p => [p.lat, p.lng]), { padding: [50, 50], duration: 1.4, maxZoom: 13 })
+  }, [lcFilter, pins, map])
+  return null
+}
+
 function SiteSearch({ options, onSelect }) {
-  const [query, setQuery]   = useState('')
-  const [open,  setOpen]    = useState(false)
-  const ref                 = useRef(null)
+  const [query, setQuery] = useState('')
+  const [open,  setOpen]  = useState(false)
+  const ref               = useRef(null)
 
   useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -50,13 +150,8 @@ function SiteSearch({ options, onSelect }) {
     query.length < 1 ? options : options.filter(o => norm(o.site_name).includes(norm(query)))
   , [options, query])
 
-  function select(o) {
-    setQuery(o.site_name)
-    setOpen(false)
-    onSelect(o)
-  }
-
-  function clear() { setQuery(''); setOpen(false); onSelect(null) }
+  function select(o) { setQuery(o.site_name); setOpen(false); onSelect(o) }
+  function clear()   { setQuery('');           setOpen(false); onSelect(null) }
 
   return (
     <div ref={ref} style={{ position: 'relative', minWidth: 260 }}>
@@ -107,18 +202,223 @@ function SiteSearch({ options, onSelect }) {
   )
 }
 
+function SitiosUploadModal({ onClose, onDone, currentCoords }) {
+  const [rows,      setRows]      = useState([])
+  const [newRows,   setNewRows]   = useState([])
+  const [fileName,  setFileName]  = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [result,    setResult]    = useState(null)
+  const [importMode,setImportMode]= useState('all') // 'all' | 'new'
+  const fileRef = useRef(null)
+
+  function downloadTemplate() {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['site_name', 'lat', 'lng'],
+      ['EJM.Sitio_Ejemplo', 4.7110, -74.0721],
+    ])
+    ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Coordenadas')
+    XLSX.writeFile(wb, 'template_coordenadas_sitios.xlsx')
+  }
+
+  function exportCurrent() {
+    const data = [['site_name', 'lat', 'lng'], ...currentCoords.map(c => [c.site_name, c.lat, c.lng])]
+    const ws = XLSX.utils.aoa_to_sheet(data)
+    ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Coordenadas')
+    XLSX.writeFile(wb, 'sitios_actuales.xlsx')
+  }
+
+  function handleFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setFileName(file.name)
+    setResult(null)
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const wb    = XLSX.read(ev.target.result, { type: 'array' })
+      const data  = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
+      const valid = data
+        .map(r => ({
+          site_name: (r.site_name || r['Site Name'] || r['SITE NAME'] || '').toString().trim(),
+          lat: parseFloat(r.lat || r['Lat'] || r['LAT'] || r['Latitud'] || ''),
+          lng: parseFloat(r.lng || r['Lng'] || r['LNG'] || r['Longitud'] || ''),
+        }))
+        .filter(r => r.site_name && !isNaN(r.lat) && !isNaN(r.lng))
+      const existing = new Set(currentCoords.map(c => c.site_name.trim().toLowerCase()))
+      const nuevo    = valid.filter(r => !existing.has(r.site_name.toLowerCase()))
+      setRows(valid)
+      setNewRows(nuevo)
+      setImportMode(nuevo.length > 0 ? 'new' : 'all')
+      setResult(null)
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  async function upload() {
+    const toUpload = importMode === 'new' ? newRows : rows
+    if (!toUpload.length) return
+    setUploading(true)
+    const db = getSupabaseClient()
+    const { error } = await db
+      .from('sitios_coordenadas')
+      .upsert(toUpload, { onConflict: 'site_name' })
+    setUploading(false)
+    if (error) { setResult({ error: error.message }); return }
+    setResult({ count: toUpload.length })
+    onDone()
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div style={{
+        background: '#fff', borderRadius: 14, padding: 28, width: 420,
+        boxShadow: '0 16px 48px rgba(0,0,0,.25)',
+      }} onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Actualizar Sitios en el Mapa</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+        </div>
+
+        {/* Paso 1 — Template */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, letterSpacing: '.04em' }}>
+            PASO 1 — DESCARGA EL TEMPLATE
+          </div>
+          <p style={{ fontSize: 12, color: '#4b5563', margin: '0 0 10px' }}>
+            El archivo tiene las columnas requeridas: <code>site_name</code>, <code>lat</code>, <code>lng</code>.
+            Completa los datos de los sitios nuevos o modificados.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={downloadTemplate} className="btn" style={{ fontSize: 11, padding: '7px 14px', cursor: 'pointer' }}>
+              📥 Template vacío
+            </button>
+            {currentCoords.length > 0 && (
+              <button onClick={exportCurrent} className="btn" style={{ fontSize: 11, padding: '7px 14px', cursor: 'pointer' }}>
+                📤 Exportar {currentCoords.length} sitios actuales
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ borderTop: '1px solid #f0f0f0', marginBottom: 18 }} />
+
+        {/* Paso 2 — Cargar archivo */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, letterSpacing: '.04em' }}>
+            PASO 2 — CARGA EL ARCHIVO COMPLETADO
+          </div>
+          <p style={{ fontSize: 12, color: '#4b5563', margin: '0 0 10px' }}>
+            Se aceptan archivos <strong>.xlsx</strong> o <strong>.csv</strong>.
+            Los sitios existentes se actualizan; los nuevos se agregan.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFile}
+            style={{ display: 'none' }}
+          />
+          <button onClick={() => fileRef.current.click()} className="btn" style={{ fontSize: 11, padding: '7px 14px', cursor: 'pointer' }}>
+            📂 Seleccionar archivo
+          </button>
+          {fileName && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: '#374151', marginBottom: 8 }}>
+                <strong>{fileName}</strong>
+              </div>
+              {rows.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#dc2626' }}>Sin filas válidas — revisa que las columnas sean site_name, lat, lng.</div>
+              ) : (
+                <div style={{ background: '#f8faff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: newRows.length > 0 ? 12 : 0 }}>
+                    <span><strong style={{ color: '#16a34a' }}>{newRows.length}</strong> sitios nuevos</span>
+                    <span><strong style={{ color: '#6b7280' }}>{rows.length - newRows.length}</strong> ya existentes</span>
+                    <span><strong>{rows.length}</strong> total</span>
+                  </div>
+                  {newRows.length === 0 && (
+                    <div style={{ color: '#6b7280', fontSize: 11, marginTop: 4 }}>
+                      No hay sitios nuevos. Todos ya están cargados en el mapa.
+                    </div>
+                  )}
+                  {newRows.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
+                        <input type="radio" name="importMode" checked={importMode === 'new'} onChange={() => setImportMode('new')} />
+                        Importar solo los <strong>{newRows.length} nuevos</strong>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
+                        <input type="radio" name="importMode" checked={importMode === 'all'} onChange={() => setImportMode('all')} />
+                        Importar todos ({rows.length}) — actualiza coordenadas existentes también
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {result && !result.error && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d', marginBottom: 14 }}>
+            ✓ {result.count} sitios cargados correctamente. Recarga la página para ver los cambios.
+          </div>
+        )}
+        {result?.error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#dc2626', marginBottom: 14 }}>
+            Error: {result.error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} className="btn" style={{ fontSize: 11, padding: '7px 16px', cursor: 'pointer' }}>
+            Cancelar
+          </button>
+          {(() => {
+            const toUpload = importMode === 'new' ? newRows : rows
+            const disabled = !toUpload.length || uploading
+            return (
+              <button
+                onClick={upload}
+                disabled={disabled}
+                className="btn bp"
+                style={{ fontSize: 11, padding: '7px 16px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }}
+              >
+                {uploading ? 'Cargando…' : toUpload.length ? `Cargar ${toUpload.length} sitios` : 'Cargar'}
+              </button>
+            )
+          })()}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MapaSitios() {
   const [coords,      setCoords]      = useState([])
   const [loading,     setLoading]     = useState(true)
   const [filter,      setFilter]      = useState('todos')
   const [selectedPin, setSelectedPin] = useState(null)
   const [mapLayer,    setMapLayer]    = useState('street')
-  const [pulseSize,   setPulseSize]   = useState(10)
-  const [ctxMenu,     setCtxMenu]     = useState(null) // { pin, x, y }
+  const [ctxMenu,     setCtxMenu]     = useState(null)
+  const [routeMode,    setRouteMode]   = useState(false)
+  const [routePins,    setRoutePins]   = useState([])
+  const [lcFilter,     setLcFilter]    = useState('')
+  const [uploadModal,  setUploadModal] = useState(false)
+  const [lcLive,       setLcLive]      = useState([]) // { lc, lat, lng, updated_at }
 
-  const sabana = useAckStore(s => s.sabana)
+  const sabana   = useAckStore(s => s.sabana)
+  const sitios   = useAppStore(s => s.sitios)
+  const navigate = useNavigate()
+  const userRole = useAuthStore(s => s.user?.role)
 
-  // Cerrar menú contextual al hacer clic fuera
   useEffect(() => {
     if (!ctxMenu) return
     const close = () => setCtxMenu(null)
@@ -136,7 +436,7 @@ export default function MapaSitios() {
     const { lat, lng, site_name } = pin
     const gmaps = `https://www.google.com/maps?q=${lat},${lng}`
     const waze  = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`
-    const msg = encodeURIComponent(`📍 *${site_name}*\n${gmaps}`)
+    const msg   = encodeURIComponent(`📍 *${site_name}*\n${gmaps}`)
     if (app === 'gmaps')    { window.open(gmaps, '_blank'); return }
     if (app === 'waze')     { window.open(waze,  '_blank'); return }
     if (app === 'whatsapp') { window.open(`https://wa.me/?text=${msg}`, '_blank'); return }
@@ -146,22 +446,6 @@ export default function MapaSitios() {
     }
   }
 
-  // Pulso animado para el pin seleccionado
-  useEffect(() => {
-    if (!selectedPin) return
-    setPulseSize(10)
-    let grow = true
-    const t = setInterval(() => {
-      setPulseSize(s => {
-        if (s >= 26) grow = false
-        if (s <= 10) grow = true
-        return grow ? s + 1 : s - 1
-      })
-    }, 40)
-    return () => clearInterval(t)
-  }, [selectedPin])
-
-  // Cargar coordenadas desde Supabase
   useEffect(() => {
     const db = getSupabaseClient()
     if (!db) { setLoading(false); return }
@@ -170,7 +454,27 @@ export default function MapaSitios() {
       .catch(() => setLoading(false))
   }, [])
 
-  // Índice ACK: site_name normalizado → stats
+  // Carga inicial + Realtime de posiciones LC en vivo
+  useEffect(() => {
+    const db = getSupabaseClient()
+    if (!db) return
+    db.from('lc_locations').select('lc,lat,lng,updated_at')
+      .then(({ data }) => setLcLive(data || []))
+    const channel = db.channel('lc_locations_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lc_locations' }, ({ eventType, new: row, old }) => {
+        if (eventType === 'DELETE') {
+          setLcLive(prev => prev.filter(l => l.lc !== old.lc))
+        } else {
+          setLcLive(prev => {
+            const idx = prev.findIndex(l => l.lc === row.lc)
+            return idx >= 0 ? prev.map((l, i) => i === idx ? row : l) : [...prev, row]
+          })
+        }
+      })
+      .subscribe()
+    return () => { db.removeChannel(channel) }
+  }, [])
+
   const ackIndex = useMemo(() => {
     const map = {}
     for (const r of sabana) {
@@ -181,39 +485,139 @@ export default function MapaSitios() {
     }
     const result = {}
     for (const [key, { smps, site_name }] of Object.entries(map)) {
-      const total = smps.length
+      const total      = smps.length
       const porProceso = PROCESOS.map(p => smps.filter(r => isFinal(r[p])).length)
-      const pct = Math.round(porProceso.reduce((s, f) => s + Math.round((f / total) * 100), 0) / PROCESOS.length)
-      const todos = porProceso.every(f => f === total)
+      const pct        = Math.round(porProceso.reduce((s, f) => s + Math.round((f / total) * 100), 0) / PROCESOS.length)
+      const todos      = porProceso.every(f => f === total)
       result[key] = { pct, todos, site_name }
     }
     return result
   }, [sabana])
 
-  // Pines finales cruzando coords con ACK
-  const pins = useMemo(() => {
-    return coords.map(c => {
+  const lcByName = useMemo(() => {
+    const map = {}
+    for (const s of sitios) if (s.nombre) map[norm(s.nombre)] = s.lc || ''
+    return map
+  }, [sitios])
+
+  const pins = useMemo(() =>
+    coords.map(c => {
       const stats = ackIndex[norm(c.site_name)] || null
       const color = pinColor(stats)
-      return { ...c, stats, color }
+      const lc    = lcByName[norm(c.site_name)] || ''
+      return { ...c, stats, color, lc }
     })
-  }, [coords, ackIndex])
+  , [coords, ackIndex, lcByName])
+
+  const lcOptions = useMemo(() => {
+    const set = new Set(pins.map(p => p.lc).filter(Boolean))
+    return [...set].sort()
+  }, [pins])
 
   const filtered = useMemo(() => {
-    if (filter === 'cerrados')   return pins.filter(p => p.stats?.todos)
-    if (filter === 'pendientes') return pins.filter(p => p.stats && !p.stats.todos)
-    if (filter === 'sinack')     return pins.filter(p => !p.stats)
-    return pins
-  }, [pins, filter])
+    let base = pins
+    if (filter === 'cerrados')   base = base.filter(p => p.stats?.todos)
+    else if (filter === 'pendientes') base = base.filter(p => p.stats && !p.stats.todos)
+    else if (filter === 'sinack')     base = base.filter(p => !p.stats)
+    if (lcFilter) base = base.filter(p => p.lc === lcFilter)
+    return base
+  }, [pins, filter, lcFilter])
 
-  // KPIs
-  const total     = pins.length
-  const cerrados  = pins.filter(p => p.stats?.todos).length
-  const enCurso   = pins.filter(p => p.stats && !p.stats.todos).length
-  const sinAck    = pins.filter(p => !p.stats).length
+  const total    = pins.length
+  const cerrados = pins.filter(p => p.stats?.todos).length
+  const enCurso  = pins.filter(p => p.stats && !p.stats.todos).length
+  const sinAck   = pins.filter(p => !p.stats).length
+
+  function handlePinClick(pin) {
+    if (routeMode) {
+      setRoutePins(prev => {
+        const idx = prev.findIndex(p => p.site_name === pin.site_name)
+        return idx >= 0 ? prev.filter((_, i) => i !== idx) : [...prev, pin]
+      })
+      return
+    }
+    setSelectedPin(pin)
+  }
+
+  function toggleRouteMode() {
+    setRouteMode(v => !v)
+    setRoutePins([])
+    setSelectedPin(null)
+  }
+
+  function openRoute() {
+    if (!routePins.length) return
+    const stops = routePins.map(p => `${p.lat},${p.lng}`).join('/')
+    window.open(`https://www.google.com/maps/dir/${stops}`, '_blank')
+  }
+
+  function moveStop(idx, dir) {
+    setRoutePins(prev => {
+      const next = [...prev]
+      const swap = idx + dir
+      if (swap < 0 || swap >= next.length) return prev;
+      [next[idx], next[swap]] = [next[swap], next[idx]]
+      return next
+    })
+  }
+
+  const selectedSmps = useMemo(() => {
+    if (!selectedPin) return []
+    return sabana.filter(r => norm(r.site_name) === norm(selectedPin.site_name))
+  }, [selectedPin, sabana])
+
+  const selectedMainSmp = useMemo(() =>
+    selectedSmps.find(r => r.main_smp === r.smp)?.main_smp || null
+  , [selectedSmps])
+
+  const lcLiveActive = useMemo(() => {
+    const cutoff = Date.now() - 60 * 60_000
+    return new Set(lcLive.filter(l => new Date(l.updated_at) > cutoff).map(l => l.lc))
+  }, [lcLive])
+
+  const currentLcPin = useMemo(() => {
+    if (!lcFilter) return null
+    // Si el LC ya tiene geolocalización en vivo, no mostrar el fallback del liquidador
+    if (lcLiveActive.has(lcFilter)) return null
+    const lastSitio = sitios
+      .filter(s => s.lc === lcFilter && s.fecha && s.tipo === 'TI')
+      .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+    if (!lastSitio) return null
+    return pins.find(p => norm(p.site_name) === norm(lastSitio.nombre)) || null
+  }, [lcFilter, sitios, pins, lcLiveActive])
+
+  const siteProcesoStats = useMemo(() => {
+    if (!selectedSmps.length) return []
+    const total = selectedSmps.length
+    return PROCESOS.map(p => ({
+      key:   p,
+      label: PROCESO_LABELS[p],
+      done:  selectedSmps.filter(r => isFinal(r[p])).length,
+      total,
+    }))
+  }, [selectedSmps])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', gap: 10 }}>
+
+      <style>{`
+        @keyframes twring-pulse {
+          0%, 100% { transform: scale(1);    opacity: 0.95; }
+          50%       { transform: scale(1.75); opacity: 0.2;  }
+        }
+        @keyframes twring-pulse2 {
+          0%, 100% { transform: scale(1);    opacity: 0.7;  }
+          50%       { transform: scale(2.4);  opacity: 0.0;  }
+        }
+        .twring-anim  { animation: twring-pulse  1.1s ease-in-out infinite; }
+        .twring-anim2 { animation: twring-pulse2 1.1s ease-in-out infinite 0.35s; }
+        @keyframes lc-pulse1 { 0%,100%{transform:scale(1);opacity:.9} 50%{transform:scale(1.75);opacity:.2} }
+        @keyframes lc-pulse2 { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(2.4);opacity:0} }
+        .lc-ring1 { animation: lc-pulse1 1.1s ease-in-out infinite; }
+        .lc-ring2 { animation: lc-pulse2 1.1s ease-in-out infinite 0.35s; }
+        @keyframes lc-live-pulse { 0%,100%{transform:scale(1);opacity:.9} 50%{transform:scale(1.7);opacity:.2} }
+        .lc-live-ring { animation: lc-live-pulse 1.5s ease-in-out infinite; }
+      `}</style>
 
       {/* Header */}
       <div className="dash-hdr mb14" style={{ marginBottom: 0 }}>
@@ -232,11 +636,10 @@ export default function MapaSitios() {
           </div>
         </div>
 
-        {/* Toggle capa */}
         <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1.5px solid #e5e7eb' }}>
           {[
-            { value: 'street',    label: '🗺 Mapa'      },
-            { value: 'satellite', label: '🛰 Satélite'  },
+            { value: 'street',    label: '🗺 Mapa'     },
+            { value: 'satellite', label: '🛰 Satélite' },
           ].map(o => (
             <button
               key={o.value}
@@ -251,16 +654,51 @@ export default function MapaSitios() {
           ))}
         </div>
 
-        {/* Buscador */}
-        <SiteSearch options={pins} onSelect={p => setSelectedPin(p)} />
+        <SiteSearch options={pins} onSelect={p => { if (!routeMode) setSelectedPin(p) }} />
 
-        {/* Filtros */}
+        {lcOptions.length > 0 && (
+          <select
+            className="fc"
+            value={lcFilter}
+            onChange={e => setLcFilter(e.target.value)}
+            style={{ fontSize: 11, minWidth: 140 }}
+          >
+            <option value="">👷 Todos los LC</option>
+            {lcOptions.map(lc => (
+              <option key={lc} value={lc}>{lc}</option>
+            ))}
+          </select>
+        )}
+
+        <button
+          onClick={toggleRouteMode}
+          style={{
+            padding: '5px 13px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+            border: `1.5px solid ${routeMode ? '#2563eb' : '#e5e7eb'}`,
+            background: routeMode ? '#2563eb' : '#fff',
+            color:      routeMode ? '#fff'    : '#374151',
+            cursor: 'pointer', transition: 'all .15s', whiteSpace: 'nowrap',
+          }}
+        >
+          🛣 {routeMode ? 'Salir de Ruta' : 'Modo Ruta'}
+        </button>
+
+        {['admin','coordinador'].includes(userRole) && (
+          <button
+            onClick={() => setUploadModal(true)}
+            className="btn"
+            style={{ fontSize: 11, padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            📥 Actualizar Sitios
+          </button>
+        )}
+
         <div style={{ display: 'flex', gap: 6 }}>
           {[
-            { value: 'todos',       label: 'Todos',       color: '#374151' },
-            { value: 'cerrados',    label: '✓ Cerrados',  color: '#16a34a' },
-            { value: 'pendientes',  label: '● En curso',  color: '#f59e0b' },
-            { value: 'sinack',      label: '— Sin ACK',   color: '#94a3b8' },
+            { value: 'todos',      label: 'Todos',      color: '#374151' },
+            { value: 'cerrados',   label: '✓ Cerrados', color: '#16a34a' },
+            { value: 'pendientes', label: '● En curso', color: '#f59e0b' },
+            { value: 'sinack',     label: '— Sin ACK',  color: '#94a3b8' },
           ].map(o => (
             <button
               key={o.value}
@@ -269,7 +707,7 @@ export default function MapaSitios() {
                 padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                 border: `1.5px solid ${filter === o.value ? o.color : '#e5e7eb'}`,
                 background: filter === o.value ? o.color : '#fff',
-                color: filter === o.value ? '#fff' : o.color,
+                color:      filter === o.value ? '#fff'  : o.color,
                 cursor: 'pointer', transition: 'all .15s',
               }}
             >
@@ -301,85 +739,310 @@ export default function MapaSitios() {
           Cargando coordenadas…
         </div>
       ) : (
-        <div style={{ flex: 1, borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+        <div style={{ flex: 1, borderRadius: 14, overflow: 'hidden', border: '1px solid #e5e7eb', position: 'relative' }}>
           <MapContainer
             center={[4.5, -74.0]}
             zoom={6}
+            maxZoom={19}
             style={{ height: '100%', width: '100%' }}
             scrollWheelZoom={true}
           >
             <FlyTo pin={selectedPin} />
+            <FitBounds lcFilter={lcFilter} pins={filtered} />
             {mapLayer === 'street' ? (
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                maxZoom={19}
               />
             ) : (
               <TileLayer
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 attribution='&copy; <a href="https://www.esri.com">Esri</a> — World Imagery'
+                maxZoom={19}
               />
             )}
-            {/* Anillo pulsante del pin seleccionado */}
-            {selectedPin && (
-              <>
-                <CircleMarker
-                  center={[selectedPin.lat, selectedPin.lng]}
-                  radius={pulseSize}
-                  interactive={false}
-                  pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.18, color: '#2563eb', weight: 2, interactive: false }}
-                />
-                <CircleMarker
-                  center={[selectedPin.lat, selectedPin.lng]}
-                  radius={9}
-                  pathOptions={{ fillColor: selectedPin.color.fill, fillOpacity: 1, color: '#fff', weight: 2.5 }}
+
+            {filtered.map(pin => {
+              const isSel       = !routeMode && selectedPin?.site_name === pin.site_name
+              const routeIdx    = routePins.findIndex(p => p.site_name === pin.site_name)
+              const inRoute     = routeIdx >= 0
+              const isCurrentLc = currentLcPin?.site_name === pin.site_name
+              const icon = isCurrentLc
+                ? lcCurrentIcon(pin.color)
+                : inRoute
+                ? routeStopIcon(pin.color, routeIdx + 1)
+                : towerIcon(pin.color, isSel)
+              return (
+                <Marker
+                  key={pin.site_name}
+                  position={[pin.lat, pin.lng]}
+                  icon={icon}
+                  zIndexOffset={isCurrentLc ? 2000 : inRoute ? 900 : isSel ? 1000 : 0}
                   eventHandlers={{
-                    click: () => {
-                      const smp = useAckStore.getState().sabana
-                        .find(r => norm(r.site_name) === norm(selectedPin.site_name) && r.main_smp === r.smp)
-                        ?.main_smp
-                      if (smp) window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp } }))
-                    },
-                    contextmenu: e => openCtxMenu(selectedPin, e),
+                    click:       () => handlePinClick(pin),
+                    contextmenu: e  => openCtxMenu(pin, e),
                   }}
                 >
-                  <Tooltip direction="top" offset={[0, -10]} opacity={0.97} permanent>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>{selectedPin.site_name}</div>
-                    <div style={{ fontSize: 11, color: selectedPin.color.fill }}>{selectedPin.color.label}</div>
+                  <Tooltip
+                    direction="top"
+                    offset={[0, isCurrentLc ? -24 : inRoute ? -18 : -(isSel ? 24 : 17)]}
+                    opacity={0.97}
+                    permanent={isSel || isCurrentLc}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{pin.site_name}</div>
+                    <div style={{ fontSize: 11, color: pin.color.fill }}>
+                      {inRoute ? `Parada ${routeIdx + 1}` : pin.color.label}
+                    </div>
+                    {pin.lc && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>👷 {pin.lc}</div>}
                   </Tooltip>
-                </CircleMarker>
-              </>
-            )}
+                </Marker>
+              )
+            })}
 
-            {filtered.map(pin => (
-              <CircleMarker
-                key={pin.site_name}
-                center={[pin.lat, pin.lng]}
-                radius={6}
-                pathOptions={{
-                  fillColor:   pin.color.fill,
-                  fillOpacity: 0.9,
-                  color:       pin.color.stroke,
-                  weight:      1.5,
-                }}
-                eventHandlers={{
-                  click: () => {
-                    const smp = useAckStore.getState().sabana
-                      .find(r => norm(r.site_name) === norm(pin.site_name) && r.main_smp === r.smp)
-                      ?.main_smp
-                    if (smp) window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp } }))
-                  },
-                  contextmenu: e => openCtxMenu(pin, e),
-                }}
-              >
-                <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{pin.site_name}</div>
-                  <div style={{ fontSize: 11, color: pin.color.fill }}>{pin.color.label}</div>
-                </Tooltip>
-              </CircleMarker>
-            ))}
+            {/* Marcadores LC en vivo */}
+            {lcLive
+              .filter(l => (Date.now() - new Date(l.updated_at)) / 60000 < 60)
+              .map(l => (
+                <Marker
+                  key={`live-${l.lc}`}
+                  position={[l.lat, l.lng]}
+                  icon={lcLiveIcon(l.lc)}
+                  zIndexOffset={3000}
+                >
+                  <Tooltip direction="top" offset={[0, -22]} opacity={0.97}>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{l.lc}</div>
+                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>🟢 En vivo</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>
+                      {(() => {
+                        const sec = Math.round((Date.now() - new Date(l.updated_at)) / 1000)
+                        return sec < 60 ? `hace ${sec}s` : `hace ${Math.floor(sec/60)}min`
+                      })()}
+                    </div>
+                  </Tooltip>
+                </Marker>
+              ))
+            }
           </MapContainer>
+
+          {/* Panel de ruta */}
+          {routeMode && (
+            <div style={{
+              position: 'absolute', bottom: 12, left: 12, right: 12, zIndex: 800,
+              background: '#fff', borderRadius: 12,
+              boxShadow: '0 -4px 24px rgba(0,0,0,.18)',
+              border: '1px solid #e5e7eb',
+              padding: '12px 14px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: routePins.length ? 10 : 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', flex: 1 }}>
+                  🛣 Ruta
+                  {routePins.length > 0 && (
+                    <span style={{ marginLeft: 6, fontSize: 11, color: '#6b7280', fontWeight: 400 }}>
+                      {routePins.length} parada{routePins.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {routePins.length === 0 && (
+                    <span style={{ marginLeft: 8, fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>
+                      Toca los pines para agregar paradas
+                    </span>
+                  )}
+                </div>
+                {routePins.length > 0 && (
+                  <>
+                    <button
+                      onClick={openRoute}
+                      className="btn bp"
+                      style={{ fontSize: 11, padding: '6px 14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      🗺 Abrir en Google Maps
+                    </button>
+                    <button
+                      onClick={() => setRoutePins([])}
+                      className="btn"
+                      style={{ fontSize: 11, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}
+                    >
+                      Limpiar
+                    </button>
+                  </>
+                )}
+              </div>
+              {routePins.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+                  {routePins.map((pin, idx) => (
+                    <div key={pin.site_name} style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: '#f8faff', border: '1px solid #e5e7eb',
+                      borderRadius: 8, padding: '4px 8px', flexShrink: 0,
+                    }}>
+                      <span style={{
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: pin.color.fill, color: '#fff',
+                        fontSize: 10, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>{idx + 1}</span>
+                      <span style={{ fontSize: 10, color: '#374151', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {pin.site_name}
+                      </span>
+                      <div style={{ display: 'flex', gap: 2 }}>
+                        <button onClick={() => moveStop(idx, -1)} disabled={idx === 0}
+                          style={{ background: 'none', border: 'none', cursor: idx > 0 ? 'pointer' : 'default', color: idx > 0 ? '#2563eb' : '#d1d5db', fontSize: 15, fontWeight: 700, padding: '0 3px', lineHeight: 1 }}>‹</button>
+                        <button onClick={() => moveStop(idx, 1)} disabled={idx === routePins.length - 1}
+                          style={{ background: 'none', border: 'none', cursor: idx < routePins.length - 1 ? 'pointer' : 'default', color: idx < routePins.length - 1 ? '#2563eb' : '#d1d5db', fontSize: 15, fontWeight: 700, padding: '0 3px', lineHeight: 1 }}>›</button>
+                      </div>
+                      <button onClick={() => setRoutePins(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Panel lateral */}
+          {selectedPin && (
+            <div style={{
+              position: 'absolute', top: 12, right: 12, bottom: 12,
+              width: 268, zIndex: 800,
+              background: '#fff', borderRadius: 12,
+              boxShadow: '0 8px 32px rgba(0,0,0,.22)',
+              border: '1px solid #e5e7eb',
+              display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+            }}>
+              {/* Cabecera */}
+              <div style={{
+                padding: '13px 15px',
+                borderBottom: '1px solid #f0f0f0',
+                background: selectedPin.color.fill + '18',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#111', lineHeight: 1.35, flex: 1 }}>
+                    {selectedPin.site_name}
+                  </div>
+                  <button
+                    onClick={() => setSelectedPin(null)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18, padding: 0, marginLeft: 8, lineHeight: 1 }}
+                  >×</button>
+                </div>
+                <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: selectedPin.color.fill, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: selectedPin.color.fill, display: 'inline-block', flexShrink: 0 }} />
+                  {selectedPin.color.label}
+                </div>
+                {selectedPin.lc && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: '#6b7280' }}>👷 {selectedPin.lc}</div>
+                )}
+              </div>
+
+              {/* Progreso ACK */}
+              <div style={{ padding: '14px 15px', flex: 1, overflowY: 'auto' }}>
+                {selectedPin.stats ? (
+                  <>
+                    <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, letterSpacing: '.05em', marginBottom: 8 }}>
+                      PROGRESO ACK
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 8 }}>
+                      <div style={{ fontSize: 34, fontWeight: 700, color: selectedPin.color.fill, lineHeight: 1 }}>
+                        {selectedPin.stats.pct}%
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                        {selectedSmps.length} SMP{selectedSmps.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                    <div style={{ height: 7, background: '#f0f2f0', borderRadius: 4, marginBottom: 16 }}>
+                      <div style={{
+                        height: '100%', borderRadius: 4,
+                        width: `${selectedPin.stats.pct}%`,
+                        background: selectedPin.color.fill,
+                        transition: 'width .6s ease',
+                      }} />
+                    </div>
+
+                    {/* Por proceso */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                      {siteProcesoStats.map(p => (
+                        <div key={p.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span style={{ fontSize: 10, color: '#6b7280' }}>{p.label}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: p.done === p.total ? '#16a34a' : '#374151' }}>
+                              {p.done}/{p.total}
+                            </span>
+                          </div>
+                          <div style={{ height: 4, background: '#f0f2f0', borderRadius: 2 }}>
+                            <div style={{
+                              height: '100%', borderRadius: 2,
+                              width: `${Math.round((p.done / p.total) * 100)}%`,
+                              background: p.done === p.total ? '#16a34a' : selectedPin.color.fill,
+                            }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', paddingTop: 24 }}>
+                    Sin datos ACK para este sitio
+                  </div>
+                )}
+              </div>
+
+              {/* Acciones */}
+              <div style={{ padding: '11px 15px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {selectedMainSmp && (
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: selectedMainSmp } }))}
+                    className="btn bp"
+                    style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
+                  >
+                    📊 Ver Timeline
+                  </button>
+                )}
+                {selectedMainSmp && (
+                  <button
+                    onClick={() => navigate(`/rollout/ack/sitios?smp=${encodeURIComponent(selectedMainSmp)}`)}
+                    className="btn"
+                    style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
+                  >
+                    📋 Ver en ACK
+                  </button>
+                )}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => shareLocation(selectedPin, 'gmaps')}
+                    className="btn" style={{ fontSize: 11, padding: '6px 0', flex: 1, cursor: 'pointer' }}>
+                    🗺 Maps
+                  </button>
+                  <button onClick={() => shareLocation(selectedPin, 'waze')}
+                    className="btn" style={{ fontSize: 11, padding: '6px 0', flex: 1, cursor: 'pointer' }}>
+                    🚗 Waze
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => shareLocation(selectedPin, 'whatsapp')}
+                    className="btn" style={{ fontSize: 11, padding: '6px 0', flex: 1, cursor: 'pointer', color: '#15803d' }}>
+                    💬 WhatsApp
+                  </button>
+                  <button onClick={() => shareLocation(selectedPin, 'copy')}
+                    className="btn" style={{ fontSize: 11, padding: '6px 0', flex: 1, cursor: 'pointer' }}>
+                    📋 Copiar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {uploadModal && (
+        <SitiosUploadModal
+          currentCoords={coords}
+          onClose={() => setUploadModal(false)}
+          onDone={() => {
+            setUploadModal(false)
+            const db = getSupabaseClient()
+            if (db) db.from('sitios_coordenadas').select('site_name,lat,lng')
+              .then(({ data }) => setCoords(data || []))
+          }}
+        />
       )}
 
       {/* Menú contextual */}
