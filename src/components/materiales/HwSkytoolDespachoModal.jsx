@@ -93,11 +93,19 @@ function assignSOs(skytoolRows, hwCatalogo, hwEquipos, hwMovimientos) {
       soStockMap.get(winner.key).available -= req
 
       const sampleEquipo = hwEquipos.find(e => e.catalogo_id === cat.id && e.estado === 'en_bodega')
+      const winnerSO     = winner.so || null
+      const entradaMov   = winnerSO
+        ? hwMovimientos
+            .filter(m => !m.serial && Number(m.catalogo_id) === cat.id && m.tipo === 'ENTRADA' &&
+              (m.so === winnerSO || m.sales_order === winnerSO))
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]
+        : null
+      const bodegaOrigen = entradaMov?.destino || sampleEquipo?.ubicacion_actual || null
 
       return {
         ...row, cat,
-        so: winner.so || null,
-        bodegaOrigen: sampleEquipo?.ubicacion_actual || null,
+        so: winnerSO,
+        bodegaOrigen,
         status: 'ok',
       }
     }

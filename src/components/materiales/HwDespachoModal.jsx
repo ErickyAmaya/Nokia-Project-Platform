@@ -41,12 +41,14 @@ function SitioCombobox({ value, onChange, opciones, placeholder }) {
 
 const STEPS = ['Datos del Despacho', 'Agregar Equipos', 'Confirmar y Guardar']
 
+const eqBod = (a, b) => !a || !b || a.trim().toLowerCase() === b.trim().toLowerCase()
+
 function getSosDisponibles(hwEquipos, _hwMovimientos, catalogoId, bodega = null, excludeSerials = []) {
   return hwEquipos
     .filter(e =>
       Number(e.catalogo_id) === Number(catalogoId) &&
       e.estado === 'en_bodega' &&
-      (!bodega || !e.ubicacion_actual || e.ubicacion_actual === bodega) &&
+      (!bodega || eqBod(e.ubicacion_actual, bodega)) &&
       !excludeSerials.includes(e.serial)
     )
     .map(e => ({ so: e.so || e.serial, serial: e.serial, bodega: e.ubicacion_actual || '' }))
@@ -115,17 +117,21 @@ export default function HwDespachoModal({ onClose }) {
     return hwEquipos.filter(e =>
       Number(e.catalogo_id) === id &&
       e.estado === 'en_bodega' &&
-      (!e.ubicacion_actual || e.ubicacion_actual === bodega)
+      (!e.ubicacion_actual || eqBod(e.ubicacion_actual, bodega))
     )
   }
 
   function getSinSerialStock(catId, bodega) {
     const id   = Number(catId)
     const movs = hwMovimientos.filter(m => Number(m.catalogo_id) === id && !m.serial)
-    const ent  = movs.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino === bodega)
-      .reduce((s, m) => s + (m.cantidad || 0), 0)
-    const sal  = movs.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen === bodega)
-      .reduce((s, m) => s + (m.cantidad || 0), 0)
+    const ent  = movs.filter(m =>
+      m.tipo === 'ENTRADA' && eqBod(m.destino, bodega) &&
+      (!m.destino_tipo || m.destino_tipo === 'bodega')
+    ).reduce((s, m) => s + (m.cantidad || 0), 0)
+    const sal  = movs.filter(m =>
+      m.tipo === 'SALIDA' && eqBod(m.origen, bodega) &&
+      (!m.origen_tipo || m.origen_tipo === 'bodega')
+    ).reduce((s, m) => s + (m.cantidad || 0), 0)
     return Math.max(0, ent - sal)
   }
 
@@ -312,8 +318,11 @@ export default function HwDespachoModal({ onClose }) {
   }
 
   const selectedCat    = hwCatalogo.find(c => String(c.id) === String(selCat))
-  const stockInfoMain  = selCat && meta.bodega
-    ? getStock(Number(selCat), selectedCat?.aplica_serial, meta.bodega) : null
+  const stockInfoMain  = selCat
+    ? (selectedCat?.aplica_serial === false
+        ? bodegas.reduce((t, b) => t + getSinSerialStock(Number(selCat), b.nombre), 0)
+        : hwEquipos.filter(e => Number(e.catalogo_id) === Number(selCat) && e.estado === 'en_bodega').length)
+    : null
 
   // ── Render ────────────────────────────────────────────────────────
   return (
@@ -478,7 +487,7 @@ export default function HwDespachoModal({ onClose }) {
                   {selCat && (
                     <div style={{ display:'flex', alignItems:'center', gap:12, fontSize:10 }}>
                       <span style={{ color:'#555f55' }}>
-                        Stock en <strong>{meta.bodega}</strong>:{' '}
+                        Stock disponible:{' '}
                         <strong style={{ color: stockInfoMain === 0 ? '#c0392b' : '#1a6130', fontSize:12 }}>
                           {stockInfoMain ?? '—'}
                         </strong>

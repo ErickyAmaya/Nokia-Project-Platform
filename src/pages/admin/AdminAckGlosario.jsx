@@ -11,6 +11,14 @@ const AREA_COLOR  = {
 
 const EMPTY_FORM = { gap: '', area: 'HW_Cierre', secuencia: '', descripcion: '', gestion: '', se_puede_liberar: null }
 
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
 function LibBadge({ value, onClick }) {
   if (value === true)  return <button onClick={onClick} style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 6, fontSize: 10, fontWeight: 700, padding: '3px 10px', cursor: 'pointer' }}>SI</button>
   if (value === false) return <button onClick={onClick} style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 10, fontWeight: 700, padding: '3px 10px', cursor: 'pointer' }}>NO</button>
@@ -18,13 +26,16 @@ function LibBadge({ value, onClick }) {
 }
 
 export default function AdminAckGlosario() {
-  const [rows,      setRows]      = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [saving,    setSaving]    = useState(null)   // id being saved
-  const [deleting,  setDeleting]  = useState(null)   // id being deleted
-  const [form,      setForm]      = useState(EMPTY_FORM)
-  const [adding,    setAdding]    = useState(false)
+  const [rows,       setRows]       = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [saving,     setSaving]     = useState(null)
+  const [deleting,   setDeleting]   = useState(null)
+  const [form,       setForm]       = useState(EMPTY_FORM)
+  const [adding,     setAdding]     = useState(false)
   const [filtroArea, setFiltroArea] = useState('todos')
+  const [editingRow, setEditingRow] = useState(null)   // row being edited
+  const [editForm,   setEditForm]   = useState(EMPTY_FORM)
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     supabase.from('ack_glosario')
@@ -98,6 +109,40 @@ export default function AdminAckGlosario() {
     await reloadRows()
     showToast('Estado eliminado')
     setDeleting(null)
+  }
+
+  function startEdit(row) {
+    setEditingRow(row)
+    setEditForm({
+      gap:              row.gap || '',
+      area:             row.area || 'HW_Cierre',
+      secuencia:        row.secuencia ?? '',
+      descripcion:      row.descripcion || '',
+      gestion:          row.gestion || '',
+      se_puede_liberar: row.se_puede_liberar,
+    })
+  }
+
+  async function handleEditSave(e) {
+    e.preventDefault()
+    if (!editForm.gap.trim() || !editForm.area.trim()) { showToast('Gap y Área son obligatorios', 'err'); return }
+    setEditSaving(true)
+    const { error } = await supabase.from('ack_glosario').update({
+      gap:              editForm.gap.trim(),
+      area:             editForm.area.trim(),
+      secuencia:        editForm.secuencia !== '' ? Number(editForm.secuencia) : null,
+      descripcion:      editForm.descripcion.trim() || null,
+      gestion:          editForm.gestion.trim() || null,
+      se_puede_liberar: editForm.se_puede_liberar,
+    }).eq('id', editingRow.id)
+    if (error) {
+      showToast('Error al guardar: ' + error.message, 'err')
+    } else {
+      showToast('Estado actualizado')
+      setEditingRow(null)
+      await reloadRows()
+    }
+    setEditSaving(false)
   }
 
   async function handleAdd(e) {
@@ -221,7 +266,14 @@ export default function AdminAckGlosario() {
                           : <LibBadge value={row.se_puede_liberar} onClick={() => cycleValue(row)} />
                         }
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                      <td style={{ padding: '6px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={() => startEdit(row)}
+                          title="Editar estado"
+                          onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#93c5fd'; e.currentTarget.style.color = '#1d4ed8' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#9ca3af' }}
+                          style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#9ca3af', cursor: 'pointer', fontSize: 11, padding: '3px 7px', borderRadius: 5, lineHeight: 1, marginRight: 4 }}
+                        ><IconEdit /></button>
                         {deleting === row.id
                           ? <span style={{ fontSize: 10, color: '#9ca3af' }}>…</span>
                           : <button
@@ -290,6 +342,67 @@ export default function AdminAckGlosario() {
           </div>
         </form>
       </div>
+
+      {/* ── Modal Edición ── */}
+      {editingRow && (
+        <>
+          <div onClick={() => setEditingRow(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 600 }}/>
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            zIndex: 601, background: '#fff', borderRadius: 14, padding: '24px 28px',
+            boxShadow: '0 12px 40px rgba(0,0,0,.2)', width: 520, maxWidth: '95vw',
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IconEdit size={16} /> Editar Estado
+              <span style={{ marginLeft: 6, background: '#f3f4f6', color: '#6b7280', borderRadius: 6, fontSize: 11, fontWeight: 600, padding: '2px 8px', fontFamily: 'monospace' }}>{editingRow.gap}</span>
+            </div>
+            <form onSubmit={handleEditSave}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="fg">
+                  <label className="fl">Gap (nombre del estado) *</label>
+                  <input className="fc" value={editForm.gap} onChange={e => setEditForm(f => ({ ...f, gap: e.target.value }))} style={{ fontSize: 12 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div className="fg" style={{ flex: 2 }}>
+                    <label className="fl">Área *</label>
+                    <select className="fc" value={editForm.area} onChange={e => setEditForm(f => ({ ...f, area: e.target.value }))} style={{ fontSize: 12 }}>
+                      {[...new Set([...AREAS_ORDER, editForm.area])].map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div className="fg" style={{ flex: 1 }}>
+                    <label className="fl">Secuencia</label>
+                    <input className="fc" type="number" value={editForm.secuencia} onChange={e => setEditForm(f => ({ ...f, secuencia: e.target.value }))} style={{ fontSize: 12 }} />
+                  </div>
+                  <div className="fg" style={{ flex: 2 }}>
+                    <label className="fl">Se puede liberar</label>
+                    <select className="fc" value={editForm.se_puede_liberar === null ? 'null' : String(editForm.se_puede_liberar)} onChange={e => setEditForm(f => ({ ...f, se_puede_liberar: e.target.value === 'null' ? null : e.target.value === 'true' }))} style={{ fontSize: 12 }}>
+                      <option value="null">— No definido</option>
+                      <option value="true">SI</option>
+                      <option value="false">NO</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="fg">
+                  <label className="fl">Descripción</label>
+                  <input className="fc" value={editForm.descripcion} onChange={e => setEditForm(f => ({ ...f, descripcion: e.target.value }))} style={{ fontSize: 12 }} />
+                </div>
+                <div className="fg">
+                  <label className="fl">Gestión</label>
+                  <input className="fc" value={editForm.gestion} onChange={e => setEditForm(f => ({ ...f, gestion: e.target.value }))} style={{ fontSize: 12 }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+                <button type="button" onClick={() => setEditingRow(null)} style={{ padding: '7px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={editSaving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', fontSize: 12, fontWeight: 700, cursor: editSaving ? 'default' : 'pointer', opacity: editSaving ? .6 : 1 }}>
+                  {editSaving ? 'Guardando…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
     </>
   )
 }

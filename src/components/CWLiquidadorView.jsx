@@ -389,16 +389,7 @@ export default function CWLiquidadorView({ sitio }) {
           </div>
         </div>
         <div className="card-b">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-            <div className="fg" style={{ marginBottom: 0 }}>
-              <label className="fl">SMP / Código Nokia</label>
-              <input
-                type="text" className="fc" value={liq.smp || ''} disabled={locked}
-                placeholder="Ej: CO_CAL_12345"
-                onChange={e => saveLiqCW({ ...liq, smp: e.target.value })}
-                onBlur={e => updLiqField('smp', e.target.value)}
-              />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             <div className="fg" style={{ marginBottom: 0 }}>
               <label className="fl">Región</label>
               <select className="fc" value={liq.region || ''} disabled={locked} onChange={e => updLiqField('region', e.target.value)}>

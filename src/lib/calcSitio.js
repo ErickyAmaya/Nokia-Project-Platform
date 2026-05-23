@@ -11,7 +11,10 @@ export function calcSitio(sitio, gastos = [], subcs = [], catalogTI = [], liquid
   const isFinal   = sitio.estado === 'final'
   const crExclSet = new Set(sitio.crSubcExcluded || [])
   const esInternaOf = lc => subcs.find(x => x.lc === lc)?.esInterna || false
-  const esInternaSitio = esInternaOf(sitio.lc)
+  const lcForInternalCheck = sitio.tipo === 'TSS'
+    ? (sitio.lcVisita || sitio.lc || '')
+    : sitio.lc
+  const esInternaSitio = esInternaOf(lcForInternalCheck)
 
   let nokiaTI = 0, nokiaADJ = 0, nokiaCR = 0
   let subcTI  = 0, subcADJ  = 0, subcCR  = 0

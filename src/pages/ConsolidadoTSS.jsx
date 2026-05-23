@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
@@ -39,26 +39,41 @@ function ThSubc({ children, style }) {
 
 // ── Calculate Nokia + SubC per TSS activity type ─────────────────
 
-function calcTSSRow(s, subcs) {
+function calcTSSRow(s, subcs, catalogTI = [], gastos = []) {
   const lcVisita   = s.lcVisita   || s.lc || ''
   const lcReporte  = s.lcReporte  || s.lc || ''
   const lcRedesign = s.lcRedesign || s.lc || ''
 
-  const catOf = lc => subcs.find(x => x.lc === lc)?.cat || s.cat || 'A'
+  const catOf      = lc => subcs.find(x => x.lc === lc)?.cat || s.cat || 'A'
   const catV  = catOf(lcVisita)
   const catR  = catOf(lcReporte)
   const catRd = catOf(lcRedesign)
 
+  const esInternaVisita  = subcs.find(x => x.lc === lcVisita)?.esInterna  || false
+  const cuadrillaCosto   = esInternaVisita
+    ? ((s.costos?.nomina || 0) + (s.costos?.viaticos || 0) + (s.costos?.transporte || 0))
+    : 0
+
   let nokiaV = 0, nokiaR = 0, nokiaRD = 0, nokiaVR = 0
   let subcV  = 0, subcR  = 0, subcRD  = 0, subcVR  = 0
+
+  // Per-subsite breakdown
+  const bySubsite = {}
 
   ;(s.actividades || []).forEach(act => {
     const isNokia = act.cardType !== 'subc'
     const isSubc  = act.cardType !== 'nokia'
     const cant    = act.cant || 0
+    const sid     = act.sitioid
+
+    const cb =
+      act.id === 'TSS_V'  ? catV  :
+      act.id === 'TSS_R'  ? catR  :
+      act.id === 'TSS_RD' ? catRd : catV
+    const efectCat = act.catOver || cb
 
     if (isNokia) {
-      const pN = getPrecio('BASE', act.id, null, s.cat || 'A', act.ciudad)
+      const pN = getPrecio('BASE', act.id, null, s.cat || 'A', act.ciudad, catalogTI)
       const n  = pN.nokia * cant
       if      (act.id === 'TSS_V')  nokiaV  += n
       else if (act.id === 'TSS_R')  nokiaR  += n
@@ -67,42 +82,70 @@ function calcTSSRow(s, subcs) {
     }
 
     if (isSubc) {
-      const cb =
-        act.id === 'TSS_V'  ? catV  :
-        act.id === 'TSS_R'  ? catR  :
-        act.id === 'TSS_RD' ? catRd : catV
-      const pS = getPrecio('BASE', act.id, null, act.catOver || cb, act.ciudad)
+      const pS = getPrecio('BASE', act.id, null, efectCat, act.ciudad, catalogTI)
       const sc = pS.subc * cant
       if      (act.id === 'TSS_V')  subcV  += sc
       else if (act.id === 'TSS_R')  subcR  += sc
       else if (act.id === 'TSS_RD') subcRD += sc
       else if (act.id === 'TSS_VR') subcVR += sc
+
+      // Accumulate per sub-site
+      if (sid) {
+        if (!bySubsite[sid]) bySubsite[sid] = { ciudad: act.ciudad || '', cat: efectCat, subcV: 0, subcR: 0, subcRD: 0, subcVR: 0 }
+        if (act.id === 'TSS_V')  bySubsite[sid].subcV  += sc
+        if (act.id === 'TSS_R')  bySubsite[sid].subcR  += sc
+        if (act.id === 'TSS_RD') bySubsite[sid].subcRD += sc
+        if (act.id === 'TSS_VR') bySubsite[sid].subcVR += sc
+        if (act.ciudad) bySubsite[sid].ciudad = act.ciudad
+        bySubsite[sid].cat = efectCat
+      }
     }
   })
 
-  // Count unique site names (sitioid)
-  const cantSitios = new Set(
+  // Unique site names (sitioid)
+  const sitioids = [...new Set(
     (s.actividades || []).map(a => a.sitioid).filter(Boolean)
-  ).size
+  )].sort()
+  const cantSitios = sitioids.length
 
-  return { lcVisita, lcReporte, lcRedesign, cantSitios,
+  // Gastos adicionales por sub-sitio (van al total de Visita, igual que en el liquidador)
+  const gastosS = gastos.filter(g => g.sitio === s.id && g.sub_sitio)
+  gastosS.forEach(g => {
+    subcV += (g.valor || 0)
+    const sid = g.sub_sitio
+    if (bySubsite[sid]) bySubsite[sid].subcV += (g.valor || 0)
+  })
+
+  return { lcVisita, lcReporte, lcRedesign, cantSitios, sitioids, bySubsite,
            nokiaV, nokiaR, nokiaRD, nokiaVR,
-           subcV,  subcR,  subcRD,  subcVR }
+           subcV,  subcR,  subcRD,  subcVR,
+           esInternaVisita, cuadrillaCosto }
 }
 
 // ── Main page ────────────────────────────────────────────────────
 
 export default function ConsolidadoTSS() {
-  const [filLCVis, setFilLCVis] = useState('')
-  const [filLCRep, setFilLCRep] = useState('')
-  const [modalTSS, setModalTSS] = useState(false)
+  const [filLCVis,     setFilLCVis]     = useState('')
+  const [filLCRep,     setFilLCRep]     = useState('')
+  const [modalTSS,     setModalTSS]     = useState(false)
+  const [expandedRows, setExpandedRows] = useState(new Set())
+
+  function toggleRow(id) {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   const navigate       = useNavigate()
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const sitios        = useAppStore(s => s.sitios)
   const subcs         = useAppStore(s => s.subcs)
-  const user             = useAuthStore(s => s.user)
+  const catalogTI     = useAppStore(s => s.catalogTI)
+  const gastos        = useAppStore(s => s.gastos)
+  const user          = useAuthStore(s => s.user)
   const eliminarSitio = useAppStore(s => s.eliminarSitio)
 
   const isViewer = user?.role === 'viewer'
@@ -130,8 +173,8 @@ export default function ConsolidadoTSS() {
 
   // Calcular cada fila
   const rows = useMemo(
-    () => filtered.map(s => ({ s, r: calcTSSRow(s, subcs) })),
-    [filtered, subcs]
+    () => filtered.map(s => ({ s, r: calcTSSRow(s, subcs, catalogTI, gastos) })),
+    [filtered, subcs, catalogTI, gastos]
   )
 
   // Totales footer
@@ -140,7 +183,7 @@ export default function ConsolidadoTSS() {
     nokiaR:  acc.nokiaR  + r.nokiaR,
     nokiaRD: acc.nokiaRD + r.nokiaRD,
     nokiaVR: acc.nokiaVR + r.nokiaVR,
-    subcV:   acc.subcV   + r.subcV,
+    subcV:   acc.subcV   + (r.esInternaVisita ? r.cuadrillaCosto : r.subcV),
     subcR:   acc.subcR   + r.subcR,
     subcRD:  acc.subcRD  + r.subcRD,
     subcVR:  acc.subcVR  + r.subcVR,
@@ -170,7 +213,7 @@ export default function ConsolidadoTSS() {
       {/* ── Header ─────────────────────────────────────────── */}
       <div className="fb mb14">
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 21, fontWeight: 700 }}>
-          Consolidado TSS ({filtered.length})
+          Consolidado TSS ({filtered.length} {filtered.length === 1 ? 'Pack' : 'Packs'} · {rows.reduce((s, { r }) => s + r.cantSitios, 0)} sitios)
         </h1>
         <div className="flex gap8" style={{ flexWrap: 'wrap' }}>
           <select className="fc" style={{ width: 175 }} value={filLCVis} onChange={e => setFilLCVis(e.target.value)}>
@@ -256,48 +299,110 @@ export default function ConsolidadoTSS() {
                   </td>
                 </tr>
               )}
-              {rows.map(({ s, r }) => (
-                <tr key={s.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <span
-                      className="stat-link"
-                      style={{ fontWeight: 700 }}
-                      onClick={() => navigate(`/liquidador/${s.id}`)}
-                      title="Abrir liquidador"
+              {rows.map(({ s, r }) => {
+                const isExpanded = expandedRows.has(s.id)
+                return (
+                  <Fragment key={s.id}>
+                    {/* ── Fila TSS (Pack) ── */}
+                    <tr
+                      style={{ cursor: r.cantSitios > 0 ? 'pointer' : 'default', borderTop: '2px solid #e0e4e0' }}
+                      onClick={() => r.cantSitios > 0 && toggleRow(s.id)}
                     >
-                      {s.nombre}
-                    </span>
-                    {' '}
-                    <span className="badge bg-b" style={{ fontSize: 8 }}>TSS</span>
-                  </td>
-                  <td style={{ fontSize: 10 }}>{s.fecha || '—'}</td>
-                  <td style={{ fontSize: 10 }}>{r.lcVisita || '—'}</td>
-                  <td>
-                    <span className="badge bg-b" style={{ fontSize: 8 }}>
-                      {s.region || '—'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge bg-gl" style={{ fontSize: 8 }}>{s.cat || 'A'}</span>
-                  </td>
-                  <td className="num">{r.cantSitios || 0}</td>
-                  {/* Nokia */}
-                  <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaV)}</td>
-                  <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaR)}</td>
-                  <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaRD)}</td>
-                  <td className="num fw7" style={{ background: '#dbeafe', color: 'var(--b)', borderRight: '2px solid #93c5fd' }}>{dash(r.nokiaVR)}</td>
-                  {/* SubC */}
-                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcV)}</td>
-                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcR)}</td>
-                  <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcRD)}</td>
-                  <td className="num fw7" style={{ background: '#fef9c3', color: '#b45309', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
-                  <td>
-                    {!isViewer && s.estado !== 'final' && (
-                      <button className="btn-del" onClick={() => handleEliminar(s)}>✕</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {r.cantSitios > 0 && (
+                            <span style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, minWidth: 10 }}>
+                              {isExpanded ? '▼' : '▶'}
+                            </span>
+                          )}
+                          <span
+                            className="stat-link"
+                            style={{ fontWeight: 700 }}
+                            onClick={e => { e.stopPropagation(); navigate(`/liquidador/${s.id}`) }}
+                            title="Abrir liquidador"
+                          >
+                            {s.nombre}
+                          </span>
+                          <span className="badge bg-b" style={{ fontSize: 8 }}>TSS</span>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 10 }}>{s.fecha || '—'}</td>
+                      <td style={{ fontSize: 10 }}>{r.lcVisita || '—'}</td>
+                      <td>
+                        <span className="badge bg-b" style={{ fontSize: 8 }}>
+                          {s.region || '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge bg-gl" style={{ fontSize: 8 }}>{s.cat || 'A'}</span>
+                      </td>
+                      <td className="num" style={{ fontWeight: 700, color: r.cantSitios > 0 ? '#1d4ed8' : '#ccc' }}>
+                        {r.cantSitios || 0}
+                      </td>
+                      {/* Nokia */}
+                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaV)}</td>
+                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaR)}</td>
+                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaRD)}</td>
+                      <td className="num fw7" style={{ background: '#dbeafe', color: 'var(--b)', borderRight: '2px solid #93c5fd' }}>{dash(r.nokiaVR)}</td>
+                      {/* SubC — Vis usa cuadrillaCosto si lcVisita es interna; Rep/Red/V+R siempre su valor real */}
+                      <td className="num" style={{ background: '#fffbeb', color: r.esInternaVisita ? '#3730a3' : '#b45309' }}>
+                        {r.esInternaVisita ? dash(r.cuadrillaCosto) : dash(r.subcV)}
+                      </td>
+                      <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcR)}</td>
+                      <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcRD)}</td>
+                      <td className="num fw7" style={{ background: '#fef9c3', color: '#b45309', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
+                      <td onClick={e => e.stopPropagation()}>
+                        {!isViewer && s.estado !== 'final' && (
+                          <button className="btn-del" onClick={() => handleEliminar(s)}>✕</button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* ── Filas sub-sitios expandidas ── */}
+                    {isExpanded && r.sitioids.map((sid, i) => {
+                      const d = r.bySubsite[sid] || {}
+                      const isLast = i === r.sitioids.length - 1
+                      const rowBorder = isLast ? { borderBottom: '2px solid #bfdbfe' } : {}
+                      const ciudad = (d.ciudad || '').replace('Ciudad_', '') || '—'
+                      return (
+                        <tr key={`${s.id}-${sid}`} style={{ background: '#f0f5ff', ...rowBorder }}>
+                          {/* Sitio — indentado */}
+                          <td style={{ paddingLeft: 28, fontSize: 10, color: '#374151', whiteSpace: 'nowrap', borderBottom: '1px solid #e0e8ff' }}>
+                            <span style={{ color: '#9ca3af', marginRight: 5, fontFamily: 'monospace', fontSize: 9 }}>{i + 1}.</span>
+                            <span style={{ fontWeight: 600 }}>{sid}</span>
+                          </td>
+                          {/* Fecha — vacía */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }} />
+                          {/* LC — vacía */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }} />
+                          {/* Región / Ciudad */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }}>
+                            <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', fontSize: 8 }}>{ciudad}</span>
+                          </td>
+                          {/* Cat */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }}>
+                            <span className="badge bg-gl" style={{ fontSize: 8 }}>{d.cat || '—'}</span>
+                          </td>
+                          {/* Cant. Sitios — vacía */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }} />
+                          {/* Nokia — vacías (los precios nokia van al pack) */}
+                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
+                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
+                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
+                          <td style={{ background: '#eef4ff', borderRight: '2px solid #93c5fd', borderBottom: '1px solid #e0e8ff' }} />
+                          {/* SubC por sub-sitio — Vis vacío si lcVisita interna; Rep/Red siempre su valor */}
+                          <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{r.esInternaVisita ? '' : dash(d.subcV || 0)}</td>
+                          <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcR || 0)}</td>
+                          <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcRD || 0)}</td>
+                          <td className="num fw7" style={{ background: '#fef9c3', borderRight: '2px solid #fbbf24', borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcVR || 0)}</td>
+                          {/* Acciones — vacía */}
+                          <td style={{ borderBottom: '1px solid #e0e8ff' }} />
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                )
+              })}
             </tbody>
 
             {/* ── Footer totales ─────────────────────────────── */}

@@ -258,24 +258,43 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
 
   const accentColor = tipo === 'ENTRADA' ? '#1a9c1a' : '#c0392b'
 
-  // Al cambiar bodega origen: resetear seriales/serialBodegas
+  // Al cambiar bodega origen: validar stock y resetear seriales/serialBodegas
   useEffect(() => {
     if (tipo !== 'SALIDA' || !form) return
     const curr = form.origen
-    if (prevOrigenRef.current !== null && prevOrigenRef.current !== curr) {
+    const prev = prevOrigenRef.current
+    if (prev !== null && prev !== curr) {
       setForm(p => {
         if (!p) return p
-        const newStock = hwEquipos.filter(e =>
-          e.catalogo_id === Number(p.catalogo_id) &&
-          e.estado === 'en_bodega' &&
-          (p.origen_tipo !== 'bodega' || !curr || e.ubicacion_actual === curr)
-        ).length
-        const newQty = newStock > 0 ? Math.min(p.cantidad, newStock) : p.cantidad
+        // Si hay catalogo seleccionado y la nueva bodega es Ingetel, validar stock
+        if (p.catalogo_id && p.origen_tipo === 'bodega' && curr) {
+          const eqB = (a, b) => !a || !b || a.trim().toLowerCase() === b.trim().toLowerCase()
+          const newStock = hwEquipos.filter(e =>
+            Number(e.catalogo_id) === Number(p.catalogo_id) &&
+            e.estado === 'en_bodega' &&
+            eqB(e.ubicacion_actual, curr)
+          ).length
+          if (newStock === 0) {
+            showToast(`Sin stock en "${curr}" para este equipo`, 'err')
+            return { ...p, origen: prev }  // revertir al anterior
+          }
+          const newQty = Math.min(p.cantidad, newStock)
+          return {
+            ...p,
+            cantidad: newQty,
+            seriales: Array(newQty).fill(''),
+            serialBodegas: Array(newQty).fill(curr),
+            serialSalesOrders: Array(newQty).fill(''),
+            serialBulks: Array(newQty).fill(''),
+          }
+        }
+        const newQty = p.cantidad
         return {
           ...p,
-          cantidad: newQty,
           seriales: Array(newQty).fill(''),
           serialBodegas: Array(newQty).fill(curr || ''),
+          serialSalesOrders: Array(newQty).fill(''),
+          serialBulks: Array(newQty).fill(''),
         }
       })
     }
@@ -705,7 +724,7 @@ export default function HwEntradaSalidaModal({ tipo, onClose }) {
                       const elegidosSlot  = form.seriales.filter((x, j) => j !== i && x)
 
                       if (tipo === 'SALIDA' && form.catalogo_id) {
-                        const sosDisp = getSosDisponibles(hwEquipos, hwMovimientos, form.catalogo_id, slotBodega, elegidosSlot)
+                        const sosDisp = getSosDisponibles(hwEquipos, hwMovimientos, form.catalogo_id, null, elegidosSlot)
                         const soActual = form.serialSalesOrders?.[i] || ''
                         return (
                           <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>

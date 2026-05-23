@@ -7,7 +7,8 @@ import { getSupabaseClient } from '../lib/supabase'
 // ── Helpers ────────────────────────────────────────────────────────
 function fmt(dateStr) {
   if (!dateStr) return null
-  const d = new Date(dateStr)
+  // Parse as local noon to avoid UTC midnight shifting to previous day in UTC-5
+  const d = new Date(String(dateStr).slice(0, 10) + 'T12:00:00')
   if (isNaN(d)) return null
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -115,27 +116,27 @@ const GAP_DONE_OA  = ['9999. Producción', '70. Producción', '9999.Producción'
 // ── Milestone definitions ──────────────────────────────────────────
 function buildMilestones(rollout, forecast, sabana) {
   const mosDate  = rollout?.mosSS  || sabana?.mos
-  const intgDate = rollout?.intgSS || sabana?.integracion
-  const soDate   = rollout?.acepSS || null
+  const intgDate = rollout?.intgSS || null
+  const acepDate = rollout?.acepSS || null
 
   const mosDone    = !!(mosDate  && isPast(mosDate))
   const intgDone   = !!(intgDate && isPast(intgDate))
   const hwcDone    = sabana?.gap_hw_cierre === GAP_DONE_HWC
   const docDone    = !!(sabana?.gap_doc && String(sabana.gap_doc).startsWith('9999'))
-  const soDone     = (sabana?.gap_site_owner === GAP_DONE_SO) || !!(soDate && isPast(soDate))
+  const soDone     = sabana?.gap_site_owner === GAP_DONE_SO
   const logInvDone = sabana?.gap_log_inv === GAP_DONE_LI
   const onAirDone  = GAP_DONE_OA.some(v => sabana?.gap_on_air === v)
-  const closeDone  = mosDone && hwcDone && intgDone && docDone && soDone && logInvDone && onAirDone
+  const closeDone  = !!(acepDate && isPast(acepDate))
 
   return [
-    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    date: mosDate,  fcDate: null,                          blocking: false, gapRaw: null },
-    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    date: null,     fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre },
-    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   date: intgDate, fcDate: null,                          blocking: false, gapRaw: null },
-    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,     fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc },
-    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: soDate,   fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner },
-    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,     fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv },
-    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: null,     fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air },
-    { id: 'close',  label: 'Cerrado',          iconKey: 'check',    isDone: closeDone,  date: null,     fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null },
+    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    date: mosDate,  fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : null },
+    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    date: null,     fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre,     ndpdLabel: null },
+    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   date: intgDate, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : null },
+    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,     fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,           ndpdLabel: null },
+    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: null,     fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner,    ndpdLabel: null },
+    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,     fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv,       ndpdLabel: null },
+    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: null,     fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air,        ndpdLabel: null },
+    { id: 'close',  label: 'Cerrado',          iconKey: 'check',    isDone: closeDone,  date: acepDate, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : null },
   ]
 }
 
@@ -221,12 +222,22 @@ function InvCard({ inv, pending, blocked, remaining, poValor = 0 }) {
 // eslint-disable-next-line no-misleading-character-class
 function normStr(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim() }
 
+// ── Milestone key → possible ack_glosario area names ─────────────
+const MS_TO_AREAS = {
+  hwc:    ['HW_Cierre'],
+  onair:  ['ONAIR'],
+  doc:    ['DOC'],
+  loginv: ['LI', 'LOG_INV'],
+  so:     ['SO_DEC', 'SO'],
+}
+
 // ── Main component ─────────────────────────────────────────────────
 export default function SiteTimelineModal({ smpId, onClose }) {
   const navigate = useNavigate()
   const [rolloutItem, setRolloutItem] = useState(null)
   const [loading, setLoading] = useState(false)
   const [hoveredMs, setHoveredMs] = useState(null)
+  const [ackGlosario, setAckGlosario] = useState([])
 
   const forecasts  = useAckStore(s => s.forecasts)
   const sabana     = useAckStore(s => s.sabana)
@@ -234,24 +245,29 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   const invoices   = useFactStore(s => s.invoices)
   const ppa        = useFactStore(s => s.ppa)
 
-  // Load rollout data for this SMP
+  // Load rollout data and ack_glosario for this SMP
   useEffect(() => {
     if (!smpId) return
     setLoading(true)
     const db = getSupabaseClient()
     if (!db) { setLoading(false); return }
-    db.from('rollout_uploads').select('data').limit(1).single()
-      .then(({ data }) => {
-        const items = data?.data || []
-        const item  = items.find(i => (i.smpId || '').toUpperCase() === smpId.toUpperCase())
-        setRolloutItem(item || null)
-      })
-      .catch(() => setRolloutItem(null))
+    Promise.all([
+      db.from('rollout_uploads').select('items').order('uploaded_at', { ascending: false }).limit(1).single(),
+      db.from('ack_glosario').select('id,gap,area,secuencia').order('area').order('secuencia'),
+    ]).then(([rolloutRes, glosarioRes]) => {
+      const items = rolloutRes.data?.items || []
+      const item  = items.find(i => (i.smpId || '').toUpperCase() === smpId.toUpperCase())
+      setRolloutItem(item || null)
+      setAckGlosario(glosarioRes.data || [])
+    }).catch(() => { setRolloutItem(null); setAckGlosario([]) })
       .finally(() => setLoading(false))
   }, [smpId])
 
   // Derived data
-  const sabanaRow    = useMemo(() => sabana.find(r => r.smp === smpId || r.main_smp === smpId), [sabana, smpId])
+  // La fila maestra es donde smp === main_smp (la actividad raíz del pack)
+  const sabanaRow    = useMemo(() =>
+    sabana.find(r => r.main_smp === smpId && r.smp === r.main_smp) || sabana.find(r => r.main_smp === smpId)
+  , [sabana, smpId])
   const forecast     = useMemo(() => forecasts[smpId] || {}, [forecasts, smpId])
 
 
@@ -312,6 +328,40 @@ export default function SiteTimelineModal({ smpId, onClose }) {
 
   const milestones = useMemo(() => buildMilestones(rolloutItem, forecast, sabanaRow), [rolloutItem, forecast, sabanaRow])
   const statuses   = useMemo(() => milestones.map((ms, i) => getMsStatus(ms, i, milestones)), [milestones])
+
+  // Progress % for each milestone (bar inside circle label area)
+  // NDPD milestones: use rolloutItem pct fields; ACK milestones: use ack_glosario secuencia
+  const msProgress = useMemo(() => {
+    const glosarioByArea = {}
+    ackGlosario.forEach(row => {
+      if (!glosarioByArea[row.area]) glosarioByArea[row.area] = []
+      glosarioByArea[row.area].push(row)
+    })
+
+    return milestones.map((ms, idx) => {
+      const st = statuses[idx]
+      if (st === 'done') return 100
+
+      // NDPD milestones
+      if (ms.id === 'mos')   return rolloutItem?.mosPct  ?? null
+      if (ms.id === 'intg')  return rolloutItem?.intgPct ?? null
+      if (ms.id === 'close') return rolloutItem?.acepPct ?? null
+
+      // ACK milestones — calculate from ack_glosario regardless of pending/active/blocked
+      const possibleAreas = MS_TO_AREAS[ms.id]
+      if (!possibleAreas) return null
+      const rows = possibleAreas
+        .flatMap(a => glosarioByArea[a] || [])
+        .filter(r => r.secuencia !== null)
+      if (!rows.length) return null
+      const maxSeq = Math.max(...rows.map(r => r.secuencia))
+      const minSeq = Math.min(...rows.map(r => r.secuencia))
+      const current = rows.find(r => r.gap === ms.gapRaw)
+      if (!current) return null
+      if (maxSeq === minSeq) return 0
+      return Math.round(((current.secuencia - minSeq) / (maxSeq - minSeq)) * 100)
+    })
+  }, [milestones, statuses, rolloutItem, ackGlosario])
 
   const onAirBlocked = statuses[6] === 'blocked'
   const siteName     = sabanaRow?.site_name || allSitePos[0]?.site_name || smpId
@@ -378,7 +428,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: 21, fontWeight: 800, color: '#f1f5f9', letterSpacing: .3,
+              fontSize: 21, fontWeight: 600, color: '#f1f5f9', letterSpacing: .3,
             }}>
               {loading ? 'Cargando…' : siteName}
             </div>
@@ -401,11 +451,11 @@ export default function SiteTimelineModal({ smpId, onClose }) {
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: 30, fontWeight: 800, lineHeight: 1,
+              fontSize: 30, fontWeight: 600, lineHeight: 1,
               color: implPct >= 100 ? '#4ade80' : '#f1f5f9',
             }}>{implPct}%</div>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', fontWeight: 700, letterSpacing: .9, textTransform: 'uppercase' }}>
-              Impl. NDPD
+              NDPD / ACK
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -444,7 +494,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               {ICONS.tower('#1a7a4a')}
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase', color: '#1a7a4a' }}>
-                Implementación NDPD
+                Implementación — NDPD / ACK
               </span>
               <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#bbf7d0,transparent)' }}/>
               <span style={{ fontSize: 10, fontWeight: 700, color: doneCount === milestones.length ? '#16a34a' : '#6b7280' }}>
@@ -506,11 +556,10 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             {/* Labels grid — separado del riel para dar espacio */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', marginTop: 14, marginBottom: 8 }}>
               {milestones.map((ms, idx) => {
-                const st        = statuses[idx]
-                const col       = C[st]
+                const st          = statuses[idx]
+                const col         = C[st]
+                const pct         = msProgress[idx]
                 const displayDate = ms.date ? fmt(ms.date) : ms.fcDate ? `FC: ${fmt(ms.fcDate)}` : '—'
-                const badgeLabel  = st === 'done' ? '✓ OK' : st === 'blocked' ? '⚠ Bloqueado' : st === 'active' ? 'En curso' : ms.fcDate ? 'Forecast' : 'Pendiente'
-                const gapLabel    = ms.gapRaw ? fmtGap(ms.gapRaw) : null
                 const isHovered   = hoveredMs === ms.id
                 return (
                   <div
@@ -519,8 +568,8 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                     onMouseEnter={() => setHoveredMs(ms.id)}
                     onMouseLeave={() => setHoveredMs(null)}
                   >
-                    {/* ACK tooltip — aparece SOBRE el texto, no corta el header */}
-                    {gapLabel && isHovered && (
+                    {/* Tooltip — ACK (gapRaw) o NDPD (ndpdLabel) */}
+                    {(ms.gapRaw || ms.ndpdLabel) && isHovered && (
                       <div style={{
                         position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
                         transform: 'translateX(-50%)',
@@ -533,9 +582,11 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                           border: '1px solid rgba(255,255,255,.1)',
                         }}>
                           <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-                            ACK Nokia
+                            {ms.ndpdLabel ? 'NDPD Nokia' : 'ACK Nokia'}
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#f1f5f9' }}>{gapLabel}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#f1f5f9' }}>
+                            {ms.ndpdLabel || ms.gapRaw}
+                          </div>
                         </div>
                         <div style={{
                           width: 0, height: 0, margin: '0 auto',
@@ -551,16 +602,30 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                       textTransform: 'uppercase', color: col.text, lineHeight: 1.2, textAlign: 'center',
                     }}>{ms.label}</div>
                     <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#6b7280', marginTop: 3, textAlign: 'center' }}>{displayDate}</div>
-                    <span style={{
-                      display: 'inline-block', marginTop: 5,
-                      fontSize: 8, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
-                      padding: '2px 7px', borderRadius: 20,
-                      background: col.badge, color: col.badgeText,
-                    }}>{badgeLabel}</span>
-                    {/* GAP hint — solo cuando no está done */}
-                    {gapLabel && st !== 'done' && (
-                      <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 4, fontStyle: 'italic', textAlign: 'center' }}>
-                        {gapLabel}
+                    {st === 'done' ? (
+                      <span style={{
+                        display: 'inline-block', marginTop: 5,
+                        fontSize: 8, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
+                        padding: '2px 7px', borderRadius: 20,
+                        background: col.badge, color: col.badgeText,
+                      }}>✓ OK</span>
+                    ) : (
+                      <div style={{ width: '100%', marginTop: 5, padding: '0 2px' }}>
+                        <div style={{ height: 4, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', borderRadius: 3,
+                            width: `${Math.min(pct ?? 0, 100)}%`,
+                            background: st === 'blocked'
+                              ? 'linear-gradient(90deg,#dc2626,#f87171)'
+                              : (pct ?? 0) > 0
+                              ? 'linear-gradient(90deg,#d97706,#fbbf24)'
+                              : '#cbd5e1',
+                            transition: 'width .5s',
+                          }}/>
+                        </div>
+                        {(pct ?? 0) > 0 && (
+                          <div style={{ fontSize: 7.5, fontWeight: 700, color: col.text, textAlign: 'center', marginTop: 2 }}>{pct}%</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -794,22 +859,24 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               {ICONS.warn('#dc2626')} Escalar bloqueo On Air
             </button>
           )}
-          <button
-            onClick={() => { onClose(); navigate(`/rollout/ack/sitios`) }}
-            style={{
-              background: '#1a7a4a', color: '#fff', border: 'none',
-              borderRadius: 8, padding: '7px 16px', fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-              fontFamily: "'Barlow', sans-serif",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Ir al ACK de este sitio
-          </button>
+          {sabanaRow && (
+            <button
+              onClick={() => { onClose(); navigate(`/rollout/ack/sitios?smp=${encodeURIComponent(smpId)}`) }}
+              style={{
+                background: '#1a7a4a', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '7px 16px', fontSize: 11, fontWeight: 700,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+                fontFamily: "'Barlow', sans-serif",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Ir al ACK de este sitio
+            </button>
+          )}
         </div>
 
       </div>

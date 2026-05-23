@@ -135,7 +135,7 @@ function SubcSection() {
                         style={{ marginRight: 4, background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}
                         onClick={() => setEditing(s)}
                         title="Editar"
-                      >✎</button>
+                      ><IconEdit /></button>
                     )}
                     {isAdmin && (
                       <button className="btn-del" onClick={() => handleEliminar(s)} title="Eliminar">✕</button>
@@ -406,7 +406,7 @@ export default function CatalogoPage() {
 
       {/* ── Table (not shown on SubC tab) ───────────────── */}
       {seccion !== 'SubC' && <div className="card">
-        <div style={{ padding: 0, overflowX: 'auto' }}>
+        <div style={{ padding: 0, overflowX: 'auto', ...(seccion === 'CW' || seccion === 'CR' ? { overflowY: 'auto', maxHeight: 'calc(100vh - 380px)' } : {}) }}>
 
           {/* ── CW Table ──────────────────────────────────── */}
           {seccion === 'CW' ? (

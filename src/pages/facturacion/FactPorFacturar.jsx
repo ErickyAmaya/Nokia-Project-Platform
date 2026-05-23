@@ -649,7 +649,7 @@ export default function FactPorFacturar() {
             Por Facturar
             {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{rows.length}</span>}
             {totalPorFacturar > 0 && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{fmtCOP(totalPorFacturar)}</span>}
-            {(pendienteLib.length + bloqueadoAck.length + noCompletados.length) > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{pendienteLib.length + bloqueadoAck.length + noCompletados.length} NDPD</span>}
+            {(pendienteLib.length + bloqueadoAck.length + noCompletados.length) > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{pendienteLib.length + bloqueadoAck.length + noCompletados.length} PENDIENTES</span>}
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {pendienteLib.length + bloqueadoAck.length + noCompletados.length} hitos NDPD en seguimiento</div>
         </div>
@@ -785,7 +785,7 @@ export default function FactPorFacturar() {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#166534' }}>
-                  Pendiente Liberación
+                  Pendiente Liberación (PPA)
                 </div>
                 <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
                   {pendienteLibBySmp.length}
@@ -879,7 +879,7 @@ export default function FactPorFacturar() {
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#92400e' }}>
-                  No Completados (NDPD)
+                  Pendiente Completar (NDPD)
                 </div>
                 <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
                   {noCompletados.length}

@@ -586,14 +586,15 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   const [nokiaEditIdx,  setNokiaEditIdx]  = useState(null)
   const [nokiaEditForm, setNokiaEditForm] = useState({})
 
-  const subcs           = useAppStore(s => s.subcs)
-  const gastos          = useAppStore(s => s.gastos)
-  const eliminarGasto   = useAppStore(s => s.eliminarGasto)
-  const agregarGasto    = useAppStore(s => s.agregarGasto)
-  const editarGasto     = useAppStore(s => s.editarGasto)
-  const addActividad    = useAppStore(s => s.addActividad)
-  const deleteActividad = useAppStore(s => s.deleteActividad)
-  const updateSitioField = useAppStore(s => s.updateSitioField)
+  const subcs               = useAppStore(s => s.subcs)
+  const gastos              = useAppStore(s => s.gastos)
+  const eliminarGasto       = useAppStore(s => s.eliminarGasto)
+  const agregarGasto        = useAppStore(s => s.agregarGasto)
+  const editarGasto         = useAppStore(s => s.editarGasto)
+  const addActividad        = useAppStore(s => s.addActividad)
+  const deleteActividad     = useAppStore(s => s.deleteActividad)
+  const updateSitioField    = useAppStore(s => s.updateSitioField)
+  const updateCostoCuadrilla = useAppStore(s => s.updateCostoCuadrilla)
   const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
@@ -609,6 +610,10 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   const subVisita   = lcVisita   ? subcs.find(s => s.lc === lcVisita)   : null
   const subReporte  = lcReporte  ? subcs.find(s => s.lc === lcReporte)  : null
   const subRediseno = lcRediseno ? subcs.find(s => s.lc === lcRediseno) : null
+
+  const esInternaTSS     = subVisita?.esInterna   || false
+  const esInternaReporte = subReporte?.esInterna  || false
+  const esInternaRed     = subRediseno?.esInterna || false
 
   // Activities with original indices
   const actsWithIdx = useMemo(
@@ -654,7 +659,8 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   const nokiaVRVal      = nokiaActs.filter(a => a.id === 'TSS_VR').reduce((s, a) => s + (a.totalNokia || 0), 0)
   const nokiaRDVal      = nokiaActs.filter(a => a.id === 'TSS_RD').reduce((s, a) => s + (a.totalNokia || 0), 0)
 
-  const utilidad    = totalNokia - totalSubcAll - totalGastos
+  const cuadrillaCosto = esInternaTSS ? (calc.cuadrillaCosto || 0) : 0
+  const utilidad    = totalNokia - totalSubcAll - cuadrillaCosto - totalGastos
   const margen      = totalNokia > 0 ? utilidad / totalNokia : 0
   const marginColor = margen >= .3 ? '#1a7a1a' : margen >= .2 ? '#FFC000' : '#c0392b'
 
@@ -852,22 +858,65 @@ export default function TSSLiquidadorView({ sitio, calc }) {
             </div>
           </div>
 
-          {/* COSTO SUBC */}
+          {/* COSTO */}
           <div style={{ borderTop: '1px solid #e0e4e0', marginTop: 4, paddingTop: 6, marginBottom: 4 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1, marginBottom: 4 }}>COSTO SUBC</div>
-            {[
-              { label: `Visita${lcVisita   ? ` — ${lcVisita}`   : ''}`, value: totalVisita + totalGastos, show: true },
-              { label: `Reporte${lcReporte  ? ` — ${lcReporte}`  : ''}`, value: totalReporte,  show: true },
-              { label: `Rediseño${lcRediseno ? ` — ${lcRediseno}` : ''}`, value: totalRediseno, show: totalRediseno > 0 },
-            ].filter(r => r.show).map(r => (
-              <div key={r.label} className="fb" style={{ marginBottom: 3 }}>
-                <span style={{ fontSize: 11, color: '#555f55' }}>{r.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(r.value)}</span>
-              </div>
-            ))}
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1, marginBottom: 4 }}>
+              {esInternaTSS ? 'COSTO' : 'COSTO SUBC'}
+            </div>
+
+            {esInternaTSS ? (
+              <>
+                {/* Cuadrilla interna — filas nómina/viáticos/transporte */}
+                {[
+                  { label: 'Nómina',     value: sitio.costos?.nomina     || 0 },
+                  { label: 'Viáticos',   value: sitio.costos?.viaticos   || 0 },
+                  { label: 'Transporte', value: sitio.costos?.transporte || 0 },
+                ].map(r => (
+                  <div key={r.label} className="fb" style={{ marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: '#555f55' }}>{r.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#3730a3' }}>{cop(r.value)}</span>
+                  </div>
+                ))}
+                {/* SubC externos adicionales (Reporte / Rediseño) */}
+                {!esInternaReporte && totalReporte > 0 && (
+                  <div className="fb" style={{ marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: '#555f55' }}>Reporte{lcReporte ? ` — ${lcReporte}` : ''}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(totalReporte)}</span>
+                  </div>
+                )}
+                {!esInternaRed && totalRediseno > 0 && (
+                  <div className="fb" style={{ marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: '#555f55' }}>Rediseño{lcRediseno ? ` — ${lcRediseno}` : ''}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(totalRediseno)}</span>
+                  </div>
+                )}
+                {totalGastos > 0 && (
+                  <div className="fb" style={{ marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: '#555f55' }}>Gastos</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(totalGastos)}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {[
+                  { label: `Visita${lcVisita   ? ` — ${lcVisita}`   : ''}`, value: totalVisita + totalGastos, show: true },
+                  { label: `Reporte${lcReporte  ? ` — ${lcReporte}`  : ''}`, value: totalReporte,  show: true },
+                  { label: `Rediseño${lcRediseno ? ` — ${lcRediseno}` : ''}`, value: totalRediseno, show: totalRediseno > 0 },
+                ].filter(r => r.show).map(r => (
+                  <div key={r.label} className="fb" style={{ marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, color: '#555f55' }}>{r.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>{cop(r.value)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+
             <div className="fb" style={{ borderTop: '2px solid #FFC000', paddingTop: 6, marginTop: 4 }}>
               <span style={{ fontSize: 12, fontWeight: 800 }}>TOTAL COSTO</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>{cop(totalSubcAll + totalGastos)}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
+                {cop(cuadrillaCosto + totalSubcAll + totalGastos)}
+              </span>
             </div>
           </div>
 
@@ -923,6 +972,38 @@ export default function TSSLiquidadorView({ sitio, calc }) {
             }
             {...cardProps}
           />
+
+          {/* COSTO CUADRILLA INTERNA — solo visible cuando lcVisita es interna */}
+          {esInternaTSS && (
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-h" style={{ background: '#f0f4ff', borderLeftColor: '#6366f1' }}>
+                <h2 style={{ color: '#3730a3' }}>Costo Cuadrilla Interna</h2>
+              </div>
+              <div className="card-b">
+                {[
+                  { field: 'nomina',     label: 'Nómina' },
+                  { field: 'viaticos',   label: 'Viáticos' },
+                  { field: 'transporte', label: 'Transporte' },
+                ].map(({ field, label }) => (
+                  <div key={field} className="fg" style={{ marginBottom: 8 }}>
+                    <label className="fl">{label} (COP)</label>
+                    <input
+                      type="number" className="fc" min="0"
+                      value={sitio.costos?.[field] || 0}
+                      onChange={e => updateCostoCuadrilla(sitio.id, field, parseInt(e.target.value) || 0)}
+                      disabled={isFinal}
+                    />
+                  </div>
+                ))}
+                <div className="fb" style={{ borderTop: '2px solid #6366f1', paddingTop: 6, marginTop: 2 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#3730a3' }}>Total</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#3730a3' }}>
+                    {cop((sitio.costos?.nomina || 0) + (sitio.costos?.viaticos || 0) + (sitio.costos?.transporte || 0))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ═══ RIGHT ═════════════════════════════════════════ */}

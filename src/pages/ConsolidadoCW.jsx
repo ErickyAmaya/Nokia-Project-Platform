@@ -180,7 +180,6 @@ export default function ConsolidadoCW() {
             <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
               <tr>
                 <th style={{ minWidth: 160 }}>Sitio TI</th>
-                <th style={{ minWidth: 140 }}>SMP</th>
                 <th style={{ minWidth: 120 }}>Región</th>
                 <th>Tipo</th>
                 <th>LC</th>
@@ -196,7 +195,7 @@ export default function ConsolidadoCW() {
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: 'center', padding: 32, color: '#9ca89c' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: 32, color: '#9ca89c' }}>
                     {tiSitiosCW.length === 0
                       ? 'Sin sitios TI con CW activado'
                       : 'Sin resultados para los filtros aplicados'}
@@ -225,7 +224,6 @@ export default function ConsolidadoCW() {
                         <span className="badge" style={{ background: '#1a7a1a', color: '#fff', fontSize: 8, marginLeft: 4 }}>FINAL</span>
                       )}
                     </td>
-                    <td style={{ fontSize: 10, color: '#555f55' }}>{smp}</td>
                     <td style={{ fontSize: 10, color: '#555f55' }}>{region}</td>
                     <td>
                       {zona !== '—'
@@ -277,7 +275,7 @@ export default function ConsolidadoCW() {
 
             <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 2 }}>
               <tr className="tr-tot">
-                <td colSpan={6}><strong>TOTAL CW — {rows.length} sitios</strong></td>
+                <td colSpan={5}><strong>TOTAL CW — {rows.length} sitios</strong></td>
                 <td className="num fw8" style={{ color: '#144E4A' }}>{cop(stats.tN)}</td>
                 <td className="num fw8" style={{ color: '#b45309' }}>{cop(stats.tS)}</td>
                 <td className="num fw8" style={{ color: stats.tU >= 0 ? '#1a7a1a' : '#c0392b' }}>{cop(stats.tU)}</td>

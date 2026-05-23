@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 
 // ── Dropdown de búsqueda personalizado ────────────────────────────
@@ -176,8 +176,21 @@ function SmpRow({ r }) {
 }
 
 // Fila colapsable de un sitio
-function SitioRow({ mainSmp, smps }) {
-  const [open, setOpen] = useState(false)
+function SitioRow({ mainSmp, smps, autoOpen }) {
+  const [open, setOpen] = useState(autoOpen || false)
+  const [flash, setFlash] = useState(false)
+  const rowRef = useRef(null)
+
+  useEffect(() => {
+    if (!autoOpen) return
+    setOpen(true)
+    // Scroll instantly so the row is in view, then flash
+    const scrollT = setTimeout(() => {
+      rowRef.current?.scrollIntoView({ behavior: 'instant', block: 'center' })
+    }, 80)
+    const flashT = setTimeout(() => setFlash(true), 180)
+    return () => { clearTimeout(scrollT); clearTimeout(flashT) }
+  }, [autoOpen])
 
   const stats = useMemo(() => {
     const total = smps.length
@@ -198,10 +211,13 @@ function SitioRow({ mainSmp, smps }) {
   return (
     <>
       <tr
+        ref={rowRef}
         onClick={() => setOpen(o => !o)}
+        onAnimationEnd={() => setFlash(false)}
         style={{
           background: rowBg, cursor: 'pointer',
           borderLeft: `3px solid ${stats.todos ? '#22c55e' : stats.pct >= 80 ? '#f59e0b' : '#ef4444'}`,
+          animation: flash ? 'row-flash 0.8s ease-in-out 3 forwards' : 'none',
           transition: 'background .15s',
         }}
       >
@@ -267,9 +283,17 @@ export default function AckSitios() {
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
   , [sabanaRaw, proyectoSel])
 
+  const [searchParams] = useSearchParams()
+  const autoSmp = searchParams.get('smp') || ''
+
   const [region, setRegion] = useState('')
-  const [filtro, setFiltro] = useState('pendientes')
+  const [filtro, setFiltro] = useState(() => searchParams.get('smp') ? 'todos' : 'pendientes')
   const [search, setSearch] = useState('')
+
+  // Si el componente ya estaba montado y cambia el ?smp en la URL, forzar filtro 'todos'
+  useEffect(() => {
+    if (autoSmp) setFiltro('todos')
+  }, [autoSmp])
 
   const regiones = useMemo(() =>
     [...new Set(sabana.map(r => r.region).filter(Boolean))].sort()
@@ -323,6 +347,12 @@ export default function AckSitios() {
 
   return (
     <div>
+      <style>{`
+        @keyframes row-flash {
+          0%, 100% { background: transparent; }
+          50%       { background: #fde047; }
+        }
+      `}</style>
       {/* Header */}
       <div className="dash-hdr mb14">
         <div>
@@ -409,7 +439,7 @@ export default function AckSitios() {
                   </td>
                 </tr>
               ) : sitios.map(({ mainSmp, smps }) => (
-                <SitioRow key={mainSmp} mainSmp={mainSmp} smps={smps} />
+                <SitioRow key={mainSmp} mainSmp={mainSmp} smps={smps} autoOpen={autoSmp === mainSmp} />
               ))}
             </tbody>
           </table>

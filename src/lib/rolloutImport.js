@@ -33,6 +33,22 @@ export async function parsearRollout(file) {
   const ws = wb.worksheets[0]
   if (!ws) throw new Error('No se encontró hoja en el archivo')
 
+  // Lee encabezados de la fila 1
+  const headers = {}
+  ws.getRow(1).eachCell((cell, col) => {
+    headers[col] = String(cell.value || '').trim()
+  })
+
+  // Devuelve el encabezado de la última columna con valor en el rango [from, to]
+  function lastFilledHeader(row, from, to) {
+    let lastCol = null
+    for (let col = from; col <= to; col++) {
+      const v = row.getCell(col)?.value
+      if (v !== null && v !== undefined && String(v).trim() !== '') lastCol = col
+    }
+    return lastCol ? (headers[lastCol] || null) : null
+  }
+
   const items = []
   ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
     if (rowNum === 1) return
@@ -61,6 +77,9 @@ export async function parsearRollout(file) {
       mosPct:  Math.round((mosFilled  / 12) * 100),
       intgPct: intgSS ? 100 : Math.round((intgFilled / 23) * 100),
       acepPct: Math.round((acepFilled /  9) * 100),
+      mosLastCol:  lastFilledHeader(row, 20, 31),
+      intgLastCol: lastFilledHeader(row, 33, 55),
+      acepLastCol: lastFilledHeader(row, 57, 65),
     })
   })
 
