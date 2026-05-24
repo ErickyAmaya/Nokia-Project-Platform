@@ -241,19 +241,14 @@ export default function LoginScreen() {
                   {error}
                 </div>
               )}
-              {!empresa && email.includes('@') && email.split('@')[1]?.length > 2 && (
-                <div style={{ marginBottom: 14, padding: '9px 13px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
-                  El dominio <strong>@{getDomainFromEmail(email)}</strong> no está registrado en la plataforma
-                </div>
-              )}
               <button
                 type="submit"
-                disabled={busy || loading || !empresa}
+                disabled={busy || loading}
                 style={{
                   width: '100%', padding: '12px 0',
-                  background: empresa ? CN : '#9ca3af',
+                  background: CN,
                   color: '#fff', border: 'none', borderRadius: 8,
-                  fontSize: 14, fontWeight: 700, cursor: empresa ? 'pointer' : 'not-allowed',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   transition: 'background 0.3s ease, opacity 0.2s',
                   opacity: (busy || loading) ? 0.7 : 1,
                   fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: 1,
