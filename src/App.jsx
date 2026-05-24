@@ -156,7 +156,7 @@ function AppRoutes() {
       } />
 
       <Route path="/modulos" element={
-        <ProtectedRoute>
+        <ProtectedRoute allowedRoles={['admin','coordinador','logistica','facturacion','viewer','CW','rollout']}>
           <Layout><ModuloHomePage /></Layout>
         </ProtectedRoute>
       } />

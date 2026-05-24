@@ -2,11 +2,21 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { initSupabaseClient, getSupabaseClient } from '../lib/supabase'
 import { getEmpresaByDomain } from '../config/empresas'
+import { useAuthStore } from '../store/authStore'
 
 const LS_DOMAIN_KEY = 'npp_empresa_domain'
 
+const LC_ROLES = ['TI', 'TSS']
+
 export default function SetPasswordPage() {
   const navigate = useNavigate()
+  const user     = useAuthStore(s => s.user)
+
+  // LC con sesión activa que abre el link de invitación por error → redirigir directo
+  useEffect(() => {
+    if (user && LC_ROLES.includes(user.role)) navigate('/ubicacion', { replace: true })
+    else if (user) navigate('/', { replace: true })
+  }, [user, navigate])
 
   const [ready,    setReady]    = useState(false)
   const [password, setPassword] = useState('')
