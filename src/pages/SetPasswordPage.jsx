@@ -69,7 +69,7 @@ export default function SetPasswordPage() {
       const { error: updateError } = await client.auth.updateUser({ password })
       if (updateError) throw updateError
       setDone(true)
-      setTimeout(() => navigate('/modulos', { replace: true }), 2000)
+      setTimeout(() => navigate('/', { replace: true }), 2000)
     } catch (err) {
       setError(err.message)
     } finally {
