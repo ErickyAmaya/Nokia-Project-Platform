@@ -60,14 +60,7 @@ export const useAuthStore = create((set, get) => ({
   // ── Login (detección de empresa + auth Supabase) ────────────────
   login: async (email, password) => {
     const domain  = getDomainFromEmail(email)
-    const empresa = getEmpresaByDomain(domain)
-
-    if (!empresa) {
-      throw Object.assign(
-        new Error(`El dominio @${domain} no está registrado en la plataforma`),
-        { code: 'EMPRESA_NOT_FOUND' }
-      )
-    }
+    const empresa = getEmpresaByDomain(domain) ?? getEmpresaByDomain('ingetel.com')
 
     // Inicializar/cambiar cliente Supabase al de esta empresa
     const client = initSupabaseClient(empresa.supabaseUrl, empresa.supabaseKey)
