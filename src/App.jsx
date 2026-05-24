@@ -110,12 +110,15 @@ function W(page) {
   return <Layout><Suspense fallback={<PageLoader />}>{page}</Suspense></Layout>
 }
 
+const LC_ROLES = ['TI', 'TSS']
+
 function RoleHome() {
+  const user = useAuthStore(s => s.user)
+  if (LC_ROLES.includes(user?.role)) return <Navigate to="/ubicacion" replace />
   return <Navigate to="/modulos" replace />
 }
 
-// After session restoration on refresh, redirect to /modulos once so all roles
-// land on the module home instead of staying on whatever URL was cached.
+// After session restoration on refresh, redirect once so each role lands on the right page.
 function SessionRedirect() {
   const user    = useAuthStore(s => s.user)
   const loading = useAuthStore(s => s.loading)
@@ -126,9 +129,13 @@ function SessionRedirect() {
   useEffect(() => {
     if (!loading && user && !done.current) {
       done.current = true
-      const skip = ['/', '/login', '/modulos', '/set-password', '/ubicacion']
-      if (!skip.includes(location.pathname)) {
-        navigate('/modulos', { replace: true })
+      const isLC   = LC_ROLES.includes(user.role)
+      const lcSkip = ['/', '/login', '/set-password', '/ubicacion']
+      const allSkip = [...lcSkip, '/modulos']
+      if (isLC) {
+        if (!lcSkip.includes(location.pathname)) navigate('/ubicacion', { replace: true })
+      } else {
+        if (!allSkip.includes(location.pathname)) navigate('/modulos', { replace: true })
       }
     }
   }, [loading, user, navigate, location.pathname])
