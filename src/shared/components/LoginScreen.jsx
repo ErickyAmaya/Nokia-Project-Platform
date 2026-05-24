@@ -21,10 +21,10 @@ export default function LoginScreen() {
   const [resetBusy,  setResetBusy]  = useState(false)
   const [resetError, setResetError] = useState('')
 
-  // Detección de empresa en tiempo real
+  // Detección de empresa en tiempo real — dominios desconocidos caen a Ingetel
   useEffect(() => {
     const domain = getDomainFromEmail(email)
-    setEmpresa(domain ? getEmpresaByDomain(domain) : null)
+    setEmpresa(domain ? (getEmpresaByDomain(domain) ?? getEmpresaByDomain('ingetel.com')) : null)
   }, [email])
 
   async function handleReset(e) {
