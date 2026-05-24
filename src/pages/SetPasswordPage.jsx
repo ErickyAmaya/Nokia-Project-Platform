@@ -8,15 +8,34 @@ const LS_DOMAIN_KEY = 'npp_empresa_domain'
 
 const LC_ROLES = ['TI', 'TSS']
 
+const SUPABASE_ERRORS = {
+  'New password should be different from the old password': 'La nueva contraseña debe ser diferente a la anterior.',
+  'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres.',
+  'Token has expired or is invalid': 'El enlace ha expirado. Solicita una nueva invitación al administrador.',
+  'Invalid login credentials': 'Correo o contraseña incorrectos.',
+  'Email not confirmed': 'Correo no confirmado. Revisa tu bandeja de entrada.',
+  'User already registered': 'Este correo ya está registrado.',
+}
+
+function translateError(msg) {
+  if (!msg) return msg
+  for (const [en, es] of Object.entries(SUPABASE_ERRORS)) {
+    if (msg.includes(en)) return es
+  }
+  return msg
+}
+
 export default function SetPasswordPage() {
   const navigate = useNavigate()
   const user     = useAuthStore(s => s.user)
+  const loading  = useAuthStore(s => s.loading)
 
   // LC con sesión activa que abre el link de invitación por error → redirigir directo
   useEffect(() => {
+    if (loading) return
     if (user && LC_ROLES.includes(user.role)) navigate('/ubicacion', { replace: true })
     else if (user) navigate('/', { replace: true })
-  }, [user, navigate])
+  }, [user, loading, navigate])
 
   const [ready,    setReady]    = useState(false)
   const [password, setPassword] = useState('')
@@ -81,7 +100,7 @@ export default function SetPasswordPage() {
       setDone(true)
       setTimeout(() => navigate('/', { replace: true }), 2000)
     } catch (err) {
-      setError(err.message)
+      setError(translateError(err.message))
     } finally {
       setSaving(false)
     }
