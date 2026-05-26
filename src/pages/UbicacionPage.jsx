@@ -8,11 +8,12 @@ export default function UbicacionPage() {
   const user       = useAuthStore(s => s.user)
   const lcName     = user?.nombre || ''
 
-  const [active,     setActive]     = useState(false)
-  const [position,   setPosition]   = useState(null) // { lat, lng, accuracy }
-  const [lastUpdate, setLastUpdate] = useState(null)
-  const [error,      setError]      = useState('')
-  const [permState,  setPermState]  = useState('') // 'granted' | 'denied' | 'prompt'
+  const [active,       setActive]       = useState(false)
+  const [position,     setPosition]     = useState(null)
+  const [lastUpdate,   setLastUpdate]   = useState(null)
+  const [error,        setError]        = useState('')
+  const [permState,    setPermState]    = useState('')
+  const [waitingPerm,  setWaitingPerm]  = useState(false)
 
   const watchRef     = useRef(null)
   const lastWriteRef = useRef(0)
@@ -34,8 +35,10 @@ export default function UbicacionPage() {
   function activate() {
     if (!navigator.geolocation) { setError('Tu navegador no soporta geolocalización.'); return }
     setError('')
+    setWaitingPerm(true)
     watchRef.current = navigator.geolocation.watchPosition(
       pos => {
+        setWaitingPerm(false)
         const { latitude: lat, longitude: lng, accuracy } = pos.coords
         setPosition({ lat, lng, accuracy: Math.round(accuracy) })
         setLastUpdate(new Date())
@@ -52,6 +55,7 @@ export default function UbicacionPage() {
         }
       },
       err => {
+        setWaitingPerm(false)
         const msgs = {
           1: 'Permiso denegado. Debes permitir el acceso a la ubicación en la configuración del navegador.',
           2: 'No se pudo obtener la ubicación. Verifica que el GPS esté activado.',
@@ -158,12 +162,22 @@ export default function UbicacionPage() {
           {active ? '⏹ Desactivar ubicación' : '▶ Activar ubicación'}
         </button>
 
+        {waitingPerm && (
+          <div style={{
+            background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10,
+            padding: '12px 14px', fontSize: 12, color: '#1e40af', textAlign: 'center', lineHeight: 1.6,
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>👆 Revisa la barra de dirección</div>
+            Busca un ícono de ubicación 📍 en la parte superior del navegador y tócalo para <strong>Permitir</strong>.
+            Puede aparecer muy pequeño.
+          </div>
+        )}
         {permState === 'denied' && (
           <div style={{ fontSize: 11, color: '#dc2626', textAlign: 'center', lineHeight: 1.5 }}>
             Permiso denegado. Ve a configuración del navegador → Privacidad → Ubicación y permite el acceso a esta página.
           </div>
         )}
-        {error && (
+        {error && permState !== 'denied' && (
           <div style={{ fontSize: 11, color: '#dc2626', textAlign: 'center', lineHeight: 1.5 }}>
             {error}
           </div>
