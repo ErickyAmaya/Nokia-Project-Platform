@@ -79,6 +79,10 @@ export default function UbicacionPage() {
     setLastUpdate(null)
     const db = getSupabaseClient()
     if (db) db.from('lc_locations').delete().eq('lc', lcName)
+      .then(({ error }) => {
+        if (error) console.error('[lc_locations] delete error:', error)
+        else console.log('[lc_locations] eliminó:', lcName)
+      })
   }
 
   function toggle() { active ? deactivate() : activate() }
