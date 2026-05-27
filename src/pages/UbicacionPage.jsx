@@ -78,9 +78,11 @@ export default function UbicacionPage() {
     setPosition(null)
     setLastUpdate(null)
     const db = getSupabaseClient()
-    if (db) db.from('lc_locations').delete().eq('lc', lcName)
+    if (!db) { setError('Sin conexión a base de datos'); return }
+    if (!lcName) { setError('Usuario sin nombre — no se puede eliminar ubicación'); return }
+    db.from('lc_locations').delete().eq('lc', lcName)
       .then(({ error }) => {
-        if (error) console.error('[lc_locations] delete error:', error)
+        if (error) setError(`Error al eliminar: ${error.message}`)
         else console.log('[lc_locations] eliminó:', lcName)
       })
   }
