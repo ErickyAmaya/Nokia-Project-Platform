@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { getSupabaseClient } from '../lib/supabase'
 
-const WRITE_INTERVAL_MS = 30_000 // escribe a Supabase máx cada 30s
+const WRITE_INTERVAL_MS = 30_000
+
+const isWebView = (() => {
+  const ua = navigator.userAgent || ''
+  return /wv/.test(ua) || /FB_IAB|FBAN|Instagram|GSA/.test(ua)
+})()
 
 export default function UbicacionPage() {
   const user       = useAuthStore(s => s.user)
@@ -102,6 +107,18 @@ export default function UbicacionPage() {
       maxWidth: 480, margin: '0 auto', padding: '24px 16px',
       display: 'flex', flexDirection: 'column', gap: 24,
     }}>
+
+      {/* Aviso WebView Android */}
+      {isWebView && (
+        <div style={{
+          background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 12,
+          padding: '14px 16px', fontSize: 13, color: '#92400e', lineHeight: 1.6,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠️ Abre esto en Chrome</div>
+          Esta página se abrió dentro del correo. Para compartir tu ubicación debes abrirla en Chrome:
+          toca los <strong>3 puntos (⋮)</strong> arriba → <strong>"Abrir en el navegador"</strong>.
+        </div>
+      )}
 
       {/* Header */}
       <div>
