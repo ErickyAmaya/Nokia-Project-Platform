@@ -460,22 +460,12 @@ export default function MapaSitios() {
     if (!db) return
     db.from('lc_locations').select('lc,lat,lng,updated_at')
       .then(({ data }) => setLcLive(data || []))
+    const refetch = () =>
+      db.from('lc_locations').select('lc,lat,lng,updated_at')
+        .then(({ data }) => setLcLive(data || []))
+
     const channel = db.channel('lc_locations_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lc_locations' }, ({ eventType, new: row, old }) => {
-        if (eventType === 'DELETE') {
-          if (old?.lc) {
-            setLcLive(prev => prev.filter(l => l.lc !== old.lc))
-          } else {
-            db.from('lc_locations').select('lc,lat,lng,updated_at')
-              .then(({ data }) => setLcLive(data || []))
-          }
-        } else {
-          setLcLive(prev => {
-            const idx = prev.findIndex(l => l.lc === row.lc)
-            return idx >= 0 ? prev.map((l, i) => i === idx ? row : l) : [...prev, row]
-          })
-        }
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lc_locations' }, refetch)
       .subscribe()
     return () => { db.removeChannel(channel) }
   }, [])
