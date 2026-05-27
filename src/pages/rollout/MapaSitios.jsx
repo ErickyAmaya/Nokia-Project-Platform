@@ -463,7 +463,12 @@ export default function MapaSitios() {
     const channel = db.channel('lc_locations_live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lc_locations' }, ({ eventType, new: row, old }) => {
         if (eventType === 'DELETE') {
-          setLcLive(prev => prev.filter(l => l.lc !== old.lc))
+          if (old?.lc) {
+            setLcLive(prev => prev.filter(l => l.lc !== old.lc))
+          } else {
+            db.from('lc_locations').select('lc,lat,lng,updated_at')
+              .then(({ data }) => setLcLive(data || []))
+          }
         } else {
           setLcLive(prev => {
             const idx = prev.findIndex(l => l.lc === row.lc)
