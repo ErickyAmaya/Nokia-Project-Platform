@@ -202,7 +202,8 @@ function SiteSearch({ options, onSelect }) {
   )
 }
 
-function SitiosUploadModal({ onClose, onDone, currentCoords }) {
+function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
+  const [tab,       setTab]       = useState('masiva') // 'masiva' | 'sitio'
   const [rows,      setRows]      = useState([])
   const [newRows,   setNewRows]   = useState([])
   const [fileName,  setFileName]  = useState('')
@@ -210,6 +211,51 @@ function SitiosUploadModal({ onClose, onDone, currentCoords }) {
   const [result,    setResult]    = useState(null)
   const [importMode,setImportMode]= useState('all') // 'all' | 'new'
   const fileRef = useRef(null)
+
+  // ── Tab "Por sitio" ──────────────────────────────────────────────
+  const existingNames = useMemo(() => new Set(currentCoords.map(c => c.site_name.trim().toLowerCase())), [currentCoords])
+  const sitiosSinCoords = useMemo(() => (sitios || []).filter(s => s.nombre && !existingNames.has(s.nombre.trim().toLowerCase())).sort((a, b) => a.nombre.localeCompare(b.nombre)), [sitios, existingNames])
+  const todosLosSitios  = useMemo(() => (sitios || []).filter(s => s.nombre).sort((a, b) => a.nombre.localeCompare(b.nombre)), [sitios])
+
+  const [singleSitio,   setSingleSitio]   = useState('')
+  const [singleLat,     setSingleLat]     = useState('')
+  const [singleLng,     setSingleLng]     = useState('')
+  const [singlePaste,   setSinglePaste]   = useState('')
+  const [singleSaving,  setSingleSaving]  = useState(false)
+  const [singleResult,  setSingleResult]  = useState(null)
+  const [showAllSitios, setShowAllSitios] = useState(false)
+
+  function handlePaste(val) {
+    setSinglePaste(val)
+    // Formato N3.452043, W-76.54131 (prefijos direccionales)
+    const mDir = val.match(/([NSns])\s*(-?\d+\.?\d*)[,\s]+([EWew])\s*(-?\d+\.?\d*)/)
+    if (mDir) {
+      const lat = Math.abs(parseFloat(mDir[2])) * (mDir[1].toUpperCase() === 'S' ? -1 : 1)
+      const lng = Math.abs(parseFloat(mDir[4])) * (mDir[3].toUpperCase() === 'W' ? -1 : 1)
+      setSingleLat(String(lat))
+      setSingleLng(String(lng))
+      return
+    }
+    // Fallback: "lat, lng" plano
+    const m = val.match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/)
+    if (m) { setSingleLat(m[1]); setSingleLng(m[2]) }
+  }
+
+  async function saveSingle() {
+    const lat = parseFloat(singleLat)
+    const lng = parseFloat(singleLng)
+    if (!singleSitio) { setSingleResult({ error: 'Selecciona un sitio.' }); return }
+    if (isNaN(lat) || isNaN(lng)) { setSingleResult({ error: 'Lat y Lng deben ser números válidos.' }); return }
+    setSingleSaving(true)
+    setSingleResult(null)
+    const db = getSupabaseClient()
+    const { error } = await db.from('sitios_coordenadas').upsert({ site_name: singleSitio, lat, lng }, { onConflict: 'site_name' })
+    setSingleSaving(false)
+    if (error) { setSingleResult({ error: error.message }); return }
+    setSingleResult({ ok: true })
+    onDone()
+    setSingleSitio(''); setSingleLat(''); setSingleLng(''); setSinglePaste('')
+  }
 
   function downloadTemplate() {
     const ws = XLSX.utils.aoa_to_sheet([
@@ -282,10 +328,100 @@ function SitiosUploadModal({ onClose, onDone, currentCoords }) {
         boxShadow: '0 16px 48px rgba(0,0,0,.25)',
       }} onClick={e => e.stopPropagation()}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Actualizar Sitios en el Mapa</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>×</button>
         </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+          {[{ id: 'masiva', label: '📂 Carga masiva' }, { id: 'sitio', label: '📍 Por sitio' }].map(t => (
+            <button key={t.id} onClick={() => { setTab(t.id); setResult(null); setSingleResult(null) }}
+              style={{ padding: '7px 18px', fontSize: 12, fontWeight: 700, border: 'none', borderBottom: tab === t.id ? '2px solid #1d4ed8' : '2px solid transparent', background: 'none', color: tab === t.id ? '#1d4ed8' : '#6b7280', cursor: 'pointer', marginBottom: -2 }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab: Por sitio */}
+        {tab === 'sitio' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>SITIO</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 11, color: '#6b7280' }}>
+                  <input type="checkbox" checked={showAllSitios} onChange={e => { setShowAllSitios(e.target.checked); setSingleSitio('') }} />
+                  Mostrar todos (incluye con coordenadas)
+                </label>
+              </div>
+              <select value={singleSitio} onChange={e => {
+                const nombre = e.target.value
+                setSingleSitio(nombre)
+                setSingleResult(null)
+                setSinglePaste('')
+                const existing = currentCoords.find(c => c.site_name.trim().toLowerCase() === nombre.trim().toLowerCase())
+                if (existing) { setSingleLat(String(existing.lat)); setSingleLng(String(existing.lng)) }
+                else { setSingleLat(''); setSingleLng('') }
+              }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12 }}>
+                <option value="">{showAllSitios ? '— Seleccionar sitio —' : '— Sitios sin coordenadas —'}</option>
+                {(showAllSitios ? todosLosSitios : sitiosSinCoords).map(s => {
+                  const tienCoords = existingNames.has(s.nombre.trim().toLowerCase())
+                  return <option key={s.id ?? s.nombre} value={s.nombre}>{s.nombre}{showAllSitios && tienCoords ? ' ✓' : ''}</option>
+                })}
+              </select>
+              {!showAllSitios && sitiosSinCoords.length === 0 && (
+                <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>Todos los sitios ya tienen coordenadas.</div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5 }}>
+                PEGAR COORDENADAS <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional — copia desde Google Maps)</span>
+              </label>
+              <input value={singlePaste} onChange={e => handlePaste(e.target.value)}
+                placeholder="Ej: 4.7110, -74.0721 o N3.452043, W-76.54131"
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5 }}>LATITUD</label>
+                <input type="number" step="any" value={singleLat} onChange={e => setSingleLat(e.target.value)}
+                  placeholder="Ej: 4.7110"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 5 }}>LONGITUD</label>
+                <input type="number" step="any" value={singleLng} onChange={e => setSingleLng(e.target.value)}
+                  placeholder="Ej: -74.0721"
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+
+            {singleResult?.ok && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d' }}>
+                ✓ Coordenadas guardadas correctamente.
+              </div>
+            )}
+            {singleResult?.error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#dc2626' }}>
+                {singleResult.error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={onClose} className="btn" style={{ fontSize: 11, padding: '7px 16px', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={saveSingle} disabled={singleSaving} className="btn bp"
+                style={{ fontSize: 11, padding: '7px 16px', cursor: singleSaving ? 'not-allowed' : 'pointer', opacity: singleSaving ? .6 : 1 }}>
+                {singleSaving ? 'Guardando…' : 'Guardar coordenadas'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Carga masiva */}
+        {tab === 'masiva' && <>
 
         {/* Paso 1 — Template */}
         <div style={{ marginBottom: 18 }}>
@@ -396,6 +532,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords }) {
             )
           })()}
         </div>
+        </>}
       </div>
     </div>
   )
@@ -1030,9 +1167,9 @@ export default function MapaSitios() {
       {uploadModal && (
         <SitiosUploadModal
           currentCoords={coords}
+          sitios={sitios}
           onClose={() => setUploadModal(false)}
           onDone={() => {
-            setUploadModal(false)
             const db = getSupabaseClient()
             if (db) db.from('sitios_coordenadas').select('site_name,lat,lng')
               .then(({ data }) => setCoords(data || []))

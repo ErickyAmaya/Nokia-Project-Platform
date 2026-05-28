@@ -4,10 +4,9 @@ import { getSupabaseClient } from '../lib/supabase'
 
 const WRITE_INTERVAL_MS = 30_000
 
-const isWebView = (() => {
-  const ua = navigator.userAgent || ''
-  return /wv/.test(ua) || /FB_IAB|FBAN|Instagram|GSA/.test(ua)
-})()
+const ua = navigator.userAgent || ''
+const isWebView = /wv/.test(ua) || /FB_IAB|FBAN|Instagram|GSA/.test(ua)
+const isAndroid  = /Android/i.test(ua)
 
 export default function UbicacionPage() {
   const user       = useAuthStore(s => s.user)
@@ -19,6 +18,7 @@ export default function UbicacionPage() {
   const [error,        setError]        = useState('')
   const [permState,    setPermState]    = useState('')
   const [waitingPerm,  setWaitingPerm]  = useState(false)
+  const [gpsStatus,    setGpsStatus]    = useState('') // 'gps' | 'network' | ''
 
   const watchRef     = useRef(null)
   const lastWriteRef = useRef(0)
@@ -37,41 +37,60 @@ export default function UbicacionPage() {
     if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current)
   }, [])
 
-  function activate() {
-    if (!navigator.geolocation) { setError('Tu navegador no soporta geolocalización.'); return }
-    setError('')
-    setWaitingPerm(true)
+  function writeLocation(lat, lng) {
+    const now = Date.now()
+    if (now - lastWriteRef.current < WRITE_INTERVAL_MS) return
+    lastWriteRef.current = now
+    const db = getSupabaseClient()
+    if (db) db.from('lc_locations')
+      .upsert({ lc: lcName, lat, lng, updated_at: new Date().toISOString() }, { onConflict: 'lc' })
+      .then(({ error }) => { if (error) console.error('[lc_locations]', error) })
+  }
+
+  function startWatch(highAccuracy) {
+    if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current)
+    setGpsStatus(highAccuracy ? 'gps' : 'network')
     watchRef.current = navigator.geolocation.watchPosition(
       pos => {
         setWaitingPerm(false)
         const { latitude: lat, longitude: lng, accuracy } = pos.coords
         setPosition({ lat, lng, accuracy: Math.round(accuracy) })
         setLastUpdate(new Date())
-        const now = Date.now()
-        if (now - lastWriteRef.current >= WRITE_INTERVAL_MS) {
-          lastWriteRef.current = now
-          const db = getSupabaseClient()
-          if (db) db.from('lc_locations')
-            .upsert({ lc: lcName, lat, lng, updated_at: new Date().toISOString() }, { onConflict: 'lc' })
-            .then(({ error }) => {
-              if (error) console.error('[lc_locations] upsert error:', error)
-              else console.log('[lc_locations] escribió:', lcName, lat, lng)
-            })
-        }
+        writeLocation(lat, lng)
       },
       err => {
+        // Timeout en modo GPS → reintentar con red (más rápido, menos preciso)
+        if (err.code === 3 && highAccuracy) {
+          setGpsStatus('network')
+          startWatch(false)
+          return
+        }
         setWaitingPerm(false)
+        setGpsStatus('')
         const msgs = {
-          1: 'Permiso denegado. Debes permitir el acceso a la ubicación en la configuración del navegador.',
-          2: 'No se pudo obtener la ubicación. Verifica que el GPS esté activado.',
-          3: 'Tiempo de espera agotado. Intenta de nuevo.',
+          1: isAndroid
+            ? 'Permiso denegado. En Android ve a Configuración → Aplicaciones → Chrome → Permisos → Ubicación → Permitir.'
+            : 'Permiso denegado. Permite el acceso a la ubicación en la configuración del navegador.',
+          2: 'No se pudo obtener la ubicación. Verifica que el GPS o los Servicios de Ubicación estén activados.',
+          3: 'Tiempo de espera agotado. Intenta de nuevo en un lugar con mejor señal.',
         }
         setError(msgs[err.code] || err.message)
         setActive(false)
       },
-      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 }
+      {
+        enableHighAccuracy: highAccuracy,
+        maximumAge: highAccuracy ? 10_000 : 60_000,
+        timeout:    highAccuracy ? 30_000 : 20_000,
+      }
     )
+  }
+
+  function activate() {
+    if (!navigator.geolocation) { setError('Tu navegador no soporta geolocalización.'); return }
+    setError('')
+    setWaitingPerm(true)
     setActive(true)
+    startWatch(true)
   }
 
   function deactivate() {
@@ -169,6 +188,14 @@ export default function UbicacionPage() {
               {position.lat.toFixed(5)}, {position.lng.toFixed(5)} · ±{position.accuracy}m
             </div>
           )}
+          {active && !position && gpsStatus === 'gps' && (
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>Buscando señal GPS…</div>
+          )}
+          {active && gpsStatus === 'network' && (
+            <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>
+              GPS sin señal — usando ubicación por red (menor precisión)
+            </div>
+          )}
         </div>
 
         {/* Botón toggle */}
@@ -245,6 +272,7 @@ export default function UbicacionPage() {
           <li>Si bloqueas la pantalla y la vuelves a abrir, se reactiva solo.</li>
           <li>Al salir del sitio toca "Desactivar" para que no siga apareciendo en el mapa.</li>
           <li>Solo el equipo interno puede ver tu posición en el mapa.</li>
+          {isAndroid && <li><strong>Android:</strong> si no obtiene ubicación, ve a Configuración → Ubicación y activa "Alta precisión".</li>}
         </ul>
       </div>
 
