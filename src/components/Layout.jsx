@@ -39,20 +39,24 @@ const MAT_NAV = [
   { to: '/materiales',              label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
   { to: '/materiales/inventario',   label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
   { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
-  { to: '/materiales/sitios',       label: 'Sitios',      icon: '📍', id: 'mat-sitios',      roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/reportes',     label: 'Reportes',    icon: '📊', id: 'mat-reportes',    roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','coordinador','logistica'] },
 ]
 
 const HW_NAV = [
-  { to: '/materiales/hw/dashboard',   label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',   roles: null },
-  { to: '/materiales/hw/inventario',  label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
-  { to: '/materiales/hw/movimientos',           label: 'Movimientos HW',  icon: '🔁', id: 'hw-movimientos',  roles: null },
-  { to: '/materiales/hw/despachos-pendientes', label: 'Pend. Despacho',  icon: '📦', id: 'hw-despachos-p',  roles: null },
-  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',     icon: '🗂', id: 'hw-catalogo',     roles: null },
-  { to: '/materiales/hw/fallas',               label: 'HW en Falla',     icon: '⚠',  id: 'hw-fallas',       roles: null },
-  { to: '/materiales/hw/nokia-carga',          label: 'Carga Nokia',      icon: '📥', id: 'hw-nokia-carga',  roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/hw/dashboard',            label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',   roles: null },
+  { to: '/materiales/hw/inventario',           label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
+  { to: '/materiales/hw/movimientos',          label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos',  roles: null },
+  { to: '/materiales/hw/despachos-pendientes', label: 'Pend. Despacho', icon: '📦', id: 'hw-despachos-p',  roles: null },
+  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
+  { to: '/materiales/hw/fallas',               label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',       roles: null },
+  { to: '/materiales/hw/nokia-carga',          label: 'Carga Nokia',    icon: '📥', id: 'hw-nokia-carga',  roles: ['admin','coordinador','logistica'] },
+]
+
+const SITIOS_NAV = [
+  { to: '/materiales/sitios',        label: 'Logística Directa',  icon: '🚚', id: 'sit-directa', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/hw/log-inversa', label: 'Logística Inversa', icon: '↩',  id: 'sit-inversa', roles: null },
 ]
 
 const ROLLOUT_NAV = [
@@ -131,7 +135,8 @@ export default function Layout({ children }) {
   }
 
   const inMateriales  = location.pathname.startsWith('/materiales')
-  const inHw          = location.pathname.startsWith('/materiales/hw')
+  const inSitios      = location.pathname === '/materiales/sitios' || location.pathname === '/materiales/hw/log-inversa'
+  const inHw          = location.pathname.startsWith('/materiales/hw') && !inSitios
   const inRollout     = location.pathname.startsWith('/rollout')
   const inFacturacion = location.pathname.startsWith('/facturacion')
   const inAdmin       = location.pathname.startsWith('/admin')
@@ -183,7 +188,7 @@ export default function Layout({ children }) {
   const allVisible = inAdmin
     ? ADMIN_PANEL_NAV.filter(canSee)
     : inMateriales
-      ? (inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
+      ? (inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
       : inRollout
         ? ROLLOUT_NAV
         : inFacturacion
@@ -209,11 +214,13 @@ export default function Layout({ children }) {
 
   const headerTitle = inAdmin
     ? 'Panel Admin'
-    : inHw
-      ? 'HW Nokia'
-      : inMateriales
-        ? 'Gestión de Inventarios'
-        : inRollout
+    : inSitios
+      ? 'Sitios'
+      : inHw
+        ? 'HW Nokia'
+        : inMateriales
+          ? 'Gestión de Inventarios'
+          : inRollout
           ? 'ACK'
           : inFacturacion
             ? 'Facturación'
@@ -357,7 +364,7 @@ export default function Layout({ children }) {
         position: 'sticky', top: 'calc(58px + env(safe-area-inset-top))', zIndex: 199,
         boxShadow: '0 1px 3px rgba(0,0,0,.06)',
       }}>
-        {/* Toggle Materiales / HW Nokia */}
+        {/* Toggle Materiales / HW Nokia / Sitios */}
         {inMateriales && (
           <div style={{
             display: 'flex', gap: 4, padding: '5px 18px 4px',
@@ -365,23 +372,21 @@ export default function Layout({ children }) {
           }}>
             <button
               onClick={() => navigate('/materiales')}
-              style={{
-                ...pillBase,
-                background: !inHw ? brand : 'transparent',
-                color: !inHw ? '#fff' : '#6b7280',
-              }}
+              style={{ ...pillBase, background: !inHw && !inSitios ? brand : 'transparent', color: !inHw && !inSitios ? '#fff' : '#6b7280' }}
             >
               📦 Materiales
             </button>
             <button
               onClick={() => navigate('/materiales/hw/dashboard')}
-              style={{
-                ...pillBase,
-                background: inHw ? brand : 'transparent',
-                color: inHw ? '#fff' : '#6b7280',
-              }}
+              style={{ ...pillBase, background: inHw ? brand : 'transparent', color: inHw ? '#fff' : '#6b7280' }}
             >
               📡 HW Nokia
+            </button>
+            <button
+              onClick={() => navigate('/materiales/sitios')}
+              style={{ ...pillBase, background: inSitios ? brand : 'transparent', color: inSitios ? '#fff' : '#6b7280' }}
+            >
+              📍 Sitios
             </button>
           </div>
         )}
@@ -448,7 +453,7 @@ export default function Layout({ children }) {
 
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inAdmin ? '⚙ Panel Admin' : inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
+            {inAdmin ? '⚙ Panel Admin' : inSitios ? '📍 Sitios' : inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
           </div>
 
           {canSwitchModule && (
@@ -466,28 +471,24 @@ export default function Layout({ children }) {
 
           {/* Toggle pills en drawer (solo en Materiales) */}
           {inMateriales && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 4, marginTop: 10, flexWrap: 'wrap' }}>
               <button
                 onClick={() => { navigate('/materiales'); setDrawerOpen(false) }}
-                style={{
-                  flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer',
-                  fontSize: 10, fontWeight: 700,
-                  background: !inHw ? brand : 'rgba(255,255,255,.12)',
-                  color: !inHw ? '#fff' : 'rgba(255,255,255,.6)',
-                }}
+                style={{ flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, background: !inHw && !inSitios ? brand : 'rgba(255,255,255,.12)', color: !inHw && !inSitios ? '#fff' : 'rgba(255,255,255,.6)' }}
               >
                 📦 Materiales
               </button>
               <button
                 onClick={() => { navigate('/materiales/hw/dashboard'); setDrawerOpen(false) }}
-                style={{
-                  flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer',
-                  fontSize: 10, fontWeight: 700,
-                  background: inHw ? brand : 'rgba(255,255,255,.12)',
-                  color: inHw ? '#fff' : 'rgba(255,255,255,.6)',
-                }}
+                style={{ flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, background: inHw ? brand : 'rgba(255,255,255,.12)', color: inHw ? '#fff' : 'rgba(255,255,255,.6)' }}
               >
                 📡 HW Nokia
+              </button>
+              <button
+                onClick={() => { navigate('/materiales/sitios'); setDrawerOpen(false) }}
+                style={{ flex: 1, padding: '6px 8px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700, background: inSitios ? brand : 'rgba(255,255,255,.12)', color: inSitios ? '#fff' : 'rgba(255,255,255,.6)' }}
+              >
+                📍 Sitios
               </button>
             </div>
           )}

@@ -18,6 +18,9 @@ export const useHwStore = create((set, get) => ({
   hwTipoUnidades:         [],
   hwFallas:               [],
   hwDespachosPendientes:  [],
+  hwLogInversa:           [],
+  hwLiBodegasDestino:     [],
+  hwLiConceptos:          [],
   loading:                false,
   _syncChannel:           null,
 
@@ -27,7 +30,7 @@ export const useHwStore = create((set, get) => ({
     const firstLoad = get().hwCatalogo.length === 0
     if (firstLoad) set({ loading: true })
     try {
-      const [cat, equ, mov, bod, ss, tu, fal, dp] = await Promise.all([
+      const [cat, equ, mov, bod, ss, tu, fal, dp, li, libd, lic] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
         db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
@@ -36,6 +39,9 @@ export const useHwStore = create((set, get) => ({
         db().from('hw_tipo_unidades').select('*').order('nombre'),
         db().from('hw_fallas').select('*').order('created_at', { ascending: false }),
         db().from('hw_despachos_pendientes').select('*').order('created_at', { ascending: false }),
+        db().from('hw_log_inversa').select('*').order('created_at', { ascending: false }),
+        db().from('hw_li_bodegas_destino').select('*').order('nombre'),
+        db().from('hw_li_conceptos').select('*').order('nombre'),
       ])
       set({
         hwCatalogo:             cat.data  || [],
@@ -46,6 +52,9 @@ export const useHwStore = create((set, get) => ({
         hwTipoUnidades:         tu.data   || [],
         hwFallas:               fal.data  || [],
         hwDespachosPendientes:  dp.data   || [],
+        hwLogInversa:           li.data   || [],
+        hwLiBodegasDestino:     libd.data || [],
+        hwLiConceptos:          lic.data  || [],
       })
     } finally {
       if (firstLoad) set({ loading: false })
@@ -70,6 +79,7 @@ export const useHwStore = create((set, get) => ({
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hw_movimientos' }, reload)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'hw_movimientos' }, reload)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hw_equipos'     }, reload)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'hw_log_inversa'  }, reload)
       .subscribe()
 
     set({ _syncChannel: syncChannel })
@@ -237,6 +247,48 @@ export const useHwStore = create((set, get) => ({
     const { error } = await db().from('hw_tipo_unidades').delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwTipoUnidades: s.hwTipoUnidades.filter(x => x.id !== id) }))
+  },
+
+  // ── Log Inversa — Bodegas Destino ───────────────────────────────
+  saveHwLiBodegaDestino: async (item) => {
+    const payload = { nombre: item.nombre, activo: item.activo ?? true }
+    const { data, error } = item.id
+      ? await db().from('hw_li_bodegas_destino').update(payload).eq('id', item.id).select().single()
+      : await db().from('hw_li_bodegas_destino').insert(payload).select().single()
+    if (error) throw error
+    set(s => ({
+      hwLiBodegasDestino: item.id
+        ? s.hwLiBodegasDestino.map(x => x.id === data.id ? data : x)
+        : [...s.hwLiBodegasDestino, data],
+    }))
+    return data
+  },
+
+  deleteHwLiBodegaDestino: async (id) => {
+    const { error } = await db().from('hw_li_bodegas_destino').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ hwLiBodegasDestino: s.hwLiBodegasDestino.filter(x => x.id !== id) }))
+  },
+
+  // ── Log Inversa — Conceptos ──────────────────────────────────────
+  saveHwLiConcepto: async (item) => {
+    const payload = { nombre: item.nombre, activo: item.activo ?? true }
+    const { data, error } = item.id
+      ? await db().from('hw_li_conceptos').update(payload).eq('id', item.id).select().single()
+      : await db().from('hw_li_conceptos').insert(payload).select().single()
+    if (error) throw error
+    set(s => ({
+      hwLiConceptos: item.id
+        ? s.hwLiConceptos.map(x => x.id === data.id ? data : x)
+        : [...s.hwLiConceptos, data],
+    }))
+    return data
+  },
+
+  deleteHwLiConcepto: async (id) => {
+    const { error } = await db().from('hw_li_conceptos').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ hwLiConceptos: s.hwLiConceptos.filter(x => x.id !== id) }))
   },
 
   // ── Tablas de referencia FR ──────────────────────────────────────
@@ -483,6 +535,57 @@ export const useHwStore = create((set, get) => ({
     set(s => ({
       hwDespachosPendientes: s.hwDespachosPendientes.filter(d => d.id !== despachoId),
     }))
+    get()._broadcastChange()
+  },
+
+  // ── Logística Inversa ────────────────────────────────────────────
+
+  addHwLogInversaBatch: async (items) => {
+    const now = new Date().toISOString()
+    const batch = items.map(i => ({ ...i, estado: i.estado || 'en_sitio', created_at: now, updated_at: now }))
+    const CHUNK = 150
+    const inserted = []
+    for (let i = 0; i < batch.length; i += CHUNK) {
+      const { data, error } = await db().from('hw_log_inversa').insert(batch.slice(i, i + CHUNK)).select()
+      if (error) throw error
+      if (data) inserted.push(...data)
+    }
+    set(s => ({ hwLogInversa: [...inserted, ...s.hwLogInversa] }))
+    get()._broadcastChange()
+    return inserted
+  },
+
+  updateHwLogInversa: async (id, changes) => {
+    const { data, error } = await db().from('hw_log_inversa')
+      .update({ ...changes, updated_at: new Date().toISOString() })
+      .eq('id', id).select().single()
+    if (error) throw error
+    set(s => ({ hwLogInversa: s.hwLogInversa.map(r => r.id === id ? data : r) }))
+    get()._broadcastChange()
+    return data
+  },
+
+  deleteHwLogInversa: async (id) => {
+    const { error } = await db().from('hw_log_inversa').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ hwLogInversa: s.hwLogInversa.filter(r => r.id !== id) }))
+    get()._broadcastChange()
+  },
+
+  deleteHwLogInversaBySitio: async (sitio) => {
+    const { error } = await db().from('hw_log_inversa').delete().eq('sitio', sitio)
+    if (error) throw error
+    set(s => ({ hwLogInversa: s.hwLogInversa.filter(r => r.sitio !== sitio) }))
+    get()._broadcastChange()
+  },
+
+  bulkUpdateHwLogInversaEstado: async (ids, estado, meta = {}) => {
+    const { data, error } = await db().from('hw_log_inversa')
+      .update({ estado, ...meta, updated_at: new Date().toISOString() })
+      .in('id', ids).select()
+    if (error) throw error
+    const updated = new Map((data || []).map(r => [r.id, r]))
+    set(s => ({ hwLogInversa: s.hwLogInversa.map(r => updated.has(r.id) ? updated.get(r.id) : r) }))
     get()._broadcastChange()
   },
 

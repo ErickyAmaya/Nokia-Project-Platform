@@ -328,7 +328,7 @@ export default function FactPorFacturar() {
 
   const user       = useAuthStore(s => s.user)
   const isViewer   = user?.role === 'viewer'
-  const canUploadRollout = ['admin', 'coordinador'].includes(user?.role)
+  const canUploadRollout = ['admin', 'coordinador', 'facturacion'].includes(user?.role)
 
   // Glosario ACK — estados bloqueantes (cache en localStorage)
   const [ackGlosario, setAckGlosario] = useState(() => {

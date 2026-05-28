@@ -67,11 +67,13 @@ export default function HwInventario() {
   const user             = useAuthStore(s => s.user)
   const matSitios        = useMatStore(s => s.sitios)
   const saveSitio        = useMatStore(s => s.saveSitio)
+  const bodegas          = useMatStore(s => s.bodegas)
   const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,         setSearch]         = useState('')
   const [filNokiaEstado, setFilNokiaEstado] = useState('')
   const [filStatus,      setFilStatus]      = useState('')
+  const [filBodega,      setFilBodega]      = useState('')
   const [expanded,  setExpanded]  = useState(null)
   const [editModal, setEditModal] = useState(null)
   const [editForm,  setEditForm]  = useState({})
@@ -163,6 +165,11 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
         if (filNokiaEstado && !r.equipos.some(e => e.nokia_estado === filNokiaEstado)) return false
         if (filStatus === 'agotado' && r.stock !== 0)       return false
         if (filStatus === 'stock'   && r.stock === 0)       return false
+        if (filBodega) {
+          const inSerial   = r.equipos.some(e => e.estado === 'en_bodega' && e.ubicacion_actual?.toLowerCase() === filBodega.toLowerCase())
+          const inSinSerial = r.movsSinSerial.some(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino?.toLowerCase() === filBodega.toLowerCase())
+          if (!inSerial && !inSinSerial) return false
+        }
         if (q) {
           const soMov    = r.movsSinSerial.map(m => m.so || '').join(' ')
           const soEquipo = r.equipos.map(e => e.so || '').join(' ')
@@ -178,6 +185,8 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
     const vals = new Set(hwEquipos.map(e => e.nokia_estado).filter(Boolean))
     return [...vals].sort()
   }, [hwEquipos])
+
+  const bodegaOpts = useMemo(() => [...bodegas].sort((a, b) => a.nombre.localeCompare(b.nombre)), [bodegas])
 
   // ── KPIs ────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -325,6 +334,10 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
               <option value="">Todos los status</option>
               <option value="stock">En Stock</option>
               <option value="agotado">Agotado</option>
+            </select>
+            <select className="fc" value={filBodega} onChange={e => setFilBodega(e.target.value)} style={{ maxWidth:180 }}>
+              <option value="">Todas las bodegas</option>
+              {bodegaOpts.map(b => <option key={b.id} value={b.nombre}>{b.nombre}</option>)}
             </select>
           </div>
 

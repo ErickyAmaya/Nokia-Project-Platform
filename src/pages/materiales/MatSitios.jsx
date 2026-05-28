@@ -18,23 +18,26 @@ const REGIONALES = ['Sur-Occidente','Norte','Centro','Oriente','Antioquia','Cari
 const MTS_CATS   = new Set(['1009196', '1043056'])
 
 export default function MatSitios() {
-  const sitios      = useMatStore(s => s.sitios)
-  const movimientos = useMatStore(s => s.movimientos)
-  const despachos   = useMatStore(s => s.despachos)
-  const catalogo    = useMatStore(s => s.catalogo)
-  const pendientes  = useMatStore(s => s.pendientes)
-  const deleteSitio = useMatStore(s => s.deleteSitio)
-  const hwEquipos      = useHwStore(s => s.hwEquipos)
-  const hwCatalogo     = useHwStore(s => s.hwCatalogo)
-  const hwMovimientos  = useHwStore(s => s.hwMovimientos)
-  const user        = useAuthStore(s => s.user)
+  const sitios       = useMatStore(s => s.sitios)
+  const movimientos  = useMatStore(s => s.movimientos)
+  const despachos    = useMatStore(s => s.despachos)
+  const catalogo     = useMatStore(s => s.catalogo)
+  const pendientes   = useMatStore(s => s.pendientes)
+  const deleteSitio  = useMatStore(s => s.deleteSitio)
+  const saveSitio    = useMatStore(s => s.saveSitio)
+  const hwEquipos     = useHwStore(s => s.hwEquipos)
+  const hwCatalogo    = useHwStore(s => s.hwCatalogo)
+  const hwMovimientos = useHwStore(s => s.hwMovimientos)
+  const hwLogInversa  = useHwStore(s => s.hwLogInversa)
+  const user         = useAuthStore(s => s.user)
   const navigate    = useNavigate()
   const location    = useLocation()
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const [search,   setSearch]   = useState(location.state?.search || '')
-  const [filReg,   setFilReg]   = useState('')
-  const [expanded, setExpanded] = useState(null)
+  const [search,        setSearch]        = useState(location.state?.search || '')
+  const [filReg,        setFilReg]        = useState('')
+  const [expanded,      setExpanded]      = useState(null)
+  const [togglingId,    setTogglingId]    = useState(null)
 
   // Auto-expandir el sitio si viene desde un link directo
   useEffect(() => {
@@ -45,6 +48,20 @@ export default function MatSitios() {
   }, [location.state?.search, sitios])
 
   const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+
+  // Sitios que tienen registros en hw_log_inversa
+  const sitiosConLI = useMemo(() =>
+    new Set(hwLogInversa.map(r => r.sitio?.toLowerCase()).filter(Boolean))
+  , [hwLogInversa])
+
+  async function toggleLogInversa(s, e) {
+    e.stopPropagation()
+    if (!canEdit || togglingId) return
+    setTogglingId(s.id ?? s.nombre)
+    try { await saveSitio({ ...s, aplica_log_inversa: !s.aplica_log_inversa }) }
+    catch (err) { showToast('Error: ' + err.message, 'error') }
+    finally { setTogglingId(null) }
+  }
 
   const sitioData = useMemo(() => {
     const data = {}
@@ -136,6 +153,29 @@ export default function MatSitios() {
         </div>
 
         <div className="card-b">
+          {/* ── KPIs ── */}
+          {(() => {
+            const activos      = sitios.filter(s => (sitioData[s.id ?? s.nombre]?.movCount || 0) > 0).length
+            const conDespachos = sitios.filter(s => (sitioData[s.id ?? s.nombre]?.despCount || 0) > 0).length
+            const conPendientes = new Set(pendientes.map(p => p.sitio?.toLowerCase()).filter(Boolean)).size
+            const conLI        = new Set(hwLogInversa.map(r => r.sitio?.toLowerCase()).filter(Boolean)).size
+            return (
+              <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                {[
+                  { label:'Sitios Activos',       value:activos,       bg:'#d1fae5', color:'#065f46' },
+                  { label:'Con Despachos',         value:conDespachos,  bg:'#dbeafe', color:'#1e40af' },
+                  { label:'Con Pendientes',        value:conPendientes, bg:'#fef3c7', color:'#92400e' },
+                  { label:'Con Log. Inversa',      value:conLI,         bg:'#f3e8ff', color:'#6b21a8' },
+                ].map(({ label, value, bg, color }) => (
+                  <div key={label} style={{ background:bg, borderRadius:10, padding:'10px 18px', flex:1, minWidth:110 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color, textTransform:'uppercase', letterSpacing:'.04em', marginBottom:2 }}>{label}</div>
+                    <div style={{ fontSize:28, fontWeight:700, color, fontFamily:"'Barlow Condensed',sans-serif" }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
             <input className="fc" placeholder="Buscar sitio…" value={search}
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:180 }} />
@@ -156,13 +196,14 @@ export default function MatSitios() {
                   <th style={{ textAlign:'right' }}>MOVIMIENTOS</th>
                   <th style={{ textAlign:'right' }}>IMPORTE</th>
                   <th>STATUS</th>
+                  <th>LOG. INVERSA</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>
+                    <td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>
                       Sin sitios registrados. Los sitios se crean automáticamente al realizar un despacho.
                     </td>
                   </tr>
@@ -211,6 +252,39 @@ export default function MatSitios() {
                           }
                         </td>
                         <td style={{ whiteSpace:'nowrap' }} onClick={e => e.stopPropagation()}>
+                          {(() => {
+                            const nombre = s.nombre?.toLowerCase()
+                            const tieneData = sitiosConLI.has(nombre)
+                            const aplica    = s.aplica_log_inversa
+                            const toggling  = togglingId === (s.id ?? s.nombre)
+                            return (
+                              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                {/* Badge estado */}
+                                {tieneData
+                                  ? <span onClick={e => { e.stopPropagation(); navigate(`/materiales/hw/log-inversa?sitio=${encodeURIComponent(s.nombre)}`) }}
+                                      style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10, background:'#f3e8ff', color:'#6b21a8', whiteSpace:'nowrap', cursor:'pointer', textDecoration:'underline dotted' }}>🟢 Con datos</span>
+                                  : aplica
+                                    ? <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10, background:'#fef3c7', color:'#92400e', whiteSpace:'nowrap' }}>🟡 Pendiente</span>
+                                    : aplica === false
+                                      ? <span style={{ fontSize:9, color:'#9ca3af' }}>N/A</span>
+                                      : <span style={{ fontSize:9, color:'#d1d5db' }}>—</span>
+                                }
+                                {/* Toggle aplica */}
+                                {canEdit && (
+                                  <button
+                                    onClick={e => toggleLogInversa(s, e)}
+                                    disabled={toggling}
+                                    title={aplica ? 'Desmarcar: no aplica Log. Inversa' : 'Marcar: aplica Log. Inversa'}
+                                    style={{ padding:'2px 8px', fontSize:9, fontWeight:700, borderRadius:10, border:`1px solid ${aplica ? '#6b21a8' : '#d1d5db'}`, background: aplica ? '#f3e8ff' : '#f9fafb', color: aplica ? '#6b21a8' : '#9ca3af', cursor:toggling ? 'wait' : 'pointer', transition:'all .15s' }}
+                                  >
+                                    {aplica ? 'ON' : 'OFF'}
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </td>
+                        <td style={{ whiteSpace:'nowrap' }} onClick={e => e.stopPropagation()}>
                           {canEdit && (
                             <button
                               onClick={() => handleDelete(s)}
@@ -223,7 +297,7 @@ export default function MatSitios() {
 
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} style={{ padding:0, borderTop:'2px solid #1a9c1a' }}>
+                          <td colSpan={9} style={{ padding:0, borderTop:'2px solid #1a9c1a' }}>
                             <div style={{ background:'#f8fdf8' }}>
                               <div style={{ background:'#264D4A', padding:'8px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                                 <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:13, color:'#D6F9F2', letterSpacing:1, textTransform:'uppercase' }}>

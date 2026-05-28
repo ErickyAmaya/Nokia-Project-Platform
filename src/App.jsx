@@ -40,6 +40,7 @@ import HwFallas                from './pages/materiales/HwFallas'
 import HwFrConfig              from './pages/materiales/HwFrConfig'
 import HwDespachosPendientes   from './pages/materiales/HwDespachosPendientes'
 import HwNokiaCarga            from './pages/materiales/HwNokiaCarga'
+import HwLogInversa            from './pages/materiales/HwLogInversa'
 import MatReportes        from './pages/materiales/MatReportes'
 import AckWrapper         from './pages/rollout/AckWrapper'
 import AckDashboard       from './pages/rollout/AckDashboard'
@@ -182,6 +183,7 @@ function AppRoutes() {
         <Route path="hw/fr-config"           element={<ProtectedRoute allowedRoles={['admin']}><HwFrConfig /></ProtectedRoute>} />
         <Route path="hw/despachos-pendientes" element={<ProtectedRoute allowedRoles={R_MAT}><HwDespachosPendientes /></ProtectedRoute>} />
         <Route path="hw/nokia-carga"          element={<ProtectedRoute allowedRoles={['admin','coordinador','logistica']}><HwNokiaCarga /></ProtectedRoute>} />
+        <Route path="hw/log-inversa"          element={<ProtectedRoute allowedRoles={R_MAT}><HwLogInversa /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={

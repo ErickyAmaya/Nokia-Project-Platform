@@ -173,7 +173,7 @@ export const useMatStore = create((set, get) => ({
   // ── SITIOS ───────────────────────────────────────────────────────
   saveSitio: async (sitio) => {
     const isNew = !sitio.id && !sitio._editing
-    const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw || null, regional: sitio.regional, comentarios: sitio.comentarios || null, activo: sitio.activo ?? true }
+    const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw || null, regional: sitio.regional, comentarios: sitio.comentarios || null, activo: sitio.activo ?? true, aplica_log_inversa: sitio.aplica_log_inversa ?? false }
 
     if (isNew) {
       const { error } = await db().from('mat_sitios').insert(payload)
@@ -217,6 +217,8 @@ export const useMatStore = create((set, get) => ({
       await db().from('hw_equipos')
         .update({ estado: 'en_bodega', ubicacion_actual: null, updated_at: new Date().toISOString() })
         .eq('ubicacion_actual', resolvedNombre)
+      // ── Logística Inversa ──────────────────────────────────────────
+      await db().from('hw_log_inversa').delete().eq('sitio', resolvedNombre)
     }
 
     const q = id

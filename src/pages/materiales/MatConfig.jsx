@@ -24,15 +24,21 @@ export default function MatConfig() {
   const sitios             = useMatStore(s => s.sitios)
   const saveBodega         = useMatStore(s => s.saveBodega)
   const deleteBodega       = useMatStore(s => s.deleteBodega)
-  const hwBodegasNokia     = useHwStore(s => s.hwBodegasNokia)
-  const hwServiceSuppliers = useHwStore(s => s.hwServiceSuppliers)
-  const hwTipoUnidades     = useHwStore(s => s.hwTipoUnidades)
-  const saveHwBodegaNokia  = useHwStore(s => s.saveHwBodegaNokia)
-  const deleteHwBodegaNokia= useHwStore(s => s.deleteHwBodegaNokia)
-  const saveHwSS           = useHwStore(s => s.saveHwSS)
-  const deleteHwSS         = useHwStore(s => s.deleteHwSS)
-  const saveHwTipoUnidad   = useHwStore(s => s.saveHwTipoUnidad)
-  const deleteHwTipoUnidad = useHwStore(s => s.deleteHwTipoUnidad)
+  const hwBodegasNokia        = useHwStore(s => s.hwBodegasNokia)
+  const hwServiceSuppliers    = useHwStore(s => s.hwServiceSuppliers)
+  const hwTipoUnidades        = useHwStore(s => s.hwTipoUnidades)
+  const hwLiBodegasDestino    = useHwStore(s => s.hwLiBodegasDestino)
+  const hwLiConceptos         = useHwStore(s => s.hwLiConceptos)
+  const saveHwBodegaNokia     = useHwStore(s => s.saveHwBodegaNokia)
+  const deleteHwBodegaNokia   = useHwStore(s => s.deleteHwBodegaNokia)
+  const saveHwSS              = useHwStore(s => s.saveHwSS)
+  const deleteHwSS            = useHwStore(s => s.deleteHwSS)
+  const saveHwTipoUnidad      = useHwStore(s => s.saveHwTipoUnidad)
+  const deleteHwTipoUnidad    = useHwStore(s => s.deleteHwTipoUnidad)
+  const saveHwLiBodegaDestino = useHwStore(s => s.saveHwLiBodegaDestino)
+  const deleteHwLiBodegaDestino = useHwStore(s => s.deleteHwLiBodegaDestino)
+  const saveHwLiConcepto      = useHwStore(s => s.saveHwLiConcepto)
+  const deleteHwLiConcepto    = useHwStore(s => s.deleteHwLiConcepto)
   const loadAll            = useHwStore(s => s.loadAll)
   const user               = useAuthStore(s => s.user)
   const navigate           = useNavigate()
@@ -47,6 +53,10 @@ export default function MatConfig() {
   const [ssForm,   setSsForm]   = useState({ nombre:'', ciudad:'', notas:'' })
   const [tuModal,  setTuModal]  = useState(false)
   const [tuForm,   setTuForm]   = useState({ nombre:'' })
+  const [libdModal, setLibdModal] = useState(false)
+  const [libdForm,  setLibdForm]  = useState({ nombre:'' })
+  const [licModal,  setLicModal]  = useState(false)
+  const [licForm,   setLicForm]   = useState({ nombre:'' })
   const [syncTime]             = useState(new Date().toLocaleString('es-CO'))
 
   // Cargar datos HW al montar
@@ -142,6 +152,31 @@ export default function MatConfig() {
     catch (e) { showToast('Error: ' + e.message, 'err') }
   }
 
+  async function handleSaveLibd() {
+    if (!libdForm.nombre.trim()) { showToast('El nombre es requerido', 'err'); return }
+    try { await saveHwLiBodegaDestino(libdForm); showToast(libdForm.id ? 'Actualizada' : 'Bodega destino creada'); setLibdModal(false) }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  async function handleDeleteLibd(b) {
+    const ok = await confirm('Eliminar Bodega Destino', `¿Eliminar "${b.nombre}"?`)
+    if (!ok) return
+    try { await deleteHwLiBodegaDestino(b.id); showToast('Eliminada') }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  async function handleSaveLic() {
+    if (!licForm.nombre.trim()) { showToast('El nombre es requerido', 'err'); return }
+    try { await saveHwLiConcepto(licForm); showToast(licForm.id ? 'Actualizado' : 'Concepto creado'); setLicModal(false) }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
+
+  async function handleDeleteLic(c) {
+    const ok = await confirm('Eliminar Concepto', `¿Eliminar "${c.nombre}"?`)
+    if (!ok) return
+    try { await deleteHwLiConcepto(c.id); showToast('Eliminado') }
+    catch (e) { showToast('Error: ' + e.message, 'err') }
+  }
 
   return (
     <div>
@@ -295,6 +330,61 @@ export default function MatConfig() {
             ))}
           </div>
         </div>
+        <div className="card" style={{ marginTop:16 }}>
+          <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <h2>Bodegas Destino (Log. Inversa)</h2>
+            {canEdit && <button className="btn bp btn-sm" onClick={() => { setLibdForm({ nombre:'' }); setLibdModal(true) }}>+ Agregar</button>}
+          </div>
+          <div className="card-b" style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {hwLiBodegasDestino.length === 0 && (
+              <div style={{ textAlign:'center', padding:16, color:'#9ca89c', fontSize:12 }}>Sin bodegas destino</div>
+            )}
+            {hwLiBodegasDestino.map(b => (
+              <div key={b.id} style={{ border:'1.5px solid #fde8d8', borderRadius:8, padding:'8px 12px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ fontWeight:700, fontSize:12, color:'#9a3412' }}>
+                  {b.nombre}
+                  {b.activo === false && <span style={{ marginLeft:6, fontSize:9, color:'#9ca89c' }}>inactivo</span>}
+                </div>
+                {canEdit && (
+                  <div style={{ display:'flex', gap:6 }}>
+                    <button onClick={() => { setLibdForm({ ...b }); setLibdModal(true) }}
+                      style={{ padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>Editar</button>
+                    <button onClick={() => handleDeleteLibd(b)}
+                      style={{ padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'none', background:'#fde8e7', color:'#c0392b', cursor:'pointer' }}>Eliminar</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ marginTop:16 }}>
+          <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <h2>Conceptos (Log. Inversa)</h2>
+            {canEdit && <button className="btn bp btn-sm" onClick={() => { setLicForm({ nombre:'' }); setLicModal(true) }}>+ Agregar</button>}
+          </div>
+          <div className="card-b" style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {hwLiConceptos.length === 0 && (
+              <div style={{ textAlign:'center', padding:16, color:'#9ca89c', fontSize:12 }}>Sin conceptos</div>
+            )}
+            {hwLiConceptos.map(c => (
+              <div key={c.id} style={{ border:'1.5px solid #dbeafe', borderRadius:8, padding:'8px 12px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ fontWeight:700, fontSize:12, color:'#1e40af' }}>
+                  {c.nombre}
+                  {c.activo === false && <span style={{ marginLeft:6, fontSize:9, color:'#9ca89c' }}>inactivo</span>}
+                </div>
+                {canEdit && (
+                  <div style={{ display:'flex', gap:6 }}>
+                    <button onClick={() => { setLicForm({ ...c }); setLicModal(true) }}
+                      style={{ padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'1.5px solid #e0e4e0', background:'#fff', color:'#555f55', cursor:'pointer' }}>Editar</button>
+                    <button onClick={() => handleDeleteLic(c)}
+                      style={{ padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:4, border:'none', background:'#fde8e7', color:'#c0392b', cursor:'pointer' }}>Eliminar</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
         </div>{/* fin columna derecha */}
       </div>{/* fin flex contenedor */}
 
@@ -430,6 +520,66 @@ export default function MatConfig() {
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
                 <button className="btn bou" onClick={() => setTuModal(false)}>Cancelar</button>
                 <button className="btn bp" onClick={handleSaveTU}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Bodega Destino Log. Inversa */}
+      {libdModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:380 }}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #ea580c', borderRadius:'12px 12px 0 0' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
+                {libdForm.id ? 'Editar Bodega Destino' : 'Nueva Bodega Destino'}
+              </span>
+              <button onClick={() => setLibdModal(false)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label className="fl">Nombre *</label>
+                <input type="text" className="fc" value={libdForm.nombre || ''} onChange={e => setLibdForm(p => ({ ...p, nombre: e.target.value }))} />
+              </div>
+              {libdForm.id && (
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <input type="checkbox" id="libd-activo" checked={libdForm.activo !== false} onChange={e => setLibdForm(p => ({ ...p, activo: e.target.checked }))} />
+                  <label htmlFor="libd-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+                <button className="btn bou" onClick={() => setLibdModal(false)}>Cancelar</button>
+                <button className="btn bp" onClick={handleSaveLibd}>Guardar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Concepto Log. Inversa */}
+      {licModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:380 }}>
+            <div style={{ background:'#0a0a0a', color:'#fff', padding:'12px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'3px solid #1d4ed8', borderRadius:'12px 12px 0 0' }}>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:15, letterSpacing:1 }}>
+                {licForm.id ? 'Editar Concepto' : 'Nuevo Concepto'}
+              </span>
+              <button onClick={() => setLicModal(false)} style={{ background:'none', border:'none', color:'#9ca89c', fontSize:20, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label className="fl">Nombre *</label>
+                <input type="text" className="fc" value={licForm.nombre || ''} onChange={e => setLicForm(p => ({ ...p, nombre: e.target.value }))} />
+              </div>
+              {licForm.id && (
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <input type="checkbox" id="lic-activo" checked={licForm.activo !== false} onChange={e => setLicForm(p => ({ ...p, activo: e.target.checked }))} />
+                  <label htmlFor="lic-activo" style={{ fontSize:12, fontWeight:600 }}>Activo</label>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+                <button className="btn bou" onClick={() => setLicModal(false)}>Cancelar</button>
+                <button className="btn bp" onClick={handleSaveLic}>Guardar</button>
               </div>
             </div>
           </div>
