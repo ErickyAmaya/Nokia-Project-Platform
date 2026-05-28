@@ -8,6 +8,7 @@ import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/fact
 import { parsearRollout, saveRolloutData, loadRolloutData, exportarSolicitudLib, saveRolloutToSupabase, loadRolloutFromSupabase } from '../../lib/rolloutImport'
 
 const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
+const SIBLING_KEY = { cw_1: 'cw_2', cw_2: 'cw_1', tss_1: 'tss_2', tss_2: 'tss_1' }
 
 const EV_DATE_COL = {
   acuerdo:  'acuerdo_ss_date',
@@ -97,10 +98,23 @@ function DesempenoBadge({ val }) {
   )
 }
 
-function MissingBadge({ missing }) {
+function MissingBadge({ missing, onClick }) {
+  const [hovered, setHovered] = useState(false)
   return (
-    <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-      {missing}
+    <span
+      onClick={onClick}
+      onMouseEnter={() => onClick && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background:   hovered ? '#fee2e2' : '#fef3c7',
+        color:        hovered ? '#991b1b' : '#92400e',
+        border:       hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
+        borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
+        whiteSpace: 'nowrap', cursor: onClick ? 'pointer' : 'default',
+        transition: 'all .15s',
+      }}
+    >
+      {hovered ? 'Registrar Factura' : missing}
     </span>
   )
 }
@@ -140,7 +154,7 @@ function HitoBar({ label, pct, color, status, onClick }) {
         transition: 'all .15s',
       }}
     >
-      {hovered ? '+ Registrar' : `● ${label}`}
+      {hovered ? 'Registrar Factura' : `● ${label}`}
     </span>
   )
   return (
@@ -156,7 +170,7 @@ function HitoBar({ label, pct, color, status, onClick }) {
   )
 }
 
-function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
+function FacturarModal({ row, ev, siblingEv, pos, invoices, onClose, onSave }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const poData = pos.find(p => p.spo_number === row.spo_number)
@@ -166,9 +180,7 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
     if (!num) return null
     const matches = invoices.filter(inv => inv.numero_factura === num)
     const otraPO  = matches.find(inv => inv.spo_number !== row.spo_number)
-    const mismaPO = matches.find(inv => inv.spo_number === row.spo_number)
     if (otraPO)  return { tipo: 'otra_po',  spo: otraPO.spo_number }
-    if (mismaPO) return { tipo: 'misma_po', evento: mismaPO.evento }
     return null
   }, [form.numero_factura, invoices, row.spo_number])
 
@@ -177,8 +189,12 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
     if (conflicto?.tipo === 'otra_po') return
     setSaving(true)
     try {
-      await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.invoiceable_pct ?? ev.pct, numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null })
-      showToast('Factura registrada')
+      const payload = { numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null }
+      await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.invoiceable_pct ?? ev.pct, ...payload })
+      if (siblingEv) {
+        await onSave({ spo_number: row.spo_number, evento: siblingEv.key, pct: siblingEv.invoiceable_pct ?? siblingEv.pct, ...payload })
+      }
+      showToast(siblingEv ? 'Factura registrada en ambos porcentajes' : 'Factura registrada')
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
@@ -189,26 +205,41 @@ function FacturarModal({ row, ev, pos, invoices, onClose, onSave }) {
       <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Registrar Factura</div>
         <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 18 }}>{row.customer_site_name} · SPO {row.spo_number}</div>
-        <div style={{ background: '#f8faf8', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12 }}>
+        <div style={{ background: '#f8faf8', borderRadius: 8, padding: '10px 14px', marginBottom: siblingEv ? 8 : 16, fontSize: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: '#555' }}>Evento</span><EventoBadge ev={ev} />
           </div>
-          {poData?.valor && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-              <span style={{ color: '#555' }}>Valor estimado</span>
-              <span style={{ fontWeight: 700 }}>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(poData.valor * (ev.invoiceable_pct ?? ev.pct) / 100)}</span>
+          {siblingEv && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ color: '#555' }}>También se registrará</span><EventoBadge ev={siblingEv} />
             </div>
           )}
+          {poData?.valor && (() => {
+            const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(v)
+            const totalPct = (ev.invoiceable_pct ?? ev.pct) + (siblingEv ? (siblingEv.invoiceable_pct ?? siblingEv.pct) : 0)
+            return (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span style={{ color: '#555' }}>Valor PO</span>
+                  <span style={{ color: '#6b7280' }}>{fmt(poData.valor)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>
+                  <span style={{ color: '#555' }}>{`Valor a Facturar (${totalPct}%)`}</span>
+                  <span style={{ fontWeight: 700 }}>{fmt(poData.valor * totalPct / 100)}</span>
+                </div>
+              </>
+            )
+          })()}
         </div>
+        {siblingEv && (
+          <div style={{ fontSize: 10, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '6px 10px', marginBottom: 16 }}>
+            Ambos porcentajes están disponibles — se registrarán con la misma factura.
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="fg">
             <label className="fl">Número de Factura *</label>
             <input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" />
-            {conflicto?.tipo === 'misma_po' && (
-              <div style={{ marginTop: 5, fontSize: 10, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 6, padding: '5px 9px' }}>
-                ⚠ Este número ya se usó en esta PO (evento {conflicto.evento}). Puede continuar si corresponde a un doble porcentaje liberado.
-              </div>
-            )}
             {conflicto?.tipo === 'otra_po' && (
               <div style={{ marginTop: 5, fontSize: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 9px' }}>
                 ✕ Este número ya existe en la PO {conflicto.spo}. No es posible usar la misma factura en dos POs distintas.
@@ -640,7 +671,7 @@ export default function FactPorFacturar() {
 
   return (
     <>
-      {modal && <FacturarModal row={modal.row} ev={modal.ev} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
+      {modal && <FacturarModal row={modal.row} ev={modal.ev} siblingEv={modal.siblingEv} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
       {acuerdoModal && <AcuerdoEspecialModal row={acuerdoModal} onClose={() => setAcuerdoModal(null)} onSave={registrarFactura} />}
 
       <div className="dash-hdr mb14">
@@ -729,7 +760,13 @@ export default function FactPorFacturar() {
                       </td>
                       <td style={{ padding: '7px 10px' }}>
                         {!isViewer && !absorbido && (
-                          <button onClick={() => setModal({ row, ev })} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
+                          <button onClick={() => {
+                            const siblingKey = SIBLING_KEY[ev.key]
+                            const siblingEv  = siblingKey
+                              ? getEventosRow(row, invMap).find(e => e.key === siblingKey && e.status === 'facturar')
+                              : null
+                            setModal({ row, ev, siblingEv: siblingEv || null })
+                          }} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
                         )}
                         {!isViewer && absorbido && (
                           <button onClick={() => handleCerrarAbsorbido(row, ev)} style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Cerrar sin factura</button>
@@ -819,7 +856,9 @@ export default function FactPorFacturar() {
                         <td style={{ padding: '7px 10px' }}><HitoBadge ssDate={hitoMOS.ssDate}  status={hitoMOS.status}  /></td>
                         <td style={{ padding: '7px 10px' }}><HitoBadge ssDate={hitoIntg.ssDate} status={hitoIntg.status} /></td>
                         <td style={{ padding: '7px 10px' }}><HitoBadge ssDate={hitoAcep.ssDate} status={hitoAcep.status} /></td>
-                        <td style={{ padding: '7px 10px' }}><MissingBadge missing={missing} /></td>
+                        <td style={{ padding: '7px 10px' }}>
+                          <MissingBadge missing={missing} onClick={!isViewer ? () => setAcuerdoModal(row) : undefined} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>

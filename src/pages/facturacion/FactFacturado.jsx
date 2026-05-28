@@ -6,6 +6,33 @@ import { showToast } from '../../components/Toast'
 const CAT_ORDER = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
 const CAT_MAP   = Object.fromEntries([...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }].map(c => [c.key, c]))
 
+function NumFactura({ numero, observaciones }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={() => observaciones && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={{ fontWeight: 700, color: '#144E4A', fontFamily: 'monospace', fontSize: 10, cursor: observaciones ? 'help' : 'default' }}>
+        {numero}{observaciones ? ' ●' : ''}
+      </span>
+      {show && (
+        <div style={{
+          position: 'absolute', bottom: '120%', left: 0, zIndex: 999,
+          background: '#1f2937', color: '#f9fafb', borderRadius: 8,
+          padding: '7px 11px', fontSize: 11, whiteSpace: 'pre-wrap',
+          maxWidth: 240, boxShadow: '0 4px 16px rgba(0,0,0,.25)',
+          lineHeight: 1.5, pointerEvents: 'none',
+        }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', marginBottom: 3, letterSpacing: '.04em' }}>OBSERVACIONES</div>
+          {observaciones}
+        </div>
+      )}
+    </span>
+  )
+}
+
 function MiniBar({ pct }) {
   const color = pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
   return (
@@ -358,7 +385,7 @@ export default function FactFacturado() {
                                   </>
                                 )}
                                 <td style={{ padding: '7px 10px' }}><EventoBadge color={ev.color} label={ev.label} pct={ev.pct} invoicedPct={ev.invoiceable_pct} absorbed={ev.invoice?.absorbed} /></td>
-                                <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A', fontFamily: 'monospace', fontSize: 10 }}>{ev.invoice.numero_factura}</td>
+                                <td style={{ padding: '7px 10px' }}><NumFactura numero={ev.invoice.numero_factura} observaciones={ev.invoice.observaciones} /></td>
                                 <td style={{ padding: '7px 10px', color: '#555' }}>{ev.invoice.fecha_factura || '—'}</td>
                                 <td style={{ padding: '7px 10px', color: '#555', fontSize: 10 }}>{valor ? fmtCOP(valor) : <span style={{ color: '#d4d4d8' }}>—</span>}</td>
                                 <td style={{ padding: '7px 10px', display: 'flex', gap: 6 }}>
