@@ -1,7 +1,7 @@
 {
-  "name": "SS Liquidador Nokia 2026",
-  "short_name": "SS Liquidador",
-  "description": "Liquidador de sitios Nokia - SS SAS",
+  "name": "Ingetel · Nokia Project Platform",
+  "short_name": "Nokia Platform",
+  "description": "Plataforma de gestión de proyectos Nokia - Ingetel",
   "start_url": "/Nokia-Billing-Tracker_react/index.html",
   "scope": "/Nokia-Billing-Tracker_react/",
   "display": "standalone",
