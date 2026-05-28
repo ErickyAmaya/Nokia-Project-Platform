@@ -801,7 +801,7 @@ export default function FactPorFacturar() {
                 >
                   {rolloutLoading ? '⏳ Cargando…' : rolloutItems ? '↺ Actualizar Rollout' : '↑ Cargar Rollout Details'}
                 </button>
-                <input ref={rolloutRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleRolloutUpload} />
+                <input ref={rolloutRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleRolloutUpload} />
               </>
             )}
             {rolloutItems ? (

@@ -27,9 +27,15 @@ function countFilledRange(row, from, to) {
 }
 
 export async function parsearRollout(file) {
+  const ext = file.name.split('.').pop().toLowerCase()
+  if (ext !== 'xlsx') throw new Error(`Formato no soportado (.${ext}). El archivo debe ser .xlsx — guárdalo desde Excel como "Libro de Excel (.xlsx)".`)
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(await file.arrayBuffer())
+  try {
+    await wb.xlsx.load(await file.arrayBuffer())
+  } catch {
+    throw new Error('No se pudo leer el archivo. Verifica que sea un .xlsx válido y no esté protegido con contraseña.')
+  }
   const ws = wb.worksheets[0]
   if (!ws) throw new Error('No se encontró hoja en el archivo')
 
