@@ -44,6 +44,18 @@ function countFilled(row, fromCol, toCol) {
   return count
 }
 
+function lastFilledDate(row, fromCol, toCol) {
+  let last = null
+  for (let c = fromCol - 1; c < toCol; c++) {
+    const v = row[c]
+    if (v !== null && v !== undefined && String(v).trim() !== '') {
+      const d = extractDate(v)
+      if (d) last = d
+    }
+  }
+  return last
+}
+
 export async function parsearRollout(file) {
   const ext = file.name.split('.').pop().toLowerCase()
   if (ext !== 'xlsx') throw new Error(`Formato no soportado (.${ext}). El archivo debe ser .xlsx — guárdalo desde Excel como "Libro de Excel (.xlsx)".`)
@@ -102,9 +114,12 @@ export async function parsearRollout(file) {
       mosPct:  Math.round((mosFilled  / 12) * 100),
       intgPct: intgSS ? 100 : Math.round((intgFilled / 23) * 100),
       acepPct: Math.round((acepFilled /  9) * 100),
-      mosLastCol:  lastFilledHeader(row, 20, 31),
-      intgLastCol: lastFilledHeader(row, 33, 55),
-      acepLastCol: lastFilledHeader(row, 57, 65),
+      mosLastCol:   lastFilledHeader(row, 20, 31),
+      intgLastCol:  lastFilledHeader(row, 33, 55),
+      acepLastCol:  lastFilledHeader(row, 57, 65),
+      mosLastDate:  lastFilledDate(row, 20, 31),
+      intgLastDate: lastFilledDate(row, 33, 55),
+      acepLastDate: lastFilledDate(row, 57, 65),
     })
   }
 
