@@ -2,25 +2,22 @@ import { supabase } from './supabase'
 
 const LS_KEY = 'rollout_nokia_data'
 
-// Column numbers are 1-based (ExcelJS convention)
-// Col 3 = Site Name, Col 9 = SMP Name, Col 10 = SMP ID
+// Col 3 = Site Name, Col 9 = SMP Name, Col 10 = SMP ID (1-based)
 // Col 32 = SS MOS ok, Col 56 = QCP4 OK (SS Integración ok), Col 66 = SS Aceptación final ok
 // Progress: MOS cols 20-31 (12 steps), Integración cols 33-55 (23 steps), Aceptación cols 57-65 (9 steps)
-// Integración: if QCP4 OK (col 56) has date → force pct = 100% (cols 53-54 are optional Nokia steps)
+// Integración: if QCP4 OK (col 56) has date → force pct = 100%
 
-function extractDateValue(cell) {
-  if (!cell) return null
-  const v = cell.value
-  if (!v) return null
-  if (v instanceof Date) return v.toISOString().slice(0, 10)
-  const s = String(v).trim()
-  return s || null
+function extractDate(val) {
+  if (!val) return null
+  if (val instanceof Date) return val.toISOString().slice(0, 10)
+  const s = String(val).trim()
+  return s.length >= 10 ? s.slice(0, 10) : (s || null)
 }
 
-function countFilledRange(row, from, to) {
+function countFilled(row, fromCol, toCol) {
   let count = 0
-  for (let col = from; col <= to; col++) {
-    const v = row.getCell(col)?.value
+  for (let c = fromCol - 1; c < toCol; c++) {
+    const v = row[c]
     if (v !== null && v !== undefined && String(v).trim() !== '') count++
   }
   return count
@@ -29,49 +26,50 @@ function countFilledRange(row, from, to) {
 export async function parsearRollout(file) {
   const ext = file.name.split('.').pop().toLowerCase()
   if (ext !== 'xlsx') throw new Error(`Formato no soportado (.${ext}). El archivo debe ser .xlsx — guárdalo desde Excel como "Libro de Excel (.xlsx)".`)
-  const ExcelJS = (await import('exceljs')).default
-  const wb = new ExcelJS.Workbook()
+
+  const xlsxMod = await import('xlsx')
+  const XLSX = xlsxMod.default || xlsxMod
+  let wb
   try {
-    await wb.xlsx.load(await file.arrayBuffer())
+    const buf = await file.arrayBuffer()
+    wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true })
   } catch {
     throw new Error('No se pudo leer el archivo. Verifica que sea un .xlsx válido y no esté protegido con contraseña.')
   }
-  const ws = wb.worksheets[0]
-  if (!ws) throw new Error('No se encontró hoja en el archivo')
 
-  // Lee encabezados de la fila 1
-  const headers = {}
-  ws.getRow(1).eachCell((cell, col) => {
-    headers[col] = String(cell.value || '').trim()
-  })
+  if (!wb.SheetNames.length) throw new Error('No se encontró hoja en el archivo')
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null })
+  if (allRows.length < 2) throw new Error('No se encontraron SMPs en el archivo')
 
-  // Devuelve el encabezado de la última columna con valor en el rango [from, to]
-  function lastFilledHeader(row, from, to) {
-    let lastCol = null
-    for (let col = from; col <= to; col++) {
-      const v = row.getCell(col)?.value
-      if (v !== null && v !== undefined && String(v).trim() !== '') lastCol = col
+  const headerRow = allRows[0]
+
+  function lastFilledHeader(row, fromCol, toCol) {
+    let lastIdx = null
+    for (let c = fromCol - 1; c < toCol; c++) {
+      const v = row[c]
+      if (v !== null && v !== undefined && String(v).trim() !== '') lastIdx = c
     }
-    return lastCol ? (headers[lastCol] || null) : null
+    return lastIdx !== null ? (headerRow[lastIdx] || null) : null
   }
 
   const items = []
-  ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
-    if (rowNum === 1) return
-    const rawId = row.getCell(10).value
-    if (!rawId) return
+  for (let i = 1; i < allRows.length; i++) {
+    const row = allRows[i]
+    const rawId = row[9]   // col 10
+    if (!rawId) continue
 
     const smpId    = String(rawId).trim()
-    const siteName = String(row.getCell(3).value  || '').trim()
-    const smpName  = String(row.getCell(9).value  || '').trim()
+    const siteName = String(row[2] || '').trim()   // col 3
+    const smpName  = String(row[8] || '').trim()   // col 9
 
-    const mosSS  = extractDateValue(row.getCell(32))
-    const intgSS = extractDateValue(row.getCell(56))
-    const acepSS = extractDateValue(row.getCell(66))
+    const mosSS  = extractDate(row[31])  // col 32
+    const intgSS = extractDate(row[55])  // col 56
+    const acepSS = extractDate(row[65])  // col 66
 
-    const mosFilled  = countFilledRange(row, 20, 31)
-    const intgFilled = countFilledRange(row, 33, 55)
-    const acepFilled = countFilledRange(row, 57, 65)
+    const mosFilled  = countFilled(row, 20, 31)
+    const intgFilled = countFilled(row, 33, 55)
+    const acepFilled = countFilled(row, 57, 65)
 
     items.push({
       smpId,
@@ -87,7 +85,7 @@ export async function parsearRollout(file) {
       intgLastCol: lastFilledHeader(row, 33, 55),
       acepLastCol: lastFilledHeader(row, 57, 65),
     })
-  })
+  }
 
   if (!items.length) throw new Error('No se encontraron SMPs en el archivo')
   return items
