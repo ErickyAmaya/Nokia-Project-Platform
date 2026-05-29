@@ -17,7 +17,7 @@ const ALL_NAV = [
   { to: '/ti',             label: 'TI',         icon: '📡', id: 'ti',             roles: ['admin','coordinador','TI','viewer'] },
   { to: '/tss',            label: 'TSS',        icon: '📡', id: 'tss',            roles: ['admin','coordinador','TSS','viewer'] },
   { to: '/cw-consolidado', label: 'CW',         icon: '🔧', id: 'cw-consolidado', roles: ['admin','coordinador','CW','viewer'] },
-  { to: '/ubicacion',      label: 'Ubicación',  icon: '📍', id: 'ubicacion',      roles: ['TI','TSS','admin','coordinador'] },
+
   { to: '/liquidador',     label: 'Liquidador', icon: '💰', id: 'liquidador',     roles: null },
   { to: '/gastos',         label: 'Gastos',     icon: '💳', id: 'gastos',         roles: ['admin','coordinador','viewer'] },
   { to: '/reportes',       label: 'Reportes',   icon: '📄', id: 'reportes',       roles: ['admin','coordinador','viewer'] },
@@ -60,11 +60,11 @@ const SITIOS_NAV = [
 ]
 
 const ROLLOUT_NAV = [
-  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard' },
-  { to: '/rollout/ack/tablas',   label: 'Tablas',     icon: '📋', id: 'ack-tablas'    },
-  { to: '/rollout/ack/sitios',   label: 'Por Sitio',  icon: '📍', id: 'ack-sitios'    },
-  { to: '/rollout/ack/forecast', label: 'Reportes',   icon: '🖨', id: 'ack-forecast'  },
-  { to: '/rollout/mapa',        label: 'Mapa',       icon: '🗺', id: 'rollout-mapa'  },
+  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/tablas',   label: 'Tablas',     icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/sitios',   label: 'Por Sitio',  icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/forecast', label: 'Reportes',   icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/mapa',         label: 'Mapa',       icon: '🗺', id: 'rollout-mapa',  roles: null },
 ]
 
 const FACT_NAV = [
@@ -190,7 +190,7 @@ export default function Layout({ children }) {
     : inMateriales
       ? (inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
       : inRollout
-        ? ROLLOUT_NAV
+        ? ROLLOUT_NAV.filter(canSee)
         : inFacturacion
           ? FACT_NAV
           : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]

@@ -276,6 +276,27 @@ export const useAppStore = create((set, get) => ({
     get()._updateAndSync(id, s => ({ ...s, [field]: value }))
   },
 
+  // Guarda main_smp sin debounce.
+  // Cancela cualquier _syncTimers[id] pendiente para que el debounce
+  // no lea un valor stale del store y sobreescriba Supabase con null.
+  updateMainSmpNow: async (id, value) => {
+    clearTimeout(_syncTimers[id])
+    delete _syncTimers[id]
+    set(s => ({ sitios: s.sitios.map(x => x.id === id ? { ...x, main_smp: value } : x) }))
+    _pendingIds.add(id)
+    _lastWriteTime[id] = Date.now()
+    const sitio = get().sitios.find(s => s.id === id)
+    if (!sitio) { _pendingIds.delete(id); return }
+    try {
+      const payload = _buildSitioPayload(sitio)
+      const { error } = await supabase.from('sitios').upsert(payload, { onConflict: 'id' })
+      if (error) console.error('[updateMainSmpNow]', error.message)
+    } finally {
+      _pendingIds.delete(id)
+      get()._broadcastChange()
+    }
+  },
+
   updateBackoffice: (id, value) => {
     get()._updateAndSync(id, s => ({ ...s, costos: { ...s.costos, backoffice: value } }))
   },

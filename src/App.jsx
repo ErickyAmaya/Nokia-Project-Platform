@@ -11,7 +11,7 @@ import ProtectedRoute   from './components/ProtectedRoute'
 import Layout           from './components/Layout'
 import Toast            from './components/Toast'
 import LoginPage        from './pages/LoginPage'
-import UbicacionPage   from './pages/UbicacionPage'
+
 import SetPasswordPage  from './pages/SetPasswordPage'
 import Dashboard        from './pages/Dashboard'
 import ConsolidadoTI    from './pages/ConsolidadoTI'
@@ -115,7 +115,7 @@ const LC_ROLES = ['TI', 'TSS']
 
 function RoleHome() {
   const user = useAuthStore(s => s.user)
-  if (LC_ROLES.includes(user?.role)) return <Navigate to="/ubicacion" replace />
+  if (LC_ROLES.includes(user?.role)) return <Navigate to="/rollout/mapa" replace />
   return <Navigate to="/modulos" replace />
 }
 
@@ -131,10 +131,10 @@ function SessionRedirect() {
     if (!loading && user && !done.current) {
       done.current = true
       const isLC   = LC_ROLES.includes(user.role)
-      const lcSkip = ['/', '/login', '/set-password', '/ubicacion']
+      const lcSkip = ['/', '/login', '/set-password', '/rollout/mapa']
       const allSkip = [...lcSkip, '/modulos']
       if (isLC) {
-        if (!lcSkip.includes(location.pathname)) navigate('/ubicacion', { replace: true })
+        if (!lcSkip.includes(location.pathname)) navigate('/rollout/mapa', { replace: true })
       } else {
         if (!allSkip.includes(location.pathname)) navigate('/modulos', { replace: true })
       }
@@ -206,11 +206,7 @@ function AppRoutes() {
         <ProtectedRoute allowedRoles={R_CW}><Layout><ConsolidadoCW /></Layout></ProtectedRoute>
       } />
 
-      <Route path="/ubicacion" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','TI','TSS']}>
-          <Layout><UbicacionPage /></Layout>
-        </ProtectedRoute>
-      } />
+      <Route path="/ubicacion" element={<Navigate to="/rollout/mapa" replace />} />
 
       <Route path="/liquidador" element={
         <ProtectedRoute><Layout><LiquidadorIndexPage /></Layout></ProtectedRoute>
@@ -265,6 +261,13 @@ function AppRoutes() {
         <Route path="pagos-subc"        element={<FactPagosSubc />} />
       </Route>
 
+      {/* ── /rollout/mapa — accesible también para TI / TSS ─── */}
+      <Route path="/rollout/mapa" element={
+        <ProtectedRoute allowedRoles={['admin','coordinador','viewer','TI','TSS']}>
+          <Layout><MapaSitios /></Layout>
+        </ProtectedRoute>
+      } />
+
       {/* ── Módulo Rollout ──────────────────────────────────── */}
       <Route path="/rollout" element={
         <ProtectedRoute allowedRoles={R_MGMT}>
@@ -276,7 +279,6 @@ function AppRoutes() {
         <Route path="ack/tablas"      element={<AckTablas />} />
         <Route path="ack/sitios"      element={<AckSitios />} />
         <Route path="ack/forecast"    element={<AckForecast />} />
-        <Route path="mapa"            element={<MapaSitios />} />
       </Route>
 
       <Route path="*" element={<RoleHome />} />

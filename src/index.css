@@ -99,7 +99,7 @@ body {
 }
 .fc:focus { border-color: var(--g); }
 input[type=number].fc { text-align: right; }
-input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px; }
+input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px; min-width: 0; width: 100%; }
 
 /* ── Badges ──────────────────────────────────────────────────── */
 .badge { display: inline-block; padding: 2px 6px; border-radius: 100px; font-size: 9px; font-weight: 700; }

@@ -15,6 +15,10 @@ import TSSLiquidadorView from '../components/TSSLiquidadorView'
 const SECC_ORDER = ['MODERNIZACION', '5G', 'MIMO', 'SITIO_NUEVO', 'ADJ', 'CR']
 const CAT_ORDER  = ['A', 'AA', 'AAA']
 
+// Módulo-nivel: sobreviven unmount y cambios del store
+const _smpTimer    = { id: null }
+const _inflightSmp = {} // siteId → valor escrito aún no confirmado por Supabase
+
 function IconEdit({ size = 13 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -140,6 +144,11 @@ export default function LiquidadorPage() {
   const [modalAct,   setModalAct]   = useState(false)
   const [modalGasto, setModalGasto] = useState(false)
   const [gastoEdit,  setGastoEdit]  = useState(null)
+  const [localSmp,   setLocalSmp]   = useState(() => {
+    const inf = _inflightSmp[id]
+    if (inf && Date.now() - inf.ts < 120000) return inf.value || ''
+    return useAppStore.getState().sitios.find(s => s.id === id)?.main_smp || ''
+  })
 
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
@@ -151,7 +160,8 @@ export default function LiquidadorPage() {
   const addActividad     = useAppStore(s => s.addActividad)
   const deleteActividad  = useAppStore(s => s.deleteActividad)
   const exclCRSubc       = useAppStore(s => s.exclCRSubc)
-  const updateSitioField = useAppStore(s => s.updateSitioField)
+  const updateSitioField    = useAppStore(s => s.updateSitioField)
+  const updateMainSmpNow    = useAppStore(s => s.updateMainSmpNow)
   const updateBackoffice      = useAppStore(s => s.updateBackoffice)
   const updateCostoCuadrilla  = useAppStore(s => s.updateCostoCuadrilla)
   const updatePctM1           = useAppStore(s => s.updatePctM1)
@@ -231,6 +241,16 @@ export default function LiquidadorPage() {
     if (hasDespacho && matCW_auto > 0) b.push('Materiales CW')
     return b
   }, [hasDespacho, matTI_auto, matCW_auto])
+
+  // Sincroniza localSmp SOLO cuando cambia el sitio (id)
+  // Si hay un valor en vuelo reciente (<10s) lo usa para inmunizar el campo contra loadData()
+  useEffect(() => {
+    const inf      = _inflightSmp[id]
+    const inFlight = inf && Date.now() - inf.ts < 120000 ? inf.value : undefined
+    const storeVal = useAppStore.getState().sitios.find(s => s.id === id)?.main_smp || ''
+    const val      = inFlight !== undefined ? (inFlight || '') : storeVal
+    setLocalSmp(val)
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Guardar último sitio visitado
   useEffect(() => { localStorage.setItem('liquidador_last_id', id) }, [id])
@@ -365,7 +385,7 @@ export default function LiquidadorPage() {
             </select>
           </div>
         </div>
-        {/* Site name + badges row */}
+        {/* Site name */}
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>
           {sitio.nombre}
         </h1>
@@ -422,9 +442,54 @@ export default function LiquidadorPage() {
       {/* ── Config bar (solo TI/TSS, no CW) ─────────────── */}
       {!isViewer && view !== 'cw' && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) minmax(140px,1fr)', gap: 10 }}>
-              <div className="fg" style={{ marginBottom: 0 }}>
+          <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+            {/* Fila 1: SMP + Fecha (solo inputs — sin conflicto de ancho con selects) */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '2 1 0' }}>
+                <label className="fl">Main SMP</label>
+                <input
+                  type="text" className="fc"
+                  placeholder="SMP-WO-XXXXXXX"
+                  value={localSmp}
+                  onChange={e => {
+                    const val     = e.target.value
+                    const trimmed = val.trim() || null
+                    const siteId  = sitio.id
+                    setLocalSmp(val)
+                    _inflightSmp[siteId] = { value: trimmed, ts: Date.now() }
+                    updateSitioField(siteId, 'main_smp', trimmed)
+                    clearTimeout(_smpTimer.id)
+                    _smpTimer.id = setTimeout(() => {
+                      useAppStore.getState().updateMainSmpNow(siteId, trimmed)
+                      _smpTimer.id = null
+                    }, 1200)
+                  }}
+                  onBlur={() => {
+                    const siteId  = sitio.id
+                    const trimmed = localSmp.trim() || null
+                    clearTimeout(_smpTimer.id)
+                    _smpTimer.id = null
+                    updateMainSmpNow(siteId, trimmed)
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                  disabled={isFinal}
+                />
+              </div>
+              <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
+                <label className="fl">Fecha</label>
+                <input
+                  type="date" className="fc"
+                  value={sitio.fecha || ''}
+                  onChange={e => updateSitioField(sitio.id, 'fecha', e.target.value)}
+                  disabled={isFinal}
+                />
+              </div>
+            </div>
+
+            {/* Fila 2: 5 selects de igual ancho */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
                 <label className="fl">Tipo Ciudad</label>
                 <select
                   className="fc"
@@ -437,7 +502,7 @@ export default function LiquidadorPage() {
                   ))}
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
                 <label className="fl">Región</label>
                 <select
                   className="fc"
@@ -451,7 +516,7 @@ export default function LiquidadorPage() {
                   ))}
                 </select>
               </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
                 <label className="fl">LC / Subcontratista</label>
                 <select
                   className="fc"
@@ -469,11 +534,9 @@ export default function LiquidadorPage() {
               {(() => {
                 const upgradeOpts = CAT_ORDER.filter(c => CAT_ORDER.indexOf(c) > CAT_ORDER.indexOf(lcCat))
                 return (
-                  <div className="fg" style={{ marginBottom: 0 }}>
+                  <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
                     <label className="fl">
-                      {catEfectiva
-                        ? `Subido a Categoría ${catEfectiva} ⭐`
-                        : 'Subir Categoría'}
+                      {catEfectiva ? `Cat. ${catEfectiva} ⭐` : 'Subir Cat.'}
                     </label>
                     <select
                       className="fc"
@@ -482,7 +545,7 @@ export default function LiquidadorPage() {
                       onChange={e => updateSitioField(sitio.id, 'catEfectiva', e.target.value || undefined)}
                       disabled={isFinal || upgradeOpts.length === 0}
                     >
-                      <option value="">Usar cat. del LC ({lcCat})</option>
+                      <option value="">LC ({lcCat})</option>
                       {upgradeOpts.map(c => (
                         <option key={c} value={c}>Subir a {c} ⭐</option>
                       ))}
@@ -490,55 +553,34 @@ export default function LiquidadorPage() {
                   </div>
                 )
               })()}
-              <div className="fg" style={{ marginBottom: 0 }}>
-                <label className="fl" style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span>Fecha</span>
+              <div className="fg" style={{ marginBottom: 0, flex: '0 0 80px' }}>
+                <label className="fl" style={{ whiteSpace: 'nowrap' }}>
+                  M1%
                   {(sitio.pct_m1 ?? 100) < 100 && (() => {
                     const d1 = new Date(sitio.fecha || Date.now())
                     const d2 = new Date(sitio.fecha || Date.now())
                     d2.setMonth(d2.getMonth() + 1)
                     return (
-                      <span style={{ fontSize:9, color:'#92400e', fontWeight:700 }}>
-                        {d1.toLocaleString('es',{month:'short'})} {sitio.pct_m1}% · {d2.toLocaleString('es',{month:'short'})} {100-(sitio.pct_m1??100)}%
+                      <span style={{ fontSize: 8, color: '#92400e', fontWeight: 700, marginLeft: 4 }}>
+                        {d1.toLocaleString('es', { month: 'short' })} · {d2.toLocaleString('es', { month: 'short' })}
                       </span>
                     )
                   })()}
                 </label>
-                <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-                  <input
-                    type="date" className="fc"
-                    value={sitio.fecha || ''}
-                    onChange={e => updateSitioField(sitio.id, 'fecha', e.target.value)}
-                    disabled={isFinal}
-                    style={{ flex:'0 0 auto', width:120 }}
-                  />
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:1 }}>
-                    <span style={{ fontSize:8, color:'#9ca89c', fontWeight:700, lineHeight:1 }}>M1%</span>
-                    <select
-                      className="fc"
-                      value={sitio.pct_m1 ?? 100}
-                      onChange={e => updatePctM1(sitio.id, Number(e.target.value))}
-                      disabled={isFinal}
-                      style={{ width:72, textAlign:'center', padding:'4px 2px' }}
-                    >
-                      {[0,10,20,30,40,50,60,70,80,90,100].map(v => (
-                        <option key={v} value={v}>{v}%</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="fg" style={{ marginBottom: 0 }}>
-                <label className="fl">Main SMP</label>
-                <input
-                  type="text" className="fc"
-                  placeholder="SMP-WO-XXXXXXX"
-                  value={sitio.main_smp || ''}
-                  onChange={e => updateSitioField(sitio.id, 'main_smp', e.target.value || null)}
+                <select
+                  className="fc"
+                  value={sitio.pct_m1 ?? 100}
+                  onChange={e => updatePctM1(sitio.id, Number(e.target.value))}
                   disabled={isFinal}
-                />
+                  style={{ textAlign: 'center' }}
+                >
+                  {[0,10,20,30,40,50,60,70,80,90,100].map(v => (
+                    <option key={v} value={v}>{v}%</option>
+                  ))}
+                </select>
               </div>
             </div>
+
           </div>
         </div>
       )}

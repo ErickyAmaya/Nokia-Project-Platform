@@ -8,6 +8,7 @@ import { getSupabaseClient } from '../../lib/supabase'
 import { useAckStore }  from '../../store/useAckStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
+import UbicacionPage   from '../UbicacionPage'
 
 function norm(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
@@ -538,7 +539,11 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   )
 }
 
+const LC_ROLES = ['TI', 'TSS']
+
 export default function MapaSitios() {
+  const userRole = useAuthStore(s => s.user?.role)
+  const [pageTab,     setPageTab]     = useState(() => LC_ROLES.includes(useAuthStore.getState().user?.role) ? 'ubicacion' : 'mapa')
   const [coords,      setCoords]      = useState([])
   const [loading,     setLoading]     = useState(true)
   const [filter,      setFilter]      = useState('todos')
@@ -554,7 +559,6 @@ export default function MapaSitios() {
   const sabana   = useAckStore(s => s.sabana)
   const sitios   = useAppStore(s => s.sitios)
   const navigate = useNavigate()
-  const userRole = useAuthStore(s => s.user?.role)
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -729,8 +733,45 @@ export default function MapaSitios() {
     }))
   }, [selectedSmps])
 
+  // ── Tab: Mi Ubicación ────────────────────────────────────────────
+  if (pageTab === 'ubicacion') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 120px)' }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb', marginBottom: 4 }}>
+          {!LC_ROLES.includes(userRole) && (
+            <button onClick={() => setPageTab('mapa')} style={{
+              padding: '8px 20px', fontSize: 13, fontWeight: 700, border: 'none',
+              borderBottom: '2px solid transparent', background: 'none',
+              color: '#6b7280', cursor: 'pointer', marginBottom: -2,
+            }}>🗺 Mapa</button>
+          )}
+          <button onClick={() => setPageTab('ubicacion')} style={{
+            padding: '8px 20px', fontSize: 13, fontWeight: 700, border: 'none',
+            borderBottom: '2px solid #1d4ed8', background: 'none',
+            color: '#1d4ed8', cursor: 'pointer', marginBottom: -2,
+          }}>📍 Mi Ubicación</button>
+        </div>
+        <UbicacionPage />
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', gap: 10 }}>
+
+      {/* Tab switcher (solo roles no-LC) */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb', marginBottom: -6 }}>
+        <button onClick={() => setPageTab('mapa')} style={{
+          padding: '6px 20px', fontSize: 13, fontWeight: 700, border: 'none',
+          borderBottom: '2px solid #1d4ed8', background: 'none',
+          color: '#1d4ed8', cursor: 'pointer', marginBottom: -2,
+        }}>🗺 Mapa</button>
+        <button onClick={() => setPageTab('ubicacion')} style={{
+          padding: '6px 20px', fontSize: 13, fontWeight: 700, border: 'none',
+          borderBottom: '2px solid transparent', background: 'none',
+          color: '#6b7280', cursor: 'pointer', marginBottom: -2,
+        }}>📍 Mi Ubicación</button>
+      </div>
 
       <style>{`
         @keyframes twring-pulse {

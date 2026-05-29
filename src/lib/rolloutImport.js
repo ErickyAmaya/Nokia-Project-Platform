@@ -7,11 +7,32 @@ const LS_KEY = 'rollout_nokia_data'
 // Progress: MOS cols 20-31 (12 steps), Integración cols 33-55 (23 steps), Aceptación cols 57-65 (9 steps)
 // Integración: if QCP4 OK (col 56) has date → force pct = 100%
 
+function serialToIso(n) {
+  // Excel serial (integer or decimal with time fraction) → YYYY-MM-DD
+  const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000)
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+}
+
 function extractDate(val) {
   if (!val) return null
   if (val instanceof Date) return val.toISOString().slice(0, 10)
+  if (typeof val === 'number') return serialToIso(val)
   const s = String(val).trim()
+  // String that looks like an Excel serial (e.g. "46167.5367") — not a YYYY-MM-DD
+  if (!/^\d{4}-/.test(s)) {
+    const n = parseFloat(s)
+    if (!isNaN(n) && n > 10000) return serialToIso(n)
+  }
   return s.length >= 10 ? s.slice(0, 10) : (s || null)
+}
+
+function normalizeItem(item) {
+  return {
+    ...item,
+    mosSS:  extractDate(item.mosSS),
+    intgSS: extractDate(item.intgSS),
+    acepSS: extractDate(item.acepSS),
+  }
 }
 
 function countFilled(row, fromCol, toCol) {
@@ -98,7 +119,10 @@ export function saveRolloutData(items) {
 export function loadRolloutData() {
   try {
     const raw = localStorage.getItem(LS_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.items) parsed.items = parsed.items.map(normalizeItem)
+    return parsed
   } catch { return null }
 }
 
@@ -128,7 +152,7 @@ export async function loadRolloutFromSupabase() {
     .maybeSingle()
   if (error || !data) return null
   return {
-    items:      data.items,
+    items:      (data.items || []).map(normalizeItem),
     ts:         new Date(data.uploaded_at).getTime(),
     uploadedBy: data.uploaded_by,
   }
