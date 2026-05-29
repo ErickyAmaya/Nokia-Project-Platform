@@ -423,7 +423,7 @@ export default function LiquidadorPage() {
       {!isViewer && view !== 'cw' && (
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) minmax(140px,1fr)', gap: 10 }}>
               <div className="fg" style={{ marginBottom: 0 }}>
                 <label className="fl">Tipo Ciudad</label>
                 <select
@@ -527,6 +527,16 @@ export default function LiquidadorPage() {
                     </select>
                   </div>
                 </div>
+              </div>
+              <div className="fg" style={{ marginBottom: 0 }}>
+                <label className="fl">Main SMP</label>
+                <input
+                  type="text" className="fc"
+                  placeholder="SMP-WO-XXXXXXX"
+                  value={sitio.main_smp || ''}
+                  onChange={e => updateSitioField(sitio.id, 'main_smp', e.target.value || null)}
+                  disabled={isFinal}
+                />
               </div>
             </div>
           </div>

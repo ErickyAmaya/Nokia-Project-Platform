@@ -20,7 +20,7 @@ const REGIONES = [
 
 const EMPTY = {
   nombre: '', fecha: '', ciudad: 'Ciudad_Principal',
-  region: 'R4 – Centro', lc: '',
+  region: 'R4 – Centro', lc: '', main_smp: '',
 }
 
 export default function NuevoSitioModal({ open, onClose, onCreated }) {
@@ -63,6 +63,7 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
         tiene_cw: false,
         cw_conjunto: false,
         cw_nokia: 0,
+        main_smp: form.main_smp.trim() || null,
       })
       showToast(`Sitio ${nom} creado`)
       handleClose()
@@ -132,6 +133,16 @@ export default function NuevoSitioModal({ open, onClose, onCreated }) {
             <option key={s.lc} value={s.lc}>{s.lc}</option>
           ))}
         </select>
+      </div>
+
+      <div className="fg">
+        <label className="fl">Main SMP <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional — asignado por Nokia)</span></label>
+        <input
+          type="text" className="fc"
+          placeholder="Ej: SMP-WO-0306329"
+          value={form.main_smp}
+          onChange={e => upd('main_smp', e.target.value)}
+        />
       </div>
 
       {error && (

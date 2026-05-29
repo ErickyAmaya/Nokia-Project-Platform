@@ -36,6 +36,7 @@ function _buildSitioPayload(sitio) {
     cat_over_redesign: sitio.catOverRedesign || '',
     region:            sitio.region || '',
     pct_m1:            sitio.pct_m1 ?? 100,
+    main_smp:          sitio.main_smp || null,
   }
 }
 
@@ -162,6 +163,7 @@ export const useAppStore = create((set, get) => ({
         crSubcExcluded: r.cr_subc_excluded || [],
         region: r.region || '',
         pct_m1: r.pct_m1 ?? 100,
+        main_smp: r.main_smp || null,
       }
     })
 
@@ -392,6 +394,7 @@ export const useAppStore = create((set, get) => ({
       costos:     { matTI: 0, matCW: 0, backoffice: 0 },
       actividades: [{ sec: 'MODERNIZACION', tipo: 'BASE', id: 'PM', cant: 1 }],
       region:     sitioData.region || '',
+      main_smp:   sitioData.main_smp || null,
     }
     const { error } = await supabase.from('sitios').insert(row)
     if (error) throw error
