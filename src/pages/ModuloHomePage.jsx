@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -19,7 +20,7 @@ const MODULOS = [
     nombre:      'Liquidador de Actividades',
     corto:       'Liquidador',
     descripcion: 'Gestión y liquidación de sitios Nokia — TI, TSS y Obra Civil.',
-    icon:        '🧾',
+    Icon:        ClipboardList,
     color:       '#144E4A',
     ruta:        '/dashboard',
   },
@@ -28,7 +29,7 @@ const MODULOS = [
     nombre:      'Inventarios & Materiales',
     corto:       'Materiales',
     descripcion: 'Control de stock, movimientos y trazabilidad de materiales y HW Nokia.',
-    icon:        '📦',
+    Icon:        Boxes,
     color:       '#1d4ed8',
     ruta:        '/materiales',
   },
@@ -37,7 +38,7 @@ const MODULOS = [
     nombre:      'Seguimiento Rollout',
     corto:       'ACK',
     descripcion: 'Monitoreo de avance, ACK y gestión de campo del rollout Nokia.',
-    icon:        '🗼',
+    Icon:        RadioTower,
     color:       '#7c3aed',
     ruta:        '/rollout',
   },
@@ -46,7 +47,7 @@ const MODULOS = [
     nombre:      'Facturación',
     corto:       'Facturación',
     descripcion: 'Seguimiento de hitos de facturación, POs y estados por evento y SMP.',
-    icon:        '💰',
+    Icon:        Receipt,
     color:       '#b45309',
     ruta:        '/facturacion',
   },
@@ -213,12 +214,14 @@ export default function ModuloHomePage() {
             background: '#22c55e', display: 'inline-block',
             animation: 'mod-pulse 2s infinite',
           }} />
+          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1, color: empresaConfig?.color_primario || '#144E4A' }}>
+            {empresaConfig?.nombre_corto || 'Ingetel'}
+          </span>
+          <span style={{ color: '#6b7280', fontSize: 16, lineHeight: 1 }}>—</span>
           {clienteLogoUrl
             ? <img src={clienteLogoUrl} alt={clienteNombre} style={{ height: 14, maxWidth: 56, objectFit: 'contain', verticalAlign: 'middle' }} />
-            : clienteNombre || 'Ingetel'
+            : clienteNombre || 'Nokia'
           }
-          <span style={{ color: '#d4d4d8' }}>·</span>
-          Ingetel 2026
         </div>
 
         <h1 className="mod-h1" style={{
@@ -303,12 +306,12 @@ export default function ModuloHomePage() {
                   background: `${m.color}18`,
                   border: `1.5px solid ${m.color}30`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, marginBottom: 20,
+                  marginBottom: 20,
                   transform: isH ? 'scale(1.08) rotate(-4deg)' : 'none',
                   boxShadow: isH ? `0 4px 16px ${m.color}40` : 'none',
                   transition: 'transform .2s, box-shadow .2s',
                 }}>
-                  {m.icon}
+                  <m.Icon size={28} color={m.color} strokeWidth={1.6} />
                 </div>
 
                 <h2 className="mod-card-title" style={{

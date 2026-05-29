@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -228,6 +229,26 @@ export default function Layout({ children }) {
               ? 'Project Modules'
               : 'Liquidador de Actividades'
 
+  const HeaderIcon = inRollout
+    ? RadioTower
+    : inFacturacion
+      ? Receipt
+      : inMateriales
+        ? Boxes
+        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+          ? ClipboardList
+          : null
+
+  const moduleColor = inRollout
+    ? '#7c3aed'
+    : inFacturacion
+      ? '#b45309'
+      : inMateriales
+        ? '#1d4ed8'
+        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+          ? '#144E4A'
+          : '#555f55'
+
   return (
     <div style={{ minHeight: '100svh', background: '#f0f2f0' }}>
       {/* ── Header ─────────────────────────────────────────────── */}
@@ -273,9 +294,11 @@ export default function Layout({ children }) {
         </div>
 
         <span className="hdr-title" style={{
-          color: '#555f55', fontFamily: "'Barlow Condensed', sans-serif",
-          fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .7,
+          color: moduleColor, fontFamily: "'Barlow Condensed', sans-serif",
+          fontWeight: 600, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase', opacity: .85,
+          display: 'flex', alignItems: 'center', gap: 6,
         }}>
+          {HeaderIcon && <HeaderIcon size={15} strokeWidth={1.8} />}
           {headerTitle}
         </span>
 
