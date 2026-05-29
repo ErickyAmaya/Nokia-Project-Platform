@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAckStore }  from '../store/useAckStore'
-import { useFactStore } from '../store/useFactStore'
+import { useAckStore }   from '../store/useAckStore'
+import { useFactStore }  from '../store/useFactStore'
+import { usePagosStore } from '../store/usePagosStore'
 import { getSupabaseClient } from '../lib/supabase'
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   const pos        = useFactStore(s => s.pos)
   const invoices   = useFactStore(s => s.invoices)
   const ppa        = useFactStore(s => s.ppa)
+  const pagos      = usePagosStore(s => s.pagos)
 
   // Load rollout data and ack_glosario for this SMP
   useEffect(() => {
@@ -370,6 +372,13 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   const doneCount    = statuses.filter(s => s === 'done').length
   const implPct      = Math.round((doneCount / milestones.length) * 100)
 
+  // Pagos SubC del sitio
+  const sitePagos = useMemo(() => {
+    const norm = normStr(siteName)
+    if (!norm || norm === normStr(smpId)) return []
+    return pagos.filter(p => normStr(p.sitio_nombre) === norm)
+  }, [pagos, siteName, smpId])
+
   // Facturación calcs — agrupado por SPO, pct * po.valor
   const totalPo     = allSitePos.reduce((acc, p) => acc + (p.valor || 0), 0)
   const totalBilled = allSitePos.reduce((acc, po) => {
@@ -487,7 +496,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
         )}
 
         {/* ── Body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '22px 24px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '60px 24px 28px' }}>
           <div style={{ minWidth: 880 }}>
 
             {/* ── RIEL 1: Implementación NDPD ── */}
@@ -503,15 +512,15 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             </div>
 
             {/* Rail — solo círculos + track, sin texto */}
-            <div style={{ position: 'relative', height: 60, display: 'flex', alignItems: 'center' }}>
+            <div style={{ position: 'relative', height: 74, display: 'flex', alignItems: 'center' }}>
               {/* Track */}
-              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 5, background: '#e2e8f0', transform: 'translateY(-50%)', borderRadius: 3 }}/>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 7, background: '#e2e8f0', transform: 'translateY(-50%)', borderRadius: 4 }}/>
               {/* Done fill */}
               <div style={{
                 position: 'absolute', top: '50%', left: 0,
-                height: 5, width: `${(doneCount / milestones.length) * 100}%`,
+                height: 7, width: `${(doneCount / milestones.length) * 100}%`,
                 background: 'linear-gradient(90deg,#16a34a,#4ade80)',
-                transform: 'translateY(-50%)', borderRadius: 3, transition: 'width .6s',
+                transform: 'translateY(-50%)', borderRadius: 4, transition: 'width .6s',
               }}/>
               {/* Blocked stripe */}
               {onAirBlocked && (
@@ -519,7 +528,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                   position: 'absolute', top: '50%',
                   left: `${(5 / milestones.length) * 100}%`,
                   width: `${(1 / milestones.length) * 100}%`,
-                  height: 5,
+                  height: 7,
                   background: 'repeating-linear-gradient(90deg,#dc2626 0,#dc2626 5px,#fecaca 5px,#fecaca 9px)',
                   transform: 'translateY(-50%)', opacity: .7,
                 }}/>
@@ -532,18 +541,46 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                   const col  = C[st]
                   const anim = st === 'active' ? 'pulse-warn 2.2s ease-in-out infinite' : st === 'blocked' ? 'pulse-red 1.8s ease-in-out infinite' : 'none'
                   return (
-                    <div key={ms.id} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div key={ms.id} style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}
+                      onMouseEnter={() => setHoveredMs(ms.id)}
+                      onMouseLeave={() => setHoveredMs(null)}
+                    >
+                      {/* Tooltip sobre el círculo */}
+                      {(ms.gapRaw || ms.ndpdLabel) && hoveredMs === ms.id && (
+                        <div style={{
+                          position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%',
+                          transform: 'translateX(-50%)',
+                          zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
+                        }}>
+                          <div style={{
+                            background: '#1e293b', borderRadius: 8,
+                            padding: '6px 10px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,.3)',
+                            border: '1px solid rgba(255,255,255,.1)',
+                          }}>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
+                              {ms.ndpdLabel ? 'NDPD Nokia' : 'ACK Nokia'}
+                            </div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f1f5f9' }}>
+                              {ms.ndpdLabel || ms.gapRaw}
+                            </div>
+                          </div>
+                          <div style={{
+                            width: 0, height: 0, margin: '0 auto',
+                            borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+                            borderTop: '6px solid #1e293b',
+                          }}/>
+                        </div>
+                      )}
                       <div
                         style={{
-                          width: 50, height: 50, borderRadius: '50%',
+                          width: 62, height: 62, borderRadius: '50%',
                           background: col.bg,
                           border: '3px solid #f0f2f0',
-                          boxShadow: `0 0 0 3px ${col.bg}, 0 6px 16px ${col.shadow}`,
+                          boxShadow: `0 0 0 3px ${col.bg}, 0 6px 18px ${col.shadow}`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           animation: anim, transition: 'transform .18s', cursor: 'default',
                         }}
-                        onMouseEnter={() => setHoveredMs(ms.id)}
-                        onMouseLeave={() => setHoveredMs(null)}
                       >
                         {ICONS[ms.iconKey](st === 'pending' ? '#94a3b8' : '#fff')}
                       </div>
@@ -574,40 +611,12 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                     onMouseEnter={() => setHoveredMs(ms.id)}
                     onMouseLeave={() => setHoveredMs(null)}
                   >
-                    {/* Tooltip — ACK (gapRaw) o NDPD (ndpdLabel) */}
-                    {(ms.gapRaw || ms.ndpdLabel) && isHovered && (
-                      <div style={{
-                        position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
-                        transform: 'translateX(-50%)',
-                        zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
-                      }}>
-                        <div style={{
-                          background: '#1e293b', borderRadius: 8,
-                          padding: '6px 10px',
-                          boxShadow: '0 4px 16px rgba(0,0,0,.3)',
-                          border: '1px solid rgba(255,255,255,.1)',
-                        }}>
-                          <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-                            {ms.ndpdLabel ? 'NDPD Nokia' : 'ACK Nokia'}
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#f1f5f9' }}>
-                            {ms.ndpdLabel || ms.gapRaw}
-                          </div>
-                        </div>
-                        <div style={{
-                          width: 0, height: 0, margin: '0 auto',
-                          borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
-                          borderTop: '6px solid #1e293b',
-                        }}/>
-                      </div>
-                    )}
-
                     <div style={{
                       fontFamily: "'Barlow Condensed', sans-serif",
-                      fontSize: 10.5, fontWeight: 800, letterSpacing: .7,
+                      fontSize: 12, fontWeight: 800, letterSpacing: .7,
                       textTransform: 'uppercase', color: col.text, lineHeight: 1.2, textAlign: 'center',
                     }}>{ms.label}</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#6b7280', marginTop: 3, textAlign: 'center' }}>{displayDate}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#6b7280', marginTop: 3, textAlign: 'center' }}>{displayDate}</div>
                     {st === 'done' ? (
                       <span style={{
                         display: 'inline-block', marginTop: 5,
@@ -717,82 +726,82 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                       return (
                         <div key={ms.id} style={{ padding: '0 4px' }}>
                           <div style={{
-                            borderRadius: 12, border: `2px solid ${factBorder(poPct)}`,
-                            background: factBg(poPct), padding: '10px 12px',
+                            borderRadius: 10, border: `2px solid ${factBorder(poPct)}`,
+                            background: factBg(poPct), padding: '6px 9px',
                             boxShadow: `0 2px 8px rgba(0,0,0,.08)`,
                           }}>
                             {/* Etiqueta del hito + checkmark */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                               <span style={{
-                                fontSize: 8, fontWeight: 800, letterSpacing: .8, textTransform: 'uppercase',
-                                padding: '1px 6px', borderRadius: 8,
+                                fontSize: 7.5, fontWeight: 800, letterSpacing: .8, textTransform: 'uppercase',
+                                padding: '1px 5px', borderRadius: 6,
                                 background: factBorder(poPct), color: '#fff',
                               }}>{slotLabel}</span>
                               {poPct >= 100 && (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
                                   <polyline points="20 6 9 17 4 12"/>
                                 </svg>
                               )}
                             </div>
                             {/* SPO number */}
-                            <div style={{ marginBottom: 8 }}>
-                              <div style={{ fontSize: 8, fontWeight: 700, color: '#6b7280', letterSpacing: .5, textTransform: 'uppercase' }}>SPO</div>
-                              <div style={{ fontSize: 11, fontWeight: 800, color: '#2563eb', lineHeight: 1.2 }}>{po.spo_number}</div>
+                            <div style={{ marginBottom: 5 }}>
+                              <div style={{ fontSize: 7, fontWeight: 700, color: '#6b7280', letterSpacing: .5, textTransform: 'uppercase' }}>SPO</div>
+                              <div style={{ fontSize: 10, fontWeight: 800, color: '#2563eb', lineHeight: 1.2 }}>{po.spo_number}</div>
                             </div>
-                            {/* barra y % eliminados — las SPOs se facturan al 100%, el color/borde ya lo indica */}
                             {/* Facturas */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {poInvs.map((inv, i) => {
                                 const monto = ((inv.pct || 0) * (po.valor || 0) / 100)
                                 return (
                                   <div key={i} style={{
-                                    background: 'rgba(255,255,255,.7)', borderRadius: 8,
-                                    padding: '6px 8px', border: '1px solid rgba(37,99,235,.15)',
+                                    background: 'rgba(255,255,255,.7)', borderRadius: 7,
+                                    padding: '4px 7px', border: '1px solid rgba(37,99,235,.15)',
+                                    display: 'flex', alignItems: 'center', gap: 5,
                                   }}>
-                                    <div style={{ fontSize: 9, color: '#6b7280', marginBottom: 1 }}>
-                                      {inv.numero_factura || inv.evento || `#${inv.id}`}
-                                    </div>
-                                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#1d4ed8', lineHeight: 1 }}>
+                                    <span style={{
+                                      fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase',
+                                      padding: '1px 4px', borderRadius: 5, flexShrink: 0,
+                                      background: '#dbeafe', color: '#1d4ed8',
+                                    }}>✓</span>
+                                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 800, color: '#1d4ed8', lineHeight: 1, flex: 1, minWidth: 0 }}>
                                       {fmtCOP(monto)}
                                     </div>
-                                    <div style={{ fontSize: 8, color: '#9ca3af', marginTop: 2 }}>{fmt(inv.fecha_factura) || '—'}</div>
-                                    <span style={{
-                                      fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
-                                      padding: '1px 5px', borderRadius: 8, marginTop: 3, display: 'inline-block',
-                                      background: '#dbeafe', color: '#1d4ed8',
-                                    }}>✓ Emitida</span>
+                                    <div style={{ fontSize: 7, color: '#9ca3af', flexShrink: 0, textAlign: 'right' }}>
+                                      {fmt(inv.fecha_factura) || '—'}
+                                    </div>
                                   </div>
                                 )
                               })}
                               {poRemain > 0 && (
                                 <div style={{
-                                  background: 'rgba(255,255,255,.6)', borderRadius: 8,
-                                  padding: '6px 8px', border: '1px solid rgba(220,38,38,.2)',
+                                  background: 'rgba(255,255,255,.6)', borderRadius: 7,
+                                  padding: '4px 7px', border: '1px solid rgba(220,38,38,.2)',
+                                  display: 'flex', alignItems: 'center', gap: 5,
                                 }}>
-                                  <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 1 }}>Por facturar</div>
-                                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>
+                                  <span style={{
+                                    fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase',
+                                    padding: '1px 4px', borderRadius: 5, flexShrink: 0,
+                                    background: '#fee2e2', color: '#dc2626',
+                                  }}>Pdte</span>
+                                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 800, color: '#dc2626', lineHeight: 1, flex: 1, minWidth: 0 }}>
                                     {fmtCOP(poRemain)}
                                   </div>
-                                  <span style={{
-                                    fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
-                                    padding: '1px 5px', borderRadius: 8, marginTop: 3, display: 'inline-block',
-                                    background: '#fee2e2', color: '#dc2626',
-                                  }}>Pendiente</span>
                                 </div>
                               )}
                               {poInvs.length === 0 && poRemain <= 0 && (
                                 <div style={{
-                                  background: 'rgba(255,255,255,.6)', borderRadius: 8,
-                                  padding: '6px 8px', border: '1px solid rgba(220,38,38,.2)',
+                                  background: 'rgba(255,255,255,.6)', borderRadius: 7,
+                                  padding: '4px 7px', border: '1px solid rgba(220,38,38,.2)',
+                                  display: 'flex', alignItems: 'center', gap: 5,
                                 }}>
-                                  <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 4 }}>
-                                    {po._fromPpa ? 'Sin PDF cargado' : 'Sin facturas'}
-                                  </div>
                                   <span style={{
-                                    fontSize: 7, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
-                                    padding: '1px 5px', borderRadius: 8, display: 'inline-block',
+                                    fontSize: 6.5, fontWeight: 800, textTransform: 'uppercase',
+                                    padding: '1px 4px', borderRadius: 5, flexShrink: 0,
                                     background: '#fee2e2', color: '#dc2626',
-                                  }}>{po._fromPpa ? '⏳ Pendiente' : 'Sin registro'}</span>
+                                  }}>{po._fromPpa ? '⏳' : '—'}</span>
+                                  <div style={{ fontSize: 8, color: '#9ca3af' }}>
+                                    {po._fromPpa ? 'Sin PDF' : 'Sin facturas'}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -837,6 +846,142 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                 Sin SPO / PO asignada a este sitio
               </div>
             )}
+
+            {/* ── SECCIÓN: Pagos Subcontratistas ── */}
+            {(() => {
+              // Divisor + header — siempre visible
+              const divider = (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 10px' }}>
+                    <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', letterSpacing: .6, whiteSpace: 'nowrap', textTransform: 'uppercase', background: '#f0f2f0', padding: '0 8px' }}>
+                      Pagos subcontratistas
+                    </span>
+                    <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase', color: '#d97706' }}>Pagos SubC</span>
+                    <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#fde68a,transparent)' }}/>
+                  </div>
+                </>
+              )
+
+              if (!sitePagos.length) return (
+                <>
+                  {divider}
+                  <div style={{
+                    background: '#fff', borderRadius: 14, padding: '20px',
+                    border: '1.5px solid #e5e7eb', textAlign: 'center', color: '#9ca3af', fontSize: 13,
+                  }}>
+                    Sin pagos registrados
+                  </div>
+                </>
+              )
+
+              const pDesp = sitePagos.find(p => p.hito === 'desplazamiento')
+              const pMos  = sitePagos.find(p => p.hito === 'mos')
+              const pIntg = sitePagos.find(p => p.hito === 'integracion')
+              const pAcep = sitePagos.find(p => p.hito === 'aceptacion')
+              const totalPagado = sitePagos.reduce((s, p) => s + (p.valor || 0), 0)
+              const subcPct = (pDesp ? 10 : 0) + (pMos ? 20 : 0) + (pIntg ? 50 : 0) + (pAcep ? 20 : 0)
+
+              function subcBg(paid)     { return paid ? '#f0fdf4' : '#f8fafc' }
+              function subcBorder(paid) { return paid ? '#16a34a' : '#e2e8f0' }
+
+              function HitoRow({ label, pago, pct }) {
+                const paid = !!pago
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 7.5, color: '#9ca3af', fontWeight: 600 }}>{pct}%</span>
+                      <span style={{ fontSize: 8, fontWeight: 700, color: paid ? '#15803d' : '#6b7280' }}>{label}</span>
+                    </div>
+                    {paid ? (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 7.5, color: '#16a34a', fontWeight: 700 }}>{fmt(pago.fecha)}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 800, color: '#15803d', lineHeight: 1 }}>{fmtCOP(pago.valor)}</div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 6.5, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase', padding: '1px 4px', borderRadius: 6, background: '#f1f5f9', color: '#94a3b8' }}>
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
+                )
+              }
+
+              const cards = [
+                { slot: 0, label: 'MOS', paid: !!(pDesp && pMos), content: (
+                  <>
+                    <HitoRow label="Desplazamiento" pago={pDesp} pct={10} />
+                    <div style={{ height: 1, background: '#e2e8f0', margin: '3px 0' }}/>
+                    <HitoRow label="MOS" pago={pMos} pct={20} />
+                  </>
+                )},
+                { slot: 2, label: 'Integración', paid: !!pIntg, content: (
+                  <HitoRow label="Integración" pago={pIntg} pct={50} />
+                )},
+                { slot: 7, label: 'Aceptación', paid: !!pAcep, content: (
+                  <HitoRow label="Aceptación" pago={pAcep} pct={20} />
+                )},
+              ]
+
+              return (
+                <>
+                  {divider}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 0, marginBottom: 10 }}>
+                    {milestones.map((ms, idx) => {
+                      const card = cards.find(c => c.slot === idx)
+                      if (!card) return <div key={ms.id} />
+                      return (
+                        <div key={ms.id} style={{ padding: '0 4px' }}>
+                          <div style={{
+                            borderRadius: 10, border: `2px solid ${subcBorder(card.paid)}`,
+                            background: subcBg(card.paid), padding: '6px 9px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{
+                                fontSize: 7.5, fontWeight: 800, letterSpacing: .8, textTransform: 'uppercase',
+                                padding: '1px 5px', borderRadius: 6,
+                                background: card.paid ? '#16a34a' : '#e2e8f0',
+                                color: card.paid ? '#fff' : '#6b7280',
+                              }}>{card.label}</span>
+                              {card.paid && (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              )}
+                            </div>
+                            {card.content}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: '#f8fafc', borderRadius: 10, padding: '8px 14px',
+                    border: '1px solid #e2e8f0',
+                  }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .8, flexShrink: 0 }}>Total pagado SubC</span>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#111827', flexShrink: 0 }}>{fmtCOP(totalPagado)}</span>
+                    <div style={{ flex: 1, height: 7, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 6, transition: 'width .6s',
+                        width: `${Math.min(subcPct, 100)}%`,
+                        background: subcPct >= 100 ? 'linear-gradient(90deg,#16a34a,#4ade80)' : subcPct > 0 ? 'linear-gradient(90deg,#d97706,#fbbf24)' : '#cbd5e1',
+                      }}/>
+                    </div>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 800, flexShrink: 0, color: subcPct >= 100 ? '#16a34a' : subcPct > 0 ? '#d97706' : '#dc2626' }}>
+                      {subcPct}%
+                    </span>
+                    <span style={{ fontSize: 9, color: '#6b7280', flexShrink: 0 }}>{sitePagos.length} / 4 hitos</span>
+                  </div>
+                </>
+              )
+            })()}
 
           </div>
         </div>

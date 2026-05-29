@@ -358,7 +358,7 @@ export default function AckSitios() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-              ACK — Vista por Sitio
+              Rollout — NDPD / ACK
             </h1>
             {badge && (
               <span style={{

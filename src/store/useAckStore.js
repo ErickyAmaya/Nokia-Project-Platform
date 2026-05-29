@@ -231,26 +231,25 @@ function findComparePair(uploads) {
     return lastWeekOfPrevYear - wb.week + wa.week
   }
 
-  // Paso 1: buscar par con diferencia EXACTA de 2 semanas Nokia
-  for (let i = 0; i < weeks.length - 1; i++) {
-    for (let j = i + 1; j < weeks.length; j++) {
-      if (weeksDiff(weeks[i], weeks[j]) === 2) {
-        return { currUpload: weeks[i], prevUpload: weeks[j] }
-      }
+  // currUpload es SIEMPRE el upload más reciente (weeks[0]).
+  // Buscamos el mejor prevUpload para comparar contra él.
+
+  // Paso 1: buscar prevUpload con diferencia EXACTA de 2 semanas Nokia
+  for (let j = 1; j < weeks.length; j++) {
+    if (weeksDiff(weeks[0], weeks[j]) === 2) {
+      return { currUpload: weeks[0], prevUpload: weeks[j] }
     }
   }
 
-  // Paso 2: aceptar cualquier diferencia ≥ 2 semanas
-  for (let i = 0; i < weeks.length - 1; i++) {
-    for (let j = i + 1; j < weeks.length; j++) {
-      if (weeksDiff(weeks[i], weeks[j]) >= 2) {
-        return { currUpload: weeks[i], prevUpload: weeks[j] }
-      }
+  // Paso 2: aceptar cualquier prevUpload con diferencia ≥ 2 semanas
+  for (let j = 1; j < weeks.length; j++) {
+    if (weeksDiff(weeks[0], weeks[j]) >= 2) {
+      return { currUpload: weeks[0], prevUpload: weeks[j] }
     }
   }
 
   // Sin par válido: solo curr, sin comparación
-  return { currUpload: uploads[0], prevUpload: null }
+  return { currUpload: weeks[0], prevUpload: null }
 }
 
 export const useAckStore = create((set, get) => ({
@@ -363,11 +362,11 @@ export const useAckStore = create((set, get) => ({
         get().loadUserPrefs(),
         db().from('ack_uploads').select('*').order('loaded_at', { ascending: false }).limit(30),
         cachedCurrId
-          ? db().from('ack_sabana').select('*').eq('upload_id', cachedCurrId)
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedCurrId).limit(20000)
           : Promise.resolve({ data: null }),
         db().from('ack_forecast').select('*'),
         cachedPrevId
-          ? db().from('ack_sabana').select('*').eq('upload_id', cachedPrevId)
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedPrevId).limit(20000)
           : Promise.resolve({ data: null }),
       ])
 
@@ -391,13 +390,13 @@ export const useAckStore = create((set, get) => ({
         sabana     = sabCacheRes.data || []
         prevSabana = (prevUpload && cachedPrevId === prevUpload.id)
           ? (prevCacheRes.data || [])
-          : (prevUpload ? (await db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)).data || [] : [])
+          : (prevUpload ? (await db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id).limit(20000)).data || [] : [])
       } else {
         // IDs cambiaron → recargar sabanas con los correctos
         const [sabRes, prevRes] = await Promise.all([
-          db().from('ack_sabana').select('*').eq('upload_id', currUpload.id),
+          db().from('ack_sabana').select('*').eq('upload_id', currUpload.id).limit(20000),
           prevUpload
-            ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id)
+            ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id).limit(20000)
             : Promise.resolve({ data: [] }),
         ])
         sabana     = sabRes.data  || []

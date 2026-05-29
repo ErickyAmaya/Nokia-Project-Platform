@@ -61,9 +61,9 @@ const SITIOS_NAV = [
 
 const ROLLOUT_NAV = [
   { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/tablas',   label: 'Tablas',     icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/sitios',   label: 'Por Sitio',  icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/forecast', label: 'Reportes',   icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/tablas',   label: 'ACK',          icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer'] },
   { to: '/rollout/mapa',         label: 'Mapa',       icon: '🗺', id: 'rollout-mapa',  roles: null },
 ]
 
@@ -221,7 +221,7 @@ export default function Layout({ children }) {
         : inMateriales
           ? 'Gestión de Inventarios'
           : inRollout
-          ? 'ACK'
+          ? 'Seguimiento Rollout'
           : inFacturacion
             ? 'Facturación'
             : location.pathname === '/modulos' || location.pathname === '/'
