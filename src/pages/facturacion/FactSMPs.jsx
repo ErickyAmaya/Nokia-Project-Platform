@@ -52,7 +52,7 @@ export default function FactSMPs() {
   }
 
   const SH = ({ col, label }) => (
-    <th onClick={() => toggleSort(col)} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
+    <th onClick={() => toggleSort(col)} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>
       {label} {sortCol === col ? (sortDir === 1 ? '▲' : '▼') : ''}
     </th>
   )
@@ -98,18 +98,18 @@ export default function FactSMPs() {
       <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 900 }}>
           <thead>
-            <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
+            <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
               <SH col="customer_site_name" label="Sitio" />
               <SH col="smp_id"             label="SMP ID" />
               <SH col="ms_name"            label="MS/SMP Name" />
               <SH col="spo_number"         label="SPO" />
-              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>sGR</th>
+              <th style={{ padding: '8px 10px', fontWeight: 600, color: '#92400e', fontSize: 11, position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>sGR</th>
               {EVENTOS.map(ev => (
-                <th key={ev.key} style={{ padding: '8px 6px', fontWeight: 700, color: ev.color, fontSize: 9, textAlign: 'center', letterSpacing: .3, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
+                <th key={ev.key} style={{ padding: '8px 6px', fontWeight: 600, color: ev.color, fontSize: 9, textAlign: 'center', letterSpacing: .3, position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>
                   {ev.label}
                 </th>
               ))}
-              <th style={{ padding: '8px 10px', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>Estado</th>
+              <th style={{ padding: '8px 10px', fontWeight: 600, color: '#92400e', fontSize: 11, position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>Estado</th>
             </tr>
           </thead>
           <tbody>

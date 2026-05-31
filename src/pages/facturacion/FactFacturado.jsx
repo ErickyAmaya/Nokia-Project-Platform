@@ -327,9 +327,9 @@ export default function FactFacturado() {
         <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 860 }}>
             <thead>
-              <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
+              <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                 {['Sitio / SMP ID', 'MS/SMP Name', 'Desempeño', 'SPO', 'Evento', 'N° Factura', 'Fecha', 'Valor', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
             </thead>

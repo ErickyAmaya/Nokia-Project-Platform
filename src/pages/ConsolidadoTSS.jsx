@@ -14,8 +14,9 @@ function ThNokia({ children, style }) {
     <th className="num" style={{
       background: '#144E4A', color: '#CDFBF2',
       fontFamily: "'Barlow Condensed', sans-serif",
-      fontSize: 9, fontWeight: 700, padding: '9px 10px',
+      fontSize: 11, fontWeight: 700, padding: '9px 10px',
       letterSpacing: .7, textTransform: 'uppercase', whiteSpace: 'nowrap',
+      textAlign: 'center',
       ...style,
     }}>
       {children}
@@ -28,8 +29,9 @@ function ThSubc({ children, style }) {
     <th className="num" style={{
       background: '#FFF0CE', color: '#92400e',
       fontFamily: "'Barlow Condensed', sans-serif",
-      fontSize: 9, fontWeight: 700, padding: '9px 10px',
+      fontSize: 11, fontWeight: 700, padding: '9px 10px',
       letterSpacing: .7, textTransform: 'uppercase', whiteSpace: 'nowrap',
+      textAlign: 'center',
       ...style,
     }}>
       {children}
@@ -245,8 +247,8 @@ export default function ConsolidadoTSS() {
                   style={{
                     background: '#144E4A', color: '#CDFBF2',
                     fontFamily: "'Barlow Condensed', sans-serif",
-                    fontSize: 8, fontWeight: 700, letterSpacing: .7,
-                    padding: '4px 10px', textAlign: 'right',
+                    fontSize: 12, fontWeight: 700, letterSpacing: .7,
+                    padding: '5px 10px', textAlign: 'right',
                     borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap',
                     textTransform: 'uppercase',
                   }}
@@ -254,19 +256,18 @@ export default function ConsolidadoTSS() {
                   NOKIA TSS
                 </th>
                 <th
-                  colSpan={4}
+                  colSpan={5}
                   style={{
                     background: '#FFF0CE', color: '#92400e',
                     fontFamily: "'Barlow Condensed', sans-serif",
-                    fontSize: 8, fontWeight: 700, letterSpacing: .7,
-                    padding: '4px 10px', textAlign: 'right',
+                    fontSize: 12, fontWeight: 700, letterSpacing: .7,
+                    padding: '5px 10px', textAlign: 'right',
                     borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap',
                     textTransform: 'uppercase',
                   }}
                 >
                   SUBC TSS
                 </th>
-                <th style={{ background: '#f0f7f0', border: 'none', padding: 0 }} />
               </tr>
 
               {/* Fila 2 — column headers */}
@@ -285,7 +286,7 @@ export default function ConsolidadoTSS() {
                 <ThSubc>SubC Rep.</ThSubc>
                 <ThSubc>SubC Red.</ThSubc>
                 <ThSubc>SubC V+R</ThSubc>
-                <th />
+                <ThSubc style={{ width: 28, padding: '9px 4px', border: 'none' }} />
               </tr>
             </thead>
 
@@ -340,18 +341,18 @@ export default function ConsolidadoTSS() {
                         {r.cantSitios || 0}
                       </td>
                       {/* Nokia */}
-                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaV)}</td>
-                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaR)}</td>
-                      <td className="num" style={{ background: '#eff6ff', color: 'var(--b)' }}>{dash(r.nokiaRD)}</td>
-                      <td className="num fw7" style={{ background: '#dbeafe', color: 'var(--b)', borderRight: '2px solid #93c5fd' }}>{dash(r.nokiaVR)}</td>
+                      <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A' }}>{dash(r.nokiaV)}</td>
+                      <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A' }}>{dash(r.nokiaR)}</td>
+                      <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A' }}>{dash(r.nokiaRD)}</td>
+                      <td className="num fw7" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A', borderRight: '2px solid rgba(20,78,74,.3)' }}>{dash(r.nokiaVR)}</td>
                       {/* SubC — Vis usa cuadrillaCosto si lcVisita es interna; Rep/Red/V+R siempre su valor real */}
                       <td className="num" style={{ background: '#fffbeb', color: r.esInternaVisita ? '#3730a3' : '#b45309' }}>
                         {r.esInternaVisita ? dash(r.cuadrillaCosto) : dash(r.subcV)}
                       </td>
                       <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcR)}</td>
                       <td className="num" style={{ background: '#fffbeb', color: '#b45309' }}>{dash(r.subcRD)}</td>
-                      <td className="num fw7" style={{ background: '#fef9c3', color: '#b45309', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
-                      <td onClick={e => e.stopPropagation()}>
+                      <td className="num fw7" style={{ background: '#fffbeb', color: '#b45309', borderRight: '2px solid #fbbf24' }}>{dash(r.subcVR)}</td>
+                      <td className="td-del" onClick={e => e.stopPropagation()}>
                         {!isViewer && s.estado !== 'final' && (
                           <button className="btn-del" onClick={() => handleEliminar(s)}>✕</button>
                         )}
@@ -394,9 +395,9 @@ export default function ConsolidadoTSS() {
                           <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{r.esInternaVisita ? '' : dash(d.subcV || 0)}</td>
                           <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcR || 0)}</td>
                           <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcRD || 0)}</td>
-                          <td className="num fw7" style={{ background: '#fef9c3', borderRight: '2px solid #fbbf24', borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcVR || 0)}</td>
+                          <td className="num fw7" style={{ background: '#fffbeb', borderRight: '2px solid #fbbf24', borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcVR || 0)}</td>
                           {/* Acciones — vacía */}
-                          <td style={{ borderBottom: '1px solid #e0e8ff' }} />
+                          <td className="td-del" style={{ borderBottom: '1px solid #e0e8ff' }} />
                         </tr>
                       )
                     })}
@@ -417,7 +418,7 @@ export default function ConsolidadoTSS() {
                 <td className="num fw8">{cop(totals.subcR)}</td>
                 <td className="num fw8">{cop(totals.subcRD)}</td>
                 <td className="num fw8">{cop(totals.subcVR)}</td>
-                <td />
+                <td className="td-del" />
               </tr>
             </tfoot>
           </table>

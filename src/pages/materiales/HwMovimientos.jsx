@@ -165,7 +165,7 @@ function LugarField({ label, tipoKey, nombreKey, form, setForm, getOpciones }) {
             style={{
               padding:'3px 10px', fontSize:10, fontWeight:700, borderRadius:20, cursor:'pointer',
               border: tipo === t.value ? 'none' : '1.5px solid #e0e4e0',
-              background: tipo === t.value ? '#144E4A' : '#fff',
+              background: tipo === t.value ? '#1d4ed8' : '#fff',
               color: tipo === t.value ? '#fff' : '#555f55',
             }}>
             {t.label}
@@ -775,8 +775,8 @@ export default function HwMovimientos() {
             ].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
                 style={{ padding:'6px 18px', fontSize:12, fontWeight:700, border:'none', cursor:'pointer', borderRadius: t.id === 'movimientos' ? '8px 0 0 8px' : '0 8px 8px 0',
-                  background: activeTab === t.id ? '#D6F9F2' : 'transparent',
-                  color:      activeTab === t.id ? '#264D4A'  : '#9ca89c' }}>
+                  background: activeTab === t.id ? '#eff6ff' : 'transparent',
+                  color:      activeTab === t.id ? '#1d4ed8'  : '#9ca89c' }}>
                 {t.label}
               </button>
             ))}

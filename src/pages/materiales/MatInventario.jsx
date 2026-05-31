@@ -230,7 +230,7 @@ export default function MatInventario() {
           </div>
 
           <div className="tbl-scroll">
-            <table className="tbl">
+            <table className="tbl tbl-mat">
               <thead>
                 <tr>
                   <th>MATERIAL</th>
@@ -281,11 +281,11 @@ export default function MatInventario() {
               </tbody>
               {rows.length > 0 && (
                 <tfoot>
-                  <tr style={{ background:'#f0f7f0', fontWeight:700 }}>
-                    <td colSpan={7} style={{ fontSize:10, color:'#144E4A', padding:'6px 8px' }}>
+                  <tr style={{ background:'#eff6ff', fontWeight:700 }}>
+                    <td colSpan={7} style={{ fontSize:10, color:'#1d4ed8', padding:'6px 8px' }}>
                       Total ({rows.length} registros)
                     </td>
-                    <td className="num" style={{ color:'#144E4A', fontWeight:700 }}>{matCop(totalImporte)}</td>
+                    <td className="num" style={{ color:'#1d4ed8', fontWeight:700 }}>{matCop(totalImporte)}</td>
                     <td colSpan={2} />
                   </tr>
                 </tfoot>

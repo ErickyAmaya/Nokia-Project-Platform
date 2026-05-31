@@ -121,7 +121,7 @@ export default function MatMovimientos() {
             <div style={{ textAlign:'center', padding:24, color:'#9ca89c', fontSize:12 }}>Sin despachos</div>
           ) : (
             <div className="tbl-scroll" style={{ maxHeight: 'calc(40vh - 60px)' }}>
-            <table className="tbl">
+            <table className="tbl tbl-mat">
               <thead><tr>
                 <th>DOC</th><th>SITIO</th><th>BODEGA</th><th>FECHA</th>
                 <th className="num">ÍTEMS</th><th className="num">TOTAL</th>
@@ -189,7 +189,7 @@ export default function MatMovimientos() {
           </div>
 
           <div className="tbl-scroll">
-            <table className="tbl">
+            <table className="tbl tbl-mat">
               <thead><tr>
                 <th>Fecha</th><th>Doc</th><th>Material</th><th>Tipo</th>
                 <th className="num">Cant.</th><th className="num">Valor</th>

@@ -273,8 +273,6 @@ export default function Dashboard() {
               <div className="card-b" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <button className="btn bp btn-lg" onClick={() => setModalSitio(true)}>＋ Sitio TI</button>
                 <button className="btn bo btn-lg" onClick={() => setModalTSS(true)}>＋ TSS</button>
-                <button className="btn bd btn-lg" onClick={() => alert('TODO: Gastos')}>＋ Gastos</button>
-                <button className="btn bk btn-lg" onClick={() => alert('TODO: Exportar')}>⬇ Exportar</button>
               </div>
             </div>
           )}

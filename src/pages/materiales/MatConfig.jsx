@@ -398,7 +398,7 @@ export default function MatConfig() {
           {historial.length === 0 ? (
             <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin registros</div>
           ) : (
-            <table className="tbl">
+            <table className="tbl tbl-mat">
               <thead><tr>
                 <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Referencia</th><th>Detalle</th>
               </tr></thead>

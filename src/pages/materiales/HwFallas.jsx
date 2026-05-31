@@ -751,7 +751,7 @@ export default function HwFallas() {
             <option value="cerrado">Cerrados</option>
           </select>
           <button onClick={() => setModal('new')}
-            style={{ fontSize: 11, background: '#144E4A', color: '#fff', border: 'none',
+            style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', border: '1.5px solid #93c5fd',
               borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}>
             + Nuevo FR
           </button>
@@ -766,18 +766,18 @@ export default function HwFallas() {
         <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
+              <tr style={{ background: '#eff6ff', borderBottom: '1px solid #93c5fd' }}>
                 {['Serial', 'Equipo', 'Sitio', 'Fecha Det.', 'Motivo', 'Título', 'Estado', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700,
-                    color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap',
-                    position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600,
+                    color: '#1d4ed8', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap',
+                    position: 'sticky', top: 0, background: '#eff6ff', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map(f => (
                 <tr key={f.id} style={{ borderTop: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#144E4A', fontSize: 10 }}>
+                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', fontSize: 10 }}>
                     {f.serial_falla}
                   </td>
                   <td style={{ padding: '7px 10px', color: '#374151' }}>

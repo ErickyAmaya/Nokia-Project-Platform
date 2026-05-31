@@ -247,10 +247,10 @@ export default function HwDashboard() {
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
               <thead>
-                <tr style={{ background:'#fdf2f2', borderBottom:'1.5px solid #fca5a5' }}>
+                <tr style={{ background:'#eff6ff', borderBottom:'1px solid #93c5fd' }}>
                   {['Tipo de Equipo','Stock Bodega','Vel. Salida (prom. 8 sem)','Proyección','Nivel'].map(h => (
-                    <th key={h} style={{ padding:'7px 12px', textAlign:'left', fontWeight:700, fontSize:9,
-                      letterSpacing:.8, textTransform:'uppercase', color:'#c0392b', whiteSpace:'nowrap' }}>
+                    <th key={h} style={{ padding:'7px 12px', textAlign:'left', fontWeight:600, fontSize:11,
+                      letterSpacing:.8, textTransform:'uppercase', color:'#1d4ed8', whiteSpace:'nowrap' }}>
                       {h}
                     </th>
                   ))}
@@ -312,9 +312,9 @@ export default function HwDashboard() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
-                <tr style={{ background: '#f8faf8', borderBottom: '1.5px solid #e0e4e0' }}>
+                <tr style={{ background: '#eff6ff', borderBottom: '1px solid #93c5fd' }}>
                   {['Documento','Tipo','Equipo','Origen','Destino','Fecha'].map(h => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, fontSize: 9, letterSpacing: .8, textTransform: 'uppercase', color: '#555f55', whiteSpace: 'nowrap' }}>
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, letterSpacing: .8, textTransform: 'uppercase', color: '#1d4ed8', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}

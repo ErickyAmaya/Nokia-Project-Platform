@@ -131,8 +131,8 @@ function SubcSection() {
                   <td style={{ whiteSpace: 'nowrap' }}>
                     {(isAdmin || nSitios === 0) && (
                       <button
-                        className="btn-del"
-                        style={{ marginRight: 4, background: '#f0f7ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}
+                        className="btn bou"
+                        style={{ marginRight: 4, padding: '2px 8px', fontSize: 10 }}
                         onClick={() => setEditing(s)}
                         title="Editar"
                       ><IconEdit /></button>
@@ -464,8 +464,7 @@ export default function CatalogoPage() {
                           <IconEdit />
                         </button>
                         <button
-                          className="btn"
-                          style={{ padding: '2px 8px', fontSize: 10, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                          className="btn-del"
                           onClick={() => setDeleting(item)}
                         >
                           ✕
@@ -533,8 +532,7 @@ export default function CatalogoPage() {
                             <IconEdit />
                           </button>
                           <button
-                            className="btn"
-                            style={{ padding: '2px 8px', fontSize: 10, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                            className="btn-del"
                             onClick={() => setDeleting(item)}
                           >
                             ✕
@@ -608,8 +606,7 @@ export default function CatalogoPage() {
                             <IconEdit />
                           </button>
                           <button
-                            className="btn"
-                            style={{ padding: '2px 8px', fontSize: 10, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                            className="btn-del"
                             onClick={() => setDeleting(item)}
                           >
                             ✕

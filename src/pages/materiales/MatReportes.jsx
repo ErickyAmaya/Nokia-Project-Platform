@@ -53,22 +53,23 @@ function KPI({ label, value, color = '#264D4A', sub }) {
 }
 
 // ── Sección header ────────────────────────────────────────────────
-function SecHeader({ title, color = '#264D4A', textColor = '#D6F9F2' }) {
+function SecHeader({ title }) {
   return (
-    <div style={{ background:color, borderRadius:'8px 8px 0 0', padding:'10px 16px', marginTop:24 }}>
-      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:15,
-        letterSpacing:1.2, textTransform:'uppercase', color:textColor }}>{title}</span>
+    <div style={{ background:'#eff6ff', borderRadius:'8px 8px 0 0', padding:'10px 16px', marginTop:24,
+      borderBottom:'1px solid #93c5fd' }}>
+      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:600, fontSize:15,
+        letterSpacing:1.2, textTransform:'uppercase', color:'#1d4ed8' }}>{title}</span>
     </div>
   )
 }
 
 // ── Reporte card ─────────────────────────────────────────────────
-function ReportCard({ title, desc, kpis, filters, onExport, accent = '#264D4A' }) {
+function ReportCard({ title, desc, kpis, filters, onExport, accent = '#1d4ed8' }) {
   return (
     <div style={{ background:'#fff', borderRadius:8, boxShadow:'0 1px 6px rgba(0,0,0,.07)',
       border:'1px solid #e0e4e0', overflow:'hidden' }}>
       <div style={{ borderLeft:`4px solid ${accent}`, padding:'12px 16px', borderBottom:'1px solid #f0f2f0' }}>
-        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:14,
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontWeight:600, fontSize:14,
           letterSpacing:.8, textTransform:'uppercase', color:accent }}>{title}</div>
         <div style={{ fontSize:11, color:'#9ca89c', marginTop:2 }}>{desc}</div>
       </div>
@@ -82,7 +83,7 @@ function ReportCard({ title, desc, kpis, filters, onExport, accent = '#264D4A' }
           {kpis}
         </div>
         <button className="btn" onClick={onExport}
-          style={{ background:accent, color:'#fff', border:'none', fontSize:11, fontWeight:700 }}>
+          style={{ background:'#eff6ff', color:'#1d4ed8', border:'1.5px solid #93c5fd', fontSize:11, fontWeight:700 }}>
           ↓ Exportar Excel
         </button>
       </div>
@@ -537,7 +538,7 @@ export default function MatReportes() {
             <ReportCard
               title="Stock Actual"
               desc="Stock por material y bodega, alertas de stock mínimo y valor total del inventario."
-              accent="#264D4A"
+              accent="#1d4ed8"
               kpis={<>
                 <KPI label="Materiales" value={matKpis.totalItems} color="#264D4A" />
                 <KPI label="Bajo Mínimo" value={matKpis.bajominimo} color="#c0392b" />
@@ -549,7 +550,7 @@ export default function MatReportes() {
             <ReportCard
               title="Catálogo Completo"
               desc="Listado de todos los materiales con precios, unidades, categorías y stock mínimo."
-              accent="#264D4A"
+              accent="#1d4ed8"
               kpis={<>
                 <KPI label="Total Ítems" value={catalogo.length} color="#264D4A" />
                 <KPI label="Categoría TI" value={catalogo.filter(c=>c.categoria==='TI').length} color="#1e40af" />
@@ -565,7 +566,7 @@ export default function MatReportes() {
             <ReportCard
               title="Historial de Movimientos"
               desc="Entradas y salidas de materiales filtradas por período y tipo."
-              accent="#1a6130"
+              accent="#1d4ed8"
               filters={
                 <div style={FL}>
                   <label style={FC}>Desde</label>
@@ -596,7 +597,7 @@ export default function MatReportes() {
             <ReportCard
               title="Despachos por Sitio"
               desc="Despachos realizados con detalle de materiales enviados por sitio de instalación y resumen financiero."
-              accent="#1a6130"
+              accent="#1d4ed8"
               kpis={<>
                 <KPI label="Despachos" value={despachos.length} color="#264D4A" />
                 <KPI label="Sitios con Materiales"
@@ -615,13 +616,13 @@ export default function MatReportes() {
       {/* ══════════ HW NOKIA ══════════ */}
       {tab === 'hw' && (
         <div>
-          <SecHeader title="Inventario HW Nokia" color="#1e3a5f" textColor="#EFF5FE" />
+          <SecHeader title="Inventario HW Nokia" />
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, padding:'14px 0' }}>
 
             <ReportCard
               title="Inventario por Tipo de Equipo"
               desc="Resumen de todos los tipos de equipo con conteo por estado: bodega, sitio, tránsito, retornado. Incluye detalle por serial y por ubicación."
-              accent="#1e3a5f"
+              accent="#1d4ed8"
               kpis={<>
                 <KPI label="Tipos Equipo" value={hwCatalogo.length} color="#1e3a5f" />
                 <KPI label="Total Unidades" value={hwEquipos.length} color="#264D4A" />
@@ -634,7 +635,7 @@ export default function MatReportes() {
             <ReportCard
               title="HW Nokia por Sitio"
               desc="Equipos actualmente instalados en cada sitio de instalación, incluyendo serial, tipo y condición."
-              accent="#1e3a5f"
+              accent="#1d4ed8"
               kpis={<>
                 <KPI label="En Sitio" value={hwKpis.enSitio} color="#1e40af" />
                 <KPI label="Sitios con HW"
@@ -648,13 +649,13 @@ export default function MatReportes() {
             />
           </div>
 
-          <SecHeader title="Movimientos HW Nokia" color="#1e3a5f" textColor="#EFF5FE" />
+          <SecHeader title="Movimientos HW Nokia" />
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, padding:'14px 0' }}>
 
             <ReportCard
               title="Historial de Movimientos HW"
               desc="Entradas y salidas de equipos HW Nokia filtradas por período, con número de documento, serial, origen y destino."
-              accent="#234B72"
+              accent="#1d4ed8"
               filters={
                 <div style={FL}>
                   <label style={FC}>Desde</label>

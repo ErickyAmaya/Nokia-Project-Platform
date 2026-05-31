@@ -146,10 +146,8 @@ export default function MatSitios() {
       <ConfirmModalUI />
 
       <div className="card">
-        <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#FFFFFF', margin:0, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800, fontSize:18, letterSpacing:1, textTransform:'uppercase' }}>
-            Sitios de Instalación
-          </h2>
+        <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2>Sitios de Instalación</h2>
         </div>
 
         <div className="card-b">
@@ -186,7 +184,7 @@ export default function MatSitios() {
           </div>
 
           <div className="tbl-scroll">
-            <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
+            <table className="tbl tbl-mat" style={{ borderCollapse:'collapse', width:'100%' }}>
               <thead>
                 <tr>
                   <th style={{ width:36 }}>#</th>

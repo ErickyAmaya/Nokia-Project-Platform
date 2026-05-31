@@ -377,9 +377,9 @@ export default function CWLiquidadorView({ sitio }) {
 
       {/* ── Metadata card ─────────────────────────────── */}
       <div className="card" style={{ marginBottom: 12 }}>
-        <div className="card-h" style={{ background: '#0f4c75', borderLeftColor: '#48cae4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-h" style={{ background: '#0f4c75', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ color: '#fff' }}>
-            Liquidador CW: <span style={{ color: '#4ade80' }}>{sitio.nombre}</span>
+            Liquidador CW: <span style={{ color: '#fff' }}>{sitio.nombre}</span>
           </h2>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {liq.estado === 'final'
@@ -429,16 +429,15 @@ export default function CWLiquidadorView({ sitio }) {
 
         {/* Nokia CW */}
         <div className="card">
-          <div className="card-h" style={{ background: '#0f4c75', borderLeftColor: '#48cae4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ color: '#fff' }}>Nokia — Venta CW</h2>
+          <div className="card-h" style={{ background: '#0f4c75', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ color: '#fff' }}>Nokia — Venta CW <span style={{ fontWeight: 400, fontSize: 12, opacity: .8 }}>({liq.items.length} ítems)</span></h2>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span className="badge" style={{ background: '#48cae4', color: '#fff', fontSize: 10 }}>{liq.items.length} ítems</span>
               {canWrite && !locked && (
                 <>
-                  <button className="btn btn-sm" style={{ background: '#48cae4', color: '#fff', fontWeight: 700 }} onClick={() => { setEditItem(null); setModalAdd(true) }}>
+                  <button className="btn btn-sm" style={{ background: '#fff', color: '#0f4c75', border: '1px solid rgba(255,255,255,.5)', fontWeight: 700 }} onClick={() => { setEditItem(null); setModalAdd(true) }}>
                     ＋ Ítem CW
                   </button>
-                  <button className="btn btn-sm" style={{ background: '#fff', color: '#0f4c75', border: '1px solid #48cae4', fontWeight: 700 }} onClick={() => setModalManual(true)}>
+                  <button className="btn btn-sm" style={{ background: '#fff', color: '#0f4c75', border: '1px solid rgba(255,255,255,.5)', fontWeight: 700 }} onClick={() => setModalManual(true)}>
                     ＋ Valor Manual
                   </button>
                 </>
@@ -493,10 +492,10 @@ export default function CWLiquidadorView({ sitio }) {
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ background: '#91A8A7', borderTop: '2px solid #144E4A' }}>
-                  <td colSpan={3} style={{ fontWeight: 800, padding: 8 }}>TOTAL NOKIA CW</td>
+                <tr style={{ background: '#0f4c75', borderTop: '2px solid #0f4c75' }}>
+                  <td colSpan={3} style={{ fontWeight: 800, padding: 8, color: '#fff' }}>TOTAL NOKIA CW</td>
                   <td />
-                  <td className="num fw8" style={{ fontSize: 13, padding: 8 }}>{cop(calc.totNokia)}</td>
+                  <td className="num fw8" style={{ fontSize: 13, padding: 8, color: '#fff' }}>{cop(calc.totNokia)}</td>
                   {canWrite && !locked && <td />}
                 </tr>
               </tfoot>
@@ -506,8 +505,8 @@ export default function CWLiquidadorView({ sitio }) {
 
         {/* SubC CW */}
         <div className="card">
-          <div className="card-h" style={{ background: '#FFF0CE', borderLeftColor: '#FFC000', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ color: '#92400e' }}>SubC — Costo CW</h2>
+          <div className="card-h" style={{ background: '#FFF0CE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ color: '#92400e' }}>SubC — Costo CW <span style={{ fontWeight: 400, fontSize: 12, opacity: .7 }}>({subcItems.length} ítems)</span></h2>
             <span className="badge" style={{ background: '#FFC000', color: '#000', fontSize: 10 }}>{liq.lc || 'SubC CW'}</span>
           </div>
           <div style={{ padding: 0, overflowX: 'auto', maxHeight: 'calc(100vh - 420px)', overflowY: 'auto' }}>

@@ -305,12 +305,12 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
       </div>
 
       <div className="card">
-        <div className="card-h" style={{ background:'#264D4A', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <h2 style={{ color:'#D6F9F2' }}>Inventario HW Nokia ({rows.length} tipos)</h2>
+        <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2>Inventario HW Nokia ({rows.length} tipos)</h2>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             {loading && <span style={{ fontSize:10, color:'#9ca89c' }}>Cargando…</span>}
             {canEdit && <>
-              <button className="btn btn-sm" style={{ background:'#D6F9F2', color:'#264D4A' }}
+              <button className="btn btn-sm" style={{ background:'#eff6ff', color:'#1d4ed8', border:'1.5px solid #93c5fd' }}
                 onClick={() => setModalTipo('ENTRADA')}>
                 + Entrada
               </button>
@@ -342,8 +342,8 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
           </div>
 
           <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 310px)' }}>
-            <table className="tbl" style={{ borderCollapse:'collapse', width:'100%' }}>
-              <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}>
+            <table className="tbl tbl-mat" style={{ borderCollapse:'collapse', width:'100%' }}>
+              <thead style={{ position:'sticky', top:0, zIndex:2 }}>
                 <tr>
                   <th style={{ width:32 }}></th>
                   <th>CÓD. EQUIPO</th>

@@ -631,7 +631,7 @@ export default function LiquidadorPage() {
           {/* NOKIA — LIQUIDACIÓN VENTA */}
           <div className="card">
             <div className="card-h" style={{
-              background: '#144E4A', borderLeftColor: '#CDFBF2',
+              background: '#144E4A',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <h2 style={{ color: '#CDFBF2' }}>Nokia — Liquidación Venta</h2>
@@ -714,7 +714,7 @@ export default function LiquidadorPage() {
           {!isTSS && (
             <div className="card">
               <div className="card-h" style={{
-                background: '#0f4c75', borderLeftColor: '#48cae4',
+                background: '#0f4c75',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <h2 style={{ color: '#fff' }}>CW — Obra Civil</h2>
@@ -836,7 +836,7 @@ export default function LiquidadorPage() {
           {/* SUBC — LIQUIDACIÓN PAGO */}
           <div className="card">
             <div className="card-h" style={{
-              background: '#FFF0CE', borderLeftColor: '#FFC000',
+              background: '#FFF0CE',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <h2 style={{ color: '#92400e' }}>SubC — Liquidación Pago</h2>
@@ -971,7 +971,7 @@ export default function LiquidadorPage() {
               {/* Costo Cuadrilla Interna */}
               {esInternaSitio && (
                 <div className="card" style={{ margin: 0 }}>
-                  <div className="card-h" style={{ background: '#f0f4ff', borderLeftColor: '#6366f1' }}>
+                  <div className="card-h" style={{ background: '#f0f4ff' }}>
                     <h2 style={{ color: '#3730a3' }}>Costo Cuadrilla Interna</h2>
                   </div>
                   <div className="card-b">
@@ -1004,7 +1004,7 @@ export default function LiquidadorPage() {
 
           {/* COSTOS OPERATIVOS */}
           <div className="card">
-            <div className="card-h" style={{ background: '#FFF0CE', borderLeftColor: '#FFC000' }}>
+            <div className="card-h" style={{ background: '#FFF0CE' }}>
               <h2 style={{ color: '#92400e' }}>Costos Operativos</h2>
             </div>
             <div className="card-b" style={{ padding: '10px 14px' }}>

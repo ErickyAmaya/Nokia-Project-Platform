@@ -47,7 +47,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-left: 4px solid var(--g);
   border-bottom: 1px solid var(--g2);
 }
 .card-h h2 {
@@ -87,7 +86,10 @@ body {
 .bou { background: transparent; border: 1.5px solid var(--go); color: var(--go); } .bou:hover { background: var(--gf); }
 .btn-sm  { padding: 4px 9px; font-size: 10px; }
 .btn-lg  { padding: 10px 20px; font-size: 13px; }
-.btn-del { background: #fde; color: var(--r); border: none; border-radius: 100px; padding: 2px 8px; font-size: 10px; cursor: pointer; font-weight: 700; }
+.btn-del { background: #fde; color: var(--r); border: none; border-radius: 100px; padding: 2px 8px; font-size: 10px; cursor: pointer; font-weight: 700; opacity: 0; transition: opacity .15s; }
+.td-del { background: transparent; width: 28px; padding: 0 4px !important; border: none !important; }
+.tbl .tr-tot .td-del { background: #f0f7f0; }
+.tbl tr:hover .btn-del { opacity: 1; }
 
 /* ── Form controls ───────────────────────────────────────────── */
 .fg { margin-bottom: 12px; }
@@ -116,8 +118,8 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 .tbl th {
   background: #f0f7f0; color: var(--go);
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
-  letter-spacing: .7px; text-transform: uppercase; font-size: 9px;
-  padding: 7px 8px; text-align: left; white-space: nowrap;
+  letter-spacing: .7px; text-transform: uppercase; font-size: 11px;
+  padding: 7px 8px; text-align: center; white-space: nowrap;
   border-bottom: 2px solid #c8e6c8;
 }
 
@@ -136,10 +138,14 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   z-index: 4;
   box-shadow: 0 1px 0 #c8e6c8;   /* borde visible al hacer scroll */
 }
+.tbl-scroll .tbl-mat th {
+  box-shadow: 0 1px 0 #93c5fd;
+}
 .tbl td { padding: 6px 8px; border-bottom: 1px solid var(--g2); vertical-align: middle; }
 .tbl tr:hover td { background: var(--g1); }
 .tbl .num { text-align: right; font-feature-settings: 'tnum'; }
-.tbl .tr-tot td { background: #dcfce7; font-weight: 700; border-top: 2px solid #22c55e; color: #14532d; }
+.tbl .tr-tot td { background: #f0f7f0; font-weight: 700; border-top: 2px solid #c8e6c8; color: #144E4A; }
+.tbl-mat th { background: #eff6ff !important; color: #1d4ed8 !important; border-bottom: 1px solid #93c5fd !important; }
 .tbl .tr-sect td {
   background: #144E4A; color: #CDFBF2;
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700;

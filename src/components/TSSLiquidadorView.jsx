@@ -431,7 +431,7 @@ function SubcCard({
   return (
     <div className="card">
       <div className="card-h" style={{
-        background: '#FFF0CE', borderLeftColor: '#FFC000',
+        background: '#FFF0CE',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6,
       }}>
         <h2 style={{ color: '#92400e' }}>{title}</h2>
@@ -731,7 +731,7 @@ export default function TSSLiquidadorView({ sitio, calc }) {
 
       {/* ── NOKIA — LIQUIDACIÓN TSS ───────────────────────────── */}
       <div className="card">
-        <div className="card-h" style={{ background: '#144E4A', borderLeftColor: '#CDFBF2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="card-h" style={{ background: '#144E4A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ color: '#CDFBF2' }}>Nokia — Liquidación TSS</h2>
           {hasButtons && (
             <button
@@ -976,7 +976,7 @@ export default function TSSLiquidadorView({ sitio, calc }) {
           {/* COSTO CUADRILLA INTERNA — solo visible cuando lcVisita es interna */}
           {esInternaTSS && (
             <div className="card" style={{ margin: 0 }}>
-              <div className="card-h" style={{ background: '#f0f4ff', borderLeftColor: '#6366f1' }}>
+              <div className="card-h" style={{ background: '#f0f4ff' }}>
                 <h2 style={{ color: '#3730a3' }}>Costo Cuadrilla Interna</h2>
               </div>
               <div className="card-b">

@@ -29,8 +29,9 @@ function ThNokia({ children, style }) {
     <th className="num" style={{
       background: '#144E4A', color: '#CDFBF2',
       fontFamily: "'Barlow Condensed', sans-serif",
-      fontSize: 9, fontWeight: 700, padding: '9px 10px',
+      fontSize: 11, fontWeight: 700, padding: '9px 10px',
       letterSpacing: .7, textTransform: 'uppercase', whiteSpace: 'nowrap',
+      textAlign: 'center',
       ...style,
     }}>
       {children}
@@ -43,8 +44,9 @@ function ThSubc({ children, style }) {
     <th className="num" style={{
       background: '#FFF0CE', color: '#000',
       fontFamily: "'Barlow Condensed', sans-serif",
-      fontSize: 9, fontWeight: 700, padding: '9px 10px',
+      fontSize: 11, fontWeight: 700, padding: '9px 10px',
       letterSpacing: .7, textTransform: 'uppercase', whiteSpace: 'nowrap',
+      textAlign: 'center',
       ...style,
     }}>
       {children}
@@ -190,8 +192,8 @@ export default function ConsolidadoTI() {
                   style={{
                     background: '#144E4A', color: '#CDFBF2',
                     fontFamily: "'Barlow Condensed', sans-serif",
-                    fontSize: 8, fontWeight: 700, letterSpacing: .7,
-                    padding: '4px 10px', textAlign: 'right',
+                    fontSize: 12, fontWeight: 700, letterSpacing: .7,
+                    padding: '5px 10px', textAlign: 'right',
                     borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap',
                     textTransform: 'uppercase',
                   }}
@@ -199,19 +201,18 @@ export default function ConsolidadoTI() {
                   VENTA NOKIA
                 </th>
                 <th
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     background: '#FFF0CE', color: '#000',
                     fontFamily: "'Barlow Condensed', sans-serif",
-                    fontSize: 8, fontWeight: 700, letterSpacing: .7,
-                    padding: '4px 10px', textAlign: 'right',
+                    fontSize: 12, fontWeight: 700, letterSpacing: .7,
+                    padding: '5px 10px', textAlign: 'right',
                     borderRadius: '6px 6px 0 0', whiteSpace: 'nowrap',
                     textTransform: 'uppercase',
                   }}
                 >
                   COSTO SITIO
                 </th>
-                <th style={{ background: '#f0f7f0', border: 'none', padding: 0 }} />
               </tr>
 
               {/* Row 2 — column headers */}
@@ -225,14 +226,14 @@ export default function ConsolidadoTI() {
                 <ThNokia>ADJ</ThNokia>
                 <ThNokia>CW</ThNokia>
                 <ThNokia>CR</ThNokia>
-                <ThNokia style={{ borderRight: '2px solid #60a5fa' }}>MIMO</ThNokia>
+                <ThNokia style={{ borderRight: '2px solid rgba(20,78,74,.3)' }}>MIMO</ThNokia>
                 <ThSubc>SubC TI</ThSubc>
                 <ThSubc>SubC CW</ThSubc>
                 <ThSubc>Mat TI</ThSubc>
                 <ThSubc>Mat CW</ThSubc>
                 <ThSubc>Logística</ThSubc>
                 <ThSubc style={{ borderRight: '2px solid #fbbf24' }}>Adicionales</ThSubc>
-                <th style={{ width: 30 }} />
+                <ThSubc style={{ width: 28, padding: '9px 4px', border: 'none' }} />
               </tr>
             </thead>
 
@@ -247,7 +248,7 @@ export default function ConsolidadoTI() {
                 </tr>
               )}
               {rows.map(({ s, c, mimoTotal, adjTotal }) => (
-                <tr key={s.id} style={{ background: '#eff6ff' }}>
+                <tr key={s.id} style={{ background: 'rgba(20,78,74,.06)' }}>
                   <td style={{ whiteSpace: 'nowrap', background: '#fff' }}>
                     <span
                       className="stat-link"
@@ -279,7 +280,7 @@ export default function ConsolidadoTI() {
                   <td className="num">{cop(adjTotal)}</td>
                   <td className="num">{c.nokiaCW > 0 ? cop(c.nokiaCW) : <span className="tm">N/A</span>}</td>
                   <td className="num">{cop(c.nokiaCR)}</td>
-                  <td className="num fw7" style={{ borderRight: '2px solid #93c5fd' }}>
+                  <td className="num fw7" style={{ borderRight: '2px solid rgba(20,78,74,.3)' }}>
                     {mimoTotal > 0 ? cop(mimoTotal) : <span className="tm">$0</span>}
                   </td>
                   <td className="num" style={{ background: '#fffbeb' }}>{cop(c.subcTI)}</td>
@@ -292,7 +293,7 @@ export default function ConsolidadoTI() {
                   <td className="num" style={{ background: '#fffbeb', borderRight: '2px solid #fbbf24' }}>
                     {cop(c.adicion)}
                   </td>
-                  <td style={{ background: '#fff' }}>
+                  <td className="td-del">
                     {!isViewer && s.estado !== 'final' && (
                       <button className="btn-del" onClick={() => handleEliminar(s)}>✕</button>
                     )}
@@ -316,7 +317,7 @@ export default function ConsolidadoTI() {
                 <td className="num">{cop(totals.tMCW)}</td>
                 <td className="num">{cop(totals.tLog)}</td>
                 <td className="num">{cop(totals.tAd)}</td>
-                <td />
+                <td className="td-del" />
               </tr>
             </tfoot>
           </table>

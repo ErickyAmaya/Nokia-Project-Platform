@@ -42,7 +42,7 @@ function applyEvFilter(eventos, row, filtroEv) {
 }
 
 const TH = ({ children }) => (
-  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>
+  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>
     {children}
   </th>
 )
@@ -106,7 +106,7 @@ function MissingBadge({ missing, onClick }) {
       onMouseEnter={() => onClick && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background:   hovered ? '#fee2e2' : '#fef3c7',
+        background:   hovered ? '#fee2e2' : '#fffbeb',
         color:        hovered ? '#991b1b' : '#92400e',
         border:       hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
         borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
@@ -121,7 +121,7 @@ function MissingBadge({ missing, onClick }) {
 
 function HitoBadge({ ssDate, status }) {
   if (status === 'facturado') return (
-    <span style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+    <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
       FACTURADO
     </span>
   )
@@ -146,7 +146,7 @@ function HitoBar({ label, pct, color, status, onClick }) {
       onMouseEnter={() => onClick && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered ? '#fee2e2' : '#fef3c7',
+        background: hovered ? '#fee2e2' : '#fffbeb',
         color:      hovered ? '#991b1b' : '#92400e',
         border:     hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
         borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
@@ -719,7 +719,7 @@ export default function FactPorFacturar() {
         <div className="card" style={{ overflow: 'auto', maxHeight: '55vh', marginBottom: 16 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
-              <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
+              <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                 <TH>Sitio</TH><TH>SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>Valor PO</TH><TH></TH>
               </tr>
             </thead>
@@ -747,7 +747,7 @@ export default function FactPorFacturar() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                           <EventoBadge ev={ev} />
                           {absorbido && (
-                            <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>
                               Facturado por Acuerdo
                             </span>
                           )}
@@ -769,7 +769,7 @@ export default function FactPorFacturar() {
                           }} style={{ background: '#144E4A', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Facturar</button>
                         )}
                         {!isViewer && absorbido && (
-                          <button onClick={() => handleCerrarAbsorbido(row, ev)} style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Cerrar sin factura</button>
+                          <button onClick={() => handleCerrarAbsorbido(row, ev)} style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 6, padding: '4px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Cerrar sin factura</button>
                         )}
                       </td>
                     </tr>
@@ -838,7 +838,7 @@ export default function FactPorFacturar() {
               <div className="card" style={{ overflow: 'auto', maxHeight: '40vh', marginBottom: 16 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 780 }}>
                   <thead>
-                    <tr style={{ background: '#f0fdf4', borderBottom: '2px solid #86efac' }}>
+                    <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                       <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH>
                       <TH>SS MOS ok</TH><TH>SS Integración ok</TH><TH>SS Aceptación Final ok</TH><TH>Falta</TH>
                     </tr>
@@ -882,7 +882,7 @@ export default function FactPorFacturar() {
               <div className="card" style={{ overflow: 'auto', maxHeight: '40vh', marginBottom: 16 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 780 }}>
                   <thead>
-                    <tr style={{ background: '#fef2f2', borderBottom: '2px solid #fca5a5' }}>
+                    <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                       <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Falta</TH>
                       <TH>Estado HW_Cierre</TH><TH>Estado OnAir</TH>
                     </tr>
@@ -920,7 +920,7 @@ export default function FactPorFacturar() {
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#92400e' }}>
                   Pendiente Completar (NDPD)
                 </div>
-                <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                <span style={{ background: '#fffbeb', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
                   {noCompletados.length}
                 </span>
                 <div style={{ fontSize: 11, color: '#4b5563' }}>— SPOs bloqueados por falta de GR y/o %{rolloutItems ? '' : ' · carga Rollout para ver progreso'}</div>

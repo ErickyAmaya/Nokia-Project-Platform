@@ -380,6 +380,7 @@ export default function FactPagosSubc() {
       </div>
 
       {/* Acordeón de sitios */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       {filtered.map(site => {
         const isOpen        = !!expanded[site.nombre]
         const firstPending  = site.hitosData.find(h => !h.pago)
@@ -387,7 +388,7 @@ export default function FactPagosSubc() {
         const formData      = forms[site.nombre] || {}
 
         return (
-          <div key={site.nombre} className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8 }}>
+          <div key={site.nombre} style={{ borderBottom: '1px solid #e0e4e0', overflow: 'hidden' }}>
             {/* Header del sitio */}
             <div
               onClick={() => toggle(site.nombre)}
@@ -592,6 +593,7 @@ export default function FactPagosSubc() {
           </div>
         )
       })}
+      </div>
 
       {filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>

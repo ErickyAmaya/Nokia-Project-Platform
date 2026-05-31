@@ -263,7 +263,7 @@ export default function MatCatalogo() {
               <button key={v} onClick={() => setFilCat(v)}
                 style={{ padding:'4px 12px', fontSize:10, fontWeight:700, borderRadius:20,
                   border: filCat===v?'none':'1.5px solid #e0e4e0',
-                  background: filCat===v?'#144E4A':'#fff',
+                  background: filCat===v?'#1d4ed8':'#fff',
                   color: filCat===v?'#fff':'#555f55', cursor:'pointer' }}>
                 {v || 'Todos'}
               </button>
@@ -273,7 +273,7 @@ export default function MatCatalogo() {
           <div className="tbl-scroll">
             {/* ── Vista Proveedores ── */}
             {isProveedoresTab ? (
-              <table className="tbl">
+              <table className="tbl tbl-mat">
                 <thead><tr>
                   <th>Nombre</th><th>Dirección</th><th>Contacto</th>
                   <th>Email</th><th>Teléfono</th><th>Ítems con precio</th>
@@ -311,7 +311,7 @@ export default function MatCatalogo() {
               </table>
             ) : (
             /* ── Vista Materiales ── */
-              <table className="tbl">
+              <table className="tbl tbl-mat">
                 <thead><tr>
                   <th>Nombre</th><th>Código</th><th>Unidad</th><th>Categoría</th>
                   <th className="num">Costo Unitario</th><th className="num">Mejor Precio</th>

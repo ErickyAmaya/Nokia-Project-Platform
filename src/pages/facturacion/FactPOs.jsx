@@ -62,9 +62,9 @@ function RechazadosModal({ items, onClose, onDelete }) {
           <div style={{ overflow: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
-                <tr style={{ background: '#f8faf8' }}>
+                <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                   {['Archivo', 'SPO extraído', 'Fecha', ''].map(h => (
-                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, position: 'sticky', top: 0, background: '#f8faf8' }}>{h}</th>
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -125,9 +125,9 @@ function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueInd
 
         <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', marginBottom: 14 }}>
           <thead>
-            <tr style={{ background: '#f8faf8', borderBottom: '1px solid #e8eae8' }}>
+            <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
               {['Campo', 'Actual', 'Nuevo PDF'].map(h => (
-                <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, fontSize: 10, color: '#555' }}>{h}</th>
+                <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: '#92400e', borderBottom: '1px solid #fcd34d' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -461,9 +461,9 @@ export default function FactPOs() {
         <div className="card" style={{ overflow: 'auto', maxHeight: compact ? 'calc(100vh - 210px)' : '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr style={{ background: '#f8faf8', borderBottom: '2px solid #e8eae8' }}>
+              <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                 {['SPO', 'Fecha PO', 'Sitio', 'SMP ID', 'MS/SMP Name', 'Valor', 'Proveedor', 'PDF', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#555', fontSize: 10, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#f8faf8', zIndex: 1 }}>{h}</th>
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>{h}</th>
                 ))}
               </tr>
             </thead>

@@ -401,7 +401,7 @@ export default function CWPage() {
 
           {/* ── Metadata card ─────────────────────────────── */}
           <div className="card" style={{ marginBottom: 10 }}>
-            <div className="card-h" style={{ background: '#0f4c75', borderLeftColor: '#48cae4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-h" style={{ background: '#0f4c75', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ color: '#fff' }}>
                 Liquidador CW: <span style={{ color: '#4ade80' }}>{sitio.nombre}</span>
               </h2>
@@ -458,7 +458,7 @@ export default function CWPage() {
 
             {/* NOKIA CW */}
             <div className="card">
-              <div className="card-h" style={{ background: '#144E4A', borderLeftColor: '#CDFBF2', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="card-h" style={{ background: '#144E4A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ color: '#CDFBF2' }}>Nokia — Venta CW</h2>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <span className="badge" style={{ background: '#CDFBF2', color: '#000', fontSize: 10 }}>{liq.items.length} ítems</span>
@@ -545,7 +545,7 @@ export default function CWPage() {
 
             {/* SUBC CW */}
             <div className="card">
-              <div className="card-h" style={{ background: '#FFF0CE', borderLeftColor: '#FFC000', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="card-h" style={{ background: '#FFF0CE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ color: '#000' }}>SubC — Costo CW</h2>
                 <span className="badge" style={{ background: '#FFC000', color: '#000', fontSize: 10 }}>{liq.lc || 'SubC CW'}</span>
               </div>

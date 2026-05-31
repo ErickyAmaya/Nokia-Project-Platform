@@ -415,15 +415,15 @@ export default function AckSitios() {
           <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', width: 28 }} />
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Sitio</th>
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Main SMP</th>
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Región</th>
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', textAlign: 'center' }}>SMPs</th>
-                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', minWidth: 120 }}>% Global</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', width: 28 }} />
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Sitio</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Main SMP</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Región</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', textAlign: 'center' }}>SMPs</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', minWidth: 120 }}>% Global</th>
                 {PROCESOS.map(p => (
                   <th key={p.key} style={{
-                    position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8',
+                    position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd',
                     color: p.color, textAlign: 'center', fontSize: 8, whiteSpace: 'nowrap',
                   }}>
                     {p.label}

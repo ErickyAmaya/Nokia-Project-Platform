@@ -451,15 +451,15 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         <table className="tbl" style={{ fontSize: 10, minWidth: 900, borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
-              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#f8f9f8', minWidth: 120 }}>Sitio</th>
-              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 120 }), zIndex: narrow ? 3 : 4, background: '#f8f9f8', minWidth: 130 }}>Main SMP</th>
-              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 250 }), zIndex: narrow ? 3 : 4, background: '#f8f9f8', minWidth: 160, ...(narrow ? {} : { boxShadow: '2px 0 4px rgba(0,0,0,.06)' }) }}>SMP</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Sub Proyecto</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Estado</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Avance</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8', color: '#3b82f6' }}>FC Cierre / Comentario</th>
-              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f8f9f8' }}>Owner Ticket</th>
+              <th style={{ position: 'sticky', top: 0, left: 0, zIndex: 4, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', minWidth: 120 }}>Sitio</th>
+              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 120 }), zIndex: narrow ? 3 : 4, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', minWidth: 130 }}>Main SMP</th>
+              <th style={{ position: 'sticky', top: 0, ...(narrow ? {} : { left: 250 }), zIndex: narrow ? 3 : 4, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', minWidth: 160, ...(narrow ? {} : { boxShadow: '2px 0 4px rgba(0,0,0,.06)' }) }}>SMP</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Sub Proyecto</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9', whiteSpace: 'nowrap' }}>Sem. Integ.</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Estado</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#1d4ed8' }}>FC Avance</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#1d4ed8' }}>FC Cierre / Comentario</th>
+              <th style={{ position: 'sticky', top: 0, zIndex: 3, background: '#f5f3ff', borderBottom: '1px solid #c4b5fd', color: '#6d28d9' }}>Owner Ticket</th>
             </tr>
           </thead>
           <tbody>

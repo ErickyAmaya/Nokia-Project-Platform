@@ -131,8 +131,8 @@ export default function HwCatalogo() {
               onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:180 }} />
           </div>
           <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 220px)' }}>
-            <table className="tbl">
-              <thead style={{ position:'sticky', top:0, zIndex:2, background:'#f8f8f8' }}><tr>
+            <table className="tbl tbl-mat">
+              <thead style={{ position:'sticky', top:0, zIndex:2 }}><tr>
                 <th>Descripción</th><th>Cód. Equipo</th>
                 <th>Serial</th><th>Activo</th>{canEdit && <th></th>}
               </tr></thead>
