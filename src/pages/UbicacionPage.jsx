@@ -5,8 +5,9 @@ import { getSupabaseClient } from '../lib/supabase'
 const WRITE_INTERVAL_MS = 30_000
 
 const ua = navigator.userAgent || ''
-const isWebView = /wv/.test(ua) || /FB_IAB|FBAN|Instagram|GSA/.test(ua)
+const isWebView  = /wv/.test(ua) || /FB_IAB|FBAN|Instagram|GSA/.test(ua)
 const isAndroid  = /Android/i.test(ua)
+const isInsecure = location.protocol === 'http:' && location.hostname !== 'localhost'
 
 export default function UbicacionPage() {
   const user       = useAuthStore(s => s.user)
@@ -87,10 +88,36 @@ export default function UbicacionPage() {
 
   function activate() {
     if (!navigator.geolocation) { setError('Tu navegador no soporta geolocalización.'); return }
+    if (isInsecure) {
+      setError('Esta página usa HTTP. En Android, la ubicación solo funciona con HTTPS. Contacta al administrador.')
+      return
+    }
     setError('')
     setWaitingPerm(true)
     setActive(true)
-    startWatch(true)
+
+    // En Android, getCurrentPosition dispara el diálogo de permiso más confiablemente que watchPosition.
+    // Una vez concedido, iniciamos el watcher continuo.
+    navigator.geolocation.getCurrentPosition(
+      () => startWatch(true),
+      err => {
+        if (err.code === 3) {
+          // Timeout pero el permiso fue concedido — igual iniciamos el watcher
+          startWatch(true)
+        } else {
+          setWaitingPerm(false)
+          setActive(false)
+          const msgs = {
+            1: isAndroid
+              ? 'Permiso denegado. Ve a Configuración del sitio en Chrome (ícono 🔒 en la barra de dirección) → Ubicación → Permitir.'
+              : 'Permiso denegado. Permite el acceso a la ubicación en la configuración del navegador.',
+            2: 'No se pudo obtener la ubicación. Verifica que el GPS o los Servicios de Ubicación estén activados.',
+          }
+          setError(msgs[err.code] || err.message)
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8_000, maximumAge: 0 }
+    )
   }
 
   function deactivate() {
@@ -126,6 +153,17 @@ export default function UbicacionPage() {
       maxWidth: 480, margin: '0 auto', padding: '24px 16px',
       display: 'flex', flexDirection: 'column', gap: 24,
     }}>
+
+      {/* Aviso conexión insegura (HTTP) */}
+      {isInsecure && (
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 12,
+          padding: '14px 16px', fontSize: 13, color: '#991b1b', lineHeight: 1.6,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>🔒 Conexión no segura (HTTP)</div>
+          Android bloquea el acceso a la ubicación en páginas HTTP. Abre la plataforma usando <strong>https://</strong> en la barra de dirección.
+        </div>
+      )}
 
       {/* Aviso WebView Android */}
       {isWebView && (
@@ -217,9 +255,13 @@ export default function UbicacionPage() {
             background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10,
             padding: '12px 14px', fontSize: 12, color: '#1e40af', textAlign: 'center', lineHeight: 1.6,
           }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>👆 Revisa la barra de dirección</div>
-            Busca un ícono de ubicación 📍 en la parte superior del navegador y tócalo para <strong>Permitir</strong>.
-            Puede aparecer muy pequeño.
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              {isAndroid ? '👆 Debe aparecer un diálogo de permiso' : '👆 Revisa la barra de dirección'}
+            </div>
+            {isAndroid
+              ? <>Si no ves el diálogo, toca el ícono 🔒 en la barra de dirección → <strong>Permisos</strong> → <strong>Ubicación → Permitir</strong>, luego vuelve a activar.</>
+              : <>Busca un ícono de ubicación 📍 en la parte superior del navegador y tócalo para <strong>Permitir</strong>. Puede aparecer muy pequeño.</>
+            }
           </div>
         )}
         {permState === 'denied' && (

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { EmptyRow } from '../../components/EmptyState'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
 import { useMatStore } from '../../store/useMatStore'
@@ -358,9 +359,11 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>
-                    {hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados. Registra movimientos para poblar el inventario.' : 'Sin resultados'}
-                  </td></tr>
+                  <EmptyRow colSpan={9}
+                    icon="🖥"
+                    title={hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Sin equipos registrados' : 'Sin resultados'}
+                    subtitle={hwEquipos.length === 0 && hwMovimientos.filter(m => !m.serial).length === 0 ? 'Registra movimientos para poblar el inventario.' : 'Prueba ajustando los filtros.'}
+                  />
 
                 )}
                 {rows.map(({ cat, equipos, enBodega, stock, enSitio, enTransito, total, bodegaLabel, st, movsSinSerial, ssStock, ssEnSitio, ssTotal, ssBodegaMap, ssBodegaLabel, isMts }) => {

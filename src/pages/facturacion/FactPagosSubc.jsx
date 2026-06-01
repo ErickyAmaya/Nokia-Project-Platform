@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useFactStore } from '../../store/useFactStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { usePagosStore } from '../../store/usePagosStore'
@@ -310,11 +311,7 @@ export default function FactPagosSubc() {
   }
 
   if (loading)     return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Cargando datos…</div>
-  if (!ppa.length) return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>
-      Sin datos. Carga el PPA Nokia desde el Dashboard.
-    </div>
-  )
+  if (!ppa.length) return <EmptyState icon="📄" title="Sin datos de facturación" subtitle="Carga el PPA Nokia desde el Dashboard para comenzar." />
 
   return (
     <>
@@ -596,9 +593,7 @@ export default function FactPagosSubc() {
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>
-          Sin sitios para los filtros actuales.
-        </div>
+        <EmptyState icon="🔍" title="Sin sitios" subtitle="No hay resultados con los filtros actuales." />
       )}
     </>
   )

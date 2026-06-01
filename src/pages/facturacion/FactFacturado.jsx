@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -280,7 +281,7 @@ export default function FactFacturado() {
   const visibleSites  = hideCompletos ? rowsBySite.filter(s => s.pctFacturado < 100) : rowsBySite
 
   if (loading)     return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Cargando datos…</div>
-  if (!ppa.length) return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Sin datos. Carga el PPA Nokia desde el Dashboard.</div>
+  if (!ppa.length) return <EmptyState icon="📄" title="Sin datos de facturación" subtitle="Carga el PPA Nokia desde el Dashboard para comenzar." />
 
   return (
     <>
@@ -322,7 +323,7 @@ export default function FactFacturado() {
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>Sin facturas registradas con los filtros actuales.</div>
+        <EmptyState icon="🔍" title="Sin facturas" subtitle="No hay resultados con los filtros actuales." />
       ) : (
         <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 860 }}>

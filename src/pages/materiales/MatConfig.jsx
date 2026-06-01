@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
@@ -396,7 +397,7 @@ export default function MatConfig() {
         </div>
         <div className="card-b" style={{ padding:0 }}>
           {historial.length === 0 ? (
-            <div style={{ textAlign:'center', padding:32, color:'#9ca89c', fontSize:12 }}>Sin registros</div>
+            <EmptyState icon="⚙️" title="Sin registros" style={{ padding: '24px' }} />
           ) : (
             <table className="tbl tbl-mat">
               <thead><tr>

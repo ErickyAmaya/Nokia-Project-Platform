@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useHwStore } from '../../store/useHwStore'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
@@ -759,9 +760,11 @@ export default function HwFallas() {
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>
-          {hwFallas.length === 0 ? 'Sin registros. Crea el primer Failure Report.' : 'Sin resultados con los filtros actuales.'}
-        </div>
+        <EmptyState
+          icon="✅"
+          title={hwFallas.length === 0 ? 'Sin fallas registradas' : 'Sin resultados'}
+          subtitle={hwFallas.length === 0 ? 'Crea el primer Failure Report cuando sea necesario.' : 'Prueba ajustando los filtros.'}
+        />
       ) : (
         <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>

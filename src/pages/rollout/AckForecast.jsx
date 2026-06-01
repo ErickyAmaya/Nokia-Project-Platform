@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, nokiaWeekLabel } from '../../store/useAckStore'
@@ -897,10 +898,7 @@ export default function AckForecast() {
   }
 
   if (!sabana.length) return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#4b5563' }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
-      <div style={{ fontSize: 14 }}>Sin datos. Carga el reporte ACK desde el Dashboard.</div>
-    </div>
+    <EmptyState icon="📡" title="Sin datos ACK" subtitle="Carga el reporte Nokia desde el Dashboard para comenzar." />
   )
 
   return (

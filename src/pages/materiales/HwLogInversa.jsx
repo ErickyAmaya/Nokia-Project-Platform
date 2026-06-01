@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useSearchParams } from 'react-router-dom'
 import { useHwStore }   from '../../store/useHwStore'
 import { useMatStore }  from '../../store/useMatStore'
@@ -388,9 +389,11 @@ export default function HwLogInversa() {
 
       {/* Grupos por sitio */}
       {groups.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af', fontSize: 13 }}>
-          {hwLogInversa.length === 0 ? 'Sin registros. Carga un archivo Excel para comenzar.' : 'Sin resultados para los filtros aplicados.'}
-        </div>
+        <EmptyState
+          icon="↩"
+          title={hwLogInversa.length === 0 ? 'Sin registros de logística inversa' : 'Sin resultados'}
+          subtitle={hwLogInversa.length === 0 ? 'Carga un archivo Excel para comenzar.' : 'Prueba ajustando los filtros.'}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {groups.map(([sitio, rows]) => (

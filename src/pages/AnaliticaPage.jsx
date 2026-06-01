@@ -116,8 +116,19 @@ function KpiCard({ label, value, sub, color = CN }) {
 // ── Barra de filtros horizontal (colapsable) ──────────────────────
 function FilterBar({ filters, setFilter, sitios, subcs }) {
   const [open, setOpen] = useState(false)
-  const lcs        = useMemo(() => [...new Set(sitios.map(s => s.lc).filter(Boolean))].sort(), [sitios])
   const cuadrillas = useMemo(() => [...new Set(subcs.map(s => s.tipoCuadrilla).filter(Boolean))].sort(), [subcs])
+  const lcs = useMemo(() => {
+    const allLcs = [...new Set(sitios.map(s => s.lc).filter(Boolean))].sort()
+    if (!filters.cuadrilla) return allLcs
+    const lcsDeCuadrilla = new Set(
+      subcs.filter(s => s.tipoCuadrilla === filters.cuadrilla).map(s => s.lc).filter(Boolean)
+    )
+    return allLcs.filter(lc => lcsDeCuadrilla.has(lc))
+  }, [sitios, subcs, filters.cuadrilla])
+
+  useEffect(() => {
+    if (filters.lc && !lcs.includes(filters.lc)) setFilter('lc', '')
+  }, [filters.cuadrilla]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeFilters = Object.entries(filters).filter(([, v]) => v !== '' && v !== 'TODOS').length
 

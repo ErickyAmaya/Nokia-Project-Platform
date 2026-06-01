@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -247,7 +248,7 @@ export default function MatInventario() {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={10} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                  <EmptyRow colSpan={10} icon="📦" title="Sin ítems" subtitle="Prueba con otros filtros o registra el primero." />
                 )}
                 {rows.map((r) => (
                   <tr key={`${r.id}-${r.bodega.id}`}>

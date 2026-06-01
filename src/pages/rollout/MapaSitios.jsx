@@ -203,6 +203,83 @@ function SiteSearch({ options, onSelect }) {
   )
 }
 
+function LcSearch({ options, value, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open,  setOpen]  = useState(false)
+  const ref               = useRef(null)
+
+  useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = useMemo(() =>
+    query.length < 1 ? options : options.filter(o => norm(o).includes(norm(query)))
+  , [options, query])
+
+  function select(lc) { setQuery(lc); setOpen(false); onChange(lc) }
+  function clear()    { setQuery('');  setOpen(false); onChange('') }
+
+  // Sync display when value cleared externally
+  useEffect(() => { if (!value) setQuery('') }, [value])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', minWidth: 230 }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <input
+          className="fc"
+          type="text"
+          placeholder="👷 Todos los LC"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange('') }}
+          onFocus={() => setOpen(true)}
+          style={{ fontSize: 11, width: '100%', paddingRight: query ? 24 : 8 }}
+        />
+        {query && (
+          <span
+            onMouseDown={e => { e.preventDefault(); clear() }}
+            style={{ position: 'absolute', right: 8, cursor: 'pointer', color: '#6b7280', fontSize: 14 }}
+          >×</span>
+        )}
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 3px)', left: 0, right: 0,
+          zIndex: 1000, background: '#fff', border: '1px solid #e0e4e0',
+          borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.13)',
+          maxHeight: 240, overflowY: 'auto',
+        }}>
+          <div
+            onMouseDown={() => { clear() }}
+            style={{ padding: '6px 12px', fontSize: 11, cursor: 'pointer', borderBottom: '1px solid #f0f0f0', color: '#9ca3af', fontStyle: 'italic' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+            onMouseLeave={e => e.currentTarget.style.background = ''}
+          >
+            Todos los LC
+          </div>
+          {filtered.map(lc => (
+            <div
+              key={lc}
+              onMouseDown={() => select(lc)}
+              style={{
+                padding: '6px 12px', fontSize: 11, cursor: 'pointer',
+                borderBottom: '1px solid #f8f9f8', color: '#374151',
+                background: value === lc ? '#eff6ff' : '',
+                fontWeight: value === lc ? 700 : 400,
+              }}
+              onMouseEnter={e => { if (value !== lc) e.currentTarget.style.background = '#f8faff' }}
+              onMouseLeave={e => { if (value !== lc) e.currentTarget.style.background = '' }}
+            >
+              {lc}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   const [tab,       setTab]       = useState('masiva') // 'masiva' | 'sitio'
   const [rows,      setRows]      = useState([])
@@ -632,7 +709,12 @@ export default function MapaSitios() {
 
   const lcByName = useMemo(() => {
     const map = {}
-    for (const s of sitios) if (s.nombre) map[norm(s.nombre)] = s.lc || ''
+    for (const s of sitios) {
+      if (!s.nombre) continue
+      const key = norm(s.nombre)
+      // Solo sobreescribir si esta fila tiene lc; no borrar un lc ya encontrado
+      if (s.lc || !map[key]) map[key] = s.lc || ''
+    }
     return map
   }, [sitios])
 
@@ -646,9 +728,9 @@ export default function MapaSitios() {
   , [coords, ackIndex, lcByName])
 
   const lcOptions = useMemo(() => {
-    const set = new Set(pins.map(p => p.lc).filter(Boolean))
+    const set = new Set(sitios.map(s => s.lc).filter(Boolean))
     return [...set].sort()
-  }, [pins])
+  }, [sitios])
 
   const filtered = useMemo(() => {
     let base = pins
@@ -830,17 +912,7 @@ export default function MapaSitios() {
         <SiteSearch options={pins} onSelect={p => { if (!routeMode) setSelectedPin(p) }} />
 
         {lcOptions.length > 0 && (
-          <select
-            className="fc"
-            value={lcFilter}
-            onChange={e => setLcFilter(e.target.value)}
-            style={{ fontSize: 11, minWidth: 140 }}
-          >
-            <option value="">👷 Todos los LC</option>
-            {lcOptions.map(lc => (
-              <option key={lc} value={lc}>{lc}</option>
-            ))}
-          </select>
+          <LcSearch options={lcOptions} value={lcFilter} onChange={setLcFilter} />
         )}
 
         <button

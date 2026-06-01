@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
+import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -320,7 +321,7 @@ export default function MatCatalogo() {
                 </tr></thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={9} style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin resultados</td></tr>
+                    <EmptyRow colSpan={9} icon="🔍" title="Sin resultados" subtitle="Prueba con otros términos de búsqueda." />
                   )}
                   {filtered.map(c => {
                     const cc = CAT_COLORS[c.categoria] || CAT_COLORS.TI

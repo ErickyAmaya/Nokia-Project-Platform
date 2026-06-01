@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
@@ -197,7 +198,7 @@ export default function MatMovimientos() {
               </tr></thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign:'center', padding:24, color:'#9ca89c' }}>Sin movimientos</td></tr>
+                  <EmptyRow colSpan={8} icon="🔄" title="Sin movimientos" subtitle="Los despachos y entradas aparecerán aquí." />
                 )}
                 {rows.map(m => {
                   const cat = catalogo.find(c => c.id === m.catalogo_id)

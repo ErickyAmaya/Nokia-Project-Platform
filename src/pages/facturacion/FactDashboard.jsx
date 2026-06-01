@@ -78,18 +78,11 @@ function PeriodoActual({ calendar }) {
   const period = calendar.find(c => c.year === year && c.month === month)
   if (!period) return null
 
-  const isOpen   = day >= period.start_day && day <= period.cutoff_day
-  const daysLeft = period.cutoff_day - day
+  const notStarted = day < period.start_day
+  const isOpen     = !notStarted && day <= period.cutoff_day
+  const daysLeft   = period.cutoff_day - day
 
-  const nextMonth  = month === 12 ? 1 : month + 1
-  const nextYear   = month === 12 ? year + 1 : year
-  const nextPeriod = !isOpen ? calendar.find(c => c.year === nextYear && c.month === nextMonth) : null
-
-  const daysToNext = nextPeriod ? (() => {
-    const start = new Date(nextYear, nextMonth - 1, nextPeriod.start_day)
-    return Math.ceil((start - now) / 86400000)
-  })() : null
-
+  // Periodo abierto: solo muestra el periodo actual
   if (isOpen) return (
     <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
@@ -106,31 +99,81 @@ function PeriodoActual({ calendar }) {
     </div>
   )
 
+  // Periodo aún no iniciado: muestra mes anterior como finalizado + mes actual por iniciar
+  if (notStarted) {
+    const prevMonth  = month === 1 ? 12 : month - 1
+    const prevYear   = month === 1 ? year - 1 : year
+    const prevPeriod = calendar.find(c => c.year === prevYear && c.month === prevMonth)
+    const daysToStart = period.start_day - day
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: 10, overflow: 'hidden', border: '1px solid #fca5a5' }}>
+        {prevPeriod && (
+          <div style={{ background: '#fef2f2', padding: '12px 16px', flex: 1 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#991b1b' }}>Periodo Anterior Finalizado</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{prevPeriod.month_name} {prevPeriod.year}</div>
+            <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>Cerrado: día {prevPeriod.cutoff_day}</div>
+          </div>
+        )}
+        {prevPeriod && <div style={{ background: '#fee2e2', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#dc2626', fontSize: 20, fontWeight: 700 }}>→</div>}
+        <div style={{ background: '#fffbeb', padding: '12px 16px', flex: 1, borderLeft: prevPeriod ? '1px solid #fcd34d' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#92400e' }}>Próximo Periodo</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{period.month_name} {period.year}</div>
+            <div style={{ fontSize: 11, color: '#78350f', marginTop: 2 }}>
+              Inicia: día {period.start_day}
+            </div>
+          </div>
+          {daysToStart > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: '#b45309', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 4 }}>Inicia en:</span>
+              <div className="period-countdown" style={{ width: 52, height: 52, borderRadius: '50%', border: '2px solid #f59e0b', background: '#fef3c7', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, lineHeight: 1, color: '#92400e' }}>{daysToStart}</span>
+                <span style={{ fontSize: 8, fontWeight: 600, color: '#b45309', letterSpacing: .5, textTransform: 'uppercase' }}>días</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Periodo cerrado (day > cutoff_day): muestra mes actual finalizado + próximo mes
+  const nextMonth  = month === 12 ? 1 : month + 1
+  const nextYear   = month === 12 ? year + 1 : year
+  const nextPeriod = calendar.find(c => c.year === nextYear && c.month === nextMonth)
+  const daysToNext = nextPeriod ? (() => {
+    const start = new Date(nextYear, nextMonth - 1, nextPeriod.start_day)
+    return Math.ceil((start - now) / 86400000)
+  })() : null
+
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', borderRadius: 10, overflow: 'hidden', border: '1px solid #fca5a5' }}>
-      {/* Periodo cerrado */}
       <div style={{ background: '#fef2f2', padding: '12px 16px', flex: 1 }}>
         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#991b1b' }}>Periodo Actual Finalizado</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{period.month_name} {period.year}</div>
         <div style={{ fontSize: 11, color: '#7f1d1d', marginTop: 2 }}>Cerrado: día {period.cutoff_day}</div>
       </div>
-
       {nextPeriod && (
         <>
-          {/* Flecha */}
           <div style={{ background: '#fee2e2', display: 'flex', alignItems: 'center', padding: '0 10px', color: '#dc2626', fontSize: 20, fontWeight: 700 }}>→</div>
-          {/* Próximo periodo */}
-          <div style={{ background: '#fffbeb', padding: '12px 16px', flex: 1, borderLeft: '1px solid #fcd34d' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#92400e' }}>Próximo Periodo</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{nextPeriod.month_name} {nextPeriod.year}</div>
-            <div style={{ fontSize: 11, color: '#78350f', marginTop: 2 }}>
-              Inicia: día {nextPeriod.start_day}
-              {daysToNext !== null && (
-                <span style={{ marginLeft: 6, fontWeight: 700 }}>
-                  · {daysToNext <= 0 ? 'inicia hoy' : `faltan ${daysToNext} día${daysToNext !== 1 ? 's' : ''}`}
-                </span>
-              )}
+          <div style={{ background: '#fffbeb', padding: '12px 16px', flex: 1, borderLeft: '1px solid #fcd34d', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#92400e' }}>Próximo Periodo</div>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, color: '#09090b' }}>{nextPeriod.month_name} {nextPeriod.year}</div>
+              <div style={{ fontSize: 11, color: '#78350f', marginTop: 2 }}>
+                Inicia: día {nextPeriod.start_day}
+              </div>
             </div>
+            {daysToNext > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#b45309', letterSpacing: .5, textTransform: 'uppercase', marginBottom: 4 }}>Inicia en:</span>
+                <div className="period-countdown" style={{ width: 52, height: 52, borderRadius: '50%', border: '2px solid #f59e0b', background: '#fef3c7', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, lineHeight: 1, color: '#92400e' }}>{daysToNext}</span>
+                  <span style={{ fontSize: 8, fontWeight: 600, color: '#b45309', letterSpacing: .5, textTransform: 'uppercase' }}>días</span>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

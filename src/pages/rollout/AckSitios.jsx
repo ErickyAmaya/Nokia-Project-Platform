@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 
@@ -76,7 +77,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
             </div>
           )}
           {filtered.length === 0 ? (
-            <div style={{ padding: '10px 14px', fontSize: 11, color: '#4b5563' }}>Sin resultados</div>
+            <EmptyState icon="🔍" title="Sin resultados" subtitle="Prueba ajustando los filtros." style={{ padding: '16px' }} />
           ) : filtered.map(o => (
             <div
               key={o}
@@ -434,8 +435,8 @@ export default function AckSitios() {
             <tbody>
               {sitios.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + PROCESOS.length} style={{ textAlign: 'center', padding: 40, color: '#4b5563' }}>
-                    Sin resultados
+                  <td colSpan={6 + PROCESOS.length} style={{ padding: 0, borderTop: 'none' }}>
+                    <EmptyState icon="🔍" title="Sin resultados" subtitle="Prueba ajustando los filtros." style={{ padding: '32px' }} />
                   </td>
                 </tr>
               ) : sitios.map(({ mainSmp, smps }) => (

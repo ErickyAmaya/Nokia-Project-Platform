@@ -249,8 +249,26 @@ export default function Layout({ children }) {
           ? '#144E4A'
           : '#555f55'
 
+  const pageBg = inMateriales
+    ? '#f9fcff'
+    : inRollout
+      ? '#fbf9ff'
+      : inFacturacion
+        ? '#fffefb'
+        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+          ? '#f9fefb'
+          : '#f0f2f0'
+
+  const moduleClass = inMateriales
+    ? 'mod-mat'
+    : inRollout
+      ? 'mod-rollout'
+      : inFacturacion
+        ? 'mod-fact'
+        : 'mod-liq'
+
   return (
-    <div style={{ minHeight: '100svh', background: '#f0f2f0' }}>
+    <div style={{ minHeight: '100svh', background: pageBg, transition: 'background .3s' }}>
       {/* ── Header ─────────────────────────────────────────────── */}
       <header style={{
         background: '#fff', display: 'flex', alignItems: 'center',
@@ -568,7 +586,7 @@ export default function Layout({ children }) {
       />
 
       {/* ── Page content ───────────────────────────────────────── */}
-      <main className="page-main" style={{
+      <main className={`page-main ${moduleClass}`} style={{
         padding: '18px 18px calc(max(18px, env(safe-area-inset-bottom)) + 30px)',
         maxWidth: 1400, margin: '0 auto',
       }}>

@@ -8,6 +8,7 @@ import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import HwDespachoModal from '../../components/materiales/HwDespachoModal'
 import HwSkytoolDespachoModal from '../../components/materiales/HwSkytoolDespachoModal'
+import { EmptyState } from '../../components/EmptyState'
 
 function IconEdit({ size = 13 }) {
   return (
@@ -751,7 +752,7 @@ export default function HwMovimientos() {
               </div>
               <div style={{ flex:1, overflowY:'auto', padding:16, display:'flex', flexDirection:'column', gap:16 }}>
                 {soMovs.length === 0
-                  ? <div style={{ textAlign:'center', padding:32, color:'#9ca89c' }}>Sin movimientos para esta SO.</div>
+                  ? <EmptyState icon="📋" title="Sin movimientos para esta SO" />
                   : <>
                       {section('Entradas', '#1a6130', '#d4edda', entradas)}
                       {section('Salidas a sitio', '#1e40af', '#dbeafe', salidas)}
@@ -829,9 +830,7 @@ export default function HwMovimientos() {
           <div className="card">
             <div className="card-b" style={{ padding:0 }}>
               {enTransito.length === 0 ? (
-                <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:13 }}>
-                  No hay equipos en transferencia
-                </div>
+                <EmptyState icon="🔄" title="Sin equipos en transferencia" />
               ) : Object.entries(porSS).map(([ss, items]) => (
                 <div key={ss}>
                   <div style={{ background:'#fef3c7', borderBottom:'2px solid #fcd34d', padding:'8px 16px',
@@ -896,9 +895,7 @@ export default function HwMovimientos() {
         <div className="card">
           <div className="card-b" style={{ padding:0 }}>
             {rows.length === 0 ? (
-              <div style={{ textAlign:'center', padding:40, color:'#9ca89c', fontSize:13 }}>
-                Sin movimientos registrados
-              </div>
+              <EmptyState icon="📦" title="Sin movimientos registrados" subtitle="Los movimientos aparecerán aquí al registrar entradas o salidas de HW Nokia." />
             ) : rows.map(({ cat, movs }) => {
               const isOpen = search ? true : !!expandedGroups[cat.id]
               const entCount = movs.filter(m => m.tipo === 'ENTRADA').length

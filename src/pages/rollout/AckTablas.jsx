@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
@@ -238,7 +239,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
             </div>
           )}
           {filtered.length === 0 ? (
-            <div style={{ padding: '10px 14px', fontSize: 11, color: '#4b5563' }}>Sin resultados</div>
+            <EmptyState icon="🔍" title="Sin resultados" subtitle="Prueba ajustando los filtros." style={{ padding: '16px' }} />
           ) : filtered.map(o => (
             <div
               key={o}
