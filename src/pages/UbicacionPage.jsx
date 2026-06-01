@@ -250,7 +250,8 @@ export default function UbicacionPage() {
           {active ? '⏹ Desactivar ubicación' : '▶ Activar ubicación'}
         </button>
 
-        {waitingPerm && (
+        {/* Esperando diálogo de permiso */}
+        {waitingPerm && !error && permState !== 'denied' && (
           <div style={{
             background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10,
             padding: '12px 14px', fontSize: 12, color: '#1e40af', textAlign: 'center', lineHeight: 1.6,
@@ -259,19 +260,33 @@ export default function UbicacionPage() {
               {isAndroid ? '👆 Debe aparecer un diálogo de permiso' : '👆 Revisa la barra de dirección'}
             </div>
             {isAndroid
-              ? <>Si no ves el diálogo, toca el ícono 🔒 en la barra de dirección → <strong>Permisos</strong> → <strong>Ubicación → Permitir</strong>, luego vuelve a activar.</>
-              : <>Busca un ícono de ubicación 📍 en la parte superior del navegador y tócalo para <strong>Permitir</strong>. Puede aparecer muy pequeño.</>
+              ? <>Si no ves el diálogo, toca el ícono 🔒 en la barra de dirección → <strong>Permisos del sitio</strong> → <strong>Ubicación → Permitir</strong>.</>
+              : <>Toca "Permitir" en el diálogo que aparece en la parte superior del navegador.</>
             }
           </div>
         )}
-        {permState === 'denied' && (
-          <div style={{ fontSize: 11, color: '#dc2626', textAlign: 'center', lineHeight: 1.5 }}>
-            Permiso denegado. Ve a configuración del navegador → Privacidad → Ubicación y permite el acceso a esta página.
-          </div>
-        )}
-        {error && permState !== 'denied' && (
-          <div style={{ fontSize: 11, color: '#dc2626', textAlign: 'center', lineHeight: 1.5 }}>
-            {error}
+
+        {/* Permiso bloqueado — mensaje único sin duplicados */}
+        {(permState === 'denied' || (!waitingPerm && error)) && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10,
+            padding: '13px 15px', fontSize: 12, color: '#991b1b', lineHeight: 1.7,
+          }}>
+            {isAndroid ? (
+              <>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>🔒 Ubicación bloqueada en Chrome</div>
+                <div>Sigue estos pasos para desbloquearla:</div>
+                <ol style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  <li>Abre Chrome → toca los <strong>3 puntos ⋮</strong> (arriba a la derecha)</li>
+                  <li>Ve a <strong>Configuración → Configuración del sitio → Ubicación</strong></li>
+                  <li>Busca <strong>vercel.app</strong> en la lista de bloqueados → tócalo</li>
+                  <li>Cambia a <strong>Permitir</strong></li>
+                  <li>Vuelve aquí y toca <strong>"Activar ubicación"</strong></li>
+                </ol>
+              </>
+            ) : (
+              'Permiso denegado. Permite el acceso a la ubicación en la configuración de tu navegador y vuelve a intentarlo.'
+            )}
           </div>
         )}
       </div>

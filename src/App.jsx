@@ -120,6 +120,7 @@ function RoleHome() {
 }
 
 // After session restoration on refresh, redirect once so each role lands on the right page.
+// For LC roles (TI/TSS): guard runs on EVERY navigation — they can only be on /rollout/mapa.
 function SessionRedirect() {
   const user    = useAuthStore(s => s.user)
   const loading = useAuthStore(s => s.loading)
@@ -128,18 +129,18 @@ function SessionRedirect() {
   const done = useRef(false)
 
   useEffect(() => {
-    if (!loading && user && !done.current) {
+    if (loading || !user) return
+    const isLC = LC_ROLES.includes(user.role)
+    const lcAllowed  = ['/', '/login', '/set-password', '/rollout/mapa']
+    const allSkip    = [...lcAllowed, '/modulos']
+    if (isLC) {
+      // Guard permanente: cualquier ruta fuera de lcAllowed vuelve al mapa
+      if (!lcAllowed.includes(location.pathname)) navigate('/rollout/mapa', { replace: true })
+    } else if (!done.current) {
       done.current = true
-      const isLC   = LC_ROLES.includes(user.role)
-      const lcSkip = ['/', '/login', '/set-password', '/rollout/mapa']
-      const allSkip = [...lcSkip, '/modulos']
-      if (isLC) {
-        if (!lcSkip.includes(location.pathname)) navigate('/rollout/mapa', { replace: true })
-      } else {
-        if (!allSkip.includes(location.pathname)) navigate('/modulos', { replace: true })
-      }
+      if (!allSkip.includes(location.pathname)) navigate('/modulos', { replace: true })
     }
-  }, [loading, user, navigate, location.pathname])
+  }, [loading, user, location.pathname, navigate])
 
   return null
 }
