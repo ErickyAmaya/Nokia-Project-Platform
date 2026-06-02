@@ -307,18 +307,37 @@ export default function FactFacturado() {
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input className="fc" placeholder="Buscar sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
-          <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
-            {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
-          <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />
-          <input type="date" className="fc" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} title="Desde" style={{ fontSize: 11, width: 130 }} />
-          <span style={{ fontSize: 10, color: '#9ca89c' }}>–</span>
-          <input type="date" className="fc" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} title="Hasta" style={{ fontSize: 11, width: 130 }} />
-          {(fechaDesde || fechaHasta) && (
-            <button onClick={() => { setFechaDesde(''); setFechaHasta('') }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>✕</button>
-          )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+
+          {/* Buscar */}
+          <div className="fcol">
+            <span className="fcol-lbl">BUSCAR</span>
+            <input className="fc" placeholder="Sitio, SPO, factura…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11 }} />
+          </div>
+
+          {/* Servicio */}
+          <div className="fcol">
+            <span className="fcol-lbl">SERVICIO</span>
+            <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
+              {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </div>
+
+          {/* Fechas */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+            <div className="fcol">
+              <span className="fcol-lbl">FECHA (Desde)</span>
+              <input type="date" className="fc" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} style={{ fontSize: 11 }} />
+            </div>
+            <div className="fcol">
+              <span className="fcol-lbl">FECHA (Hasta)</span>
+              <input type="date" className="fc" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} style={{ fontSize: 11 }} />
+            </div>
+            {(fechaDesde || fechaHasta) && (
+              <button onClick={() => { setFechaDesde(''); setFechaHasta('') }} style={{ fontSize: 10, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>✕</button>
+            )}
+          </div>
+
         </div>
       </div>
 

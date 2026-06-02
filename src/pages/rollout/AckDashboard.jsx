@@ -489,11 +489,7 @@ export default function AckDashboard() {
       </div>
 
       {/* ── Filtros ── */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-        <select className="fc btn-sm" value={region} onChange={e => setRegion(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="todos">Todas las Regiones</option>
-          {regiones.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
         <MultiSelect
           options={proyectoOpts}
           value={proyectoSel}
@@ -513,6 +509,11 @@ export default function AckDashboard() {
           <input type="checkbox" checked={soloPend} onChange={e => setSoloPend(e.target.checked)} />
           Solo pendientes
         </label>
+        <select className="fc btn-sm" value={region} onChange={e => setRegion(e.target.value)}
+          style={{ fontSize: 11, width: 'auto', marginLeft: 'auto' }}>
+          <option value="todos">Todas las Regiones</option>
+          {regiones.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
       </div>
 
       {/* ── KPIs globales ── */}

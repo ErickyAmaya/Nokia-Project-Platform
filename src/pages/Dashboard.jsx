@@ -117,22 +117,43 @@ export default function Dashboard() {
           Proyecto Nokia 2026
         </h1>
         <div className="dash-controls">
-          <input
-            type="text" className="fc"
-            placeholder="🔍 Buscar sitio…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <input type="date" className="fc" style={{ fontSize: 11 }}
-            value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}
-            placeholder="Desde" title="Fecha desde" />
-          <span style={{ fontSize: 11, color: '#9ca89c' }}>—</span>
-          <input type="date" className="fc" style={{ fontSize: 11 }}
-            value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}
-            placeholder="Hasta" title="Fecha hasta" />
-          <select className="fc" value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
-            {tcOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+
+          {/* Buscar */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1 }}>BUSCAR</span>
+            <input
+              type="text" className="fc"
+              placeholder="Sitio, LC, ciudad…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Fecha desde */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1 }}>FECHA (Desde)</span>
+            <input type="date" className="fc" style={{ fontSize: 11 }}
+              value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} />
+          </div>
+
+          {/* Fecha hasta */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1 }}>FECHA (Hasta)</span>
+            <input type="date" className="fc" style={{ fontSize: 11 }}
+              value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} />
+          </div>
+
+          {/* Cuadrilla */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#9ca89c', letterSpacing: 1 }}>CUADRILLA</span>
+            <select className="fc" value={cuadrilla} onChange={e => setCuadrilla(e.target.value)}>
+              <option value="todos">Todas</option>
+              {tcOpts.filter(o => o.value !== 'todos').map(o =>
+                <option key={o.value} value={o.value}>{o.label}</option>
+              )}
+            </select>
+          </div>
+
           {!isViewer && (
             <>
               <button className="btn bp no-print" onClick={() => setModalSitio(true)}>＋ Sitio</button>

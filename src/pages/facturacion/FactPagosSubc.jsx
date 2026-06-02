@@ -315,9 +315,9 @@ export default function FactPagosSubc() {
 
   return (
     <>
-      <div style={{ ...((compact || narrow) ? {} : { position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10 }), background: '#f0f2f0', paddingBottom: 14, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
+      <div style={{ ...((compact || narrow) ? {} : { position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10 }), background: '#f0f2f0', paddingBottom: 8, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
       {/* Header */}
-      <div className="dash-hdr mb14">
+      <div className="dash-hdr" style={{ marginBottom: 8 }}>
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Pagos Subcontratistas</h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>Registro y control de pagos por hitos de obra</div>
@@ -325,42 +325,35 @@ export default function FactPagosSubc() {
       </div>
 
       {/* KPI cards — solo SubC */}
-      <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
-        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 3 }}>Total SubC</div>
-          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#144E4A', lineHeight: 1.1 }}>{fmtCOP(kpis.totalSubcG)}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: narrow ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 8, marginBottom: 8 }}>
+        <div className="card" style={{ padding: '8px 12px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 2 }}>Total SubC</div>
+          <div style={{ fontSize: narrow ? 13 : 17, fontWeight: 800, color: '#144E4A', lineHeight: 1.1 }}>{fmtCOP(kpis.totalSubcG)}</div>
           <div style={{ fontSize: 9, color: '#9ca89c', marginTop: 2 }}>{kpis.count} sitios · {internaCount} internas</div>
         </div>
-        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#166534', marginBottom: 3 }}>Total Pagado</div>
-          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#166534', lineHeight: 1.1 }}>{fmtCOP(kpis.pagadoG)}</div>
+        <div className="card" style={{ padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#166534', marginBottom: 2 }}>Total Pagado</div>
+          <div style={{ fontSize: narrow ? 13 : 17, fontWeight: 800, color: '#166534', lineHeight: 1.1 }}>{fmtCOP(kpis.pagadoG)}</div>
           <div style={{ fontSize: 9, color: '#166534', marginTop: 2 }}>{kpis.pctG}% del total</div>
         </div>
-        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 3 }}>Pendiente</div>
-          <div style={{ fontSize: narrow ? 14 : 20, fontWeight: 800, color: '#b45309', lineHeight: 1.1 }}>{fmtCOP(kpis.pendienteG)}</div>
+        <div className="card" style={{ padding: '8px 12px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 2 }}>Pendiente</div>
+          <div style={{ fontSize: narrow ? 13 : 17, fontWeight: 800, color: '#b45309', lineHeight: 1.1 }}>{fmtCOP(kpis.pendienteG)}</div>
           <div style={{ fontSize: 9, color: '#9ca89c', marginTop: 2 }}>{100 - kpis.pctG}% restante</div>
         </div>
-        <div className="card" style={{ padding: narrow ? '10px 12px' : '14px 16px' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 4 }}>Progreso</div>
-          <div style={{ height: 7, background: '#e0e7ff', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{ height: 7, width: `${kpis.pctG}%`, background: '#6366f1', borderRadius: 4, transition: 'width .4s' }} />
+        <div className="card" style={{ padding: '8px 12px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .8, color: '#9ca89c', marginBottom: 3 }}>Progreso</div>
+          <div style={{ height: 6, background: '#e0e7ff', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: 6, width: `${kpis.pctG}%`, background: '#6366f1', borderRadius: 4, transition: 'width .4s' }} />
           </div>
-          <div style={{ fontSize: narrow ? 13 : 14, fontWeight: 800, color: '#4338ca', marginTop: 4 }}>{kpis.pctG}%</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#4338ca', marginTop: 3 }}>{kpis.pctG}%</div>
         </div>
       </div>
 
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select className="fc" value={filtroLc} onChange={e => setFiltroLc(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="">Todos los LC</option>
-          {lcOptions.map(lc => <option key={lc} value={lc}>{lc}</option>)}
-        </select>
-        <select className="fc" value={filtroEst} onChange={e => setFiltroEst(e.target.value)} style={{ fontSize: 11 }}>
-          <option value="todos">Todos los estados</option>
-          <option value="pendiente">Con pagos pendientes</option>
-          <option value="completado">Completados</option>
-        </select>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 0, flexWrap: 'nowrap', alignItems: 'center' }}>
+        <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, fontWeight: 700, margin: 0 }}>Sitios</h2>
+        <span style={{ background: '#144E4A', color: '#fff', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 8px' }}>{filtered.length}</span>
         <button
           onClick={() => setShowInternas(v => !v)}
           style={{
@@ -368,11 +361,23 @@ export default function FactPagosSubc() {
             background: showInternas ? '#eff6ff' : '#fef3c7',
             color:      showInternas ? '#1e40af'  : '#92400e',
             border: `1px solid ${showInternas ? '#bfdbfe' : '#fcd34d'}`,
+            whiteSpace: 'nowrap',
           }}
         >
           {showInternas ? '👁 Cuadrilla Interna visible' : '◡ Cuadrilla Interna oculta'}
         </button>
         <span style={{ fontSize: 10, color: '#9ca89c' }}>{filtered.length} sitio{filtered.length !== 1 ? 's' : ''}</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select className="fc" value={filtroLc} onChange={e => setFiltroLc(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
+            <option value="">Todos los LC</option>
+            {lcOptions.map(lc => <option key={lc} value={lc}>{lc}</option>)}
+          </select>
+          <select className="fc" value={filtroEst} onChange={e => setFiltroEst(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Con pagos pendientes</option>
+            <option value="completado">Completados</option>
+          </select>
+        </div>
       </div>
       </div>
 

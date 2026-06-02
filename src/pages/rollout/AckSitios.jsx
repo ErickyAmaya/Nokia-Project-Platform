@@ -384,25 +384,18 @@ export default function AckSitios() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
           <SearchableSelect
             options={siteNames}
             value={search}
             onChange={setSearch}
             placeholder="🔍 Buscar sitio…"
           />
-
-          <select className="fc" value={region} onChange={e => setRegion(e.target.value)} style={{ fontSize: 11 }}>
+          <select className="fc" value={region} onChange={e => setRegion(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
             <option value="">Todas las Regiones</option>
             {regiones.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-
-          <select
-            className="fc"
-            value={filtro}
-            onChange={e => setFiltro(e.target.value)}
-            style={{ fontSize: 11, fontWeight: 700 }}
-          >
+          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 700, width: 'auto' }}>
             {FILTRO_OPTS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}

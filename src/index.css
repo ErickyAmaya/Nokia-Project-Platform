@@ -305,10 +305,16 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
    Se sobreescriben en mobile para afectar los inline styles       */
 :root { --two-col: 1fr 1fr; }
 
+/* ── Filter column — ancho fijo para bloques de filtro ───────── */
+.fcol              { width: 160px !important; min-width: 160px !important; max-width: 160px !important;
+                     flex-shrink: 0 !important; display: flex; flex-direction: column; gap: 3px; }
+.fcol .fc          { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+.fcol-lbl          { font-size: 9px; font-weight: 700; color: #9ca89c; letter-spacing: 1px; }
+
 /* ── Dashboard layout classes ────────────────────────────────── */
 .dash-hdr        { display: flex; justify-content: space-between; align-items: flex-start;
                    flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.dash-controls   { display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; white-space: nowrap; }
+.dash-controls   { display: flex; gap: 8px; flex-wrap: nowrap; align-items: flex-end; white-space: nowrap; }
 .dash-controls input.fc { min-width: 180px; }
 .dash-main-grid  { display: grid; grid-template-columns: 1fr 340px; gap: 14px; }
 .kpi-grid        { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 10px; }

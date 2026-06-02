@@ -936,7 +936,7 @@ export default function AckForecast() {
             )
           }
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
           {/* Tab switcher */}
           <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e0e4e0' }}>
             {[
@@ -957,22 +957,24 @@ export default function AckForecast() {
           </div>
 
           {activeView === 'reporte' && (
-            <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600 }}>
+            <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600, width: 'auto' }}>
               {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           )}
 
-          <button onClick={() => setSetupOpen(true)}
-            style={{ padding: '7px 12px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#fff', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 5 }}
-            title="Configurar estados visibles en el reporte Nokia"
-          >
-            ⚙ Configurar
-            {totalOcultos > 0 && (
-              <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800 }}>
-                {totalOcultos}
-              </span>
-            )}
-          </button>
+          {activeView === 'seguimiento' && (
+            <button onClick={() => setSetupOpen(true)}
+              style={{ padding: '7px 12px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#fff', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 5 }}
+              title="Configurar estados visibles en el reporte Nokia"
+            >
+              ⚙ Configurar
+              {totalOcultos > 0 && (
+                <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800 }}>
+                  {totalOcultos}
+                </span>
+              )}
+            </button>
+          )}
 
           {activeView === 'reporte' && (
             <button onClick={handleExcelExport} disabled={exporting}

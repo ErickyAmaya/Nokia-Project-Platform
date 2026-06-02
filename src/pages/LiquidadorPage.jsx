@@ -444,9 +444,9 @@ export default function LiquidadorPage() {
         <div className="card" style={{ marginBottom: 12 }}>
           <div className="card-b" style={{ paddingTop: 10, paddingBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-            {/* Fila 1: SMP + Fecha (solo inputs — sin conflicto de ancho con selects) */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <div className="fg" style={{ marginBottom: 0, flex: '2 1 0' }}>
+            {/* Fila única: todos los campos */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '0 0 200px' }}>
                 <label className="fl">Main SMP</label>
                 <input
                   type="text" className="fc"
@@ -476,7 +476,7 @@ export default function LiquidadorPage() {
                   disabled={isFinal}
                 />
               </div>
-              <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
+              <div className="fg" style={{ marginBottom: 0, flex: '0 0 130px' }}>
                 <label className="fl">Fecha</label>
                 <input
                   type="date" className="fc"
@@ -485,10 +485,6 @@ export default function LiquidadorPage() {
                   disabled={isFinal}
                 />
               </div>
-            </div>
-
-            {/* Fila 2: 5 selects de igual ancho */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div className="fg" style={{ marginBottom: 0, flex: '1 1 0' }}>
                 <label className="fl">Tipo Ciudad</label>
                 <select

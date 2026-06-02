@@ -391,6 +391,15 @@ export default function CWLiquidadorView({ sitio }) {
         <div className="card-b">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             <div className="fg" style={{ marginBottom: 0 }}>
+              <label className="fl">Fecha</label>
+              <input
+                type="date" className="fc"
+                value={liq.fecha || ''}
+                disabled={locked}
+                onChange={e => updLiqField('fecha', e.target.value)}
+              />
+            </div>
+            <div className="fg" style={{ marginBottom: 0 }}>
               <label className="fl">Región</label>
               <select className="fc" value={liq.region || ''} disabled={locked} onChange={e => updLiqField('region', e.target.value)}>
                 <option value="">— Seleccionar —</option>
@@ -410,15 +419,6 @@ export default function CWLiquidadorView({ sitio }) {
                 <option value="">— Seleccionar LC —</option>
                 {subcs.map(s => <option key={s.lc} value={s.lc}>{s.lc}</option>)}
               </select>
-            </div>
-            <div className="fg" style={{ marginBottom: 0 }}>
-              <label className="fl">Fecha</label>
-              <input
-                type="date" className="fc"
-                value={liq.fecha || ''}
-                disabled={locked}
-                onChange={e => updLiqField('fecha', e.target.value)}
-              />
             </div>
           </div>
         </div>

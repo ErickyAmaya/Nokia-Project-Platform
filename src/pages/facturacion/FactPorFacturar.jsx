@@ -685,9 +685,9 @@ export default function FactPorFacturar() {
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {pendienteLib.length + bloqueadoAck.length + noCompletados.length} hitos NDPD en seguimiento</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
-          <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+          <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 'auto', minWidth: 180 }} />
+          <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
             {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
           <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />

@@ -85,9 +85,9 @@ export default function FactSMPs() {
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Todos los SMPs</h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} de {ppa.length} SPOs</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input className="fc" placeholder="Buscar sitio, SPO, SMP, sGR…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 240 }} />
-          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+          <input className="fc" placeholder="Buscar sitio, SPO, SMP, sGR…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 'auto', minWidth: 200 }} />
+          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
             <option value="todos">Todos</option>
             <option value="facturar">Por Facturar</option>
             <option value="facturado">Facturado</option>

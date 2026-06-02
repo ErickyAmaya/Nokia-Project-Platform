@@ -8,6 +8,7 @@ import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, MESES } from '../lib/catalog'
+import { buildTCOptions, matchTipoCuadrilla } from '../lib/cuadrilla'
 
 // ── Paleta ───────────────────────────────────────────────────────
 const CN = '#144E4A'
@@ -116,12 +117,22 @@ function KpiCard({ label, value, sub, color = CN }) {
 // ── Barra de filtros horizontal (colapsable) ──────────────────────
 function FilterBar({ filters, setFilter, sitios, subcs }) {
   const [open, setOpen] = useState(false)
-  const cuadrillas = useMemo(() => [...new Set(subcs.map(s => s.tipoCuadrilla).filter(Boolean))].sort(), [subcs])
+  const cuadrillaOpts = useMemo(() => {
+    const tipos = [...new Set(subcs.map(s => s.tipoCuadrilla).filter(Boolean))].sort()
+    return buildTCOptions(tipos).filter(o => o.value !== 'todos')
+  }, [subcs])
   const lcs = useMemo(() => {
     const allLcs = [...new Set(sitios.map(s => s.lc).filter(Boolean))].sort()
     if (!filters.cuadrilla) return allLcs
     const lcsDeCuadrilla = new Set(
-      subcs.filter(s => s.tipoCuadrilla === filters.cuadrilla).map(s => s.lc).filter(Boolean)
+      subcs.filter(s => {
+        const tc = s.tipoCuadrilla || ''
+        if (tc === filters.cuadrilla) return true
+        const parts = tc.split(' ')
+        const prefix = parts[0]
+        const suffix = parts.slice(1).join(' ')
+        return (suffix && suffix === filters.cuadrilla) || (prefix && prefix === filters.cuadrilla)
+      }).map(s => s.lc).filter(Boolean)
     )
     return allLcs.filter(lc => lcsDeCuadrilla.has(lc))
   }, [sitios, subcs, filters.cuadrilla])
@@ -170,7 +181,7 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
         {/* chips de filtros activos */}
         {filters.tipo    !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Tipo: {filters.tipo}</span>}
         {filters.region  !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Región: {filters.region}</span>}
-        {filters.estado  !== 'TODOS' && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Estado: {filters.estado}</span>}
+
         {filters.lc      !== ''      && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>LC: {filters.lc}</span>}
         {filters.cuadrilla !== ''    && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Cuadrilla: {filters.cuadrilla}</span>}
         {filters.fechaDesde !== ''   && <span className="badge" style={{ background: '#e0f0fe', color: CN, fontSize: 9 }}>Desde: {filters.fechaDesde}</span>}
@@ -215,18 +226,6 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
 
           {sep}
 
-          {/* Estado */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {lbl('ESTADO')}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {pill('estado','TODOS','Todos')}
-              {pill('estado','pre','Pre-Final')}
-              {pill('estado','final','Final')}
-            </div>
-          </div>
-
-          {sep}
-
           {/* LC */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {lbl('LC / SUBCONTRATISTA')}
@@ -242,22 +241,24 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
           {/* Cuadrilla */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {lbl('CUADRILLA')}
-            <select className="fc" style={{ fontSize: 10, padding: '3px 6px', minWidth: 120 }}
+            <select className="fc" style={{ fontSize: 10, padding: '3px 6px', minWidth: 150 }}
               value={filters.cuadrilla} onChange={e => setFilter('cuadrilla', e.target.value)}>
               <option value="">— Todas —</option>
-              {cuadrillas.map(c => <option key={c} value={c}>{c}</option>)}
+              {cuadrillaOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
           {sep}
 
-          {/* Fecha */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {lbl('FECHA')}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* Fechas */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexShrink: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {lbl('FECHA (Desde)')}
               <input type="date" className="fc" style={{ fontSize: 10, padding: '3px 6px', width: 130 }}
                 value={filters.fechaDesde} onChange={e => setFilter('fechaDesde', e.target.value)} />
-              <span style={{ fontSize: 10, color: '#9ca89c' }}>—</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {lbl('FECHA (Hasta)')}
               <input type="date" className="fc" style={{ fontSize: 10, padding: '3px 6px', width: 130 }}
                 value={filters.fechaHasta} onChange={e => setFilter('fechaHasta', e.target.value)} />
             </div>
@@ -979,9 +980,14 @@ export default function AnaliticaPage() {
 
   function setFilter(field, value) {
     if (field === '__reset__') { setFilters({ ...INIT_FILTERS, tipo: roleFilter }); return }
-    // Role-restricted users cannot change the tipo filter
     if (field === 'tipo' && roleFilter !== 'TODOS') return
-    setFilters(f => ({ ...f, [field]: value }))
+    setFilters(f => {
+      const next = { ...f, [field]: value }
+      if (field === 'fechaDesde' && value) {
+        next.fechaHasta = new Date().toISOString().split('T')[0]
+      }
+      return next
+    })
   }
 
   // ── Sitios filtrados ──────────────────────────────────────────
@@ -993,10 +999,7 @@ export default function AnaliticaPage() {
         if (filters.tipo === 'CW'  && !s.tiene_cw) return false
       }
       if (filters.lc && s.lc !== filters.lc) return false
-      if (filters.cuadrilla) {
-        const sub = subcs.find(x => x.lc === s.lc)
-        if ((sub?.tipoCuadrilla || '') !== filters.cuadrilla) return false
-      }
+      if (filters.cuadrilla && !matchTipoCuadrilla(s, subcs, filters.cuadrilla)) return false
       if (filters.region !== 'TODOS') {
         if ((s.region || '') !== filters.region) return false
       }

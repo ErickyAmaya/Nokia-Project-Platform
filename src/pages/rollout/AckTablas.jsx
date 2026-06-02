@@ -605,28 +605,10 @@ export default function AckTablas() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchableSelect
-            options={siteNames}
-            value={sitio}
-            onChange={setSitio}
-            placeholder="🔍 Buscar sitio o SMP…"
-          />
-          <select
-            className="fc"
-            value={filtro}
-            onChange={e => setFiltro(e.target.value)}
-            style={{ fontSize: 11, fontWeight: 700 }}
-          >
-            {FILTRO_OPTS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1.5px solid #e0e4e0', marginBottom: 16, overflowX: 'auto' }}>
+      {/* Tabs + filtros */}
+      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1.5px solid #e0e4e0', marginBottom: 16, overflowX: 'auto' }}>
         {TAB_ORDER.map(key => PROCESOS.find(p => p.key === key)).filter(Boolean).map(p => (
           <button key={p.key} style={tabStyle(p.key)} onClick={() => setTab(p.key)}>
             {p.label}
@@ -640,6 +622,24 @@ export default function AckTablas() {
             )}
           </button>
         ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, paddingBottom: 4 }}>
+          <SearchableSelect
+            options={siteNames}
+            value={sitio}
+            onChange={setSitio}
+            placeholder="🔍 Buscar sitio o SMP…"
+          />
+          <select
+            className="fc"
+            value={filtro}
+            onChange={e => setFiltro(e.target.value)}
+            style={{ fontSize: 11, fontWeight: 700, width: 'auto' }}
+          >
+            {FILTRO_OPTS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="card-b" style={{ padding: 16 }}>
