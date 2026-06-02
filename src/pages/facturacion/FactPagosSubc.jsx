@@ -395,47 +395,37 @@ export default function FactPagosSubc() {
             <div
               onClick={() => toggle(site.nombre)}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', cursor: 'pointer', userSelect: 'none',
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', cursor: 'pointer', userSelect: 'none',
                 background: isOpen ? (site.esInterna ? '#f0f4ff' : '#f0f7f0') : '#fff',
                 borderBottom: isOpen ? `1px solid ${site.esInterna ? '#c7d7fd' : '#d4e4d4'}` : 'none',
                 transition: 'background .15s',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 10, color: site.esInterna ? '#3b82f6' : '#144E4A', flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'none', display: 'inline-block' }}>▶</span>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>{site.nombre}</span>
-                    {site.lc && (
-                      <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>
-                        {site.lc}
-                      </span>
-                    )}
-                    {site.esInterna
-                      ? <span style={{ background: '#e0e7ff', color: '#3730a3', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>Cuadrilla Interna</span>
-                      : site.totalSubc === 0
-                        ? <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>Sin SubC</span>
-                        : site.completed
-                          ? <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>Completado</span>
-                          : <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px' }}>{site.pendingCount} pendiente{site.pendingCount !== 1 ? 's' : ''}</span>
-                    }
-                  </div>
-                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
-                    {[
-                      site.lc && `LC: ${site.lc}`,
-                      site.cat && `Cat ${site.cat}`,
-                      site.esInterna
-                        ? site.cuadrillaCosto > 0 ? `Costo cuadrilla: ${fmtCOP(site.cuadrillaCosto)}` : 'Cuadrilla interna sin costo calculado'
-                        : site.totalSubc > 0 ? `SubC: ${fmtCOP(site.totalSubc)}` : null,
-                    ].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-              </div>
+              <span style={{ fontSize: 10, color: site.esInterna ? '#3b82f6' : '#144E4A', flexShrink: 0, transition: 'transform .2s', transform: isOpen ? 'rotate(90deg)' : 'none', display: 'inline-block' }}>▶</span>
+              <span style={{ fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{site.nombre}</span>
+              {site.lc && <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', flexShrink: 0 }}>{site.lc}</span>}
+              {site.cat && <span style={{ fontSize: 9, color: '#9ca89c', flexShrink: 0 }}>Cat {site.cat}</span>}
               {site.esInterna
-                ? <span style={{ fontSize: 9, color: '#9ca89c', fontStyle: 'italic', flexShrink: 0 }}>Pagos SubC no aplican</span>
-                : site.totalSubc > 0 ? <MiniBar pct={site.pct} /> : null
+                ? <span style={{ background: '#e0e7ff', color: '#3730a3', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', flexShrink: 0 }}>Cuadrilla Interna</span>
+                : site.totalSubc === 0
+                  ? <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', flexShrink: 0 }}>Sin SubC</span>
+                  : site.completed
+                    ? <span style={{ background: '#dcfce7', color: '#166534', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', flexShrink: 0 }}>Completado</span>
+                    : <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 7px', flexShrink: 0 }}>{site.pendingCount} pendiente{site.pendingCount !== 1 ? 's' : ''}</span>
               }
+              {!site.esInterna && site.totalSubc > 0 && (
+                <span style={{ fontSize: 10, color: '#144E4A', fontWeight: 700, flexShrink: 0 }}>{fmtCOP(site.totalSubc)}</span>
+              )}
+              {site.esInterna && site.cuadrillaCosto > 0 && (
+                <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 600, flexShrink: 0 }}>{fmtCOP(site.cuadrillaCosto)}</span>
+              )}
+              <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                {site.esInterna
+                  ? <span style={{ fontSize: 9, color: '#9ca89c', fontStyle: 'italic' }}>Pagos SubC no aplican</span>
+                  : site.totalSubc > 0 ? <MiniBar pct={site.pct} /> : null
+                }
+              </div>
             </div>
 
             {/* Contenido expandido — Cuadrilla Interna */}

@@ -26,7 +26,7 @@ const MODULOS = [
   },
   {
     id:          'materiales',
-    nombre:      'Inventarios & Materiales',
+    nombre:      'Logística · WMS',
     corto:       'Materiales',
     descripcion: 'Control de stock, movimientos y trazabilidad de materiales y HW Nokia.',
     Icon:        Boxes,

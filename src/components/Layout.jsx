@@ -40,8 +40,8 @@ const MAT_NAV = [
   { to: '/materiales',              label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
   { to: '/materiales/inventario',   label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
   { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
-  { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/reportes',     label: 'Reportes',    icon: '📊', id: 'mat-reportes',    roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/catalogo',     label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ['admin','coordinador','logistica'] },
   { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','coordinador','logistica'] },
 ]
 
@@ -50,9 +50,9 @@ const HW_NAV = [
   { to: '/materiales/hw/inventario',           label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
   { to: '/materiales/hw/movimientos',          label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos',  roles: null },
   { to: '/materiales/hw/despachos-pendientes', label: 'Pend. Despacho', icon: '📦', id: 'hw-despachos-p',  roles: null },
-  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
   { to: '/materiales/hw/fallas',               label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',       roles: null },
   { to: '/materiales/hw/nokia-carga',          label: 'Carga Nokia',    icon: '📥', id: 'hw-nokia-carga',  roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
 ]
 
 const SITIOS_NAV = [
@@ -220,7 +220,7 @@ export default function Layout({ children }) {
       : inHw
         ? 'HW Nokia'
         : inMateriales
-          ? 'Gestión de Inventarios'
+          ? 'Logística · WMS'
           : inRollout
           ? 'Seguimiento Rollout'
           : inFacturacion

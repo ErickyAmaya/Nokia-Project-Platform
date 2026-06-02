@@ -336,10 +336,10 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   }
 
   function downloadTemplate() {
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['site_name', 'lat', 'lng'],
-      ['EJM.Sitio_Ejemplo', 4.7110, -74.0721],
-    ])
+    const filas = sitiosSinCoords.length > 0
+      ? sitiosSinCoords.map(s => [s.nombre, '', ''])
+      : [['EJM.Sitio_Ejemplo', 4.7110, -74.0721]]
+    const ws = XLSX.utils.aoa_to_sheet([['site_name', 'lat', 'lng'], ...filas])
     ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Coordenadas')
@@ -352,7 +352,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
     ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Coordenadas')
-    XLSX.writeFile(wb, 'sitios_actuales.xlsx')
+    XLSX.writeFile(wb, 'Coordenadas Sitios Actuales.xlsx')
   }
 
   function handleFile(e) {
@@ -512,7 +512,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={downloadTemplate} className="btn" style={{ fontSize: 11, padding: '7px 14px', cursor: 'pointer' }}>
-              📥 Template vacío
+              📥 Template
             </button>
             {currentCoords.length > 0 && (
               <button onClick={exportCurrent} className="btn" style={{ fontSize: 11, padding: '7px 14px', cursor: 'pointer' }}>
