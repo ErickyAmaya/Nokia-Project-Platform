@@ -225,9 +225,7 @@ function AppRoutes() {
         <ProtectedRoute allowedRoles={R_MGMT}>{W(<ReportesPage />)}</ProtectedRoute>
       } />
 
-      <Route path="/analitica" element={
-        <ProtectedRoute allowedRoles={R_ANALITICA}>{W(<AnaliticaPage />)}</ProtectedRoute>
-      } />
+      <Route path="/analitica" element={<Navigate to="/rollout/analitica" replace />} />
 
       <Route path="/catalogo" element={
         <ProtectedRoute allowedRoles={R_CATALOG}>{W(<CatalogoPage />)}</ProtectedRoute>
@@ -261,6 +259,11 @@ function AppRoutes() {
         <Route path="smps"              element={<FactSMPs />} />
         <Route path="pagos-subc"        element={<FactPagosSubc />} />
       </Route>
+
+      {/* ── /rollout/analitica ─────────────────────────────── */}
+      <Route path="/rollout/analitica" element={
+        <ProtectedRoute allowedRoles={R_ANALITICA}>{W(<AnaliticaPage />)}</ProtectedRoute>
+      } />
 
       {/* ── /rollout/mapa — accesible también para TI / TSS ─── */}
       <Route path="/rollout/mapa" element={

@@ -484,19 +484,12 @@ export const useHwStore = create((set, get) => ({
   },
 
   // Marca el despacho como realizado → equipos pasan a en_sitio / en_transito
-  realizarDespacho: async (despachoId, matSitios, saveSitio) => {
+  realizarDespacho: async (despachoId) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const isTransfer  = despacho.destino_tipo === 'ss'
     const nuevoEstado = isTransfer ? 'en_transito' : 'en_sitio'
     const destTipoMov = isTransfer ? 'ss'           : 'sitio'
-    // Crear sitio en Materiales solo si es despacho a sitio (no transferencia)
-    if (!isTransfer) {
-      const existe = matSitios?.some(s => s.nombre?.toLowerCase() === despacho.destino.toLowerCase())
-      if (!existe && despacho.destino && saveSitio) {
-        await saveSitio({ nombre: despacho.destino, regional: '', activo: true }).catch(() => {})
-      }
-    }
     // Procesar items
     for (const item of despacho.items) {
       if (item.aplica_serial !== false && item.serial) {

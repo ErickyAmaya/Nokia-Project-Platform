@@ -25,6 +25,8 @@ function DespachoWizard({ onClose }) {
   const addMovimiento      = useMatStore(s => s.addMovimiento)
   const finalizarDespacho  = useMatStore(s => s.finalizarDespacho)
   const resolverPendientes = useMatStore(s => s.resolverPendientes)
+  const matSitios          = useMatStore(s => s.sitios)
+  const saveSitio          = useMatStore(s => s.saveSitio)
   const liquidadorSitios  = useAppStore(s => s.sitios)
   const user              = useAuthStore(s => s.user)
 
@@ -122,6 +124,10 @@ function DespachoWizard({ onClose }) {
         })
       }
       await finalizarDespacho(desp.id)
+      const existe = matSitios.some(s => s.nombre?.toLowerCase() === meta.destino?.toLowerCase())
+      if (!existe && meta.destino) {
+        await saveSitio({ nombre: meta.destino, regional: '', activo: true }).catch(() => {})
+      }
       const dispatchedIds = items.filter(i => (i.cant_despachada || 0) > 0).map(i => i.catalogo_id)
       await resolverPendientes(meta.destino, dispatchedIds)
       showToast(`Despacho ${desp.numero_doc} finalizado`)

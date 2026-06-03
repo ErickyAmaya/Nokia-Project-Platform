@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { getSupabaseClient } from '../../lib/supabase'
 import { showToast } from '../Toast'
@@ -23,15 +24,18 @@ function Badge({ children, bg = '#f3f4f6', color = '#6b7280' }) {
 }
 
 export default function MatMassDespachoModal({ onClose }) {
-  const catalogo          = useMatStore(s => s.catalogo)
-  const bodegas           = useMatStore(s => s.bodegas)
-  const despachos         = useMatStore(s => s.despachos)
-  const getStock          = useMatStore(s => s.getStock)
+  const catalogo           = useMatStore(s => s.catalogo)
+  const bodegas            = useMatStore(s => s.bodegas)
+  const despachos          = useMatStore(s => s.despachos)
+  const getStock           = useMatStore(s => s.getStock)
   const saveDespacho       = useMatStore(s => s.saveDespacho)
   const finalizarDespacho  = useMatStore(s => s.finalizarDespacho)
   const insertPendientes   = useMatStore(s => s.insertPendientes)
   const resolverPendientes = useMatStore(s => s.resolverPendientes)
-  const user              = useAuthStore(s => s.user)
+  const matSitios          = useMatStore(s => s.sitios)
+  const saveSitio          = useMatStore(s => s.saveSitio)
+  const liquidadorSitios   = useAppStore(s => s.sitios ?? [])
+  const user               = useAuthStore(s => s.user)
 
   const [step,     setStep]     = useState('setup')
   const [bodega,   setBodega]   = useState(String(bodegas[0]?.id || ''))
@@ -230,6 +234,12 @@ export default function MatMassDespachoModal({ onClose }) {
   const sites       = [...new Set(validRows.map(r => r.siteName))]
   const totalValor  = validRows.reduce((s, r) => s + (r.status === 'partial' ? r.stockDisp * r.precioFinal : r.total), 0)
 
+  const allSitesInFile = [...new Set(rows.filter(r => r.siteName).map(r => r.siteName))]
+  const sitiosDesconocidos = allSitesInFile.filter(site =>
+    !liquidadorSitios.some(s => s.nombre?.toLowerCase() === site.toLowerCase()) &&
+    !matSitios.some(s => s.nombre?.toLowerCase() === site.toLowerCase())
+  )
+
   // ── Descarga Excel resultado (una hoja por sitio) ───────────
   async function downloadResultExcel() {
     const ExcelJS = (await import('exceljs')).default
@@ -401,12 +411,21 @@ export default function MatMassDespachoModal({ onClose }) {
         setProgress({ current: si + 1, total: freshSites.length, phase: `${docNum} finalizado` })
       }
 
-      // ── 2. Ir a pantalla done (el despacho ya está en DB) ────
+      // ── 2. Crear en mat_sitios todos los sites despachados que aún no existan ──
+      for (const site of freshSites) {
+        const yaEnMat = matSitios.some(s => s.nombre?.toLowerCase() === site.toLowerCase())
+        if (!yaEnMat) {
+          const liqSitio = liquidadorSitios.find(s => s.nombre?.toLowerCase() === site.toLowerCase())
+          await saveSitio({ nombre: site, tipo_cw: liqSitio?.tipo || '', regional: liqSitio?.regional || 'Sur-Occidente', comentarios: '', activo: true }).catch(() => {})
+        }
+      }
+
+      // ── 3. Ir a pantalla done (el despacho ya está en DB) ────
       const docNumsBySite = Object.fromEntries(freshSites.map((s, i) => [s, docNums[i]]))
       setDoneInfo({ docNumsBySite })
       setStep('done')
 
-      // ── 3. Pendientes (no crítico — no bloquea done) ─────────
+      // ── 4. Pendientes (no crítico — no bloquea done) ─────────
       const nuevosPendientes = freshRows
         .filter(r => (r.status === 'blocked' || r.status === 'partial') && r.blockReason === 'stock' && r.cat && r.siteName)
         .map(r => ({
@@ -422,7 +441,7 @@ export default function MatMassDespachoModal({ onClose }) {
         catch (pErr) { console.error('[mat] Error pendientes:', pErr.message) }
       }
 
-      // ── 4. Sincronizar store al final ────────────────────────
+      // ── 5. Sincronizar store al final ────────────────────────
       await useMatStore.getState().loadAll()
 
     } catch (err) {
@@ -575,6 +594,21 @@ export default function MatMassDespachoModal({ onClose }) {
                 </div>
               ))}
             </div>
+
+            {/* Advertencia sitios no registrados en la APP */}
+            {sitiosDesconocidos.length > 0 && (
+              <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #f59e0b' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
+                  ⚠ {sitiosDesconocidos.length} sitio(s) del archivo no existen en la APP
+                </div>
+                <div style={{ fontSize: 10, color: '#78350f', marginBottom: 6 }}>
+                  {sitiosDesconocidos.join(' · ')}
+                </div>
+                <div style={{ fontSize: 10, color: '#92400e', lineHeight: 1.5 }}>
+                  El despacho se registrará de todas formas. Si estos sitios deben aparecer en el Pill Sitios, créalos manualmente desde <strong>Logística → Sitios</strong>.
+                </div>
+              </div>
+            )}
 
             {/* Info despachos a crear */}
             {sites.length > 0 && (

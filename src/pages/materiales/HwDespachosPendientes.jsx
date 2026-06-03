@@ -519,9 +519,6 @@ export default function HwDespachosPendientes() {
   const loading               = useHwStore(s => s.loading)
   const loadAll               = useHwStore(s => s.loadAll)
 
-  const matSitios = useMatStore(s => s.sitios)
-  const saveSitio = useMatStore(s => s.saveSitio)
-
   const user     = useAuthStore(s => s.user)
   const canEdit  = user?.role !== 'viewer'
 
@@ -550,7 +547,22 @@ export default function HwDespachosPendientes() {
     )
     if (!ok) return
     try {
-      await realizarDespacho(despacho.id, matSitios, saveSitio)
+      await realizarDespacho(despacho.id)
+      // Crear sitio en mat_sitios si no existe (solo despachos a sitio, no transferencias SS)
+      if (despacho.destino_tipo !== 'ss' && despacho.destino) {
+        const matState = useMatStore.getState()
+        const existe = matState.sitios.some(s => s.nombre?.toLowerCase() === despacho.destino.toLowerCase())
+        if (!existe) {
+          const liqSitio = useAppStore.getState().sitios?.find(s => s.nombre?.toLowerCase() === despacho.destino.toLowerCase())
+          await matState.saveSitio({
+            nombre:      despacho.destino,
+            tipo_cw:     liqSitio?.tipo     || '',
+            regional:    liqSitio?.regional || 'Sur-Occidente',
+            comentarios: '',
+            activo:      true,
+          })
+        }
+      }
       showToast(`Despacho a "${despacho.destino}" realizado`)
     } catch (e) { showToast('Error: ' + e.message, 'err') }
   }

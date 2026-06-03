@@ -327,6 +327,106 @@ export default function FactPOs() {
     advanceUpdateQueue()
   }
 
+  async function handleExportExcel() {
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('POs')
+
+      ws.columns = [
+        { header: 'SPO Number',        key: 'spo',     width: 20 },
+        { header: 'Fecha PO',          key: 'fecha',   width: 14 },
+        { header: 'Sitio',             key: 'sitio',   width: 30 },
+        { header: 'SMP ID',            key: 'smp_id',  width: 22 },
+        { header: 'MS / SMP Name',     key: 'ms',      width: 30 },
+        { header: 'Valor',             key: 'valor',   width: 18 },
+        { header: 'Moneda',            key: 'moneda',  width: 9  },
+        { header: 'Proveedor',         key: 'prov',    width: 26 },
+        { header: 'Condición de Pago', key: 'terms',   width: 22 },
+        { header: 'Descripción PCI',   key: 'pci',     width: 34 },
+        { header: 'PDF',               key: 'pdf',     width: 6  },
+      ]
+
+      const sorted = [...pos].sort((a, b) => {
+        const pa = ppaMap.get(a.spo_number), pb = ppaMap.get(b.spo_number)
+        const ad = a.doc_date || pa?.spo_date || '', bd = b.doc_date || pb?.spo_date || ''
+        return bd.localeCompare(ad)
+      })
+
+      function parseAnyDate(str) {
+        if (!str) return null
+        // ISO: YYYY-MM-DD
+        let d = new Date(str)
+        if (!isNaN(d.getTime())) return d
+        // DD/MM/YYYY · DD-MM-YYYY · DD.MM.YYYY
+        const m1 = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/)
+        if (m1) {
+          d = new Date(+m1[3], +m1[2] - 1, +m1[1], 12)
+          if (!isNaN(d.getTime())) return d
+        }
+        // YYYY/MM/DD
+        const m2 = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/)
+        if (m2) {
+          d = new Date(+m2[1], +m2[2] - 1, +m2[3], 12)
+          if (!isNaN(d.getTime())) return d
+        }
+        // DD-Mon-YYYY  e.g. 15-Jan-2024
+        const m3 = str.match(/^(\d{1,2})[- ]([A-Za-z]{3})[- ](\d{4})/)
+        if (m3) {
+          d = new Date(`${m3[2]} ${m3[1]} ${m3[3]} 12:00:00`)
+          if (!isNaN(d.getTime())) return d
+        }
+        // DDMmmYYYY  e.g. 31Oct2025
+        const m4 = str.match(/^(\d{1,2})([A-Za-z]{3})(\d{4})/)
+        if (m4) {
+          d = new Date(`${m4[2]} ${m4[1]} ${m4[3]} 12:00:00`)
+          if (!isNaN(d.getTime())) return d
+        }
+        return null
+      }
+
+      sorted.forEach(po => {
+        const ppaRow   = ppaMap.get(po.spo_number)
+        const fechaStr = po.doc_date || ppaRow?.spo_date || ''
+        const fechaVal = parseAnyDate(fechaStr) || (fechaStr || null)
+        const spoNum   = po.spo_number && !isNaN(Number(po.spo_number)) ? Number(po.spo_number) : po.spo_number
+
+        ws.addRow({
+          spo:    spoNum,
+          fecha:  fechaVal,
+          sitio:  ppaRow?.customer_site_name || po.site_name || '',
+          smp_id: po.smp_id || '',
+          ms:     ppaRow?.smp_name === 'Process_Implementation' ? (ppaRow?.ms_name || '') : (ppaRow?.smp_name || ''),
+          valor:  po.valor != null ? Number(po.valor) : null,
+          moneda: po.moneda || 'COP',
+          prov:   po.supplier_name || '',
+          terms:  po.payment_terms || '',
+          pci:    po.pci_description || '',
+          pdf:    po.pdf_url ? 'Sí' : 'No',
+        })
+      })
+
+      ws.getColumn('fecha').numFmt = 'dd/mm/yyyy'
+      ws.getColumn('valor').numFmt = '#,##0'
+
+      // Header style
+      ws.getRow(1).eachCell(cell => {
+        cell.font = { bold: true, color: { argb: 'FF92400E' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+      })
+
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob   = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url    = URL.createObjectURL(blob)
+      const a      = document.createElement('a')
+      a.href       = url
+      a.download   = `POs_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+      showToast(`${sorted.length} POs exportadas`)
+    } catch (e) { showToast('Error al exportar: ' + e.message, 'err') }
+  }
+
   const historialMap = useMemo(() => {
     const map = {}
     for (const h of historial) {
@@ -397,6 +497,12 @@ export default function FactPOs() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar SPO, sitio…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
+          {pos.length > 0 && (
+            <button onClick={handleExportExcel} style={{ fontSize: 11, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5z"/></svg>
+              Exportar POs
+            </button>
+          )}
           {rejectedPos.length > 0 && (
             <button onClick={() => setShowRechazados(true)} style={{ fontSize: 11, color: '#92400e', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 600 }}>
               Ver rechazados ({rejectedPos.length})
