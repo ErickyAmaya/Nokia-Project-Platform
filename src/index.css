@@ -145,7 +145,8 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 .tbl tr:hover td { background: var(--g1); }
 .tbl .num { text-align: right; font-feature-settings: 'tnum'; }
 .tbl .tr-tot td { background: #f0f7f0; font-weight: 700; border-top: 2px solid #c8e6c8; color: #144E4A; }
-.tbl-mat th { background: #eff6ff !important; color: #1d4ed8 !important; border-bottom: 1px solid #93c5fd !important; }
+.tbl-mat th     { background: #eff6ff !important; color: #1d4ed8 !important; border-bottom: 1px solid #93c5fd !important; }
+.tbl-rollout th { background: #f5f3ff !important; color: #6d28d9 !important; border-bottom: 2px solid #c4b5fd !important; }
 .tbl .tr-sect td {
   background: #144E4A; color: #CDFBF2;
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
