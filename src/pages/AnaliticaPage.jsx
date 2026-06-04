@@ -797,7 +797,9 @@ function Tab6() {
   const [filEstado,setFilEstado]= useState('TODOS')
   const [filMeses, setFilMeses] = useState(new Set())
   const [fil5G,    setFil5G]    = useState('TODOS')
-  const [filAño,   setFilAño]   = useState(null) // null = todos los años
+  const [filAño,   setFilAño]   = useState(null)
+  const [showCW,   setShowCW]   = useState(false)
+  const [show5G,   setShow5G]   = useState(false)
   const fileRef = React.useRef()
 
   async function handleFile(f) {
@@ -1016,16 +1018,23 @@ function Tab6() {
         {/* G1 — TILT por cuadrilla */}
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", marginBottom: 10 }}>TILT Promedio por Cuadrilla (días)</div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={270}>
             <BarChart data={porCuadrilla} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="cuadrilla" tick={{ fontSize: 9 }} width={90} />
               <Tooltip formatter={v => [`${v} días`, 'Prom. TILT']} contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="prom" radius={[0,4,4,0]}>
-                {porCuadrilla.map((r, i) => (
-                  <Cell key={i} fill={tiltColor(r.prom)} />
-                ))}
+                {(() => {
+                  const p = porCuadrilla.length ? Math.round(porCuadrilla.reduce((s, r) => s + r.prom, 0) / porCuadrilla.length) : 1
+                  return porCuadrilla.map((r, i) => {
+                    const fill = r.prom <= p       ? '#22c55e'
+                      : r.prom <= p * 1.25         ? '#86efac'
+                      : r.prom <= p * 1.60         ? '#f59e0b'
+                      : '#ef4444'
+                    return <Cell key={i} fill={fill} />
+                  })
+                })()}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -1033,16 +1042,29 @@ function Tab6() {
 
         {/* G2 — TILT por sitio */}
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px', gridColumn: 'span 2' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", marginBottom: 10 }}>
-            TILT por Sitio (días) — ordenado de menor a mayor
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", flex: 1 }}>
+              TILT por Sitio (días) — ordenado de menor a mayor
+            </div>
+            <button onClick={() => setShowCW(v => !v)} style={{
+              fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 12, cursor: 'pointer', border: 'none',
+              background: showCW ? '#7c3aed' : '#e5e7eb', color: showCW ? '#fff' : '#6b7280',
+            }}>🔧 CW Conjunto</button>
+            <button onClick={() => setShow5G(v => !v)} style={{
+              fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 12, cursor: 'pointer', border: 'none',
+              background: show5G ? '#0369a1' : '#e5e7eb', color: show5G ? '#fff' : '#6b7280',
+            }}>⚡ 5G</button>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={270}>
             <BarChart
               data={[...filteredConTilt].sort((a, b) => a.tilt - b.tilt).map(s => ({
-                sitio: s.sitio.length > 12 ? s.sitio.slice(0, 11) + '…' : s.sitio,
-                tilt:  s.tilt,
+                sitio:    s.sitio.length > 12 ? s.sitio.slice(0, 11) + '…' : s.sitio,
+                sitioFull: s.sitio,
+                tilt:     s.tilt,
+                esCwConj: s.esCwConj,
+                es5G:     s.es5G,
               }))}
-              margin={{ left: 0, right: 8, top: 8, bottom: 50 }}
+              margin={{ left: 0, right: 8, top: 20, bottom: 50 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="sitio" tick={{ fontSize: 8 }} angle={-45} textAnchor="end" interval={0} />
@@ -1050,13 +1072,37 @@ function Tab6() {
               <Tooltip formatter={v => [`${v} días`, 'TILT']} contentStyle={{ fontSize: 11 }} />
               {promTilt && <ReferenceLine y={promTilt} stroke="#9ca3af" strokeDasharray="4 4"
                 label={{ value: `Prom. ${promTilt}d`, position: 'right', fontSize: 9, fill: '#6b7280' }} />}
-              <Bar dataKey="tilt" radius={[4,4,0,0]}>
+              <Bar dataKey="tilt" radius={[4,4,0,0]}
+                label={({ x, y, width, index }) => {
+                  const sorted = [...filteredConTilt].sort((a, b) => a.tilt - b.tilt)
+                  const s = sorted[index]
+                  if (!s) return null
+                  const hasCW = showCW && s.esCwConj
+                  const has5G = show5G && s.es5G
+                  if (!hasCW && !has5G) return null
+                  const cx = x + width / 2
+                  if (hasCW && has5G) return (
+                    <text x={cx} y={y - 4} textAnchor="start" fontSize={9} fontWeight="800"
+                      transform={`rotate(-45, ${cx}, ${y - 4})`}>
+                      <tspan fill="#7c3aed">CW</tspan>
+                      <tspan fill="#0369a1">+5G</tspan>
+                    </text>
+                  )
+                  return (
+                    <text x={cx} y={y - 4} textAnchor="start" fontSize={9} fontWeight="800"
+                      fill={hasCW ? '#7c3aed' : '#0369a1'}
+                      transform={`rotate(-45, ${cx}, ${y - 4})`}>
+                      {hasCW ? 'CW' : '5G'}
+                    </text>
+                  )
+                }}
+              >
                 {[...filteredConTilt].sort((a, b) => a.tilt - b.tilt).map((s, i) => {
                   const p = promTilt || 1
-                  const fill = s.tilt <= p           ? '#22c55e'   // por debajo o igual → verde
-                    : s.tilt <= p * 1.25             ? '#86efac'   // hasta 25% sobre → verde claro
-                    : s.tilt <= p * 1.60             ? '#f59e0b'   // hasta 60% sobre → amarillo
-                    : '#ef4444'                                     // >60% sobre → rojo
+                  const fill = s.tilt <= p       ? '#22c55e'
+                    : s.tilt <= p * 1.25         ? '#86efac'
+                    : s.tilt <= p * 1.60         ? '#f59e0b'
+                    : '#ef4444'
                   return <Cell key={i} fill={fill} />
                 })}
               </Bar>
@@ -1067,7 +1113,7 @@ function Tab6() {
         {/* G3 — Comparativo por complejidad */}
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", marginBottom: 10 }}>TILT Promedio por Complejidad (días)</div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={270}>
             <BarChart data={porComplejidad} margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="tipo" tick={{ fontSize: 10 }} />
