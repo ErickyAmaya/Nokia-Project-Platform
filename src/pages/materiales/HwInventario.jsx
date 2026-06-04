@@ -109,27 +109,24 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
 
         // Movimientos sin serial para este tipo
         const movsSinSerial = hwMovimientos.filter(m => m.catalogo_id === cat.id && !m.serial)
-        // Movimientos Nokia sin-serial son snapshots de ubicación independientes, no flujo neto
-        const ssStock = movsSinSerial.reduce((s, m) => {
-          if (m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega') return s + (m.cantidad || 0)
-          return s
-        }, 0)
-        const ssEnSitio = movsSinSerial.reduce((s, m) => {
-          if (m.tipo === 'SALIDA' && m.destino_tipo === 'sitio') return s + (m.cantidad || 0)
-          return s
-        }, 0)
+        // Flujo neto: stock = Σ ENTRADA − Σ SALIDA
+        const ssEntradas   = movsSinSerial.filter(m => m.tipo === 'ENTRADA').reduce((s, m) => s + (m.cantidad || 0), 0)
+        const ssSalidas    = movsSinSerial.filter(m => m.tipo === 'SALIDA').reduce((s, m) => s + (m.cantidad || 0), 0)
+        const ssStock      = Math.max(0, ssEntradas - ssSalidas)
+        // En sitio desde snapshot del Inventario Nokia (fuente de verdad para estado actual)
+        const ssEnSitio    = cat.nokia_inv_en_sitio || 0
         const ssEnTransito = movsSinSerial.reduce((s, m) => {
           if (m.tipo === 'SALIDA' && (m.destino_tipo === 'nokia' || m.destino_tipo === 'ss')) return s + (m.cantidad || 0)
           return s
         }, 0)
-        const ssTotal = ssStock + ssEnSitio + ssEnTransito
+        const ssTotal = ssEntradas
 
-        // Stock sin serial por bodega: ENTRADA destino_tipo=bodega menos SALIDA origen_tipo=bodega
+        // Stock sin serial por bodega: Σ ENTRADA − Σ SALIDA agrupado por nombre de bodega
         const ssBodegaMap = {}
-        movsSinSerial.filter(m => m.tipo === 'ENTRADA' && m.destino_tipo === 'bodega' && m.destino).forEach(m => {
+        movsSinSerial.filter(m => m.tipo === 'ENTRADA' && m.destino && m.destino_tipo === 'bodega').forEach(m => {
           ssBodegaMap[m.destino] = (ssBodegaMap[m.destino] || 0) + (m.cantidad || 0)
         })
-        movsSinSerial.filter(m => m.tipo === 'SALIDA' && m.origen_tipo === 'bodega' && m.origen).forEach(m => {
+        movsSinSerial.filter(m => m.tipo === 'SALIDA' && m.origen && m.origen_tipo === 'bodega').forEach(m => {
           ssBodegaMap[m.origen] = (ssBodegaMap[m.origen] || 0) - (m.cantidad || 0)
         })
         // Solo bodegas con stock > 0, formateado como "Nombre(N)"
@@ -144,7 +141,7 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
         const enSitio    = equipos.filter(e => e.estado === 'en_sitio')
         const enTransito = equipos.filter(e => e.estado === 'en_transito')
         const stock      = enBodega.length + ssStock
-        const total      = equipos.length + ssTotal
+        const total      = equipos.length + ssEntradas
         const totalEnTransito = enTransito.length + ssEnTransito
         const bodegaCount = {}
         let unnamedEnBodega = 0
