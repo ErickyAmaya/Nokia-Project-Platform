@@ -679,15 +679,15 @@ function parseRolloutCSV(text) {
 // ── Timeline month picker ─────────────────────────────────────────
 const MESES_SHORT = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 
-function TimelineFilter({ mesesDisponibles, seleccion, onChange }) {
+function TimelineFilter({ mesesDisponibles, seleccion, onChange, añoActivo, onAñoChange }) {
   const dragging  = React.useRef(false)
   const dragStart = React.useRef(null)
 
-  // Años disponibles y año activo
   const años = useMemo(() => [...new Set(mesesDisponibles.map(m => m.split('-')[0]))].sort(), [mesesDisponibles])
-  const [añoActivo, setAñoActivo] = useState(() => años[años.length - 1] || '')
-  // Si años cambia (nuevo CSV), sincronizar
-  React.useEffect(() => { if (años.length) setAñoActivo(años[años.length - 1]) }, [años.join(',')])
+  // Inicializar año al más reciente cuando llegan datos
+  React.useEffect(() => {
+    if (años.length && !añoActivo) onAñoChange(años[años.length - 1])
+  }, [años.join(',')])
 
   // Los 12 meses del año activo
   const mesesAño = useMemo(() =>
@@ -747,8 +747,7 @@ function TimelineFilter({ mesesDisponibles, seleccion, onChange }) {
           {años.map(y => (
             <button key={y} onMouseDown={e => {
               e.preventDefault()
-              setAñoActivo(y)
-              // Mapear meses seleccionados al nuevo año
+              onAñoChange(y)
               if (seleccion.size > 0) {
                 onChange(new Set([...seleccion].map(m => `${y}-${m.split('-')[1]}`)))
               }
@@ -798,6 +797,7 @@ function Tab6() {
   const [filEstado,setFilEstado]= useState('TODOS')
   const [filMeses, setFilMeses] = useState(new Set())
   const [fil5G,    setFil5G]    = useState('TODOS')
+  const [filAño,   setFilAño]   = useState(null) // null = todos los años
   const fileRef = React.useRef()
 
   async function handleFile(f) {
@@ -893,20 +893,39 @@ function Tab6() {
       .map(([, v]) => ({ ...v, prom: Math.round(v.total / v.count) }))
   }, [filteredConTilt])
 
-  // Gráficas integración — sitios con Integracion Real, mismos filtros
-  const filteredInteg = useMemo(() => filtered.filter(s => s.integracionReal), [filtered])
+  // Base sin filtro de mes — para curva de tendencia (siempre todos los meses)
+  const filteredSinMes = useMemo(() => sitios.filter(s => {
+    if (filCuad && s.cuadrilla !== filCuad) return false
+    if (filEstado !== 'TODOS' && s.estado !== filEstado) return false
+    if (fil5G === 'CON' && !s.es5G) return false
+    if (fil5G === 'SIN' && s.es5G) return false
+    return true
+  }), [sitios, filCuad, filEstado, fil5G])
 
+  // Curva por mes — filtra solo por año seleccionado, no por mes
   const integPorMes = useMemo(() => {
     const map = {}
-    filteredInteg.forEach(s => {
+    filteredSinMes.filter(s => s.integracionReal).forEach(s => {
       const y = s.integracionReal.getFullYear()
+      if (filAño && String(y) !== String(filAño)) return
       const m = s.integracionReal.getMonth()
       const key = `${y}-${String(m + 1).padStart(2, '0')}`
       if (!map[key]) map[key] = { label: `${MESES_SHORT[m]} ${String(y).slice(2)}`, count: 0 }
       map[key].count++
     })
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v)
-  }, [filteredInteg])
+  }, [filteredSinMes, filAño])
+
+  // Por cuadrilla — CON filtro de mes usando integracionReal
+  const filteredInteg = useMemo(() => filtered.filter(s => {
+    if (!s.integracionReal) return false
+    if (filMeses.size > 0) {
+      const y = s.integracionReal.getFullYear()
+      const m = String(s.integracionReal.getMonth() + 1).padStart(2, '0')
+      if (!filMeses.has(`${y}-${m}`)) return false
+    }
+    return true
+  }), [filtered, filMeses])
 
   const integPorCuadrilla = useMemo(() => {
     const map = {}
@@ -965,6 +984,8 @@ function Tab6() {
           mesesDisponibles={mesesDisponibles}
           seleccion={filMeses}
           onChange={setFilMeses}
+          añoActivo={filAño}
+          onAñoChange={setFilAño}
         />
       )}
 
@@ -1611,7 +1632,7 @@ export default function AnaliticaPage() {
     { id: 3, label: 'Tendencia Temporal' },
     { id: 4, label: 'Composición'        },
     { id: 5, label: 'Producción'          },
-    { id: 6, label: 'TILT'               },
+    { id: 6, label: 'SLA & KPI'          },
   ]
 
   return (
