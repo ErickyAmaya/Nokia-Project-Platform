@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useHwStore }  from '../../store/useHwStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
-import { getSupabaseClient } from '../../lib/supabase'
 import { showToast } from '../Toast'
 
 function nextDocNums(despachos, count) {
@@ -24,18 +24,15 @@ function Badge({ children, bg = '#f3f4f6', color = '#6b7280' }) {
 }
 
 export default function MatMassDespachoModal({ onClose }) {
-  const catalogo           = useMatStore(s => s.catalogo)
-  const bodegas            = useMatStore(s => s.bodegas)
-  const despachos          = useMatStore(s => s.despachos)
-  const getStock           = useMatStore(s => s.getStock)
-  const saveDespacho       = useMatStore(s => s.saveDespacho)
-  const finalizarDespacho  = useMatStore(s => s.finalizarDespacho)
-  const insertPendientes   = useMatStore(s => s.insertPendientes)
-  const resolverPendientes = useMatStore(s => s.resolverPendientes)
-  const matSitios          = useMatStore(s => s.sitios)
-  const saveSitio          = useMatStore(s => s.saveSitio)
-  const liquidadorSitios   = useAppStore(s => s.sitios ?? [])
-  const user               = useAuthStore(s => s.user)
+  const catalogo               = useMatStore(s => s.catalogo)
+  const bodegas                = useMatStore(s => s.bodegas)
+  const despachos              = useMatStore(s => s.despachos)
+  const getStock               = useMatStore(s => s.getStock)
+  const matSitios              = useMatStore(s => s.sitios)
+  const hwDespachosPendientes  = useHwStore(s => s.hwDespachosPendientes)
+  const crearDespachoPendiente = useHwStore(s => s.crearDespachoPendiente)
+  const liquidadorSitios       = useAppStore(s => s.sitios ?? [])
+  const user                   = useAuthStore(s => s.user)
 
   const [step,     setStep]     = useState('setup')
   const [bodega,   setBodega]   = useState(String(bodegas[0]?.id || ''))
@@ -344,13 +341,13 @@ export default function MatMassDespachoModal({ onClose }) {
     setProgress({ current: 0, total: 0, phase: 'Verificando stock…' })
 
     try {
-      // ── 0. Recargar stock fresco antes de proceder ────────────
+      // 0. Recargar stock fresco
       await useMatStore.getState().loadAll()
-      const freshRows    = applyStockCheck(rawData, bodega)
+      const freshRows  = applyStockCheck(rawData, bodega)
       setRows(freshRows)
 
-      const freshValid   = freshRows.filter(r => r.status === 'ok' || r.status === 'partial')
-      const freshSites   = [...new Set(freshValid.map(r => r.siteName))]
+      const freshValid = freshRows.filter(r => r.status === 'ok' || r.status === 'partial')
+      const freshSites = [...new Set(freshValid.map(r => r.siteName))]
 
       if (freshValid.length === 0) {
         showToast('Sin stock disponible para ningún ítem', 'err')
@@ -359,89 +356,46 @@ export default function MatMassDespachoModal({ onClose }) {
         return
       }
 
-      const db      = getSupabaseClient()
-      // Usar despachos frescos del store para generar doc numbers sin conflicto
-      const freshDespachos = useMatStore.getState().despachos
-      const docNums = nextDocNums(freshDespachos, freshSites.length)
+      const freshDespachos    = useMatStore.getState().despachos
+      const freshHwPendientes = useHwStore.getState().hwDespachosPendientes
+      const allDocs           = [...freshDespachos, ...freshHwPendientes]
+      const docNums           = nextDocNums(allDocs, freshSites.length)
+      const bodegaNombre      = bodegas.find(b => String(b.id) === bodega)?.nombre || ''
       setProgress({ current: 0, total: freshSites.length, phase: 'Iniciando…' })
 
-      // ── 1. Crear despachos y movimientos ─────────────────────
+      // 1. Crear un hw_despachos_pendientes por sitio (con mat_despachos)
       for (let si = 0; si < freshSites.length; si++) {
         const site     = freshSites[si]
         const docNum   = docNums[si]
         const siteRows = freshValid.filter(r => r.siteName === site)
 
-        setProgress({ current: si, total: freshSites.length, phase: `Creando ${docNum} → ${site}…` })
+        setProgress({ current: si, total: freshSites.length, phase: `Encolando ${docNum} → ${site}…` })
 
-        const desp = await saveDespacho({
-          numero_doc:  docNum,
-          bodega_id:   Number(bodega),
-          destino:     site,
+        await crearDespachoPendiente({
+          numero_doc:    docNum,
           fecha,
-          status:      'borrador',
-          comentarios: null,
-          created_by:  user?.nombre || user?.email,
+          bodega:        bodegaNombre,
+          destino:       site,
+          destino_tipo:  'sitio',
+          notas:         null,
+          items:         [],
+          mat_despachos: siteRows.map(row => ({
+            catalogo_id:    row.cat.id,
+            nombre:         row.nombre,
+            cantidad:       row.status === 'partial' ? row.stockDisp : row.cantidad,
+            bodega_id:      Number(bodega),
+            bodega_nombre:  bodegaNombre,
+            costo_unitario: row.precioFinal,
+          })),
+          created_by: user?.nombre || user?.email || null,
         })
 
-        const payload = siteRows.map(row => {
-          const cantDesp = row.status === 'partial' ? row.stockDisp : row.cantidad
-          return {
-            numero_doc:      docNum,
-            fecha,
-            tipo:            'Salida',
-            catalogo_id:     row.cat.id,
-            bodega_id:       Number(bodega),
-            cantidad:        cantDesp,
-            valor_unitario:  row.precioFinal,
-            cant_solicitada: row.cantidad,
-            cant_despachada: cantDesp,
-            destino:         site,
-            origen:          row.actividad || null,
-            created_by:      user?.nombre || user?.email,
-          }
-        })
-
-        const { error: movErr } = await db.from('mat_movimientos').insert(payload)
-        if (movErr) throw new Error(movErr.message)
-
-        const dispatchedCatIds = siteRows.map(r => r.cat.id)
-        await resolverPendientes(site, dispatchedCatIds)
-
-        await finalizarDespacho(desp.id)
-        setProgress({ current: si + 1, total: freshSites.length, phase: `${docNum} finalizado` })
+        setProgress({ current: si + 1, total: freshSites.length, phase: `${docNum} encolado` })
       }
 
-      // ── 2. Crear en mat_sitios todos los sites despachados que aún no existan ──
-      for (const site of freshSites) {
-        const yaEnMat = matSitios.some(s => s.nombre?.toLowerCase() === site.toLowerCase())
-        if (!yaEnMat) {
-          const liqSitio = liquidadorSitios.find(s => s.nombre?.toLowerCase() === site.toLowerCase())
-          await saveSitio({ nombre: site, tipo_cw: liqSitio?.tipo || '', regional: liqSitio?.regional || 'Sur-Occidente', comentarios: '', activo: true }).catch(() => {})
-        }
-      }
-
-      // ── 3. Ir a pantalla done (el despacho ya está en DB) ────
       const docNumsBySite = Object.fromEntries(freshSites.map((s, i) => [s, docNums[i]]))
       setDoneInfo({ docNumsBySite })
       setStep('done')
-
-      // ── 4. Pendientes (no crítico — no bloquea done) ─────────
-      const nuevosPendientes = freshRows
-        .filter(r => (r.status === 'blocked' || r.status === 'partial') && r.blockReason === 'stock' && r.cat && r.siteName)
-        .map(r => ({
-          sitio:        r.siteName,
-          catalogo_id:  r.cat.id,
-          cantidad:     r.status === 'partial' ? (r.cantidad - r.stockDisp) : r.cantidad,
-          despacho_ref: docNumsBySite[r.siteName] || null,
-          fecha,
-          created_by:   user?.nombre || user?.email,
-        }))
-      if (nuevosPendientes.length) {
-        try { await insertPendientes(nuevosPendientes) }
-        catch (pErr) { console.error('[mat] Error pendientes:', pErr.message) }
-      }
-
-      // ── 5. Sincronizar store al final ────────────────────────
       await useMatStore.getState().loadAll()
 
     } catch (err) {

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
+import { useHwStore }  from '../../store/useHwStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../Toast'
@@ -38,10 +39,11 @@ function SitioCombobox({ value, onChange, opciones, placeholder }) {
   )
 }
 
-function nextDocNum(despachos) {
+function nextDocNum(despachos, hwPendientes) {
   const year = new Date().getFullYear()
   const re   = new RegExp(`^DS-${year}-(\\d+)$`)
-  const nums = despachos.map(d => { const m = d.numero_doc?.match(re); return m ? parseInt(m[1]) : 0 }).filter(Boolean)
+  const all  = [...(despachos || []), ...(hwPendientes || [])]
+  const nums = all.map(d => { const m = d.numero_doc?.match(re); return m ? parseInt(m[1]) : 0 }).filter(Boolean)
   const next = nums.length > 0 ? Math.max(...nums) + 1 : 1
   return `DS-${year}-${String(next).padStart(3,'0')}`
 }
@@ -49,17 +51,14 @@ function nextDocNum(despachos) {
 const STEPS = ['Datos del Despacho', 'Agregar Materiales', 'Confirmar y Guardar']
 
 export default function DespachoModal({ onClose, defaultDestino = '' }) {
-  const catalogo         = useMatStore(s => s.catalogo)
-  const bodegas          = useMatStore(s => s.bodegas)
-  const despachos        = useMatStore(s => s.despachos)
-  const movimientos      = useMatStore(s => s.movimientos)
-  const matSitios        = useMatStore(s => s.sitios)
-  const saveSitio        = useMatStore(s => s.saveSitio)
-  const getStock         = useMatStore(s => s.getStock)
-  const saveDespacho     = useMatStore(s => s.saveDespacho)
-  const addMovimiento    = useMatStore(s => s.addMovimiento)
-  const liquidadorSitios = useAppStore(s => s.sitios ?? [])
-  const user             = useAuthStore(s => s.user)
+  const catalogo                = useMatStore(s => s.catalogo)
+  const bodegas                 = useMatStore(s => s.bodegas)
+  const despachos               = useMatStore(s => s.despachos)
+  const getStock                = useMatStore(s => s.getStock)
+  const hwDespachosPendientes   = useHwStore(s => s.hwDespachosPendientes)
+  const crearDespachoPendiente  = useHwStore(s => s.crearDespachoPendiente)
+  const liquidadorSitios        = useAppStore(s => s.sitios ?? [])
+  const user                    = useAuthStore(s => s.user)
 
   const sitiosNombres = useMemo(() =>
     liquidadorSitios.filter(s => s.nombre).map(s => s.nombre).sort()
@@ -70,7 +69,7 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
 
   // Step 1 meta
   const [meta, setMeta] = useState({
-    numero_doc:  nextDocNum(despachos),
+    numero_doc:  nextDocNum(despachos, hwDespachosPendientes),
     fecha:       new Date().toISOString().slice(0, 10),
     bodega_id:   bodegas[0]?.id || '',
     destino:     defaultDestino,
@@ -139,44 +138,26 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
     if (items.length === 0) { showToast('Agrega al menos un material', 'err'); return }
     setSaving(true)
     try {
-      // Si el destino viene del Liquidador y no existe en mat_sitios, crearlo automáticamente
-      const yaEnMat = matSitios.some(s => s.nombre?.toLowerCase() === meta.destino?.toLowerCase())
-      if (!yaEnMat && meta.destino) {
-        const liqSitio = liquidadorSitios.find(s => s.nombre?.toLowerCase() === meta.destino?.toLowerCase())
-        await saveSitio({
-          nombre:      meta.destino,
-          tipo_cw:     liqSitio?.tipo || '',
-          regional:    liqSitio?.regional || 'Sur-Occidente',
-          comentarios: '',
-          activo:      true,
-        })
-      }
-      await saveDespacho({
-        numero_doc:  meta.numero_doc,
-        fecha:       meta.fecha,
-        bodega_id:   Number(meta.bodega_id),
-        destino:     meta.destino,
-        sitio_id:    null,
-        comentarios: meta.comentarios,
-        status:      'borrador',
-        created_by:  user?.nombre || user?.email,
+      const bodegaNombre = bodegas.find(b => String(b.id) === String(meta.bodega_id))?.nombre || ''
+      await crearDespachoPendiente({
+        numero_doc:   meta.numero_doc,
+        fecha:        meta.fecha,
+        bodega:       bodegaNombre,
+        destino:      meta.destino,
+        destino_tipo: 'sitio',
+        notas:        meta.comentarios || null,
+        items:        [],
+        mat_despachos: items.map(item => ({
+          catalogo_id:    item.catalogo_id,
+          nombre:         item.nombre,
+          cantidad:       item.cant_despachada,
+          bodega_id:      Number(meta.bodega_id),
+          bodega_nombre:  bodegaNombre,
+          costo_unitario: item.valor_unitario,
+        })),
+        created_by: user?.nombre || user?.email || null,
       })
-      for (const item of items) {
-        await addMovimiento({
-          numero_doc:      meta.numero_doc,
-          fecha:           meta.fecha,
-          tipo:            'Salida',
-          catalogo_id:     item.catalogo_id,
-          bodega_id:       Number(meta.bodega_id),
-          cantidad:        item.cant_despachada,
-          cant_despachada: item.cant_despachada,
-          valor_unitario:  item.valor_unitario,
-          destino:         meta.destino,
-          sitio_id:        null,
-          created_by:      user?.nombre || user?.email,
-        })
-      }
-      showToast('Despacho creado correctamente')
+      showToast('Despacho en cola — confirmar en Pend. Despacho')
       onClose()
     } catch (e) { showToast('Error: ' + e.message, 'err') }
     finally { setSaving(false) }
@@ -423,7 +404,7 @@ export default function DespachoModal({ onClose, defaultDestino = '' }) {
                   style={{ background:'#c0392b', color:'#fff', padding:'6px 20px', borderRadius:6, fontWeight:700, fontSize:12, cursor:'pointer' }}
                   onClick={handleSave}
                   disabled={saving}>
-                  {saving ? 'Guardando…' : 'Confirmar Despacho'}
+                  {saving ? 'Guardando…' : 'Enviar a Pendientes'}
                 </button>
               </div>
             </div>

@@ -338,43 +338,27 @@ export const useHwStore = create((set, get) => ({
 
   // Crea un despacho pendiente. El HW sale del inventario disponible
   // pero su ubicación sigue siendo la bodega hasta que se realice.
-  crearDespachoPendiente: async ({ numero_doc, fecha, smp_id, bodega, destino, destino_tipo = 'sitio', id_transferencia = null, notas, items, created_by }) => {
-    // 1. Equipos con serial → batch update a 'pendiente_despacho'
-    const serialItems = items.filter(i => i.aplica_serial !== false && i.serial)
-    if (serialItems.length > 0) {
-      const ids = serialItems
-        .map(i => get().hwEquipos.find(e => e.serial === i.serial)?.id)
-        .filter(Boolean)
-      if (ids.length > 0) {
-        const { error } = await db().from('hw_equipos')
-          .update({ estado: 'pendiente_despacho', updated_at: new Date().toISOString() })
-          .in('id', ids)
-        if (error) throw error
-        set(s => ({ hwEquipos: s.hwEquipos.map(e => ids.includes(e.id) ? { ...e, estado: 'pendiente_despacho' } : e) }))
-      }
+  crearDespachoPendiente: async ({ numero_doc, fecha, smp_id, bodega, destino, destino_tipo = 'sitio', id_transferencia = null, notas, items, mat_despachos = null, created_by }) => {
+    // Todos los ítems se buscan por SO (con o sin serial) → pendiente_despacho
+    const ids = items
+      .map(i => {
+        if (i.serial) return get().hwEquipos.find(e => e.serial === i.serial)?.id
+        if (i.so)     return get().hwEquipos.find(e => e.so === i.so)?.id
+        return null
+      })
+      .filter(Boolean)
+    if (ids.length > 0) {
+      const { error } = await db().from('hw_equipos')
+        .update({ estado: 'pendiente_despacho', updated_at: new Date().toISOString() })
+        .in('id', ids)
+      if (error) throw error
+      set(s => ({ hwEquipos: s.hwEquipos.map(e => ids.includes(e.id) ? { ...e, estado: 'pendiente_despacho' } : e) }))
     }
-    // 2. Items sin serial → movimiento SALIDA tipo_fuente='PENDIENTE' (sale de inventario)
-    for (const item of items) {
-      if (item.aplica_serial === false) {
-        await get().addHwMovimiento({
-          equipo_id: null, serial: null,
-          catalogo_id: item.catalogo_id,
-          tipo: 'SALIDA', tipo_fuente: 'PENDIENTE',
-          so: item.so || numero_doc, smp_id: smp_id || null,
-          fecha, cantidad: item.cantidad,
-          origen: item.bodega, origen_tipo: 'bodega',
-          destino, destino_tipo: 'pendiente',
-          id_transferencia: id_transferencia || null,
-          created_by: created_by || null,
-          notas: `Despacho pendiente ${numero_doc}`,
-        })
-      }
-    }
-    // 3. Crear registro
     const { data, error } = await db().from('hw_despachos_pendientes').insert({
       numero_doc, fecha, smp_id: smp_id || null, bodega, destino,
       destino_tipo, id_transferencia: id_transferencia || null,
       notas: notas || null, items, created_by: created_by || null,
+      mat_despachos: mat_despachos?.length ? mat_despachos : null,
     }).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: [data, ...s.hwDespachosPendientes] }))
@@ -396,25 +380,11 @@ export const useHwStore = create((set, get) => ({
   agregarItemDespacho: async (despachoId, item) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
+    const eq = item.serial
+      ? get().hwEquipos.find(e => e.serial === item.serial)
+      : get().hwEquipos.find(e => e.so === item.so)
+    if (eq) await get().updateHwEquipo(eq.id, { estado: 'pendiente_despacho' })
     const nuevosItems = [...(despacho.items || []), item]
-    // Serial → pendiente_despacho
-    if (item.aplica_serial !== false && item.serial) {
-      const eq = get().hwEquipos.find(e => e.serial === item.serial)
-      if (eq) await get().updateHwEquipo(eq.id, { estado: 'pendiente_despacho' })
-    }
-    // Sin serial → SALIDA PENDIENTE
-    if (item.aplica_serial === false) {
-      await get().addHwMovimiento({
-        equipo_id: null, serial: null, catalogo_id: item.catalogo_id,
-        tipo: 'SALIDA', tipo_fuente: 'PENDIENTE',
-        so: item.so || despacho.numero_doc, smp_id: despacho.smp_id || null,
-        fecha: despacho.fecha, cantidad: item.cantidad,
-        origen: item.bodega, origen_tipo: 'bodega',
-        destino: despacho.destino, destino_tipo: 'pendiente',
-        created_by: null,
-        notas: `Despacho pendiente ${despacho.numero_doc}`,
-      })
-    }
     const { data, error } = await db().from('hw_despachos_pendientes')
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
@@ -424,30 +394,15 @@ export const useHwStore = create((set, get) => ({
     return data
   },
 
-  // Quita un ítem del despacho y lo devuelve al inventario
   quitarItemDespacho: async (despachoId, itemIdx) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const item = despacho.items[itemIdx]
     if (!item) throw new Error('Ítem no encontrado')
-    // Serial → devolver a en_bodega
-    if (item.aplica_serial !== false && item.serial) {
-      const eq = get().hwEquipos.find(e => e.serial === item.serial)
-      if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_bodega' })
-    }
-    // Sin serial → ENTRADA reversal
-    if (item.aplica_serial === false) {
-      await get().addHwMovimiento({
-        equipo_id: null, serial: null, catalogo_id: item.catalogo_id,
-        tipo: 'ENTRADA', tipo_fuente: 'CANCELACION',
-        so: item.so || despacho.numero_doc, smp_id: null,
-        fecha: new Date().toISOString().slice(0, 10), cantidad: item.cantidad,
-        origen: despacho.destino, origen_tipo: 'pendiente',
-        destino: item.bodega, destino_tipo: 'bodega',
-        created_by: null,
-        notas: `Devolución despacho pendiente ${despacho.numero_doc}`,
-      })
-    }
+    const eq = item.serial
+      ? get().hwEquipos.find(e => e.serial === item.serial)
+      : get().hwEquipos.find(e => e.so === item.so)
+    if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_bodega' })
     const nuevosItems = despacho.items.filter((_, i) => i !== itemIdx)
     const { data, error } = await db().from('hw_despachos_pendientes')
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
@@ -458,19 +413,19 @@ export const useHwStore = create((set, get) => ({
     return data
   },
 
-  // Cambia la SO (y el serial correspondiente) de un ítem — devuelve el serial anterior a en_bodega
   cambiarSOItem: async (despachoId, itemIdx, nuevoSO, nuevoSerial) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const item = despacho.items[itemIdx]
     if (!item) throw new Error('Ítem no encontrado')
-    // Intercambiar seriales si el serial cambió
-    if (item.aplica_serial !== false && nuevoSerial && nuevoSerial !== item.serial) {
-      if (item.serial) {
-        const oldEq = get().hwEquipos.find(e => e.serial === item.serial)
-        if (oldEq) await get().updateHwEquipo(oldEq.id, { estado: 'en_bodega' })
-      }
-      const newEq = get().hwEquipos.find(e => e.serial === nuevoSerial)
+    if (nuevoSO !== item.so) {
+      const oldEq = item.serial
+        ? get().hwEquipos.find(e => e.serial === item.serial)
+        : get().hwEquipos.find(e => e.so === item.so)
+      if (oldEq) await get().updateHwEquipo(oldEq.id, { estado: 'en_bodega' })
+      const newEq = nuevoSerial
+        ? get().hwEquipos.find(e => e.serial === nuevoSerial)
+        : get().hwEquipos.find(e => e.so === nuevoSO)
       if (newEq) await get().updateHwEquipo(newEq.id, { estado: 'pendiente_despacho' })
     }
     const nuevosItems = despacho.items.map((it, i) =>
@@ -483,46 +438,102 @@ export const useHwStore = create((set, get) => ({
     return data
   },
 
+  // ── Edición inline de mat_despachos ─────────────────────────────
+  actualizarCantidadHwItem: async (despachoId, itemIdx, cantidad) => {
+    const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho no encontrado')
+    const nuevosItems = (despacho.items || []).map((item, i) => i === itemIdx ? { ...item, cantidad } : item)
+    const { data, error } = await db().from('hw_despachos_pendientes')
+      .update({ items: nuevosItems }).eq('id', despachoId).select().single()
+    if (error) throw error
+    set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
+    return data
+  },
+
+  actualizarMatItem: async (despachoId, itemIdx, changes) => {
+    const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho no encontrado')
+    const nuevosItems = (despacho.mat_despachos || []).map((item, i) => i === itemIdx ? { ...item, ...changes } : item)
+    const { data, error } = await db().from('hw_despachos_pendientes')
+      .update({ mat_despachos: nuevosItems }).eq('id', despachoId).select().single()
+    if (error) throw error
+    set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
+    return data
+  },
+
+  quitarMatItem: async (despachoId, itemIdx) => {
+    const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho no encontrado')
+    const nuevosItems = (despacho.mat_despachos || []).filter((_, i) => i !== itemIdx)
+    const { data, error } = await db().from('hw_despachos_pendientes')
+      .update({ mat_despachos: nuevosItems.length ? nuevosItems : null }).eq('id', despachoId).select().single()
+    if (error) throw error
+    set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
+    return data
+  },
+
+  agregarMatItem: async (despachoId, item) => {
+    const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho no encontrado')
+    const nuevosItems = [...(despacho.mat_despachos || []), item]
+    const { data, error } = await db().from('hw_despachos_pendientes')
+      .update({ mat_despachos: nuevosItems }).eq('id', despachoId).select().single()
+    if (error) throw error
+    set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
+    return data
+  },
+
   // Marca el despacho como realizado → equipos pasan a en_sitio / en_transito
+  // Regla universal: si el despacho tiene mat_despachos, también crea los movimientos de materiales
   realizarDespacho: async (despachoId) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const isTransfer  = despacho.destino_tipo === 'ss'
     const nuevoEstado = isTransfer ? 'en_transito' : 'en_sitio'
     const destTipoMov = isTransfer ? 'ss'           : 'sitio'
-    // Procesar items
+
+    // 1. Procesar todos los ítems HW uniformemente por SO
     for (const item of despacho.items) {
-      if (item.aplica_serial !== false && item.serial) {
-        const eq = get().hwEquipos.find(e => e.serial === item.serial)
-        if (eq) await get().updateHwEquipo(eq.id, { estado: nuevoEstado, ubicacion_actual: despacho.destino })
-        await get().addHwMovimiento({
-          equipo_id: eq?.id || null, serial: item.serial,
-          catalogo_id: item.catalogo_id,
-          tipo: 'SALIDA', tipo_fuente: 'MANUAL',
-          so: item.so || despacho.numero_doc,
-          smp_id: despacho.smp_id || null,
-          fecha: despacho.fecha, cantidad: 1,
-          origen: item.bodega, origen_tipo: 'bodega',
-          destino: despacho.destino, destino_tipo: destTipoMov,
-          id_transferencia: despacho.id_transferencia || null,
-          created_by: null,
-          notas: despacho.notas || null,
-        })
-      }
-      // Sin serial → movimiento PENDIENTE ya existe; actualizar destino_tipo si es transferencia
-      if (item.aplica_serial === false && isTransfer) {
-        const movPend = get().hwMovimientos.find(m =>
-          m.tipo === 'SALIDA' && m.tipo_fuente === 'PENDIENTE' &&
-          Number(m.catalogo_id) === Number(item.catalogo_id) &&
-          m.destino === despacho.destino
-        )
-        if (movPend) {
-          await db().from('hw_movimientos').update({ destino_tipo: 'ss' }).eq('id', movPend.id)
-          set(s => ({ hwMovimientos: s.hwMovimientos.map(m => m.id === movPend.id ? { ...m, destino_tipo: 'ss' } : m) }))
-        }
-      }
+      const eq = item.serial
+        ? get().hwEquipos.find(e => e.serial === item.serial)
+        : get().hwEquipos.find(e => e.so === item.so)
+      if (eq) await get().updateHwEquipo(eq.id, { estado: nuevoEstado, ubicacion_actual: despacho.destino })
+      await get().addHwMovimiento({
+        equipo_id: eq?.id || null,
+        serial:    item.serial || null,
+        catalogo_id: item.catalogo_id,
+        tipo: 'SALIDA', tipo_fuente: 'MANUAL',
+        so: item.so || despacho.numero_doc,
+        smp_id: despacho.smp_id || null,
+        fecha: despacho.fecha, cantidad: 1,
+        origen: item.bodega, origen_tipo: 'bodega',
+        destino: despacho.destino, destino_tipo: destTipoMov,
+        id_transferencia: despacho.id_transferencia || null,
+        created_by: null,
+        notas: despacho.notas || null,
+      })
     }
-    // Eliminar registro pendiente
+
+    // 2. Regla universal: procesar materiales asociados si los hay
+    if (despacho.mat_despachos?.length > 0) {
+      const movsMat = despacho.mat_despachos.map(item => ({
+        tipo:            'Salida',
+        catalogo_id:     item.catalogo_id,
+        bodega_id:       item.bodega_id,
+        cantidad:        item.cantidad,
+        cant_despachada: item.cantidad,
+        valor_unitario:  item.costo_unitario || null,
+        destino:         despacho.destino,
+        numero_doc:      despacho.numero_doc,
+        fecha:           despacho.fecha,
+      }))
+      const { error: matErr } = await db().from('mat_movimientos').insert(movsMat)
+      if (matErr) throw new Error('Error materiales: ' + matErr.message)
+      const { useMatStore } = await import('./useMatStore')
+      useMatStore.getState().loadAll()
+    }
+
+    // 3. Eliminar registro pendiente
     const { error } = await db().from('hw_despachos_pendientes').delete().eq('id', despachoId)
     if (error) throw error
     set(s => ({
@@ -583,27 +594,43 @@ export const useHwStore = create((set, get) => ({
   },
 
   // Cancela un despacho pendiente → todo el HW regresa al inventario
+  // Regla universal: si hay mat_despachos, reversa los movimientos de materiales también
   cancelarDespacho: async (despachoId) => {
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
+
+    // 1. Reversar todos los ítems HW uniformemente por SO
     for (const item of despacho.items) {
-      if (item.aplica_serial !== false && item.serial) {
-        const eq = get().hwEquipos.find(e => e.serial === item.serial)
-        if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_bodega' })
-      }
-      if (item.aplica_serial === false) {
-        await get().addHwMovimiento({
-          equipo_id: null, serial: null, catalogo_id: item.catalogo_id,
-          tipo: 'ENTRADA', tipo_fuente: 'CANCELACION',
-          so: item.so || despacho.numero_doc, smp_id: null,
-          fecha: new Date().toISOString().slice(0, 10), cantidad: item.cantidad,
-          origen: despacho.destino, origen_tipo: 'pendiente',
-          destino: item.bodega, destino_tipo: 'bodega',
-          created_by: null,
-          notas: `Cancelación despacho ${despacho.numero_doc}`,
-        })
+      const eq = item.serial
+        ? get().hwEquipos.find(e => e.serial === item.serial)
+        : get().hwEquipos.find(e => e.so === item.so)
+      if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_bodega' })
+    }
+
+    // 2. Regla universal: reversar materiales asociados si los hay
+    if (despacho.mat_despachos?.length > 0) {
+      try {
+        const now = new Date().toISOString().slice(0, 10)
+        const reversals = despacho.mat_despachos.map(item => ({
+          tipo:            'Entrada',
+          catalogo_id:     item.catalogo_id,
+          bodega_id:       item.bodega_id,
+          cantidad:        item.cantidad,
+          cant_despachada: item.cantidad,
+          valor_unitario:  item.costo_unitario || null,
+          destino:         item.bodega_nombre || null,
+          numero_doc:      despacho.numero_doc,
+          fecha:           now,
+        }))
+        const { error: matErr } = await db().from('mat_movimientos').insert(reversals)
+        if (matErr) console.error('[hw] Error reversando movimientos mat:', matErr.message)
+        const { useMatStore } = await import('./useMatStore')
+        useMatStore.getState().loadAll()
+      } catch (e) {
+        console.error('[hw] Error reversando materiales en cancelación:', e)
       }
     }
+
     const { error } = await db().from('hw_despachos_pendientes').delete().eq('id', despachoId)
     if (error) throw error
     set(s => ({

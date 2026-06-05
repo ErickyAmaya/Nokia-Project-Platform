@@ -95,6 +95,45 @@ function lcLiveIcon(lcName) {
   })
 }
 
+function lcStaticIcon(lcName, gpsActive, ackColor) {
+  const initials = (lcName || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const h = gpsActive ? 44 : 30
+  const anchorY = gpsActive ? 29 : 15
+  return divIcon({
+    className: '',
+    iconSize:     [30, h],
+    iconAnchor:   [15, anchorY],
+    tooltipAnchor:[0, -anchorY],
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      ${gpsActive ? `<span style="font-size:11px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));">🛰️</span>` : ''}
+      <div style="width:30px;height:30px;background:#fff;border-radius:50%;
+        border:2.5px solid ${ackColor};
+        display:flex;align-items:center;justify-content:center;
+        color:#1e293b;font-size:9px;font-weight:700;
+        box-shadow:0 1px 4px rgba(0,0,0,.2);">
+        ${initials}
+      </div>
+    </div>`,
+  })
+}
+
+function lcCurrentIconGreen(color) {
+  const size = 48
+  return divIcon({
+    className: '',
+    iconSize:     [size, size],
+    iconAnchor:   [size / 2, size / 2],
+    tooltipAnchor:[0, -(size / 2 + 4)],
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;position:relative;">
+      <div class="lc-live-ring" style="position:absolute;inset:2px;border-radius:50%;border:2.5px solid #16a34a;opacity:0.95;"></div>
+      <div class="lc-live-ring" style="position:absolute;inset:2px;border-radius:50%;border:2px solid #16a34a;opacity:0.9;animation-delay:0.35s"></div>
+      <div style="position:absolute;inset:10px;border-radius:50%;border:1.5px solid ${color.fill};opacity:0.75;"></div>
+      <span style="font-size:15px;line-height:1;position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));">🗼</span>
+      <div style="position:absolute;top:1px;right:1px;width:18px;height:18px;background:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;font-size:11px;z-index:2;">👷</div>
+    </div>`,
+  })
+}
+
 function lcCurrentIcon(color) {
   const size = 48
   return divIcon({
@@ -732,14 +771,30 @@ export default function MapaSitios() {
     return [...set].sort()
   }, [sitios])
 
+  const lcAllPins = useMemo(() => {
+    return lcOptions.map(lc => {
+      const lastSitio = sitios
+        .filter(s => s.lc === lc && s.fecha && s.tipo === 'TI')
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
+      if (!lastSitio) return null
+      const pin = pins.find(p => norm(p.site_name) === norm(lastSitio.nombre))
+      if (!pin || pin.stats?.todos) return null
+      return { lc, ...pin }
+    }).filter(Boolean)
+  }, [lcOptions, sitios, pins])
+
   const filtered = useMemo(() => {
     let base = pins
-    if (filter === 'cerrados')   base = base.filter(p => p.stats?.todos)
+    if (filter === 'cerrados')        base = base.filter(p => p.stats?.todos)
     else if (filter === 'pendientes') base = base.filter(p => p.stats && !p.stats.todos)
     else if (filter === 'sinack')     base = base.filter(p => !p.stats)
+    else if (filter === 'lc_activo') {
+      const lcSites = new Set(lcAllPins.map(fp => fp.site_name))
+      base = base.filter(p => lcSites.has(p.site_name))
+    }
     if (lcFilter) base = base.filter(p => p.lc === lcFilter)
     return base
-  }, [pins, filter, lcFilter])
+  }, [pins, filter, lcFilter, lcAllPins])
 
   const total    = pins.length
   const cerrados = pins.filter(p => p.stats?.todos).length
@@ -795,14 +850,12 @@ export default function MapaSitios() {
 
   const currentLcPin = useMemo(() => {
     if (!lcFilter) return null
-    // Si el LC ya tiene geolocalización en vivo, no mostrar el fallback del liquidador
-    if (lcLiveActive.has(lcFilter)) return null
     const lastSitio = sitios
       .filter(s => s.lc === lcFilter && s.fecha && s.tipo === 'TI')
       .sort((a, b) => b.fecha.localeCompare(a.fecha))[0]
     if (!lastSitio) return null
     return pins.find(p => norm(p.site_name) === norm(lastSitio.nombre)) || null
-  }, [lcFilter, sitios, pins, lcLiveActive])
+  }, [lcFilter, sitios, pins])
 
   const siteProcesoStats = useMemo(() => {
     if (!selectedSmps.length) return []
@@ -940,10 +993,11 @@ export default function MapaSitios() {
 
         <div style={{ display: 'flex', gap: 6 }}>
           {[
-            { value: 'todos',      label: 'Todos',      color: '#374151' },
-            { value: 'cerrados',   label: '✓ Cerrados', color: '#16a34a' },
-            { value: 'pendientes', label: '● En curso', color: '#f59e0b' },
-            { value: 'sinack',     label: '— Sin ACK',  color: '#94a3b8' },
+            { value: 'todos',      label: 'Todos',        color: '#374151' },
+            { value: 'cerrados',   label: '✓ Cerrados',   color: '#16a34a' },
+            { value: 'pendientes', label: '● En curso',   color: '#f59e0b' },
+            { value: 'sinack',     label: '— Sin ACK',    color: '#94a3b8' },
+            { value: 'lc_activo',  label: '👷 LCs en sitio', color: '#2563eb' },
           ].map(o => (
             <button
               key={o.value}
@@ -956,7 +1010,11 @@ export default function MapaSitios() {
                 cursor: 'pointer', transition: 'all .15s',
               }}
             >
-              {o.label} {filter === o.value && `(${filtered.length})`}
+              {o.label} {filter === o.value && (
+                o.value === 'lc_activo'
+                  ? `(${lcAllPins.filter(fp => lcLiveActive.has(fp.lc)).length} / ${lcAllPins.length})`
+                  : `(${filtered.length})`
+              )}
             </button>
           ))}
         </div>
@@ -1014,7 +1072,7 @@ export default function MapaSitios() {
               const inRoute     = routeIdx >= 0
               const isCurrentLc = currentLcPin?.site_name === pin.site_name
               const icon = isCurrentLc
-                ? lcCurrentIcon(pin.color)
+                ? (lcLiveActive.has(lcFilter) ? lcCurrentIconGreen(pin.color) : lcCurrentIcon(pin.color))
                 : inRoute
                 ? routeStopIcon(pin.color, routeIdx + 1)
                 : towerIcon(pin.color, isSel)
@@ -1064,6 +1122,25 @@ export default function MapaSitios() {
                         return sec < 60 ? `hace ${sec}s` : `hace ${Math.floor(sec/60)}min`
                       })()}
                     </div>
+                  </Tooltip>
+                </Marker>
+              ))
+            }
+
+            {/* LCs en sitio: anillos verdes (GPS activo) o azules (último sitio Liquidador) */}
+            {filter === 'lc_activo' && lcAllPins
+              .filter(fp => fp.lc !== lcFilter)
+              .map(fp => (
+                <Marker
+                  key={`lc-all-${fp.lc}`}
+                  position={[fp.lat, fp.lng]}
+                  icon={lcStaticIcon(fp.lc, lcLiveActive.has(fp.lc), fp.color.fill)}
+                  zIndexOffset={2500}
+                >
+                  <Tooltip direction="top" offset={[0, -22]} opacity={0.97}>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{fp.site_name}</div>
+                    <div style={{ fontSize: 11, color: fp.color.fill }}>{fp.color.label}</div>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>👷 {fp.lc}</div>
                   </Tooltip>
                 </Marker>
               ))

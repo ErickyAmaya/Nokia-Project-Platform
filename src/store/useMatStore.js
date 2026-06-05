@@ -18,9 +18,10 @@ export const useMatStore = create((set, get) => ({
   bodegas:      [],
   sitios:       [],
   sitiosError:  null,
-  movimientos:  [],
-  despachos:    [],
-  pendientes:   [],   // mat_pendientes
+  movimientos:          [],
+  despachos:            [],
+  pendientes:           [],   // mat_pendientes
+  matDespachosPendientes: [], // mat_despachos_pendientes
   proveedores:  [],
   precios:      [],
   loading:      false,
@@ -33,7 +34,7 @@ export const useMatStore = create((set, get) => ({
     const firstLoad = get().catalogo.length === 0
     if (firstLoad) set({ loading: true, error: null })
     try {
-      const [cat, stk, bod, sit, mov, dep, pend, prov, prec] = await Promise.all([
+      const [cat, stk, bod, sit, mov, dep, pend, prov, prec, mdp] = await Promise.all([
         db().from('mat_catalogo').select('*').order('categoria').order('nombre'),
         db().from('mat_stock').select('*'),
         db().from('bodegas').select('*').order('nombre'),
@@ -43,26 +44,29 @@ export const useMatStore = create((set, get) => ({
         db().from('mat_pendientes').select('*').order('created_at', { ascending: false }),
         db().from('mat_proveedores').select('*').order('nombre'),
         db().from('mat_precios_proveedor').select('*'),
+        db().from('mat_despachos_pendientes').select('*').order('created_at', { ascending: false }),
       ])
-      if (cat.error)  console.error('[mat] catalogo:',     cat.error.message)
-      if (stk.error)  console.error('[mat] stock:',        stk.error.message)
-      if (bod.error)  console.error('[mat] bodegas:',      bod.error.message)
-      if (sit.error)  console.error('[mat] sitios:',       sit.error.message)
-      if (mov.error)  console.error('[mat] movimientos:',  mov.error.message)
-      if (dep.error)  console.error('[mat] despachos:',    dep.error.message)
-      if (pend.error) console.error('[mat] pendientes:',   pend.error.message)
-      if (prov.error) console.error('[mat] proveedores:',  prov.error.message)
-      if (prec.error) console.error('[mat] precios:',      prec.error.message)
+      if (cat.error)  console.error('[mat] catalogo:',              cat.error.message)
+      if (stk.error)  console.error('[mat] stock:',                 stk.error.message)
+      if (bod.error)  console.error('[mat] bodegas:',               bod.error.message)
+      if (sit.error)  console.error('[mat] sitios:',                sit.error.message)
+      if (mov.error)  console.error('[mat] movimientos:',           mov.error.message)
+      if (dep.error)  console.error('[mat] despachos:',             dep.error.message)
+      if (pend.error) console.error('[mat] pendientes:',            pend.error.message)
+      if (prov.error) console.error('[mat] proveedores:',           prov.error.message)
+      if (prec.error) console.error('[mat] precios:',               prec.error.message)
+      if (mdp.error)  console.error('[mat] despachos_pendientes:',  mdp.error.message)
       set({
-        catalogo:    cat.data  || [],
-        stock:       stk.data  || [],
-        bodegas:     bod.data  || [],
-        sitios:      sit.data  || [],
-        movimientos: mov.data  || [],
-        despachos:   dep.data  || [],
-        pendientes:  pend.data || [],
-        proveedores: prov.data || [],
-        precios:     prec.data || [],
+        catalogo:               cat.data  || [],
+        stock:                  stk.data  || [],
+        bodegas:                bod.data  || [],
+        sitios:                 sit.data  || [],
+        movimientos:            mov.data  || [],
+        despachos:              dep.data  || [],
+        pendientes:             pend.data || [],
+        proveedores:            prov.data || [],
+        precios:                prec.data || [],
+        matDespachosPendientes: mdp.data  || [],
         sitiosError: sit.error?.message || null,
         loading: false,
       })
@@ -332,6 +336,100 @@ export const useMatStore = create((set, get) => ({
     set(s => ({
       pendientes: s.pendientes.filter(p => !(p.sitio === sitio && catalogoIds.includes(p.catalogo_id)))
     }))
+  },
+
+  // ── DESPACHOS PENDIENTES (mat_despachos_pendientes) ─────────────
+  crearMatDespachoPendiente: async (payload) => {
+    // payload: { numero_doc, fecha, sitio_nombre, notas, items, created_by }
+    // items: [{ catalogo_id, nombre, cantidad, bodega_id, bodega_nombre, costo_unitario }]
+    const { data, error } = await db()
+      .from('mat_despachos_pendientes')
+      .insert({ ...payload, estado: 'pendiente' })
+      .select().single()
+    if (error) throw error
+    // Marcar sitio como pendiente_despacho
+    await db().from('mat_sitios')
+      .update({ estado: 'pendiente_despacho' })
+      .eq('nombre', payload.sitio_nombre)
+    set(s => ({
+      matDespachosPendientes: [data, ...s.matDespachosPendientes],
+      sitios: s.sitios.map(x => x.nombre === payload.sitio_nombre ? { ...x, estado: 'pendiente_despacho' } : x),
+    }))
+    get()._broadcastChange()
+    return data
+  },
+
+  confirmarDespachoMatPendiente: async (despachoId, bodega_id) => {
+    const despacho = get().matDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho pendiente no encontrado')
+
+    // 1. Crear despacho en tabla despachos
+    const { data: dep, error: depErr } = await db().from('despachos').insert({
+      numero_doc:  despacho.numero_doc,
+      destino:     despacho.sitio_nombre,
+      bodega_id:   bodega_id || despacho.items[0]?.bodega_id || null,
+      fecha:       despacho.fecha,
+      status:      'finalizado',
+      comentarios: despacho.notas || null,
+      created_by:  despacho.created_by || null,
+      finalizado_at: new Date().toISOString(),
+    }).select().single()
+    if (depErr) throw depErr
+
+    // 2. Crear movimientos de salida por cada ítem
+    const now = new Date().toISOString()
+    const movs = despacho.items.map(item => ({
+      tipo:          'salida',
+      catalogo_id:   item.catalogo_id,
+      bodega_id:     item.bodega_id,
+      cantidad:      item.cantidad,
+      destino:       despacho.sitio_nombre,
+      numero_doc:    despacho.numero_doc,
+      fecha:         despacho.fecha,
+      costo_unitario: item.costo_unitario || null,
+      created_at:    now,
+    }))
+    const { error: movErr } = await db().from('mat_movimientos').insert(movs)
+    if (movErr) throw movErr
+
+    // 3. Restaurar estado del sitio
+    await db().from('mat_sitios')
+      .update({ estado: 'activo' })
+      .eq('nombre', despacho.sitio_nombre)
+
+    // 4. Eliminar pendiente
+    await db().from('mat_despachos_pendientes').delete().eq('id', despachoId)
+
+    // 5. Recargar stock y movimientos
+    const [{ data: stk }, { data: movData }] = await Promise.all([
+      db().from('mat_stock').select('*'),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
+    ])
+    set(s => ({
+      matDespachosPendientes: s.matDespachosPendientes.filter(d => d.id !== despachoId),
+      despachos:   [dep, ...s.despachos],
+      movimientos: movData || s.movimientos,
+      stock:       stk    || s.stock,
+      sitios:      s.sitios.map(x => x.nombre === despacho.sitio_nombre ? { ...x, estado: 'activo' } : x),
+    }))
+    get()._broadcastChange()
+    return dep
+  },
+
+  cancelarMatDespachoPendiente: async (despachoId) => {
+    const despacho = get().matDespachosPendientes.find(d => d.id === despachoId)
+    if (!despacho) throw new Error('Despacho pendiente no encontrado')
+
+    await db().from('mat_despachos_pendientes').delete().eq('id', despachoId)
+    await db().from('mat_sitios')
+      .update({ estado: 'activo' })
+      .eq('nombre', despacho.sitio_nombre)
+
+    set(s => ({
+      matDespachosPendientes: s.matDespachosPendientes.filter(d => d.id !== despachoId),
+      sitios: s.sitios.map(x => x.nombre === despacho.sitio_nombre ? { ...x, estado: 'activo' } : x),
+    }))
+    get()._broadcastChange()
   },
 
   // ── Realtime sync — lo llama MatWrapper al montar ────────────────

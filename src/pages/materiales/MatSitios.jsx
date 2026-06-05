@@ -469,6 +469,7 @@ export default function MatSitios() {
                                 // Sin serial: agrupar salidas HW a este sitio por tipo de equipo
                                 const movsSinSerial = hwMovimientos.filter(m =>
                                   m.tipo === 'SALIDA' && !m.serial &&
+                                  m.tipo_fuente !== 'PENDIENTE' &&
                                   m.destino && m.destino.toLowerCase() === s.nombre.toLowerCase()
                                 )
                                 const ssByCat = {}

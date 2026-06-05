@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, Fragment } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAckStore }  from '../../store/useAckStore'
@@ -42,8 +42,8 @@ function applyEvFilter(eventos, row, filtroEv) {
   return eventos
 }
 
-const TH = ({ children }) => (
-  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>
+const TH = ({ children, style }) => (
+  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1, ...style }}>
     {children}
   </th>
 )
@@ -221,7 +221,7 @@ function FacturarModal({ row, ev, siblingEv, pos, invoices, onClose, onSave }) {
             return (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                  <span style={{ color: '#555' }}>Valor PO</span>
+                  <span style={{ color: '#555' }}>Valor a facturar</span>
                   <span style={{ color: '#6b7280' }}>{fmt(poData.valor)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>
@@ -357,7 +357,6 @@ export default function FactPorFacturar() {
   const [rolloutItems, setRolloutItems] = useState(() => _savedRollout?.items || null)
   const [rolloutTs,    setRolloutTs]    = useState(() => _savedRollout?.ts    || null)
   const [rolloutLoading, setRolloutLoading] = useState(false)
-  const [expandedSites, setExpandedSites] = useState(new Set())
   const rolloutRef = useRef(null)
 
   // Cargar Rollout desde Supabase al montar (fuente de verdad compartida)
@@ -403,15 +402,6 @@ export default function FactPorFacturar() {
     if (!pendienteLibBySmp.length) return
     try { await exportarSolicitudLib(pendienteLibBySmp) }
     catch (err) { showToast('Error al exportar: ' + err.message, 'err') }
-  }
-
-  function toggleSite(siteName) {
-    setExpandedSites(prev => {
-      const next = new Set(prev)
-      if (next.has(siteName)) next.delete(siteName)
-      else next.add(siteName)
-      return next
-    })
   }
 
   async function handleCerrarAbsorbido(row, ev) {
@@ -615,27 +605,15 @@ export default function FactPorFacturar() {
     return result
   }, [pendienteLib, rowsSpoSet, libSpoSet, ppaByHito, invMap])
 
-  // Group noCompletados by site, dedup SMPs within each site, sort by total progress % DESC
-  const noCompletadosBySite = useMemo(() => {
-    const siteMap = new Map()
-    for (const item of noCompletados) {
-      const key = item.row.customer_site_name || item.row.site_reference_id || item.row.smp_id
-      if (!siteMap.has(key)) siteMap.set(key, [])
-      siteMap.get(key).push(item)
-    }
-    const sites = [...siteMap.entries()].map(([siteName, items]) => {
-      const smps = [...new Map(items.map(i => [i.row.smp_id, i])).values()]
-      const withData = smps.filter(s => s.rollout)
-      const totalPct = withData.length
-        ? Math.round(withData.reduce((sum, s) => {
-            const { mosPct, intgPct, acepPct } = s.rollout
-            return sum + (mosPct * 12 + intgPct * 19 + acepPct * 11) / 42
-          }, 0) / withData.length)
+  // Flat sorted list of noCompletados — dedup by smp_id, sort by rollout progress % DESC
+  const noCompletadosFlat = useMemo(() => {
+    const deduped = [...new Map(noCompletados.map(i => [i.row.smp_id, i])).values()]
+    return deduped.sort((a, b) => {
+      const pct = s => s.rollout
+        ? (s.rollout.mosPct * 12 + s.rollout.intgPct * 19 + s.rollout.acepPct * 11) / 42
         : 0
-      return { siteName, smps, totalPct }
+      return pct(b) - pct(a)
     })
-    sites.sort((a, b) => b.totalPct - a.totalPct)
-    return sites
   }, [noCompletados])
 
   const PAGE_SIZE = 50
@@ -675,17 +653,34 @@ export default function FactPorFacturar() {
       {modal && <FacturarModal row={modal.row} ev={modal.ev} siblingEv={modal.siblingEv} pos={pos} invoices={invoices} onClose={() => setModal(null)} onSave={registrarFactura} />}
       {acuerdoModal && <AcuerdoEspecialModal row={acuerdoModal} onClose={() => setAcuerdoModal(null)} onSave={registrarFactura} />}
 
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100svh - 126px - env(safe-area-inset-top))' }}>
       <div className="dash-hdr mb14">
         <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
             Por Facturar
-            {rows.length > 0    && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{rows.length}</span>}
-            {totalPorFacturar > 0 && <span style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{fmtCOP(totalPorFacturar)}</span>}
-            {(pendienteLib.length + bloqueadoAck.length + noCompletados.length) > 0 && <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 700, padding: '3px 11px' }}>{pendienteLib.length + bloqueadoAck.length + noCompletados.length} PENDIENTES</span>}
           </h1>
-          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables · {pendienteLib.length + bloqueadoAck.length + noCompletados.length} hitos NDPD en seguimiento</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+          {canUploadRollout && (
+            <>
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => rolloutRef.current?.click()}
+                  disabled={rolloutLoading}
+                  style={{ fontSize: 11, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: '6px 13px', cursor: rolloutLoading ? 'default' : 'pointer', fontWeight: 600, whiteSpace: 'nowrap', opacity: rolloutLoading ? .6 : 1 }}
+                >
+                  {rolloutLoading ? '⏳ Cargando…' : rolloutItems ? '↺ Actualizar Rollout' : '↑ Cargar Rollout Details'}
+                </button>
+                {rolloutItems && (
+                  <span style={{ position: 'absolute', top: '100%', left: 0, fontSize: 9, color: '#6b7280', whiteSpace: 'nowrap', marginTop: 2 }}>
+                    {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+              <input ref={rolloutRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleRolloutUpload} />
+              <div style={{ width: 1, height: 24, background: '#e0e4e0', flexShrink: 0 }} />
+            </>
+          )}
           <input className="fc" placeholder="Buscar sitio, SPO, SMP…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 'auto', minWidth: 180 }} />
           <select className="fc" value={filtroEv} onChange={e => setFiltroEv(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
             {EV_FILTERS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
@@ -711,7 +706,14 @@ export default function FactPorFacturar() {
         </div>
       </div>
 
+      <div style={{ flex: 1, overflowY: 'auto' }}>
       {/* ── Lista principal: Pendiente por facturar ───────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#166534' }}>Facturar</div>
+        {rows.length > 0 && <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{rows.length}</span>}
+        {totalPorFacturar > 0 && <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{fmtCOP(totalPorFacturar)}</span>}
+        <span style={{ fontSize: 11, color: '#4b5563' }}>— {rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables</span>
+      </div>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 20px', color: '#22c55e', fontSize: 14, fontWeight: 600 }}>
           ✓ No hay SPOs facturables pendientes con los filtros actuales
@@ -721,7 +723,7 @@ export default function FactPorFacturar() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
               <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
-                <TH>Sitio</TH><TH>SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>Valor PO</TH><TH></TH>
+                <TH>Sitio</TH><TH>SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH><TH>Evento</TH><TH>Valor a facturar</TH><TH></TH>
               </tr>
             </thead>
             <tbody>
@@ -791,32 +793,6 @@ export default function FactPorFacturar() {
       {/* ── Rollout + Pendiente Liberación + No Completados ─────── */}
       {libRows.length > 0 && (
         <>
-          {/* ── Widget de carga Rollout Details ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {canUploadRollout && (
-              <>
-                <button
-                  onClick={() => rolloutRef.current?.click()}
-                  disabled={rolloutLoading}
-                  style={{ fontSize: 11, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: '5px 12px', cursor: rolloutLoading ? 'default' : 'pointer', fontWeight: 600, whiteSpace: 'nowrap', opacity: rolloutLoading ? .6 : 1 }}
-                >
-                  {rolloutLoading ? '⏳ Cargando…' : rolloutItems ? '↺ Actualizar Rollout' : '↑ Cargar Rollout Details'}
-                </button>
-                <input ref={rolloutRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleRolloutUpload} />
-              </>
-            )}
-            {rolloutItems ? (
-              <span style={{ fontSize: 10, color: '#6b7280' }}>
-                {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </span>
-            ) : (
-              !rolloutLoading && (
-                <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>
-                  {canUploadRollout ? 'Carga el Rollout Details para separar SMPs certificados por Nokia' : 'Sin datos de Rollout — contacta a un coordinador para cargar el archivo'}
-                </span>
-              )
-            )}
-          </div>
 
           {/* ── Pendiente Liberación (certificados Nokia, no liberados en PPA) ── */}
           {pendienteLibBySmp.length > 0 && (
@@ -825,9 +801,40 @@ export default function FactPorFacturar() {
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#166534' }}>
                   Pendiente Liberación (PPA)
                 </div>
-                <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
                   {pendienteLibBySmp.length}
                 </span>
+                {(() => {
+                  const total = pendienteLibBySmp.reduce((s, { row, hitoMOS, hitoIntg, hitoAcep }) => {
+                    const poData = pos.find(p => p.spo_number === row.spo_number)
+                    if (!poData?.valor) return s
+                    const smpId = row.smp_id
+                    let pct = 0
+                    for (const [msName, hito] of [
+                      ['SS MOS ok', hitoMOS],
+                      ['SS Integracion ok', hitoIntg],
+                      ['SS Aceptacion final ok', hitoAcep],
+                    ]) {
+                      if (hito.status !== 'pendiente') continue
+                      const ppaRow = ppaByHito.get(`${smpId}|${msName}`)
+                      if (!ppaRow) continue
+                      const evs = getEventosRow(ppaRow, invMap)
+                      let pctRow = evs.reduce((a, e) => a + (e.invoiceable_pct ?? e.pct ?? 0), 0)
+                      if (pctRow === 0) {
+                        const invoicedPct = EVENTOS.reduce((a, e) => a + (invMap[`${ppaRow.spo_number}|${e.key}`]?.pct || 0), 0)
+                        pctRow = Math.max(0, 100 - invoicedPct - (ppaRow.acuerdo_liberacion || 0))
+                      }
+                      pct += pctRow
+                    }
+                    return s + poData.valor * pct / 100
+                  }, 0)
+                  if (!total) return null
+                  return (
+                    <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total)}
+                    </span>
+                  )
+                })()}
                 <div style={{ fontSize: 11, color: '#4b5563' }}>— SMPs con SS Nokia certificada, pendientes de liberación en PPA</div>
                 <button
                   onClick={handleExportSolicitud}
@@ -841,11 +848,34 @@ export default function FactPorFacturar() {
                   <thead>
                     <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
                       <TH>Sitio</TH><TH>SMP ID</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Categoría</TH>
-                      <TH>SS MOS ok</TH><TH>SS Integración ok</TH><TH>SS Aceptación Final ok</TH><TH>Falta</TH>
+                      <TH>SS MOS ok</TH><TH>SS Integración ok</TH><TH>SS Aceptación Final ok</TH><TH>Falta</TH><TH>Valor Estimado</TH>
                     </tr>
                   </thead>
                   <tbody>
-                    {pendienteLibBySmp.map(({ row, cat, missing, hitoMOS, hitoIntg, hitoAcep }) => (
+                    {pendienteLibBySmp.map(({ row, cat, missing, hitoMOS, hitoIntg, hitoAcep }) => {
+                      const poData = pos.find(p => p.spo_number === row.spo_number)
+                      // Sumar pct de los hitos pendientes usando sus filas PPA específicas
+                      const smpId = row.smp_id
+                      let pctPendiente = 0
+                      for (const [msName, hito] of [
+                        ['SS MOS ok', hitoMOS],
+                        ['SS Integracion ok', hitoIntg],
+                        ['SS Aceptacion final ok', hitoAcep],
+                      ]) {
+                        if (hito.status !== 'pendiente') continue
+                        const ppaRow = ppaByHito.get(`${smpId}|${msName}`)
+                        if (!ppaRow) continue
+                        const evs = getEventosRow(ppaRow, invMap)
+                        let pctRow = evs.reduce((s, e) => s + (e.invoiceable_pct ?? e.pct ?? 0), 0)
+                        if (pctRow === 0) {
+                          const invoicedPct = EVENTOS.reduce((s, e) => s + (invMap[`${ppaRow.spo_number}|${e.key}`]?.pct || 0), 0)
+                          pctRow = Math.max(0, 100 - invoicedPct - (ppaRow.acuerdo_liberacion || 0))
+                        }
+                        pctPendiente += pctRow
+                      }
+                      const valorEst = poData?.valor ? poData.valor * pctPendiente / 100 : null
+                      const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData?.moneda || 'COP', maximumFractionDigits: 0 }).format(v)
+                      return (
                       <tr key={row.smp_id} style={{ borderTop: '1px solid #f0f0f0' }}>
                         <td style={{ padding: '7px 10px', fontWeight: 600 }}>{row.customer_site_name || row.site_reference_id}</td>
                         <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{row.smp_id}</td>
@@ -860,8 +890,12 @@ export default function FactPorFacturar() {
                         <td style={{ padding: '7px 10px' }}>
                           <MissingBadge missing={missing} onClick={!isViewer ? () => setAcuerdoModal(row) : undefined} />
                         </td>
+                        <td style={{ padding: '7px 10px', fontWeight: 700, color: '#166534', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                          {valorEst != null ? fmtCOP(valorEst) : <span style={{ color: '#9ca3af', fontSize: 10 }}>Sin PO</span>}
+                        </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -914,81 +948,84 @@ export default function FactPorFacturar() {
             </>
           )}
 
-          {/* ── No Completados (sin SS Nokia, agrupados por sitio) ── */}
-          {noCompletadosBySite.length > 0 && (
+          {/* ── No Completados (sin SS Nokia) — vista plana ── */}
+          {noCompletadosFlat.length > 0 && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, color: '#92400e' }}>
                   Pendiente Completar (NDPD)
                 </div>
-                <span style={{ background: '#fffbeb', color: '#92400e', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
-                  {noCompletados.length}
+                <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                  {noCompletadosFlat.length}
                 </span>
+                {(() => {
+                  const total = noCompletadosFlat.reduce((s, { row }) => {
+                    const poDataNc = pos.find(p => p.spo_number === row.spo_number)
+                    if (!poDataNc?.valor) return s
+                    const evsNc = getEventosRow(row, invMap)
+                    let pctNc = evsNc.reduce((a, e) => a + (e.invoiceable_pct ?? e.pct ?? 0), 0)
+                    if (pctNc === 0) {
+                      const invoicedPct = EVENTOS.reduce((a, e) => a + (invMap[`${row.spo_number}|${e.key}`]?.pct || 0), 0)
+                      pctNc = Math.max(0, 100 - invoicedPct - (row.acuerdo_liberacion || 0))
+                    }
+                    return s + poDataNc.valor * pctNc / 100
+                  }, 0)
+                  if (!total) return null
+                  return (
+                    <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>
+                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total)}
+                    </span>
+                  )
+                })()}
                 <div style={{ fontSize: 11, color: '#4b5563' }}>— SPOs bloqueados por falta de GR y/o %{rolloutItems ? '' : ' · carga Rollout para ver progreso'}</div>
               </div>
               <div className="card" style={{ overflow: 'auto', maxHeight: '55vh' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 780 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 860 }}>
                   <thead>
                     <tr style={{ background: '#fffbeb', borderBottom: '2px solid #fcd34d' }}>
-                      <TH>Sitio / SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Falta</TH><TH>Progreso Rollout</TH>
+                      <TH>Sitio</TH><TH>SMP ID</TH><TH>MS/SMP Name</TH><TH>Desempeño</TH><TH>SPO</TH><TH>Falta</TH><TH>Progreso Rollout</TH><TH style={{ textAlign: 'center' }}>Valor Estimado</TH>
                     </tr>
                   </thead>
                   <tbody>
-                    {noCompletadosBySite.map(({ siteName, smps, totalPct }) => {
-                      const isExpanded = expandedSites.has(siteName)
+                    {noCompletadosFlat.map(({ row, missing, rollout }) => {
+                      const onHitoClick = !isViewer ? ms => {
+                        const r = ppaByHito.get(`${row.smp_id}|${ms}`) || row
+                        setAcuerdoModal(r)
+                      } : null
+                      const poDataNc = pos.find(p => p.spo_number === row.spo_number)
+                      const evsNc = getEventosRow(row, invMap)
+                      let pctNc = evsNc.reduce((s, e) => s + (e.invoiceable_pct ?? e.pct ?? 0), 0)
+                      if (pctNc === 0) {
+                        const invoicedPct = EVENTOS.reduce((s, e) => s + (invMap[`${row.spo_number}|${e.key}`]?.pct || 0), 0)
+                        pctNc = Math.max(0, 100 - invoicedPct - (row.acuerdo_liberacion || 0))
+                      }
+                      const valorEstNc = poDataNc?.valor ? poDataNc.valor * pctNc / 100 : null
+                      const fmtNc = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: poDataNc?.moneda || 'COP', maximumFractionDigits: 0 }).format(v)
                       return (
-                        <Fragment key={siteName}>
-                          <tr
-                            onClick={() => toggleSite(siteName)}
-                            style={{ cursor: 'pointer', background: '#fffbeb', borderTop: '2px solid #fde68a' }}
-                          >
-                            <td colSpan={6} style={{ padding: '8px 10px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>{isExpanded ? '▼' : '▶'}</span>
-                                <span style={{ fontWeight: 700, fontSize: 12 }}>{siteName}</span>
-                                <span style={{ fontSize: 9, color: '#6b7280', background: '#f3f4f6', borderRadius: 4, padding: '1px 6px' }}>
-                                  {smps.length} SMP{smps.length !== 1 ? 's' : ''}
-                                </span>
-                                {rolloutItems && (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    <div style={{ width: 80, background: '#e5e7eb', borderRadius: 3, height: 5 }}>
-                                      <div style={{ width: `${Math.min(totalPct, 100)}%`, background: '#f59e0b', borderRadius: 3, height: 5 }} />
-                                    </div>
-                                    <span style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>{totalPct}%</span>
-                                  </div>
-                                )}
+                        <tr key={row.smp_id} style={{ borderTop: '1px solid #fef9ee', background: '#fefdf9' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 600 }}>{row.customer_site_name || row.site_reference_id}</td>
+                          <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 9, color: '#555' }}>{row.smp_id}</td>
+                          <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>
+                            {row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}
+                          </td>
+                          <td style={{ padding: '6px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
+                          <td style={{ padding: '6px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
+                          <td style={{ padding: '6px 10px' }}><MissingBadge missing={missing} onClick={!isViewer ? () => setAcuerdoModal(row) : undefined} /></td>
+                          <td style={{ padding: '6px 10px' }}>
+                            {rollout ? (
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" status={getHitoBarStatus(row.smp_id, 'SS MOS ok', rollout.mosPct)} onClick={onHitoClick ? () => onHitoClick('SS MOS ok') : undefined} />
+                                {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" status={getHitoBarStatus(row.smp_id, 'SS Integracion ok', rollout.intgPct)} onClick={onHitoClick ? () => onHitoClick('SS Integracion ok') : undefined} />}
+                                {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" status={getHitoBarStatus(row.smp_id, 'SS Aceptacion final ok', rollout.acepPct)} onClick={onHitoClick ? () => onHitoClick('SS Aceptacion final ok') : undefined} />}
                               </div>
-                            </td>
-                          </tr>
-                          {isExpanded && smps.map(({ row, missing, rollout }) => {
-                            const onHitoClick = !isViewer ? ms => {
-                              const r = ppaByHito.get(`${row.smp_id}|${ms}`) || row
-                              setAcuerdoModal(r)
-                            } : null
-                            return (
-                              <tr key={`smp-${row.spo_number}`} style={{ borderTop: '1px solid #fef9ee', background: '#fefdf9' }}>
-                                <td style={{ padding: '6px 10px 6px 26px', fontFamily: 'monospace', fontSize: 9, color: '#555' }}>{row.smp_id}</td>
-                                <td style={{ padding: '6px 10px', fontSize: 10, color: '#555' }}>
-                                  {row.smp_name === 'Process_Implementation' ? row.ms_name : row.smp_name}
-                                </td>
-                                <td style={{ padding: '6px 10px' }}><DesempenoBadge val={row.desempeno} /></td>
-                                <td style={{ padding: '6px 10px' }}><SpoCell spo={row.spo_number} pos={pos} /></td>
-                                <td style={{ padding: '6px 10px' }}><MissingBadge missing={missing} /></td>
-                                <td style={{ padding: '6px 10px' }}>
-                                  {rollout ? (
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                      <HitoBar label="MOS" pct={rollout.mosPct} color="#144E4A" status={getHitoBarStatus(row.smp_id, 'SS MOS ok', rollout.mosPct)} onClick={onHitoClick ? () => onHitoClick('SS MOS ok') : undefined} />
-                                      {rollout.mosSS && <HitoBar label="Integración" pct={rollout.intgPct} color="#0369a1" status={getHitoBarStatus(row.smp_id, 'SS Integracion ok', rollout.intgPct)} onClick={onHitoClick ? () => onHitoClick('SS Integracion ok') : undefined} />}
-                                      {rollout.intgSS && <HitoBar label="Acept. Final" pct={rollout.acepPct} color="#7c3aed" status={getHitoBarStatus(row.smp_id, 'SS Aceptacion final ok', rollout.acepPct)} onClick={onHitoClick ? () => onHitoClick('SS Aceptacion final ok') : undefined} />}
-                                    </div>
-                                  ) : (
-                                    <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>Sin datos Rollout</span>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </Fragment>
+                            ) : (
+                              <span style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>Sin datos Rollout</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px 10px', fontWeight: 700, color: '#92400e', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            {valorEstNc != null ? fmtNc(valorEstNc) : <span style={{ color: '#9ca3af', fontSize: 10 }}>Sin PO</span>}
+                          </td>
+                        </tr>
                       )
                     })}
                   </tbody>
@@ -998,6 +1035,8 @@ export default function FactPorFacturar() {
           )}
         </>
       )}
+      </div>
+      </div>
     </>
   )
 }
