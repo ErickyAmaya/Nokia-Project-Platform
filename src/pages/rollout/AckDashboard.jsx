@@ -402,6 +402,7 @@ export default function AckDashboard() {
   const sabana         = useAckStore(s => s.sabana)
   const uploads        = useAckStore(s => s.uploads)
   const uploading      = useAckStore(s => s.uploading)
+  const loading        = useAckStore(s => s.loading)
   const uploadExcel    = useAckStore(s => s.uploadExcel)
   const proyectoSel    = useAckStore(s => s.proyectoSel)
   const setProyectoSel = useAckStore(s => s.setProyectoSel)
@@ -454,6 +455,11 @@ export default function AckDashboard() {
   const totalSMPs    = filtered.length
 
   if (!sabana.length) {
+    if (loading) return (
+      <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b7280', fontSize: 13 }}>
+        Cargando datos…
+      </div>
+    )
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
@@ -38,6 +38,15 @@ export default function MatSitios() {
   const [filReg,        setFilReg]        = useState('')
   const [expanded,      setExpanded]      = useState(null)
   const [togglingId,    setTogglingId]    = useState(null)
+  const serialMatchRef = useRef(null)
+
+  useEffect(() => {
+    if (!search) return
+    const t = setTimeout(() => {
+      serialMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 120)
+    return () => clearTimeout(t)
+  }, [search, expanded])
 
   // Auto-expandir el sitio si viene desde un link directo
   useEffect(() => {
@@ -125,6 +134,7 @@ export default function MatSitios() {
     if (`${s.nombre} ${s.regional}`.toLowerCase().includes(q)) return true
     const sNombre = s.nombre.toLowerCase()
     if (hwEquipos.some(e => e.ubicacion_actual?.toLowerCase() === sNombre && e.so?.toLowerCase().includes(q))) return true
+    if (hwEquipos.some(e => e.ubicacion_actual?.toLowerCase() === sNombre && e.serial?.toLowerCase().includes(q))) return true
     if (hwMovimientos.some(m => m.tipo === 'SALIDA' && !m.serial && m.destino?.toLowerCase() === sNombre && m.so?.toLowerCase().includes(q))) return true
     return false
   }), [sitios, search, filReg, hwEquipos, hwMovimientos])
@@ -515,9 +525,17 @@ export default function MatSitios() {
                                             {hwEnSitio.map((e, idx) => {
                                               const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
                                               const est = HW_ESTADO_CFG[e.estado] || HW_ESTADO_CFG.en_bodega
+                                              const isMatch = search && e.serial?.toLowerCase().includes(search.toLowerCase())
                                               return (
-                                                <tr key={e.id} style={{ background: (idx) % 2 === 0 ? '#fff' : '#f0f4ff', borderBottom:'1px solid #dbeafe' }}>
-                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color:'#1e40af' }}>{e.serial}</td>
+                                                <tr key={e.id}
+                                                  ref={isMatch ? serialMatchRef : null}
+                                                  style={{
+                                                    background: isMatch ? '#fef08a' : (idx % 2 === 0 ? '#fff' : '#f0f4ff'),
+                                                    borderBottom: '1px solid #dbeafe',
+                                                    outline: isMatch ? '2px solid #eab308' : 'none',
+                                                    transition: 'background 0.3s',
+                                                  }}>
+                                                  <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, color: isMatch ? '#92400e' : '#1e40af' }}>{e.serial}</td>
                                                   <td style={{ padding:'5px 10px', fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, fontWeight:600, color:'#144E4A' }}>
                                                     {e.so || <span style={{ color:'#9ca89c' }}>—</span>}
                                                   </td>
