@@ -50,6 +50,7 @@ const HW_NAV = [
   { to: '/materiales/hw/movimientos',          label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos',  roles: null },
   { to: '/materiales/hw/fallas',               label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',       roles: null },
   { to: '/materiales/hw/nokia-carga',          label: 'Carga Nokia',    icon: '📥', id: 'hw-nokia-carga',  roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/hw/bodega-nokia',         label: 'Bodega Nokia',   icon: '🏭', id: 'hw-bodega-nokia',  roles: null },
   { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
 ]
 

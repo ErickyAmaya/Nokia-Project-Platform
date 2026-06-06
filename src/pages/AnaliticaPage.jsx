@@ -790,17 +790,51 @@ function TimelineFilter({ mesesDisponibles, seleccion, onChange, añoActivo, onA
   )
 }
 
+const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFmwCZWD4jMIPVe-tO1z8_kFkRRE8ZuQPlAvdno8XzTA0KBJHgUsoKLtzDp8U7lEPX5v6pJ_nqZWph/pub?gid=0&single=true&output=csv'
+const LS_DATA = 'tilt_csv_data'
+const LS_TS   = 'tilt_csv_ts'
+const CACHE_MS = 60 * 60 * 1000 // 1 hora
+
 function Tab6() {
-  const [rows,     setRows]     = useState([])
-  const [loading,  setLoading]  = useState(false)
-  const [filCuad,  setFilCuad]  = useState('')
-  const [filEstado,setFilEstado]= useState('TODOS')
-  const [filMeses, setFilMeses] = useState(new Set())
-  const [fil5G,    setFil5G]    = useState('TODOS')
-  const [filAño,   setFilAño]   = useState(null)
-  const [showCW,   setShowCW]   = useState(false)
-  const [show5G,   setShow5G]   = useState(false)
+  const [rows,      setRows]      = useState([])
+  const [loading,   setLoading]   = useState(false)
+  const [fetchedAt, setFetchedAt] = useState(null)
+  const [fetchErr,  setFetchErr]  = useState(null)
+  const [filCuad,   setFilCuad]   = useState('')
+  const [filEstado, setFilEstado] = useState('TODOS')
+  const [filMeses,  setFilMeses]  = useState(new Set())
+  const [fil5G,     setFil5G]     = useState('TODOS')
+  const [filAño,    setFilAño]    = useState(null)
+  const [showCW,    setShowCW]    = useState(false)
+  const [show5G,    setShow5G]    = useState(false)
   const fileRef = React.useRef()
+
+  async function fetchFromSheets(force = false) {
+    setLoading(true); setFetchErr(null)
+    try {
+      const cachedTs   = localStorage.getItem(LS_TS)
+      const cachedData = localStorage.getItem(LS_DATA)
+      const age = cachedTs ? Date.now() - Number(cachedTs) : Infinity
+      let text
+      if (!force && age < CACHE_MS && cachedData) {
+        text = cachedData
+      } else {
+        const res = await fetch(SHEETS_URL)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        text = await res.text()
+        localStorage.setItem(LS_DATA, text)
+        localStorage.setItem(LS_TS,   String(Date.now()))
+      }
+      setRows(parseRolloutCSV(text))
+      setFetchedAt(Number(localStorage.getItem(LS_TS)))
+    } catch (e) {
+      setFetchErr(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => { fetchFromSheets() }, [])
 
   async function handleFile(f) {
     if (!f) return
@@ -808,6 +842,8 @@ function Tab6() {
     try {
       const text = await f.text()
       setRows(parseRolloutCSV(text))
+      setFetchedAt(Date.now())
+      setFetchErr(null)
     } finally {
       setLoading(false)
     }
@@ -950,14 +986,25 @@ function Tab6() {
 
   if (rows.length === 0) return (
     <div style={{ padding: '32px 0', textAlign: 'center' }}>
-      <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-        Carga el archivo <strong>Seguimiento Modernización</strong> exportado como CSV desde Google Sheets
-      </div>
-      <button className="btn bp" style={{ fontSize: 12 }} onClick={() => fileRef.current?.click()}>
-        {loading ? 'Procesando…' : '📂 Cargar CSV'}
-      </button>
-      <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
-        onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+      {loading ? (
+        <div style={{ fontSize: 13, color: '#6b7280' }}>Cargando datos…</div>
+      ) : fetchErr ? (
+        <div>
+          <div style={{ fontSize: 13, color: '#dc2626', marginBottom: 12 }}>
+            Error al obtener datos: {fetchErr}
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn bp" style={{ fontSize: 12 }} onClick={() => fetchFromSheets(true)}>
+              ↺ Reintentar
+            </button>
+            <button className="btn" style={{ fontSize: 12 }} onClick={() => fileRef.current?.click()}>
+              📂 Cargar CSV
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
+              onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 
@@ -1005,11 +1052,21 @@ function Tab6() {
           <option value="SIN">MOD</option>
           <option value="CON">MOD+5G</option>
         </select>
-        <button className="btn" style={{ fontSize: 11, marginLeft: 'auto' }} onClick={() => fileRef.current?.click()}>
-          🔄 Recargar CSV
-        </button>
-        <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
-          onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {fetchedAt && (
+            <span style={{ fontSize: 10, color: '#9ca3af' }}>
+              {new Date(fetchedAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <button className="btn" style={{ fontSize: 11 }} disabled={loading} onClick={() => fetchFromSheets(true)}>
+            {loading ? 'Actualizando…' : '↺ Actualizar'}
+          </button>
+          <button className="btn" style={{ fontSize: 11, color: '#6b7280' }} onClick={() => fileRef.current?.click()} title="Cargar CSV manual">
+            📂
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
+            onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+        </div>
       </div>
 
       {/* Gráficas */}

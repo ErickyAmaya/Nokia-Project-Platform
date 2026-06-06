@@ -21,6 +21,7 @@ export const useHwStore = create((set, get) => ({
   hwLogInversa:           [],
   hwLiBodegasDestino:     [],
   hwLiConceptos:          [],
+  hwKardexDisponible:     [],
   loading:                false,
   _syncChannel:           null,
 
@@ -30,7 +31,7 @@ export const useHwStore = create((set, get) => ({
     const firstLoad = get().hwCatalogo.length === 0
     if (firstLoad) set({ loading: true })
     try {
-      const [cat, equ, mov, bod, ss, tu, fal, dp, li, libd, lic] = await Promise.all([
+      const [cat, equ, mov, bod, ss, tu, fal, dp, li, libd, lic, kdisp] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
         db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
@@ -42,19 +43,21 @@ export const useHwStore = create((set, get) => ({
         db().from('hw_log_inversa').select('*').order('created_at', { ascending: false }),
         db().from('hw_li_bodegas_destino').select('*').order('nombre'),
         db().from('hw_li_conceptos').select('*').order('nombre'),
+        db().from('hw_kardex_disponible').select('*').order('fecha_movimiento', { ascending: false }),
       ])
       set({
-        hwCatalogo:             cat.data  || [],
-        hwEquipos:              equ.data  || [],
-        hwMovimientos:          mov.data  || [],
-        hwBodegasNokia:         bod.data  || [],
-        hwServiceSuppliers:     ss.data   || [],
-        hwTipoUnidades:         tu.data   || [],
-        hwFallas:               fal.data  || [],
-        hwDespachosPendientes:  dp.data   || [],
-        hwLogInversa:           li.data   || [],
-        hwLiBodegasDestino:     libd.data || [],
-        hwLiConceptos:          lic.data  || [],
+        hwCatalogo:             cat.data   || [],
+        hwEquipos:              equ.data   || [],
+        hwMovimientos:          mov.data   || [],
+        hwBodegasNokia:         bod.data   || [],
+        hwServiceSuppliers:     ss.data    || [],
+        hwTipoUnidades:         tu.data    || [],
+        hwFallas:               fal.data   || [],
+        hwDespachosPendientes:  dp.data    || [],
+        hwLogInversa:           li.data    || [],
+        hwLiBodegasDestino:     libd.data  || [],
+        hwLiConceptos:          lic.data   || [],
+        hwKardexDisponible:     kdisp.data || [],
       })
     } finally {
       if (firstLoad) set({ loading: false })
@@ -93,6 +96,22 @@ export const useHwStore = create((set, get) => ({
   _broadcastChange: () => {
     const ch = get()._syncChannel
     if (ch) ch.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {})
+  },
+
+  // ── Kardex Disponible Nokia ──────────────────────────────────────
+  upsertKardexDisponible: async (rows) => {
+    const CHUNK = 200
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await db()
+        .from('hw_kardex_disponible')
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: 'nokia_id' })
+      if (error) throw error
+    }
+    const { data } = await db()
+      .from('hw_kardex_disponible')
+      .select('*')
+      .order('fecha_movimiento', { ascending: false })
+    set({ hwKardexDisponible: data || [] })
   },
 
   // ── Catálogo HW ─────────────────────────────────────────────────
