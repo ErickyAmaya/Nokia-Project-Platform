@@ -37,6 +37,55 @@ function Td({ children, style, center }) {
   )
 }
 
+// ── Drop Zone ─────────────────────────────────────────────────────
+function DropZone({ icon, label, file, onFile, onUpload, uploading, result }) {
+  const [hover,    setHover]    = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef()
+
+  const bg  = dragging ? '#dbeafe' : file ? '#f0fdf4' : hover ? '#eff6ff' : '#fafafa'
+  const bdr = dragging ? '2px solid #3b82f6'
+            : file     ? '1.5px solid #86efac'
+            : hover    ? '1.5px dashed #93c5fd'
+            :            '1.5px dashed #d1d5db'
+  const clr = dragging ? '#1d4ed8' : file ? '#16a34a' : hover ? '#3b82f6' : '#9ca3af'
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{
+          border: bdr, borderRadius: 10, padding: '10px 18px', background: bg,
+          cursor: 'pointer', fontSize: 12, color: clr, display: 'flex',
+          alignItems: 'center', gap: 8, transition: 'background 0.15s, border 0.15s, color 0.15s',
+          minWidth: 200, justifyContent: 'center', fontWeight: file ? 600 : 400,
+          userSelect: 'none',
+        }}
+        onClick={() => inputRef.current?.click()}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => { setHover(false); setDragging(false) }}
+        onDragEnter={e => { e.preventDefault(); setDragging(true) }}
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false) }}
+        onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f) }}
+      >
+        <input ref={inputRef} type="file" accept=".csv" style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files[0]; if (f) onFile(f); e.target.value = '' }} />
+        <span style={{ fontSize: 15 }}>{dragging ? '⬇️' : file ? '📄' : icon}</span>
+        <span style={{ maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {dragging ? 'Suelta aquí' : file ? file.name : label}
+        </span>
+      </div>
+      {file && (
+        <button className="btn bp" style={{ fontSize: 11, padding: '7px 14px' }}
+          onClick={onUpload} disabled={uploading}>
+          {uploading ? '⏳…' : '↑ Cargar'}
+        </button>
+      )}
+      {result && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {fmt(result.count)}</span>}
+    </div>
+  )
+}
+
 const ALERTA = {
   ok:           { label: '✅ OK (Legalizado)',      bg: '#f0fdf4', color: '#15803d', order: 3 },
   discrepancia: { label: '🔴 Pendiente Legalizar',  bg: '#fef2f2', color: '#dc2626', order: 0 },
@@ -45,52 +94,12 @@ const ALERTA = {
   nuevo:        { label: '🆕 Nueva entrada',        bg: '#eff6ff', color: '#1d4ed8', order: 0 },
 }
 
-// ── Tab: Bodega (Kardex Disponible Nokia) ─────────────────────────
-function TabBodega({ items, kardexMov, hwEquipos, hwMovimientos, hwCatalogo }) {
+// ── Tab: Disponible (Kardex Disponible Nokia) ────────────────────
+function TabDisponible({ items }) {
   const [q,         setQ]         = useState('')
   const [matFilter, setMatFilter] = useState('')
-  const [seccion,   setSeccion]   = useState('kardex') // 'kardex' | 'nuevas'
 
   const mats = useMemo(() => [...new Set(items.map(r => r.descripcion_material).filter(Boolean))].sort(), [items])
-
-  // Nuevas entradas serializadas: ENTRADA en Kardex Movimientos que no están en hw_equipos
-  const nuevasSerial = useMemo(() => {
-    const serialesApp = new Set(hwEquipos.map(e => e.serial).filter(Boolean))
-    const entradas = kardexMov.filter(r => r.tipo_movimiento === 'ENTRADA' && r.serial)
-    // deduplicar por serial, quedarse con la más reciente
-    const bySerial = new Map()
-    for (const r of entradas) {
-      if (!bySerial.has(r.serial) || r.fecha_movimiento > bySerial.get(r.serial).fecha_movimiento)
-        bySerial.set(r.serial, r)
-    }
-    return [...bySerial.values()].filter(r => !serialesApp.has(r.serial))
-  }, [kardexMov, hwEquipos])
-
-  // Nuevas entradas sin serial: net ENTRADA-SALIDA Nokia vs stock app
-  const nuevasSinSerial = useMemo(() => {
-    const nokiaByCod = new Map()
-    for (const r of kardexMov.filter(r => !r.serial)) {
-      const key = r.cod_material || 'SIN_COD'
-      const cur = nokiaByCod.get(key) || { cod: key, desc: r.descripcion_material, nokia: 0 }
-      const delta = r.tipo_movimiento === 'ENTRADA' ? (r.cantidad ?? 1) : -(r.cantidad ?? 1)
-      cur.nokia += delta
-      nokiaByCod.set(key, cur)
-    }
-    const appByCat = new Map()
-    for (const m of hwMovimientos.filter(m => !m.serial)) {
-      const id = m.catalogo_id; if (!id) continue
-      const delta = m.tipo === 'ENTRADA' ? (m.cantidad || 0) : -(m.cantidad || 0)
-      appByCat.set(id, (appByCat.get(id) || 0) + delta)
-    }
-    return [...nokiaByCod.values()]
-      .filter(n => n.nokia > 0)
-      .map(n => {
-        const cat = hwCatalogo.find(c => String(c.cod_material) === String(n.cod))
-        const appStock = cat ? Math.max(0, appByCat.get(cat.id) || 0) : 0
-        const diff = n.nokia - appStock
-        return { ...n, app: appStock, diff }
-      }).filter(r => r.diff > 0)
-  }, [kardexMov, hwMovimientos, hwCatalogo])
 
   const filtered = useMemo(() => {
     let r = items
@@ -107,132 +116,153 @@ function TabBodega({ items, kardexMov, hwEquipos, hwMovimientos, hwCatalogo }) {
     return r
   }, [items, q, matFilter])
 
-  const subTab = (id, label, count) => (
-    <button onClick={() => setSeccion(id)} style={{
-      padding: '5px 12px', fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', borderRadius: 6,
-      background: seccion === id ? '#1d4ed8' : '#f3f4f6',
-      color:      seccion === id ? '#fff'    : '#6b7280',
-      marginRight: 6,
-    }}>
-      {label} <span style={{ fontWeight: 400 }}>({count})</span>
-    </button>
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="fc" placeholder="🔍 Serial, SO, material…" value={q}
+          onChange={e => setQ(e.target.value)} style={{ fontSize: 12, flex: '1 1 220px', minWidth: 0 }} />
+        <select className="fc" value={matFilter} onChange={e => setMatFilter(e.target.value)} style={{ fontSize: 12, flex: '1 1 200px', minWidth: 0 }}>
+          <option value="">Todos los materiales</option>
+          {mats.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <span style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>{fmt(filtered.length)} registros</span>
+      </div>
+      <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 310px)', overflowY: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead><tr>
+            <Th>Serial</Th><Th>Material</Th><Th>SO Nokia</Th><Th>SO Local</Th>
+            <Th style={{ width: 80 }} center>Fecha</Th><Th style={{ width: 70 }} center>Fuente</Th>
+          </tr></thead>
+          <tbody>
+            {filtered.map((r, i) => (
+              <tr key={r.id || i} style={{ background: i % 2 ? '#fafafa' : '#fff' }}>
+                <Td><span style={{ fontFamily: 'monospace', fontSize: 10 }}>{r.serial || '—'}</span></Td>
+                <Td>{r.descripcion_material || '—'}</Td>
+                <Td><span style={{ fontSize: 10, color: '#6b7280' }}>{r.so || '—'}</span></Td>
+                <Td><span style={{ fontSize: 10, color: '#6b7280' }}>{r.so_local || '—'}</span></Td>
+                <Td center><span style={{ fontSize: 10 }}>{r.fecha_movimiento || '—'}</span></Td>
+                <Td center>
+                  <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 8,
+                    background: r.tipo_fuente === 'ABASTECIMIENTO' ? '#dbeafe' : '#f0fdf4',
+                    color:      r.tipo_fuente === 'ABASTECIMIENTO' ? '#1e40af' : '#15803d' }}>
+                    {r.tipo_fuente === 'ABASTECIMIENTO' ? 'ABT' : 'LOG'}
+                  </span>
+                </Td>
+              </tr>
+            ))}
+            {!filtered.length && <tr><Td colSpan={6} center style={{ color: '#9ca3af', padding: 24 }}>Sin registros</Td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Tab: Nuevas Entradas ──────────────────────────────────────────
+function TabNuevasEntradas({ kardexMov, hwEquipos, hwMovimientos, hwCatalogo }) {
+  const nuevasSerial = useMemo(() => {
+    if (!kardexMov.length) return []
+    const serialesApp = new Set(hwEquipos.map(e => e.serial).filter(Boolean))
+    const bySerial = new Map()
+    for (const r of kardexMov.filter(r => r.tipo_movimiento === 'ENTRADA' && r.serial)) {
+      if (!bySerial.has(r.serial) || r.fecha_movimiento > bySerial.get(r.serial).fecha_movimiento)
+        bySerial.set(r.serial, r)
+    }
+    return [...bySerial.values()].filter(r => !serialesApp.has(r.serial))
+  }, [kardexMov, hwEquipos])
+
+  const nuevasSinSerial = useMemo(() => {
+    if (!kardexMov.length) return []
+    const nokiaByCod = new Map()
+    for (const r of kardexMov.filter(r => !r.serial)) {
+      const key = r.cod_material || 'SIN_COD'
+      const cur = nokiaByCod.get(key) || { cod: key, desc: r.descripcion_material, nokia: 0 }
+      cur.nokia += r.tipo_movimiento === 'ENTRADA' ? (r.cantidad ?? 1) : -(r.cantidad ?? 1)
+      nokiaByCod.set(key, cur)
+    }
+    const appByCat = new Map()
+    for (const m of hwMovimientos.filter(m => !m.serial)) {
+      const id = m.catalogo_id; if (!id) continue
+      appByCat.set(id, (appByCat.get(id) || 0) + (m.tipo === 'ENTRADA' ? (m.cantidad || 0) : -(m.cantidad || 0)))
+    }
+    return [...nokiaByCod.values()].filter(n => n.nokia > 0).map(n => {
+      const cat = hwCatalogo.find(c => String(c.cod_material) === String(n.cod))
+      const appStock = cat ? Math.max(0, appByCat.get(cat.id) || 0) : 0
+      return { ...n, app: appStock, diff: n.nokia - appStock }
+    }).filter(r => r.diff > 0)
+  }, [kardexMov, hwMovimientos, hwCatalogo])
+
+  if (!kardexMov.length) return (
+    <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 13 }}>
+      Carga el Kardex Movimientos Nokia para detectar nuevas entradas
+    </div>
+  )
+
+  if (nuevasSerial.length === 0 && nuevasSinSerial.length === 0) return (
+    <div style={{ textAlign: 'center', padding: 40, color: '#15803d', fontSize: 13 }}>
+      ✅ Todo lo que Nokia registra ya está en la app
+    </div>
   )
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 0, marginBottom: 14 }}>
-        {subTab('kardex', '📦 Kardex Disponible', items.length)}
-        {subTab('nuevas', '🆕 Nuevas Entradas', kardexMov.length ? nuevasSerial.length + nuevasSinSerial.length : '—')}
-      </div>
-
-      {seccion === 'kardex' && (
+      {nuevasSerial.length > 0 && (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input className="fc" placeholder="🔍 Serial, SO, material…" value={q}
-              onChange={e => setQ(e.target.value)} style={{ fontSize: 12, flex: '1 1 220px', minWidth: 0 }} />
-            <select className="fc" value={matFilter} onChange={e => setMatFilter(e.target.value)} style={{ fontSize: 12, flex: '1 1 200px', minWidth: 0 }}>
-              <option value="">Todos los materiales</option>
-              {mats.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <span style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>{fmt(filtered.length)} registros</span>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>
+            Serializados sin registro en app ({nuevasSerial.length})
           </div>
-          <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 330px)', overflowY: 'auto' }}>
+          <div style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto', marginBottom: 24 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead><tr>
-                <Th>Serial</Th><Th>Material</Th><Th>SO Nokia</Th><Th>SO Local</Th>
-                <Th style={{ width: 80 }} center>Fecha</Th><Th style={{ width: 70 }} center>Fuente</Th>
+                <Th>Serial</Th><Th>Material</Th><Th>SO Nokia</Th><Th style={{ width: 90 }} center>Fecha</Th>
               </tr></thead>
               <tbody>
-                {filtered.map((r, i) => (
-                  <tr key={r.id || i} style={{ background: i % 2 ? '#fafafa' : '#fff' }}>
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: 10 }}>{r.serial || '—'}</span></Td>
+                {nuevasSerial.map((r, i) => (
+                  <tr key={r.id || i} style={{ background: i % 2 ? '#eff6ff' : '#fff' }}>
+                    <Td><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#1d4ed8', fontWeight: 700 }}>{r.serial}</span></Td>
                     <Td>{r.descripcion_material || '—'}</Td>
                     <Td><span style={{ fontSize: 10, color: '#6b7280' }}>{r.so || '—'}</span></Td>
-                    <Td><span style={{ fontSize: 10, color: '#6b7280' }}>{r.so_local || '—'}</span></Td>
                     <Td center><span style={{ fontSize: 10 }}>{r.fecha_movimiento || '—'}</span></Td>
-                    <Td center>
-                      <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 8,
-                        background: r.tipo_fuente === 'ABASTECIMIENTO' ? '#dbeafe' : '#f0fdf4',
-                        color:      r.tipo_fuente === 'ABASTECIMIENTO' ? '#1e40af' : '#15803d' }}>
-                        {r.tipo_fuente === 'ABASTECIMIENTO' ? 'ABT' : 'LOG'}
-                      </span>
-                    </Td>
                   </tr>
                 ))}
-                {!filtered.length && <tr><Td colSpan={6} center style={{ color: '#9ca3af', padding: 24 }}>Sin registros</Td></tr>}
               </tbody>
             </table>
           </div>
         </>
       )}
-
-      {seccion === 'nuevas' && (
-        <div>
-          {nuevasSerial.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>Serializados sin registro en app ({nuevasSerial.length})</div>
-              <div style={{ overflowX: 'auto', maxHeight: 280, overflowY: 'auto', marginBottom: 20 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                  <thead><tr>
-                    <Th>Serial</Th><Th>Material</Th><Th>SO Nokia</Th><Th style={{ width: 80 }} center>Fecha</Th>
-                  </tr></thead>
-                  <tbody>
-                    {nuevasSerial.map((r, i) => (
-                      <tr key={r.id || i} style={{ background: i % 2 ? '#eff6ff' : '#fff' }}>
-                        <Td><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#1d4ed8', fontWeight: 700 }}>{r.serial}</span></Td>
-                        <Td>{r.descripcion_material || '—'}</Td>
-                        <Td><span style={{ fontSize: 10, color: '#6b7280' }}>{r.so || '—'}</span></Td>
-                        <Td center><span style={{ fontSize: 10 }}>{r.fecha_movimiento || '—'}</span></Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-          {nuevasSinSerial.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>Sin serial — exceso Nokia vs app ({nuevasSinSerial.length} tipos)</div>
-              <div style={{ overflowX: 'auto', maxHeight: 280, overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                  <thead><tr>
-                    <Th>Material</Th><Th style={{ width: 80 }} center>Cód.</Th>
-                    <Th style={{ width: 80 }} center>Nokia</Th><Th style={{ width: 80 }} center>App</Th>
-                    <Th style={{ width: 80 }} center>Diferencia</Th>
-                  </tr></thead>
-                  <tbody>
-                    {nuevasSinSerial.map((r, i) => (
-                      <tr key={r.cod} style={{ background: i % 2 ? '#eff6ff' : '#fff' }}>
-                        <Td>{r.desc || r.cod}</Td>
-                        <Td center><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280' }}>{r.cod}</span></Td>
-                        <Td center style={{ fontWeight: 700 }}>{r.nokia}</Td>
-                        <Td center>{r.app}</Td>
-                        <Td center><span style={{ fontWeight: 700, color: '#1d4ed8' }}>+{r.diff}</span></Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-          {!kardexMov.length && (
-            <div style={{ textAlign: 'center', padding: 32, color: '#9ca3af', fontSize: 13 }}>
-              Carga el Kardex Nokia para detectar nuevas entradas
-            </div>
-          )}
-          {kardexMov.length > 0 && nuevasSerial.length === 0 && nuevasSinSerial.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 32, color: '#9ca3af', fontSize: 13 }}>
-              ✅ Todo lo que Nokia registra ya está en la app
-            </div>
-          )}
-        </div>
+      {nuevasSinSerial.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>
+            Sin serial — exceso Nokia vs app ({nuevasSinSerial.length} tipos)
+          </div>
+          <div style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead><tr>
+                <Th>Material</Th><Th style={{ width: 80 }} center>Cód.</Th>
+                <Th style={{ width: 80 }} center>Nokia</Th><Th style={{ width: 80 }} center>App</Th>
+                <Th style={{ width: 90 }} center>Diferencia</Th>
+              </tr></thead>
+              <tbody>
+                {nuevasSinSerial.map((r, i) => (
+                  <tr key={r.cod} style={{ background: i % 2 ? '#eff6ff' : '#fff' }}>
+                    <Td>{r.desc || r.cod}</Td>
+                    <Td center><span style={{ fontFamily: 'monospace', fontSize: 10, color: '#6b7280' }}>{r.cod}</span></Td>
+                    <Td center style={{ fontWeight: 700 }}>{r.nokia}</Td>
+                    <Td center>{r.app}</Td>
+                    <Td center><span style={{ fontWeight: 700, color: '#1d4ed8' }}>+{r.diff}</span></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )
 }
 
-// ── Tab: En Sitio (hw_equipos en_sitio) ──────────────────────────
-function TabEnSitio({ hwEquipos, hwCatalogo }) {
+// ── Tab: Inventario (hw_equipos en_sitio) ────────────────────────
+function TabInventario({ hwEquipos, hwCatalogo }) {
   const [q,       setQ]       = useState('')
   const [filSite, setFilSite] = useState('')
 
@@ -591,17 +621,14 @@ export default function HwBodegaNokia() {
   const upsertKardexDisponible = useHwStore(s => s.upsertKardexDisponible)
   const upsertKardexMovimientos= useHwStore(s => s.upsertKardexMovimientos)
 
-  const [tab,        setTab]        = useState('bodega')
+  const [tab,        setTab]        = useState('kardex')
+  const [subTab,     setSubTab]     = useState('disponible')
   const [file,       setFile]       = useState(null)
   const [fileMov,    setFileMov]    = useState(null)
   const [loading,    setLoading]    = useState(false)
   const [loadingMov, setLoadingMov] = useState(false)
   const [result,     setResult]     = useState(null)
   const [resultMov,  setResultMov]  = useState(null)
-  const fileRef                     = useRef()
-  const fileRefMov                  = useRef()
-  const dragRef                     = useRef(false)
-
   function handleFile(f) { setFile(f); setResult(null) }
 
   async function handleCargar() {
@@ -707,44 +734,46 @@ export default function HwBodegaNokia() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Kardex Disponible */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ border: '1.5px dashed #d1d5db', borderRadius: 8, padding: '6px 12px', background: file ? '#f0fdf4' : '#fafafa', cursor: 'pointer', fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => fileRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); dragRef.current = true }}
-              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}>
-              <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = '' }} />
-              {file ? `📄 ${file.name}` : '📂 Kardex Disponible'}
-            </div>
-            {file && <button className="btn bp" style={{ fontSize: 11, padding: '5px 12px' }} onClick={handleCargar} disabled={loading}>{loading ? '⏳…' : '↑ Cargar'}</button>}
-            {result && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {result.count}</span>}
-          </div>
-
-          <div style={{ width: 1, height: 26, background: '#e5e7eb' }} />
-
-          {/* Kardex Movimientos */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ border: '1.5px dashed #d1d5db', borderRadius: 8, padding: '6px 12px', background: fileMov ? '#f0fdf4' : '#fafafa', cursor: 'pointer', fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={() => fileRefMov.current?.click()}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFileMov(f) }}>
-              <input ref={fileRefMov} type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) setFileMov(f); e.target.value = '' }} />
-              {fileMov ? `📄 ${fileMov.name}` : '📋 Kardex Movimientos'}
-            </div>
-            {fileMov && <button className="btn bp" style={{ fontSize: 11, padding: '5px 12px' }} onClick={handleCargarMov} disabled={loadingMov}>{loadingMov ? '⏳…' : '↑ Cargar'}</button>}
-            {resultMov && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {resultMov.count}</span>}
-          </div>
+          <DropZone icon="📂" label="Kardex Disponible"
+            file={file} onFile={handleFile}
+            onUpload={handleCargar} uploading={loading} result={result} />
+          <div style={{ width: 1, height: 32, background: '#e5e7eb' }} />
+          <DropZone icon="📋" label="Kardex Movimientos"
+            file={fileMov} onFile={f => { setFileMov(f); setResultMov(null) }}
+            onUpload={handleCargarMov} uploading={loadingMov} result={resultMov} />
         </div>
       </div>
 
+      {/* Main tabs */}
       <div style={{ borderBottom: '2px solid #e5e7eb', marginBottom: 14, display: 'flex', gap: 0 }}>
-        <button style={tabStyle(tab === 'bodega')}        onClick={() => setTab('bodega')}>📦 Bodega</button>
-        <button style={tabStyle(tab === 'ensitio')}       onClick={() => setTab('ensitio')}>🗼 En Sitio</button>
-        <button style={tabStyle(tab === 'conciliacion')}  onClick={() => setTab('conciliacion')}>⚖️ Conciliación</button>
+        <button style={tabStyle(tab === 'kardex')}       onClick={() => setTab('kardex')}>📦 Kardex Nokia</button>
+        <button style={tabStyle(tab === 'conciliacion')} onClick={() => setTab('conciliacion')}>⚖️ Conciliación</button>
       </div>
 
-      {tab === 'bodega'       && <TabBodega items={hwKardexDisponible} kardexMov={hwKardexMovimientos} hwEquipos={hwEquipos} hwMovimientos={hwMovimientos} hwCatalogo={hwCatalogo} />}
-      {tab === 'ensitio'      && <TabEnSitio hwEquipos={hwEquipos} hwCatalogo={hwCatalogo} />}
+      {/* Sub-tabs inside Kardex Nokia */}
+      {tab === 'kardex' && (
+        <>
+          <div style={{ display: 'flex', gap: 0, marginBottom: 14 }}>
+            {[
+              { id: 'disponible', label: '📦 Disponible', count: hwKardexDisponible.length },
+              { id: 'inventario', label: '📍 Inventario',  count: enSitioCount },
+              { id: 'nuevas',     label: '🆕 Nuevas Entradas', count: hwKardexMovimientos.length ? null : null },
+            ].map(({ id, label, count }) => (
+              <button key={id} onClick={() => setSubTab(id)} style={{
+                padding: '5px 14px', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', marginRight: 6, borderRadius: 6,
+                background: subTab === id ? '#bfdbfe' : '#f3f4f6',
+                color:      subTab === id ? '#1d4ed8' : '#6b7280',
+              }}>
+                {label}{count != null ? <span style={{ fontWeight: 400 }}> ({count})</span> : null}
+              </button>
+            ))}
+          </div>
+          {subTab === 'disponible' && <TabDisponible items={hwKardexDisponible} />}
+          {subTab === 'inventario' && <TabInventario hwEquipos={hwEquipos} hwCatalogo={hwCatalogo} />}
+          {subTab === 'nuevas'     && <TabNuevasEntradas kardexMov={hwKardexMovimientos} hwEquipos={hwEquipos} hwMovimientos={hwMovimientos} hwCatalogo={hwCatalogo} />}
+        </>
+      )}
+
       {tab === 'conciliacion' && <TabConciliacion kardex={hwKardexDisponible} hwEquipos={hwEquipos} hwMovimientos={hwMovimientos} hwCatalogo={hwCatalogo} />}
     </div>
   )
