@@ -134,6 +134,7 @@ export default function Layout({ children }) {
     setAlertsOpen(true)
   }
 
+  const inHome        = location.pathname === '/modulos' || location.pathname === '/'
   const inMateriales  = location.pathname.startsWith('/materiales')
   const inSitios      = location.pathname === '/materiales/sitios' || location.pathname === '/materiales/hw/log-inversa'
   const inDespachos   = location.pathname === '/materiales/hw/despachos-pendientes'
@@ -186,15 +187,17 @@ export default function Layout({ children }) {
     return item.roles.includes(role)
   }
 
-  const allVisible = inAdmin
-    ? ADMIN_PANEL_NAV.filter(canSee)
-    : inMateriales
-      ? (inDespachos ? [] : inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
-      : inRollout
-        ? ROLLOUT_NAV.filter(canSee)
-        : inFacturacion
-          ? FACT_NAV
-          : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+  const allVisible = inHome
+    ? []
+    : inAdmin
+      ? ADMIN_PANEL_NAV.filter(canSee)
+      : inMateriales
+        ? (inDespachos ? [] : inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
+        : inRollout
+          ? ROLLOUT_NAV.filter(canSee)
+          : inFacturacion
+            ? FACT_NAV
+            : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   const canSwitchModule = !!user
   const badge = BADGE[role] || BADGE.viewer

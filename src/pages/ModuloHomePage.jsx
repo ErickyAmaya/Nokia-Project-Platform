@@ -27,7 +27,7 @@ const MODULOS = [
   {
     id:          'materiales',
     nombre:      'Logística · WMS',
-    corto:       'Materiales',
+    corto:       'Logística',
     descripcion: 'Control de stock, movimientos y trazabilidad de materiales y HW Nokia.',
     Icon:        Boxes,
     color:       '#1d4ed8',
@@ -36,7 +36,7 @@ const MODULOS = [
   {
     id:          'rollout',
     nombre:      'Seguimiento Rollout',
-    corto:       'ACK',
+    corto:       'Rollout',
     descripcion: 'Monitoreo de avance, ACK y gestión de campo del rollout Nokia.',
     Icon:        RadioTower,
     color:       '#7c3aed',
