@@ -157,18 +157,21 @@ export const useFactStore = create((set, get) => ({
         .select().single()
       if (upErr) throw upErr
 
-      // Delete existing rows for every SPO in the new file (will be re-inserted updated)
+      // Delete existing rows in chunks (large IN clauses exceed URL limits)
       const spoNumbers = parsed.map(r => r.spo_number)
-      if (spoNumbers.length > 0) {
+      const CHUNK = 200
+      for (let i = 0; i < spoNumbers.length; i += CHUNK) {
         const { error: delErr } = await supabase
-          .from('fact_ppa').delete().in('spo_number', spoNumbers)
+          .from('fact_ppa').delete().in('spo_number', spoNumbers.slice(i, i + CHUNK))
         if (delErr) throw delErr
       }
 
-      // Insert all rows fresh — SPOs not in this file remain untouched in DB
+      // Insert all rows in chunks
       const toInsert = parsed.map(r => ({ ...r, upload_id: upload.id }))
-      const { error: pErr } = await supabase.from('fact_ppa').insert(toInsert)
-      if (pErr) throw pErr
+      for (let i = 0; i < toInsert.length; i += CHUNK) {
+        const { error: pErr } = await supabase.from('fact_ppa').insert(toInsert.slice(i, i + CHUNK))
+        if (pErr) throw pErr
+      }
 
       // Reload all fact_ppa (current + any legacy SPOs not in this upload)
       const { data: allPpa } = await supabase.from('fact_ppa').select('*')
