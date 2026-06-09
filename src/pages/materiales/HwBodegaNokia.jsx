@@ -395,8 +395,9 @@ function TabConciliacion({ kardex, hwEquipos, hwMovimientos, hwCatalogo }) {
       .sort((a, b) => ALERTA[a.alerta].order - ALERTA[b.alerta].order)
   }, [hwEquipos, kardexSerials, hwCatalogo])
 
-  const countsBodega = useMemo(() => Object.fromEntries(Object.keys(ALERTA).map(k => [k, serialRows.filter(r => r.alerta === k).length])), [serialRows])
-  const countsSitios = useMemo(() => Object.fromEntries(Object.keys(ALERTA).map(k => [k, sitiosRows.filter(r => r.alerta === k).length])), [sitiosRows])
+  const countsBodega    = useMemo(() => Object.fromEntries(Object.keys(ALERTA).map(k => [k, serialRows.filter(r => r.alerta === k).length])),    [serialRows])
+  const countsSinSerial = useMemo(() => Object.fromEntries(Object.keys(ALERTA).map(k => [k, sinSerialRows.filter(r => r.alerta === k).length])), [sinSerialRows])
+  const countsSitios    = useMemo(() => Object.fromEntries(Object.keys(ALERTA).map(k => [k, sitiosRows.filter(r => r.alerta === k).length])),    [sitiosRows])
 
   const alertKeys = ['discrepancia', 'faltante', 'exceso', 'ok']
 
@@ -414,7 +415,7 @@ function TabConciliacion({ kardex, hwEquipos, hwMovimientos, hwCatalogo }) {
     return r
   }, [sitiosRows, alertFilter, q])
 
-  const counts = seccion === 'sitios' ? countsSitios : countsBodega
+  const counts = seccion === 'sitios' ? countsSitios : seccion === 'sinserial' ? countsSinSerial : countsBodega
   const alertsToShow = seccion === 'sinserial' ? ['faltante', 'exceso', 'ok'] : alertKeys.filter(k => k !== 'exceso' || seccion === 'sinserial')
 
   const isDisponible = seccion === 'bodega' || seccion === 'sinserial'
