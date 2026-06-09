@@ -114,8 +114,8 @@ export const useAppStore = create((set, get) => ({
   loadData: async () => {
     const [sitiosRes, gastosRes, liqCWRes, subcRes, catCWRes, catTIRes] = await Promise.all([
       supabase.from('sitios').select('*').order('created_at', { ascending: true }),
-      supabase.from('gastos').select('*'),
-      supabase.from('liquidaciones_cw').select('*'),
+      supabase.from('gastos').select('*').limit(5000),
+      supabase.from('liquidaciones_cw').select('*').limit(5000),
       supabase.from('subcontratistas').select('*').order('lc'),
       supabase.from('catalogo_cw').select('*').order('actividad_id'),
       supabase.from('catalogo_ti').select('*').order('seccion').order('id'),

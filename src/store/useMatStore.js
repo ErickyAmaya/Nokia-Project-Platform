@@ -39,9 +39,9 @@ export const useMatStore = create((set, get) => ({
         db().from('mat_stock').select('*'),
         db().from('bodegas').select('*').order('nombre'),
         db().from('mat_sitios').select('*').order('nombre'),
-        db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
-        db().from('despachos').select('*').order('created_at', { ascending: false }),
-        db().from('mat_pendientes').select('*').order('created_at', { ascending: false }),
+        db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
+        db().from('despachos').select('*').order('created_at', { ascending: false }).limit(5000),
+        db().from('mat_pendientes').select('*').order('created_at', { ascending: false }).limit(2000),
         db().from('mat_proveedores').select('*').order('nombre'),
         db().from('mat_precios_proveedor').select('*'),
         db().from('mat_despachos_pendientes').select('*').order('created_at', { ascending: false }),
@@ -234,8 +234,8 @@ export const useMatStore = create((set, get) => ({
     // Recargar estado Materiales
     const [{ data: stk }, { data: movData }, { data: depData }] = await Promise.all([
       db().from('mat_stock').select('*'),
-      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
-      db().from('despachos').select('*').order('created_at', { ascending: false }),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
+      db().from('despachos').select('*').order('created_at', { ascending: false }).limit(5000),
     ])
     set(s => ({
       sitios:      s.sitios.filter(x => id ? x.id !== id : x.nombre !== resolvedNombre),
@@ -312,7 +312,7 @@ export const useMatStore = create((set, get) => ({
     }
     await db().from('despachos').delete().eq('id', id)
     const { data: stk } = await db().from('mat_stock').select('*')
-    const { data: movData } = await db().from('mat_movimientos').select('*').order('created_at', { ascending: false })
+    const { data: movData } = await db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000)
     set(s => ({
       despachos: s.despachos.filter(d => d.id !== id),
       movimientos: movData || [],
@@ -409,7 +409,7 @@ export const useMatStore = create((set, get) => ({
     // 5. Recargar stock y movimientos
     const [{ data: stk }, { data: movData }] = await Promise.all([
       db().from('mat_stock').select('*'),
-      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
     ])
     set(s => ({
       matDespachosPendientes: s.matDespachosPendientes.filter(d => d.id !== despachoId),

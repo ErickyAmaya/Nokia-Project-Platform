@@ -117,8 +117,8 @@ export const useFactStore = create((set, get) => ({
 
       const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }] = await Promise.all([
         supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
-        supabase.from('fact_invoices').select('*'),
-        supabase.from('fact_pos').select('*'),
+        supabase.from('fact_invoices').select('*').limit(15000),
+        supabase.from('fact_pos').select('*').limit(5000),
         supabase.from('fact_calendar').select('*').order('year').order('month'),
         supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
         supabase.from('fact_ppa').select('*'),
@@ -174,7 +174,7 @@ export const useFactStore = create((set, get) => ({
       }
 
       // Reload all fact_ppa (current + any legacy SPOs not in this upload)
-      const { data: allPpa } = await supabase.from('fact_ppa').select('*')
+      const { data: allPpa } = await supabase.from('fact_ppa').select('*').limit(5000)
 
       set(s => ({
         ppa:          allPpa || [],
@@ -235,7 +235,7 @@ export const useFactStore = create((set, get) => ({
   // ── Cargar historial de POs (lazy, solo desde FactPOs) ──────────────────
   loadHistorial: async () => {
     const { data } = await supabase
-      .from('fact_pos_historial').select('*').order('changed_at', { ascending: false })
+      .from('fact_pos_historial').select('*').order('changed_at', { ascending: false }).limit(3000)
     set({ historial: data || [] })
   },
 
@@ -309,7 +309,7 @@ export const useFactStore = create((set, get) => ({
       .upsert(items, { onConflict: 'spo_number,evento' })
       .select()
     if (error) throw error
-    const { data: all } = await supabase.from('fact_invoices').select('*')
+    const { data: all } = await supabase.from('fact_invoices').select('*').limit(15000)
     set({ invoices: all || [] })
     return (data || []).length
   },

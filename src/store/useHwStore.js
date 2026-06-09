@@ -35,17 +35,17 @@ export const useHwStore = create((set, get) => ({
       const [cat, equ, mov, bod, ss, tu, fal, dp, li, libd, lic, kdisp, kmov] = await Promise.all([
         db().from('hw_catalogo').select('*').order('descripcion'),
         db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
-        db().from('hw_movimientos').select('*').order('created_at', { ascending: false }),
+        db().from('hw_movimientos').select('*').order('created_at', { ascending: false }).limit(20000),
         db().from('hw_bodegas_nokia').select('*').order('nombre'),
         db().from('hw_service_suppliers').select('*').order('nombre'),
         db().from('hw_tipo_unidades').select('*').order('nombre'),
-        db().from('hw_fallas').select('*').order('created_at', { ascending: false }),
-        db().from('hw_despachos_pendientes').select('*').order('created_at', { ascending: false }),
-        db().from('hw_log_inversa').select('*').order('created_at', { ascending: false }),
+        db().from('hw_fallas').select('*').order('created_at', { ascending: false }).limit(2000),
+        db().from('hw_despachos_pendientes').select('*').order('created_at', { ascending: false }).limit(2000),
+        db().from('hw_log_inversa').select('*').order('created_at', { ascending: false }).limit(10000),
         db().from('hw_li_bodegas_destino').select('*').order('nombre'),
         db().from('hw_li_conceptos').select('*').order('nombre'),
-        db().from('hw_kardex_disponible').select('*').order('fecha_movimiento', { ascending: false }),
-        db().from('hw_kardex_movimientos').select('*').order('fecha_movimiento', { ascending: false }),
+        db().from('hw_kardex_disponible').select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
+        db().from('hw_kardex_movimientos').select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
       ])
       set({
         hwCatalogo:             cat.data   || [],
@@ -114,6 +114,7 @@ export const useHwStore = create((set, get) => ({
       .from('hw_kardex_movimientos')
       .select('*')
       .order('fecha_movimiento', { ascending: false })
+      .limit(15000)
     set({ hwKardexMovimientos: data || [] })
   },
 
@@ -129,6 +130,7 @@ export const useHwStore = create((set, get) => ({
       .from('hw_kardex_disponible')
       .select('*')
       .order('fecha_movimiento', { ascending: false })
+      .limit(15000)
     set({ hwKardexDisponible: data || [] })
   },
 
