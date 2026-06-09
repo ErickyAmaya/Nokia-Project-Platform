@@ -324,15 +324,21 @@ export const useMatStore = create((set, get) => ({
   // ── PENDIENTES ───────────────────────────────────────────────────
   insertPendientes: async (items) => {
     if (!items.length) return
-    const { error } = await db().from('mat_pendientes').insert(items)
-    if (error) throw error
+    const CHUNK = 200
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const { error } = await db().from('mat_pendientes').insert(items.slice(i, i + CHUNK))
+      if (error) throw error
+    }
     const { data } = await db().from('mat_pendientes').select('*').order('created_at', { ascending: false })
     if (data) set({ pendientes: data })
   },
 
   resolverPendientes: async (sitio, catalogoIds) => {
     if (!sitio || !catalogoIds?.length) return
-    await db().from('mat_pendientes').delete().eq('sitio', sitio).in('catalogo_id', catalogoIds)
+    const CHUNK = 200
+    for (let i = 0; i < catalogoIds.length; i += CHUNK) {
+      await db().from('mat_pendientes').delete().eq('sitio', sitio).in('catalogo_id', catalogoIds.slice(i, i + CHUNK))
+    }
     set(s => ({
       pendientes: s.pendientes.filter(p => !(p.sitio === sitio && catalogoIds.includes(p.catalogo_id)))
     }))

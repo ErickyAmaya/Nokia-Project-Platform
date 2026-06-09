@@ -553,6 +553,7 @@ export const useHwStore = create((set, get) => ({
 
     // 2. Regla universal: procesar materiales asociados si los hay
     if (despacho.mat_despachos?.length > 0) {
+      const CHUNK = 200
       const movsMat = despacho.mat_despachos.map(item => ({
         tipo:            'Salida',
         catalogo_id:     item.catalogo_id,
@@ -564,8 +565,10 @@ export const useHwStore = create((set, get) => ({
         numero_doc:      despacho.numero_doc,
         fecha:           despacho.fecha,
       }))
-      const { error: matErr } = await db().from('mat_movimientos').insert(movsMat)
-      if (matErr) throw new Error('Error materiales: ' + matErr.message)
+      for (let i = 0; i < movsMat.length; i += CHUNK) {
+        const { error: matErr } = await db().from('mat_movimientos').insert(movsMat.slice(i, i + CHUNK))
+        if (matErr) throw new Error('Error materiales: ' + matErr.message)
+      }
       const { useMatStore } = await import('./useMatStore')
       useMatStore.getState().loadAll()
     }
