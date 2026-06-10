@@ -806,27 +806,27 @@ export default function FactPorFacturar() {
                 </span>
                 {(() => {
                   const total = pendienteLibBySmp.reduce((s, { row, hitoMOS, hitoIntg, hitoAcep }) => {
-                    const poData = pos.find(p => p.spo_number === row.spo_number)
-                    if (!poData?.valor) return s
                     const smpId = row.smp_id
-                    let pct = 0
+                    let rowTotal = 0
                     for (const [msName, hito] of [
                       ['SS MOS ok', hitoMOS],
                       ['SS Integracion ok', hitoIntg],
                       ['SS Aceptacion final ok', hitoAcep],
                     ]) {
-                      if (hito.status !== 'pendiente') continue
+                      if (!hito.ssDate || hito.status !== 'pendiente') continue
                       const ppaRow = ppaByHito.get(`${smpId}|${msName}`)
                       if (!ppaRow) continue
+                      const hitoPoData = pos.find(p => p.spo_number === ppaRow.spo_number)
+                      if (!hitoPoData?.valor) continue
                       const evs = getEventosRow(ppaRow, invMap)
                       let pctRow = evs.reduce((a, e) => a + (e.invoiceable_pct ?? e.pct ?? 0), 0)
                       if (pctRow === 0) {
                         const invoicedPct = EVENTOS.reduce((a, e) => a + (invMap[`${ppaRow.spo_number}|${e.key}`]?.pct || 0), 0)
                         pctRow = Math.max(0, 100 - invoicedPct - (ppaRow.acuerdo_liberacion || 0))
                       }
-                      pct += pctRow
+                      rowTotal += hitoPoData.valor * pctRow / 100
                     }
-                    return s + poData.valor * pct / 100
+                    return s + rowTotal
                   }, 0)
                   if (!total) return null
                   return (
@@ -854,26 +854,28 @@ export default function FactPorFacturar() {
                   <tbody>
                     {pendienteLibBySmp.map(({ row, cat, missing, hitoMOS, hitoIntg, hitoAcep }) => {
                       const poData = pos.find(p => p.spo_number === row.spo_number)
-                      // Sumar pct de los hitos pendientes usando sus filas PPA específicas
                       const smpId = row.smp_id
-                      let pctPendiente = 0
+                      // Acumular valor real por hito usando la PO específica de cada uno.
+                      // Solo contar hitos con ssDate (misma condición que hasReleasable).
+                      let valorEst = null
                       for (const [msName, hito] of [
                         ['SS MOS ok', hitoMOS],
                         ['SS Integracion ok', hitoIntg],
                         ['SS Aceptacion final ok', hitoAcep],
                       ]) {
-                        if (hito.status !== 'pendiente') continue
+                        if (!hito.ssDate || hito.status !== 'pendiente') continue
                         const ppaRow = ppaByHito.get(`${smpId}|${msName}`)
                         if (!ppaRow) continue
+                        const hitoPoData = pos.find(p => p.spo_number === ppaRow.spo_number)
+                        if (!hitoPoData?.valor) continue
                         const evs = getEventosRow(ppaRow, invMap)
                         let pctRow = evs.reduce((s, e) => s + (e.invoiceable_pct ?? e.pct ?? 0), 0)
                         if (pctRow === 0) {
                           const invoicedPct = EVENTOS.reduce((s, e) => s + (invMap[`${ppaRow.spo_number}|${e.key}`]?.pct || 0), 0)
                           pctRow = Math.max(0, 100 - invoicedPct - (ppaRow.acuerdo_liberacion || 0))
                         }
-                        pctPendiente += pctRow
+                        valorEst = (valorEst ?? 0) + hitoPoData.valor * pctRow / 100
                       }
-                      const valorEst = poData?.valor ? poData.valor * pctPendiente / 100 : null
                       const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData?.moneda || 'COP', maximumFractionDigits: 0 }).format(v)
                       return (
                       <tr key={row.smp_id} style={{ borderTop: '1px solid #f0f0f0' }}>
