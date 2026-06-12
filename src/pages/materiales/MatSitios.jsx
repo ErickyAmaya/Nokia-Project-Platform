@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useConfirm } from '../../components/ConfirmModal'
 import { showToast } from '../../components/Toast'
@@ -56,7 +57,7 @@ export default function MatSitios() {
     if (match) setExpanded(match.id ?? match.nombre)
   }, [location.state?.search, sitios])
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = can(user?.role, 'mat.sitios.edit')
 
   // Sitios que tienen registros en hw_log_inversa
   const sitiosConLI = useMemo(() =>

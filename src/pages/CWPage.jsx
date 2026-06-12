@@ -7,7 +7,9 @@ function IconEdit({ size = 13 }) {
     </svg>
   )
 }
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }     from '../store/useAppStore'
+import { useCatalogStore } from '../store/useCatalogStore'
+import { can } from '../config/permissions'
 import { cop, pct, mcls, mfcls } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
@@ -209,7 +211,7 @@ function AddItemModal({ open, onClose, onAdd, liq, catalogCW, editItem }) {
 export default function CWPage() {
   const sitios        = useAppStore(s => s.sitios)
   const subcs         = useAppStore(s => s.subcs)
-  const catalogCW     = useAppStore(s => s.catalogCW)
+  const catalogCW     = useCatalogStore(s => s.catalogCW)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
   const saveLiqCW     = useAppStore(s => s.saveLiqCW)
   const deleteLiqCW   = useAppStore(s => s.deleteLiqCW)
@@ -236,9 +238,8 @@ export default function CWPage() {
     }
   }, [])
 
-  const isViewer = user?.role === 'viewer'
+  const isViewer = !can(user?.role, 'cw.write')
   const isAdmin  = user?.role === 'admin'
-  const isCoord  = user?.role === 'coord'
   const canWrite = !isViewer
 
   // Solo sitios TI que llevan CW
@@ -410,7 +411,7 @@ export default function CWPage() {
                 {canWrite && !locked && (
                   <button className="btn bp btn-sm" onClick={handleMarcarFinal}>✓ Marcar Final</button>
                 )}
-                {locked && (isAdmin || isCoord) && (
+                {locked && can(user?.role, 'cw.unlock') && (
                   <button className="btn bou btn-sm" style={{ borderColor: '#c0392b', color: '#c0392b', fontSize: 9 }} onClick={handleReabrir}>↩ Reabrir</button>
                 )}
               </div>
@@ -641,7 +642,7 @@ export default function CWPage() {
                 {canWrite && !locked && (
                   <button className="btn bp" onClick={handleMarcarFinal}>✓ Marcar como Final</button>
                 )}
-                {locked && (isAdmin || isCoord) && (
+                {locked && can(user?.role, 'cw.unlock') && (
                   <button className="btn bou" style={{ borderColor: '#c0392b', color: '#c0392b' }} onClick={handleReabrir}>
                     ↩ Reabrir Liquidación
                   </button>

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { EmptyRow } from '../../components/EmptyState'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { useMatStore } from '../../store/useMatStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
@@ -86,7 +87,7 @@ const [catModal,  setCatModal]  = useState(null)   // catalog item being edited 
   const [visibleEquipos, setVisibleEquipos] = useState(100)
   const sentinelEqRef = useRef(null)
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = can(user?.role, 'hw.inventario.edit')
 
   useEffect(() => { loadAll() }, [])
   useEffect(() => { setVisibleEquipos(100) }, [expanded])

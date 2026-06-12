@@ -12,6 +12,7 @@ const ROLES = [
   { value: 'CW',          label: 'CW'          },
   { value: 'logistica',   label: 'Logística'   },
   { value: 'facturacion', label: 'Facturación' },
+  { value: 'rollout',     label: 'Rollout'     },
   { value: 'viewer',      label: 'Viewer'      },
 ]
 
@@ -30,6 +31,7 @@ const ROLE_COLOR = {
   CW:          '#7c3aed',
   logistica:   '#059669',
   facturacion: '#b45309',
+  rollout:     '#7c3aed',
   viewer:      '#6b7280',
 }
 

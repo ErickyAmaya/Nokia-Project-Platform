@@ -1,36 +1,10 @@
 import { create } from 'zustand'
 import { initSupabaseClient, getSupabaseClient } from '../lib/supabase'
 import { getEmpresaByDomain, getDomainFromEmail } from '../config/empresas'
+import { normalizeRole, can, ACCESS } from '../config/permissions'
+import { TABLES } from '../lib/tables'
 
 const LS_DOMAIN_KEY = 'npp_empresa_domain'
-
-// ── Normalización de roles ────────────────────────────────────────
-// Mapea valores legacy de la DB al conjunto canónico de roles.
-// Roles canónicos: admin | coordinador | TI | TSS | CW | viewer
-const ROLE_ALIASES = {
-  coord:    'coordinador',
-  operador: 'coordinador', // operador legacy → coordinador
-  almacen:  'logistica',   // alias legacy por si acaso
-}
-
-function normalizeRole(raw) {
-  if (!raw) return 'viewer'
-  return ROLE_ALIASES[raw] ?? raw
-}
-
-// ── Roles que pueden eliminar sitios ─────────────────────────────
-export const DELETE_ROLES = new Set(['admin', 'coordinador', 'TI', 'TSS', 'CW'])
-
-// ── Visibilidad de rutas por rol ──────────────────────────────────
-export const ROUTE_ROLES = {
-  '/ti':             ['admin', 'coordinador', 'TI',  'viewer'],
-  '/tss':            ['admin', 'coordinador', 'TSS', 'viewer'],
-  '/cw':             ['admin', 'coordinador', 'CW',  'viewer'],
-  '/cw-consolidado': ['admin', 'coordinador', 'CW',  'viewer'],
-  '/catalogo':       ['admin', 'coordinador'],
-  '/config':         ['admin'],
-  // null = cualquier usuario autenticado
-}
 
 // ── Store de autenticación ────────────────────────────────────────
 export const useAuthStore = create((set, get) => ({
@@ -42,18 +16,26 @@ export const useAuthStore = create((set, get) => ({
   loading: true,
 
   // ── Helpers de rol ──────────────────────────────────────────────
-  isAdmin:    () => get().user?.role === 'admin',
-  isCoord:    () => get().user?.role === 'coordinador',
-  isViewer:   () => get().user?.role === 'viewer',
-  isTI:       () => get().user?.role === 'TI',
-  isTSS:      () => get().user?.role === 'TSS',
-  isCW:       () => get().user?.role === 'CW',
-  canDelete:  () => DELETE_ROLES.has(get().user?.role ?? ''),
-  canRoute:   (path) => {
+  isAdmin:   () => get().user?.role === 'admin',
+  isCoord:   () => get().user?.role === 'coordinador',
+  isViewer:  () => get().user?.role === 'viewer',
+  isTI:      () => get().user?.role === 'TI',
+  isTSS:     () => get().user?.role === 'TSS',
+  isCW:      () => get().user?.role === 'CW',
+  canDelete: () => can(get().user?.role ?? '', 'sitio.delete'),
+  canRoute:  (path) => {
     const user = get().user
     if (!user) return false
-    const allowed = ROUTE_ROLES[path]
-    if (!allowed) return true   // ruta sin restricción
+    const routeMap = {
+      '/ti':             ACCESS.TI,
+      '/tss':            ACCESS.TSS,
+      '/cw':             ACCESS.CW,
+      '/cw-consolidado': ACCESS.CW,
+      '/catalogo':       ACCESS.CATALOG,
+      '/config':         ACCESS.ADMIN,
+    }
+    const allowed = routeMap[path]
+    if (!allowed) return true
     return allowed.includes(user.role)
   },
 
@@ -69,7 +51,7 @@ export const useAuthStore = create((set, get) => ({
     if (error) throw error
 
     const { data: roleData } = await client
-      .from('user_roles')
+      .from(TABLES.USER_ROLES)
       .select('role, nombre, modulo')
       .eq('user_id', data.user.id)
       .single()
@@ -111,7 +93,7 @@ export const useAuthStore = create((set, get) => ({
       if (!session) return
 
       const { data: roleData } = await client
-        .from('user_roles')
+        .from(TABLES.USER_ROLES)
         .select('role, nombre, modulo')
         .eq('user_id', session.user.id)
         .single()

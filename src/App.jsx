@@ -1,7 +1,9 @@
 import { useEffect, useRef, lazy, Suspense, Component } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
-import { useAppStore }  from './store/useAppStore'
+import { useAppStore }     from './store/useAppStore'
+import { useCatalogStore }  from './store/useCatalogStore'
+import { useEmpresaStore }  from './store/useEmpresaStore'
 import { useMatStore }  from './store/useMatStore'
 import { useHwStore }   from './store/useHwStore'
 import { useAckStore }  from './store/useAckStore'
@@ -11,6 +13,7 @@ import ProtectedRoute   from './components/ProtectedRoute'
 import Layout           from './components/Layout'
 import Toast            from './components/Toast'
 import LoginPage        from './pages/LoginPage'
+import { ACCESS, isFieldRole } from './config/permissions'
 
 import SetPasswordPage  from './pages/SetPasswordPage'
 import Dashboard        from './pages/Dashboard'
@@ -96,31 +99,24 @@ class PageErrorBoundary extends Component {
   }
 }
 
-// Roles por módulo
-const R_MAT     = ['admin', 'coordinador', 'logistica', 'viewer']
-const R_MAT_ED  = ['admin', 'coordinador', 'logistica']
-const R_TI      = ['admin', 'coordinador', 'TI',  'viewer']
-const R_TSS     = ['admin', 'coordinador', 'TSS', 'viewer']
-const R_CW      = ['admin', 'coordinador', 'CW',  'viewer']
-const R_ADMIN    = ['admin']
-const R_CATALOG  = ['admin', 'coordinador']
-const R_MGMT     = ['admin', 'coordinador', 'viewer']
-const R_ANALITICA = ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW']
+// Grupos de acceso — definidos en src/config/permissions.js
+const { MAT, MAT_RO, MAT_ED, TI: R_TI, TSS: R_TSS, CW: R_CW, ADMIN: R_ADMIN,
+        CATALOG: R_CATALOG, MGMT: R_MGMT, ROLLOUT: R_ROLLOUT,
+        ANALITICA: R_ANALITICA, MAPA: R_MAPA, MODULOS: R_MODULOS,
+        FACTURACION: R_FACTURACION } = ACCESS
 
 function W(page) {
   return <Layout><Suspense fallback={<PageLoader />}>{page}</Suspense></Layout>
 }
 
-const LC_ROLES = ['TI', 'TSS']
-
 function RoleHome() {
   const user = useAuthStore(s => s.user)
-  if (LC_ROLES.includes(user?.role)) return <Navigate to="/rollout/mapa" replace />
+  if (isFieldRole(user?.role)) return <Navigate to="/rollout/mapa" replace />
   return <Navigate to="/modulos" replace />
 }
 
 // After session restoration on refresh, redirect once so each role lands on the right page.
-// For LC roles (TI/TSS): guard runs on EVERY navigation — they can only be on /rollout/mapa.
+// For field roles (TI/TSS): guard runs on EVERY navigation — they can only be on /rollout/mapa.
 function SessionRedirect() {
   const user    = useAuthStore(s => s.user)
   const loading = useAuthStore(s => s.loading)
@@ -130,7 +126,7 @@ function SessionRedirect() {
 
   useEffect(() => {
     if (loading || !user) return
-    const isLC = LC_ROLES.includes(user.role)
+    const isLC = isFieldRole(user.role)
     const lcAllowed  = ['/', '/login', '/set-password', '/rollout/mapa']
     const allSkip    = [...lcAllowed, '/modulos']
     if (isLC) {
@@ -158,33 +154,33 @@ function AppRoutes() {
       } />
 
       <Route path="/modulos" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','logistica','facturacion','viewer','CW','rollout']}>
+        <ProtectedRoute allowedRoles={R_MODULOS}>
           <Layout><ModuloHomePage /></Layout>
         </ProtectedRoute>
       } />
 
       {/* ── Módulo Materiales ───────────────────────────────── */}
       <Route path="/materiales" element={
-        <ProtectedRoute allowedRoles={R_MAT}>
+        <ProtectedRoute allowedRoles={MAT_RO}>
           <Layout><MatWrapper /></Layout>
         </ProtectedRoute>
       }>
-        <Route index              element={<MatDashboard />} />
-        <Route path="inventario"  element={<MatInventario />} />
-        <Route path="movimientos" element={<ProtectedRoute allowedRoles={R_MAT}><MatMovimientos /></ProtectedRoute>} />
-        <Route path="sitios"      element={<ProtectedRoute allowedRoles={R_MAT}><MatSitios /></ProtectedRoute>} />
-        <Route path="catalogo"    element={<ProtectedRoute allowedRoles={R_MAT}><MatCatalogo /></ProtectedRoute>} />
-        <Route path="config"      element={<ProtectedRoute allowedRoles={['admin','coordinador','logistica']}><MatConfig /></ProtectedRoute>} />
-        <Route path="reportes" element={<ProtectedRoute allowedRoles={R_MAT}><MatReportes /></ProtectedRoute>} />
-        <Route path="hw/dashboard"   element={<ProtectedRoute allowedRoles={R_MAT}><HwDashboard /></ProtectedRoute>} />
-        <Route path="hw/inventario"  element={<ProtectedRoute allowedRoles={R_MAT}><HwInventario /></ProtectedRoute>} />
-        <Route path="hw/movimientos" element={<ProtectedRoute allowedRoles={R_MAT}><HwMovimientos /></ProtectedRoute>} />
-        <Route path="hw/catalogo"    element={<ProtectedRoute allowedRoles={R_MAT}><HwCatalogo /></ProtectedRoute>} />
-        <Route path="hw/fallas"               element={<ProtectedRoute allowedRoles={R_MAT}><HwFallas /></ProtectedRoute>} />
-        <Route path="hw/fr-config"           element={<ProtectedRoute allowedRoles={['admin']}><HwFrConfig /></ProtectedRoute>} />
-        <Route path="hw/despachos-pendientes" element={<ProtectedRoute allowedRoles={R_MAT}><HwDespachosPendientes /></ProtectedRoute>} />
-        <Route path="hw/bodega-nokia"         element={<ProtectedRoute allowedRoles={R_MAT}><HwBodegaNokia /></ProtectedRoute>} />
-        <Route path="hw/log-inversa"          element={<ProtectedRoute allowedRoles={R_MAT}><HwLogInversa /></ProtectedRoute>} />
+        <Route index              element={<ProtectedRoute allowedRoles={MAT}><MatDashboard /></ProtectedRoute>} />
+        <Route path="inventario"  element={<ProtectedRoute allowedRoles={MAT}><MatInventario /></ProtectedRoute>} />
+        <Route path="movimientos" element={<ProtectedRoute allowedRoles={MAT}><MatMovimientos /></ProtectedRoute>} />
+        <Route path="sitios"      element={<ProtectedRoute allowedRoles={MAT_RO}><MatSitios /></ProtectedRoute>} />
+        <Route path="catalogo"    element={<ProtectedRoute allowedRoles={MAT}><MatCatalogo /></ProtectedRoute>} />
+        <Route path="config"      element={<ProtectedRoute allowedRoles={MAT_ED}><MatConfig /></ProtectedRoute>} />
+        <Route path="reportes"    element={<ProtectedRoute allowedRoles={MAT}><MatReportes /></ProtectedRoute>} />
+        <Route path="hw/dashboard"            element={<ProtectedRoute allowedRoles={MAT}><HwDashboard /></ProtectedRoute>} />
+        <Route path="hw/inventario"           element={<ProtectedRoute allowedRoles={MAT}><HwInventario /></ProtectedRoute>} />
+        <Route path="hw/movimientos"          element={<ProtectedRoute allowedRoles={MAT}><HwMovimientos /></ProtectedRoute>} />
+        <Route path="hw/catalogo"             element={<ProtectedRoute allowedRoles={MAT}><HwCatalogo /></ProtectedRoute>} />
+        <Route path="hw/fallas"               element={<ProtectedRoute allowedRoles={MAT}><HwFallas /></ProtectedRoute>} />
+        <Route path="hw/fr-config"            element={<ProtectedRoute allowedRoles={R_ADMIN}><HwFrConfig /></ProtectedRoute>} />
+        <Route path="hw/despachos-pendientes" element={<ProtectedRoute allowedRoles={MAT_RO}><HwDespachosPendientes /></ProtectedRoute>} />
+        <Route path="hw/bodega-nokia"         element={<ProtectedRoute allowedRoles={MAT}><HwBodegaNokia /></ProtectedRoute>} />
+        <Route path="hw/log-inversa"          element={<ProtectedRoute allowedRoles={MAT}><HwLogInversa /></ProtectedRoute>} />
       </Route>
 
       <Route path="/dashboard" element={
@@ -248,7 +244,7 @@ function AppRoutes() {
 
       {/* ── Módulo Facturación ─────────────────────────────── */}
       <Route path="/facturacion" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','facturacion','viewer']}>
+        <ProtectedRoute allowedRoles={R_FACTURACION}>
           <Layout><FactWrapper /></Layout>
         </ProtectedRoute>
       }>
@@ -265,16 +261,16 @@ function AppRoutes() {
         <ProtectedRoute allowedRoles={R_ANALITICA}>{W(<AnaliticaPage />)}</ProtectedRoute>
       } />
 
-      {/* ── /rollout/mapa — accesible también para TI / TSS ─── */}
+      {/* ── /rollout/mapa — accesible también para TI / TSS / rollout ─── */}
       <Route path="/rollout/mapa" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','viewer','TI','TSS']}>
+        <ProtectedRoute allowedRoles={R_MAPA}>
           <Layout><MapaSitios /></Layout>
         </ProtectedRoute>
       } />
 
       {/* ── Módulo Rollout ──────────────────────────────────── */}
       <Route path="/rollout" element={
-        <ProtectedRoute allowedRoles={R_MGMT}>
+        <ProtectedRoute allowedRoles={R_ROLLOUT}>
           <Layout><AckWrapper /></Layout>
         </ProtectedRoute>
       }>
@@ -295,8 +291,9 @@ export default function App() {
   const initSession       = useAuthStore(s => s.initSession)
   const loadData          = useAppStore(s => s.loadData)
   const hasPendingSync    = useAppStore(s => s.hasPendingSync)
-  const loadEmpresaConfig = useAppStore(s => s.loadEmpresaConfig)
   const initAppSync       = useAppStore(s => s.initRealtimeSync)
+  const loadCatalog       = useCatalogStore(s => s.loadCatalog)
+  const loadEmpresaConfig = useEmpresaStore(s => s.loadEmpresaConfig)
   const user              = useAuthStore(s => s.user)
   const loadMat           = useMatStore(s => s.loadAll)
   const loadHw            = useHwStore(s => s.loadAll)
@@ -315,13 +312,14 @@ export default function App() {
   useEffect(() => {
     if (user) {
       loadData()
+      loadCatalog()
       loadEmpresaConfig()
       loadMat()
       loadHw()
       loadAck()
       loadFact()
     }
-  }, [user, loadData, loadEmpresaConfig, loadMat, loadHw, loadAck, loadFact])
+  }, [user, loadData, loadCatalog, loadEmpresaConfig, loadMat, loadHw, loadAck, loadFact])
 
   // Broadcast channel — notifica a otros dispositivos cuando este hace cambios
   useEffect(() => {

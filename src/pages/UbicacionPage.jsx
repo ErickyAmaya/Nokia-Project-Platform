@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { getSupabaseClient } from '../lib/supabase'
+import { TABLES }            from '../lib/tables'
 
 const WRITE_INTERVAL_MS = 30_000
 
@@ -43,7 +44,7 @@ export default function UbicacionPage() {
     if (now - lastWriteRef.current < WRITE_INTERVAL_MS) return
     lastWriteRef.current = now
     const db = getSupabaseClient()
-    if (db) db.from('lc_locations')
+    if (db) db.from(TABLES.LC_LOCATIONS)
       .upsert({ lc: lcName, lat, lng, updated_at: new Date().toISOString() }, { onConflict: 'lc' })
       .then(({ error }) => { if (error) console.error('[lc_locations]', error) })
   }
@@ -131,7 +132,7 @@ export default function UbicacionPage() {
     const db = getSupabaseClient()
     if (!db) { setError('Sin conexión a base de datos'); return }
     if (!lcName) { setError('Usuario sin nombre — no se puede eliminar ubicación'); return }
-    db.from('lc_locations').delete().eq('lc', lcName)
+    db.from(TABLES.LC_LOCATIONS).delete().eq('lc', lcName)
       .then(({ error }) => {
         if (error) setError(`Error al eliminar: ${error.message}`)
         else console.log('[lc_locations] eliminó:', lcName)

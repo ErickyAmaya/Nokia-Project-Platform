@@ -3,6 +3,7 @@ import { EmptyState } from '../../components/EmptyState'
 import { useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 
 function isFinal(val) {
@@ -29,7 +30,7 @@ function badge(val) {
 
 // Modal de comentario con textarea
 function FcCell({ value, onSave, siteLabel }) {
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const isViewer = useAuthStore(s => !can(s.user?.role, 'ack.forecast.edit'))
   const [open, setOpen] = useState(false)
   const [val,  setVal]  = useState(value || '')
 
@@ -124,7 +125,7 @@ function FcCell({ value, onSave, siteLabel }) {
 }
 
 function FcDateCell({ value, onSave }) {
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const isViewer = useAuthStore(s => !can(s.user?.role, 'ack.forecast.edit'))
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(value || '')
 

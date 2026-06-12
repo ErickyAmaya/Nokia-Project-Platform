@@ -3,6 +3,7 @@ import { EmptyState } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { useNavigate }  from 'react-router-dom'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
@@ -63,7 +64,7 @@ export default function MatConfig() {
   // Cargar datos HW al montar
   useState(() => { loadAll() })
 
-  const canEdit = ['admin','coordinador','logistica'].includes(user?.role)
+  const canEdit = can(user?.role, 'mat.config.edit')
 
   // Historial derivado de movimientos + despachos
   const historial = useMemo(() => {

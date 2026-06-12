@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getSupabaseClient } from '../lib/supabase'
+import { TABLES } from '../lib/tables'
 
 const db = () => {
   const c = getSupabaseClient()
@@ -33,19 +34,19 @@ export const useHwStore = create((set, get) => ({
     if (firstLoad) set({ loading: true })
     try {
       const [cat, equ, mov, bod, ss, tu, fal, dp, li, libd, lic, kdisp, kmov] = await Promise.all([
-        db().from('hw_catalogo').select('*').order('descripcion'),
-        db().from('hw_equipos').select('*').order('created_at', { ascending: false }),
-        db().from('hw_movimientos').select('*').order('created_at', { ascending: false }).limit(20000),
-        db().from('hw_bodegas_nokia').select('*').order('nombre'),
-        db().from('hw_service_suppliers').select('*').order('nombre'),
-        db().from('hw_tipo_unidades').select('*').order('nombre'),
-        db().from('hw_fallas').select('*').order('created_at', { ascending: false }).limit(2000),
-        db().from('hw_despachos_pendientes').select('*').order('created_at', { ascending: false }).limit(2000),
-        db().from('hw_log_inversa').select('*').order('created_at', { ascending: false }).limit(10000),
-        db().from('hw_li_bodegas_destino').select('*').order('nombre'),
-        db().from('hw_li_conceptos').select('*').order('nombre'),
-        db().from('hw_kardex_disponible').select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
-        db().from('hw_kardex_movimientos').select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
+        db().from(TABLES.HW_CATALOGO).select('*').order('descripcion'),
+        db().from(TABLES.HW_EQUIPOS).select('*').order('created_at', { ascending: false }),
+        db().from(TABLES.HW_MOVIMIENTOS).select('*').order('created_at', { ascending: false }).limit(20000),
+        db().from(TABLES.HW_BODEGAS).select('*').order('nombre'),
+        db().from(TABLES.HW_SERVICE_SUPP).select('*').order('nombre'),
+        db().from(TABLES.HW_TIPO_UNIDADES).select('*').order('nombre'),
+        db().from(TABLES.HW_FALLAS).select('*').order('created_at', { ascending: false }).limit(2000),
+        db().from(TABLES.HW_DESPACHOS_PEND).select('*').order('created_at', { ascending: false }).limit(2000),
+        db().from(TABLES.HW_LOG_INVERSA).select('*').order('created_at', { ascending: false }).limit(10000),
+        db().from(TABLES.HW_LI_BODEGAS).select('*').order('nombre'),
+        db().from(TABLES.HW_LI_CONCEPTOS).select('*').order('nombre'),
+        db().from(TABLES.HW_KARDEX_DISP).select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
+        db().from(TABLES.HW_KARDEX_MOVS).select('*').order('fecha_movimiento', { ascending: false }).limit(15000),
       ])
       set({
         hwCatalogo:             cat.data   || [],
@@ -82,10 +83,10 @@ export const useHwStore = create((set, get) => ({
 
     const pgChannel = db()
       .channel('hw-pg-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hw_movimientos' }, reload)
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'hw_movimientos' }, reload)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'hw_equipos'     }, reload)
-      .on('postgres_changes', { event: '*',      schema: 'public', table: 'hw_log_inversa'  }, reload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLES.HW_MOVIMIENTOS }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: TABLES.HW_MOVIMIENTOS }, reload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: TABLES.HW_EQUIPOS     }, reload)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: TABLES.HW_LOG_INVERSA  }, reload)
       .subscribe()
 
     set({ _syncChannel: syncChannel })
@@ -106,12 +107,12 @@ export const useHwStore = create((set, get) => ({
     const CHUNK = 200
     for (let i = 0; i < rows.length; i += CHUNK) {
       const { error } = await db()
-        .from('hw_kardex_movimientos')
+        .from(TABLES.HW_KARDEX_MOVS)
         .upsert(rows.slice(i, i + CHUNK), { onConflict: 'nokia_id' })
       if (error) throw error
     }
     const { data } = await db()
-      .from('hw_kardex_movimientos')
+      .from(TABLES.HW_KARDEX_MOVS)
       .select('*')
       .order('fecha_movimiento', { ascending: false })
       .limit(15000)
@@ -122,12 +123,12 @@ export const useHwStore = create((set, get) => ({
     const CHUNK = 200
     for (let i = 0; i < rows.length; i += CHUNK) {
       const { error } = await db()
-        .from('hw_kardex_disponible')
+        .from(TABLES.HW_KARDEX_DISP)
         .upsert(rows.slice(i, i + CHUNK), { onConflict: 'nokia_id' })
       if (error) throw error
     }
     const { data } = await db()
-      .from('hw_kardex_disponible')
+      .from(TABLES.HW_KARDEX_DISP)
       .select('*')
       .order('fecha_movimiento', { ascending: false })
       .limit(15000)
@@ -145,8 +146,8 @@ export const useHwStore = create((set, get) => ({
       imagen_url:    item.imagen_url    || null,
     }
     const { data, error } = item.id
-      ? await db().from('hw_catalogo').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_catalogo').insert(payload).select().single()
+      ? await db().from(TABLES.HW_CATALOGO).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_CATALOGO).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwCatalogo: item.id
@@ -157,7 +158,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwCatItem: async (id) => {
-    const { error } = await db().from('hw_catalogo').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_CATALOGO).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwCatalogo: s.hwCatalogo.filter(c => c.id !== id) }))
   },
@@ -175,7 +176,7 @@ export const useHwStore = create((set, get) => ({
       notas:               equipo.notas || null,
       so:                  equipo.so || null,
     }
-    const { data, error } = await db().from('hw_equipos').insert(payload).select().single()
+    const { data, error } = await db().from(TABLES.HW_EQUIPOS).insert(payload).select().single()
     if (error) throw error
     set(s => ({ hwEquipos: [data, ...s.hwEquipos] }))
     get()._broadcastChange()
@@ -183,7 +184,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   updateHwEquipo: async (id, changes) => {
-    const { data, error } = await db().from('hw_equipos')
+    const { data, error } = await db().from(TABLES.HW_EQUIPOS)
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq('id', id).select().single()
     if (error) throw error
@@ -193,7 +194,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwEquipo: async (id) => {
-    const { error } = await db().from('hw_equipos').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_EQUIPOS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwEquipos: s.hwEquipos.filter(e => e.id !== id) }))
     get()._broadcastChange()
@@ -201,7 +202,7 @@ export const useHwStore = create((set, get) => ({
 
   // ── Movimientos HW ───────────────────────────────────────────────
   addHwMovimiento: async (mov) => {
-    const { data, error } = await db().from('hw_movimientos').insert(mov).select().single()
+    const { data, error } = await db().from(TABLES.HW_MOVIMIENTOS).insert(mov).select().single()
     if (error) throw error
     set(s => ({ hwMovimientos: [data, ...s.hwMovimientos] }))
     get()._broadcastChange()
@@ -209,7 +210,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwMovimiento: async (id) => {
-    const { error } = await db().from('hw_movimientos').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_MOVIMIENTOS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwMovimientos: s.hwMovimientos.filter(m => m.id !== id) }))
     get()._broadcastChange()
@@ -224,8 +225,8 @@ export const useHwStore = create((set, get) => ({
       activo: item.activo ?? true,
     }
     const { data, error } = item.id
-      ? await db().from('hw_bodegas_nokia').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_bodegas_nokia').insert(payload).select().single()
+      ? await db().from(TABLES.HW_BODEGAS).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_BODEGAS).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwBodegasNokia: item.id
@@ -236,7 +237,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwBodegaNokia: async (id) => {
-    const { error } = await db().from('hw_bodegas_nokia').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_BODEGAS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwBodegasNokia: s.hwBodegasNokia.filter(b => b.id !== id) }))
   },
@@ -250,8 +251,8 @@ export const useHwStore = create((set, get) => ({
       activo: item.activo ?? true,
     }
     const { data, error } = item.id
-      ? await db().from('hw_service_suppliers').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_service_suppliers').insert(payload).select().single()
+      ? await db().from(TABLES.HW_SERVICE_SUPP).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_SERVICE_SUPP).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwServiceSuppliers: item.id
@@ -262,7 +263,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwSS: async (id) => {
-    const { error } = await db().from('hw_service_suppliers').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_SERVICE_SUPP).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwServiceSuppliers: s.hwServiceSuppliers.filter(x => x.id !== id) }))
   },
@@ -271,8 +272,8 @@ export const useHwStore = create((set, get) => ({
   saveHwTipoUnidad: async (item) => {
     const payload = { nombre: item.nombre, activo: item.activo ?? true }
     const { data, error } = item.id
-      ? await db().from('hw_tipo_unidades').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_tipo_unidades').insert(payload).select().single()
+      ? await db().from(TABLES.HW_TIPO_UNIDADES).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_TIPO_UNIDADES).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwTipoUnidades: item.id
@@ -283,7 +284,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwTipoUnidad: async (id) => {
-    const { error } = await db().from('hw_tipo_unidades').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_TIPO_UNIDADES).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwTipoUnidades: s.hwTipoUnidades.filter(x => x.id !== id) }))
   },
@@ -292,8 +293,8 @@ export const useHwStore = create((set, get) => ({
   saveHwLiBodegaDestino: async (item) => {
     const payload = { nombre: item.nombre, activo: item.activo ?? true }
     const { data, error } = item.id
-      ? await db().from('hw_li_bodegas_destino').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_li_bodegas_destino').insert(payload).select().single()
+      ? await db().from(TABLES.HW_LI_BODEGAS).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_LI_BODEGAS).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwLiBodegasDestino: item.id
@@ -304,7 +305,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwLiBodegaDestino: async (id) => {
-    const { error } = await db().from('hw_li_bodegas_destino').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_LI_BODEGAS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwLiBodegasDestino: s.hwLiBodegasDestino.filter(x => x.id !== id) }))
   },
@@ -313,8 +314,8 @@ export const useHwStore = create((set, get) => ({
   saveHwLiConcepto: async (item) => {
     const payload = { nombre: item.nombre, activo: item.activo ?? true }
     const { data, error } = item.id
-      ? await db().from('hw_li_conceptos').update(payload).eq('id', item.id).select().single()
-      : await db().from('hw_li_conceptos').insert(payload).select().single()
+      ? await db().from(TABLES.HW_LI_CONCEPTOS).update(payload).eq('id', item.id).select().single()
+      : await db().from(TABLES.HW_LI_CONCEPTOS).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwLiConceptos: item.id
@@ -325,7 +326,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwLiConcepto: async (id) => {
-    const { error } = await db().from('hw_li_conceptos').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_LI_CONCEPTOS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwLiConceptos: s.hwLiConceptos.filter(x => x.id !== id) }))
   },
@@ -356,8 +357,8 @@ export const useHwStore = create((set, get) => ({
     NUM.forEach(k => { payload[k] = payload[k] !== '' && payload[k] != null ? Number(payload[k]) || null : null })
     payload.updated_at = new Date().toISOString()
     const { data, error } = id
-      ? await db().from('hw_fallas').update(payload).eq('id', id).select().single()
-      : await db().from('hw_fallas').insert(payload).select().single()
+      ? await db().from(TABLES.HW_FALLAS).update(payload).eq('id', id).select().single()
+      : await db().from(TABLES.HW_FALLAS).insert(payload).select().single()
     if (error) throw error
     set(s => ({
       hwFallas: id
@@ -368,7 +369,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteFalla: async (id) => {
-    const { error } = await db().from('hw_fallas').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_FALLAS).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwFallas: s.hwFallas.filter(f => f.id !== id) }))
   },
@@ -387,13 +388,13 @@ export const useHwStore = create((set, get) => ({
       })
       .filter(Boolean)
     if (ids.length > 0) {
-      const { error } = await db().from('hw_equipos')
+      const { error } = await db().from(TABLES.HW_EQUIPOS)
         .update({ estado: 'pendiente_despacho', updated_at: new Date().toISOString() })
         .in('id', ids)
       if (error) throw error
       set(s => ({ hwEquipos: s.hwEquipos.map(e => ids.includes(e.id) ? { ...e, estado: 'pendiente_despacho' } : e) }))
     }
-    const { data, error } = await db().from('hw_despachos_pendientes').insert({
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND).insert({
       numero_doc, fecha, smp_id: smp_id || null, bodega, destino,
       destino_tipo, id_transferencia: id_transferencia || null,
       notas: notas || null, items, created_by: created_by || null,
@@ -406,7 +407,7 @@ export const useHwStore = create((set, get) => ({
 
   // Actualiza meta del despacho (fecha, smp_id, notas, destino, numero_doc)
   actualizarMetaDespacho: async (id, changes) => {
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update(changes).eq('id', id).select().single()
     if (error) throw error
     set(s => ({
@@ -424,7 +425,7 @@ export const useHwStore = create((set, get) => ({
       : get().hwEquipos.find(e => e.so === item.so)
     if (eq) await get().updateHwEquipo(eq.id, { estado: 'pendiente_despacho' })
     const nuevosItems = [...(despacho.items || []), item]
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({
@@ -443,7 +444,7 @@ export const useHwStore = create((set, get) => ({
       : get().hwEquipos.find(e => e.so === item.so)
     if (eq) await get().updateHwEquipo(eq.id, { estado: 'en_bodega' })
     const nuevosItems = despacho.items.filter((_, i) => i !== itemIdx)
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({
@@ -470,7 +471,7 @@ export const useHwStore = create((set, get) => ({
     const nuevosItems = despacho.items.map((it, i) =>
       i === itemIdx ? { ...it, so: nuevoSO, serial: nuevoSerial ?? it.serial } : it
     )
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
@@ -482,7 +483,7 @@ export const useHwStore = create((set, get) => ({
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const nuevosItems = (despacho.items || []).map((item, i) => i === itemIdx ? { ...item, cantidad } : item)
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ items: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
@@ -493,7 +494,7 @@ export const useHwStore = create((set, get) => ({
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const nuevosItems = (despacho.mat_despachos || []).map((item, i) => i === itemIdx ? { ...item, ...changes } : item)
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ mat_despachos: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
@@ -504,7 +505,7 @@ export const useHwStore = create((set, get) => ({
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const nuevosItems = (despacho.mat_despachos || []).filter((_, i) => i !== itemIdx)
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ mat_despachos: nuevosItems.length ? nuevosItems : null }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
@@ -515,7 +516,7 @@ export const useHwStore = create((set, get) => ({
     const despacho = get().hwDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho no encontrado')
     const nuevosItems = [...(despacho.mat_despachos || []), item]
-    const { data, error } = await db().from('hw_despachos_pendientes')
+    const { data, error } = await db().from(TABLES.HW_DESPACHOS_PEND)
       .update({ mat_despachos: nuevosItems }).eq('id', despachoId).select().single()
     if (error) throw error
     set(s => ({ hwDespachosPendientes: s.hwDespachosPendientes.map(d => d.id === despachoId ? data : d) }))
@@ -568,7 +569,7 @@ export const useHwStore = create((set, get) => ({
         fecha:           despacho.fecha,
       }))
       for (let i = 0; i < movsMat.length; i += CHUNK) {
-        const { error: matErr } = await db().from('mat_movimientos').insert(movsMat.slice(i, i + CHUNK))
+        const { error: matErr } = await db().from(TABLES.MAT_MOVIMIENTOS).insert(movsMat.slice(i, i + CHUNK))
         if (matErr) throw new Error('Error materiales: ' + matErr.message)
       }
       const { useMatStore } = await import('./useMatStore')
@@ -576,7 +577,7 @@ export const useHwStore = create((set, get) => ({
     }
 
     // 3. Eliminar registro pendiente
-    const { error } = await db().from('hw_despachos_pendientes').delete().eq('id', despachoId)
+    const { error } = await db().from(TABLES.HW_DESPACHOS_PEND).delete().eq('id', despachoId)
     if (error) throw error
     set(s => ({
       hwDespachosPendientes: s.hwDespachosPendientes.filter(d => d.id !== despachoId),
@@ -592,7 +593,7 @@ export const useHwStore = create((set, get) => ({
     const CHUNK = 150
     const inserted = []
     for (let i = 0; i < batch.length; i += CHUNK) {
-      const { data, error } = await db().from('hw_log_inversa').insert(batch.slice(i, i + CHUNK)).select()
+      const { data, error } = await db().from(TABLES.HW_LOG_INVERSA).insert(batch.slice(i, i + CHUNK)).select()
       if (error) throw error
       if (data) inserted.push(...data)
     }
@@ -602,7 +603,7 @@ export const useHwStore = create((set, get) => ({
   },
 
   updateHwLogInversa: async (id, changes) => {
-    const { data, error } = await db().from('hw_log_inversa')
+    const { data, error } = await db().from(TABLES.HW_LOG_INVERSA)
       .update({ ...changes, updated_at: new Date().toISOString() })
       .eq('id', id).select().single()
     if (error) throw error
@@ -612,21 +613,21 @@ export const useHwStore = create((set, get) => ({
   },
 
   deleteHwLogInversa: async (id) => {
-    const { error } = await db().from('hw_log_inversa').delete().eq('id', id)
+    const { error } = await db().from(TABLES.HW_LOG_INVERSA).delete().eq('id', id)
     if (error) throw error
     set(s => ({ hwLogInversa: s.hwLogInversa.filter(r => r.id !== id) }))
     get()._broadcastChange()
   },
 
   deleteHwLogInversaBySitio: async (sitio) => {
-    const { error } = await db().from('hw_log_inversa').delete().eq('sitio', sitio)
+    const { error } = await db().from(TABLES.HW_LOG_INVERSA).delete().eq('sitio', sitio)
     if (error) throw error
     set(s => ({ hwLogInversa: s.hwLogInversa.filter(r => r.sitio !== sitio) }))
     get()._broadcastChange()
   },
 
   bulkUpdateHwLogInversaEstado: async (ids, estado, meta = {}) => {
-    const { data, error } = await db().from('hw_log_inversa')
+    const { data, error } = await db().from(TABLES.HW_LOG_INVERSA)
       .update({ estado, ...meta, updated_at: new Date().toISOString() })
       .in('id', ids).select()
     if (error) throw error
@@ -664,7 +665,7 @@ export const useHwStore = create((set, get) => ({
           numero_doc:      despacho.numero_doc,
           fecha:           now,
         }))
-        const { error: matErr } = await db().from('mat_movimientos').insert(reversals)
+        const { error: matErr } = await db().from(TABLES.MAT_MOVIMIENTOS).insert(reversals)
         if (matErr) console.error('[hw] Error reversando movimientos mat:', matErr.message)
         const { useMatStore } = await import('./useMatStore')
         useMatStore.getState().loadAll()
@@ -673,7 +674,7 @@ export const useHwStore = create((set, get) => ({
       }
     }
 
-    const { error } = await db().from('hw_despachos_pendientes').delete().eq('id', despachoId)
+    const { error } = await db().from(TABLES.HW_DESPACHOS_PEND).delete().eq('id', despachoId)
     if (error) throw error
     set(s => ({
       hwDespachosPendientes: s.hwDespachosPendientes.filter(d => d.id !== despachoId),

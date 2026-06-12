@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Modal from '../components/Modal'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }     from '../store/useAppStore'
+import { useEmpresaStore } from '../store/useEmpresaStore'
 import { showToast } from '../components/Toast'
 import { buildTiposCuadrilla } from '../lib/cuadrilla'
 
@@ -16,7 +17,7 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
   const subcs          = useAppStore(s => s.subcs)
   const crearSubc      = useAppStore(s => s.crearSubc)
   const actualizarSubc = useAppStore(s => s.actualizarSubc)
-  const empresaConfig  = useAppStore(s => s.empresaConfig)
+  const empresaConfig  = useEmpresaStore(s => s.empresaConfig)
 
   const TIPOS = buildTiposCuadrilla(empresaConfig?.nombre_corto, empresaConfig?.tipos_cuadrilla || [])
 

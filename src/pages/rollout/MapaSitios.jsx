@@ -5,9 +5,11 @@ import { divIcon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import * as XLSX from 'xlsx'
 import { getSupabaseClient } from '../../lib/supabase'
+import { TABLES }            from '../../lib/tables'
 import { useAckStore }  from '../../store/useAckStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
+import { isFieldRole }  from '../../config/permissions'
 import UbicacionPage   from '../UbicacionPage'
 
 function norm(s) {
@@ -366,7 +368,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
     setSingleSaving(true)
     setSingleResult(null)
     const db = getSupabaseClient()
-    const { error } = await db.from('sitios_coordenadas').upsert({ site_name: singleSitio, lat, lng }, { onConflict: 'site_name' })
+    const { error } = await db.from(TABLES.SITIOS_COORDS).upsert({ site_name: singleSitio, lat, lng }, { onConflict: 'site_name' })
     setSingleSaving(false)
     if (error) { setSingleResult({ error: error.message }); return }
     setSingleResult({ ok: true })
@@ -426,7 +428,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
     setUploading(true)
     const db = getSupabaseClient()
     const { error } = await db
-      .from('sitios_coordenadas')
+      .from(TABLES.SITIOS_COORDS)
       .upsert(toUpload, { onConflict: 'site_name' })
     setUploading(false)
     if (error) { setResult({ error: error.message }); return }
@@ -655,11 +657,9 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   )
 }
 
-const LC_ROLES = ['TI', 'TSS']
-
 export default function MapaSitios() {
   const userRole = useAuthStore(s => s.user?.role)
-  const [pageTab,     setPageTab]     = useState(() => LC_ROLES.includes(useAuthStore.getState().user?.role) ? 'ubicacion' : 'mapa')
+  const [pageTab,     setPageTab]     = useState(() => isFieldRole(useAuthStore.getState().user?.role) ? 'ubicacion' : 'mapa')
   const [coords,      setCoords]      = useState([])
   const [loading,     setLoading]     = useState(true)
   const [filter,      setFilter]      = useState('todos')
@@ -706,7 +706,7 @@ export default function MapaSitios() {
   useEffect(() => {
     const db = getSupabaseClient()
     if (!db) { setLoading(false); return }
-    db.from('sitios_coordenadas').select('site_name,lat,lng')
+    db.from(TABLES.SITIOS_COORDS).select('site_name,lat,lng')
       .then(({ data }) => { setCoords(data || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
@@ -715,14 +715,14 @@ export default function MapaSitios() {
   useEffect(() => {
     const db = getSupabaseClient()
     if (!db) return
-    db.from('lc_locations').select('lc,lat,lng,updated_at')
+    db.from(TABLES.LC_LOCATIONS).select('lc,lat,lng,updated_at')
       .then(({ data }) => setLcLive(data || []))
     const refetch = () =>
-      db.from('lc_locations').select('lc,lat,lng,updated_at')
+      db.from(TABLES.LC_LOCATIONS).select('lc,lat,lng,updated_at')
         .then(({ data }) => setLcLive(data || []))
 
     const channel = db.channel('lc_locations_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lc_locations' }, refetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.LC_LOCATIONS }, refetch)
       .subscribe()
     return () => { db.removeChannel(channel) }
   }, [])
@@ -873,7 +873,7 @@ export default function MapaSitios() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 120px)' }}>
         <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e5e7eb', marginBottom: 4 }}>
-          {!LC_ROLES.includes(userRole) && (
+          {!isFieldRole(userRole) && (
             <button onClick={() => setPageTab('mapa')} style={{
               padding: '8px 20px', fontSize: 13, fontWeight: 700, border: 'none',
               borderBottom: '2px solid transparent', background: 'none',
@@ -1361,7 +1361,7 @@ export default function MapaSitios() {
           onClose={() => setUploadModal(false)}
           onDone={() => {
             const db = getSupabaseClient()
-            if (db) db.from('sitios_coordenadas').select('site_name,lat,lng')
+            if (db) db.from(TABLES.SITIOS_COORDS).select('site_name,lat,lng')
               .then(({ data }) => setCoords(data || []))
           }}
         />

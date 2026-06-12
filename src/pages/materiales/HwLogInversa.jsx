@@ -4,12 +4,10 @@ import { useSearchParams } from 'react-router-dom'
 import { useHwStore }   from '../../store/useHwStore'
 import { useMatStore }  from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { showToast }    from '../../components/Toast'
 import HwLogInversaCargaModal from '../../components/materiales/HwLogInversaCargaModal'
 import HwLogInversaEditModal  from '../../components/materiales/HwLogInversaEditModal'
-
-const CAN_EDIT = ['admin', 'coordinador', 'logistica']
-const CAN_UNDO = ['admin', 'coordinador', 'logistica']
 
 const ESTADO_CFG = {
   en_sitio:  { label: 'En Sitio',          bg: '#dbeafe', color: '#1e40af' },
@@ -173,8 +171,8 @@ export default function HwLogInversa() {
   const sitios       = useMatStore(s => s.sitios)
   const user         = useAuthStore(s => s.user)
   const rol          = user?.role || ''
-  const canEdit      = CAN_EDIT.includes(rol)
-  const canUndo      = CAN_UNDO.includes(rol)
+  const canEdit      = can(rol, 'hw.loginversa.edit')
+  const canUndo      = can(rol, 'hw.loginversa.undo')
 
   const [searchParams]   = useSearchParams()
   const sitioRefs        = useRef({})

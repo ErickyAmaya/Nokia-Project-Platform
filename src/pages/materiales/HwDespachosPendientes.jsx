@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useMatStore } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
@@ -861,7 +862,7 @@ export default function HwDespachosPendientes() {
   const loadAll               = useHwStore(s => s.loadAll)
 
   const user     = useAuthStore(s => s.user)
-  const canEdit  = user?.role !== 'viewer'
+  const canEdit  = can(user?.role, 'hw.despachos.edit')
 
   const [search, setSearch] = useState('')
   const { confirm, ConfirmModalUI } = useConfirm()

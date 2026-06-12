@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore }     from '../store/useAppStore'
+import { useCatalogStore } from '../store/useCatalogStore'
 import { calcSitio } from '../lib/calcSitio'
 import { getPrecio, cop, pct, CAT, ZONAS } from '../lib/catalog'
 import { showToast } from '../components/Toast'
@@ -393,7 +394,7 @@ export default function ReportesPage() {
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
   const subcs            = useAppStore(s => s.subcs)
-  const catalogTI        = useAppStore(s => s.catalogTI)
+  const catalogTI        = useCatalogStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
 
   const [sheets, setSheets] = useState({

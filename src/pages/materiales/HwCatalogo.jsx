@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { supabase } from '../../lib/supabase'
@@ -39,7 +40,7 @@ export default function HwCatalogo() {
   const fileInputRef = useRef(null)
   const [uploading,  setUploading] = useState(false)
 
-  const canEdit = ['admin'].includes(user?.role)
+  const canEdit = user?.role === 'admin'
 
   // ── Storage helpers ───────────────────────────────────────────
   function pathFromUrl(url) {

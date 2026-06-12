@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAppStore }   from '../store/useAppStore'
+import { useAppStore }     from '../store/useAppStore'
+import { useEmpresaStore } from '../store/useEmpresaStore'
 import { useFactStore }  from '../store/useFactStore'
 import { useMatStore }   from '../store/useMatStore'
 import { showToast }     from '../components/Toast'
@@ -247,8 +248,8 @@ function SeccionDivisor({ label, first = false }) {
 
 // ── Empresas config section ───────────────────────────────────────
 function EmpresaConfig() {
-  const empresaConfig     = useAppStore(s => s.empresaConfig)
-  const saveEmpresaConfig = useAppStore(s => s.saveEmpresaConfig)
+  const empresaConfig     = useEmpresaStore(s => s.empresaConfig)
+  const saveEmpresaConfig = useEmpresaStore(s => s.saveEmpresaConfig)
 
   const [form,   setForm]   = useState({ ...empresaConfig, tipos_cuadrilla_str: (empresaConfig.tipos_cuadrilla || []).join(', ') })
   const [saving, setSaving] = useState(false)

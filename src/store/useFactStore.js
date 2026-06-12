@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import * as XLSX   from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { parsePOPdf } from '../lib/pdfParser'
+import { TABLES, BUCKETS } from '../lib/tables'
 
 // ── Categorías SMP (por SMP Name) ────────────────────────────────
 export const SMP_CATS = [
@@ -113,15 +114,15 @@ export const useFactStore = create((set, get) => ({
     try {
       // Limpiar POs rechazadas con más de 3 días (respaldo client-side al pg_cron)
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      await supabase.from('fact_rejected_pos').delete().lt('rejected_at', cutoff)
+      await supabase.from(TABLES.FACT_REJECTED_POS).delete().lt('rejected_at', cutoff)
 
       const [{ data: uploads }, { data: invoices }, { data: pos }, { data: cal }, { data: rejected }, { data: ppaData }] = await Promise.all([
-        supabase.from('fact_uploads').select('*').order('uploaded_at', { ascending: false }),
-        supabase.from('fact_invoices').select('*').limit(15000),
-        supabase.from('fact_pos').select('*').limit(5000),
-        supabase.from('fact_calendar').select('*').order('year').order('month'),
-        supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false }),
-        supabase.from('fact_ppa').select('*'),
+        supabase.from(TABLES.FACT_UPLOADS).select('*').order('uploaded_at', { ascending: false }),
+        supabase.from(TABLES.FACT_INVOICES).select('*').limit(15000),
+        supabase.from(TABLES.FACT_POS).select('*').limit(5000),
+        supabase.from(TABLES.FACT_CALENDAR).select('*').order('year').order('month'),
+        supabase.from(TABLES.FACT_REJECTED_POS).select('*').order('rejected_at', { ascending: false }),
+        supabase.from(TABLES.FACT_PPA).select('*'),
       ])
       set({
         ppa:          ppaData   || [],
@@ -152,7 +153,7 @@ export const useFactStore = create((set, get) => ({
 
       // Audit record
       const { data: upload, error: upErr } = await supabase
-        .from('fact_uploads')
+        .from(TABLES.FACT_UPLOADS)
         .insert({ filename: file.name, row_count: parsed.length })
         .select().single()
       if (upErr) throw upErr
@@ -162,19 +163,19 @@ export const useFactStore = create((set, get) => ({
       const CHUNK = 200
       for (let i = 0; i < spoNumbers.length; i += CHUNK) {
         const { error: delErr } = await supabase
-          .from('fact_ppa').delete().in('spo_number', spoNumbers.slice(i, i + CHUNK))
+          .from(TABLES.FACT_PPA).delete().in('spo_number', spoNumbers.slice(i, i + CHUNK))
         if (delErr) throw delErr
       }
 
       // Insert all rows in chunks
       const toInsert = parsed.map(r => ({ ...r, upload_id: upload.id }))
       for (let i = 0; i < toInsert.length; i += CHUNK) {
-        const { error: pErr } = await supabase.from('fact_ppa').insert(toInsert.slice(i, i + CHUNK))
+        const { error: pErr } = await supabase.from(TABLES.FACT_PPA).insert(toInsert.slice(i, i + CHUNK))
         if (pErr) throw pErr
       }
 
       // Reload all fact_ppa (current + any legacy SPOs not in this upload)
-      const { data: allPpa } = await supabase.from('fact_ppa').select('*').limit(5000)
+      const { data: allPpa } = await supabase.from(TABLES.FACT_PPA).select('*').limit(5000)
 
       set(s => ({
         ppa:          allPpa || [],
@@ -199,22 +200,22 @@ export const useFactStore = create((set, get) => ({
       // Validar que el SPO exista en el PPA cargado
       const { ppa } = get()
       if (ppa.length > 0 && !ppa.some(r => r.spo_number === extracted.spo_number)) {
-        await supabase.from('fact_rejected_pos').insert({ filename: file.name, spo_number: extracted.spo_number })
-        const { data: rej } = await supabase.from('fact_rejected_pos').select('*').order('rejected_at', { ascending: false })
+        await supabase.from(TABLES.FACT_REJECTED_POS).insert({ filename: file.name, spo_number: extracted.spo_number })
+        const { data: rej } = await supabase.from(TABLES.FACT_REJECTED_POS).select('*').order('rejected_at', { ascending: false })
         set({ rejectedPos: rej || [] })
         throw new Error(`SPO ${extracted.spo_number} no está en el PPA — guardado en registro de rechazados`)
       }
 
       // Subir archivo a Storage
       const path = `pos/${extracted.spo_number}_${Date.now()}.pdf`
-      const { error: stErr } = await supabase.storage.from('facturacion').upload(path, file, { upsert: true })
+      const { error: stErr } = await supabase.storage.from(BUCKETS.FACTURACION).upload(path, file, { upsert: true })
       if (stErr) throw stErr
-      const { data: urlData } = supabase.storage.from('facturacion').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from(BUCKETS.FACTURACION).getPublicUrl(path)
 
       const record = { ...extracted, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
 
       const { data, error } = await supabase
-        .from('fact_pos')
+        .from(TABLES.FACT_POS)
         .upsert(record, { onConflict: 'spo_number' })
         .select().single()
       if (error) throw error
@@ -235,7 +236,7 @@ export const useFactStore = create((set, get) => ({
   // ── Cargar historial de POs (lazy, solo desde FactPOs) ──────────────────
   loadHistorial: async () => {
     const { data } = await supabase
-      .from('fact_pos_historial').select('*').order('changed_at', { ascending: false }).limit(3000)
+      .from(TABLES.FACT_POS_HIST).select('*').order('changed_at', { ascending: false }).limit(3000)
     set({ historial: data || [] })
   },
 
@@ -245,24 +246,24 @@ export const useFactStore = create((set, get) => ({
     try {
       // 1. Subir nuevo PDF
       const path = `pos/${extracted.spo_number}_${Date.now()}.pdf`
-      const { error: stErr } = await supabase.storage.from('facturacion').upload(path, file, { upsert: false })
+      const { error: stErr } = await supabase.storage.from(BUCKETS.FACTURACION).upload(path, file, { upsert: false })
       if (stErr) throw stErr
-      const { data: urlData } = supabase.storage.from('facturacion').getPublicUrl(path)
+      const { data: urlData } = supabase.storage.from(BUCKETS.FACTURACION).getPublicUrl(path)
 
       // 2. Eliminar PDF anterior
       if (existing.pdf_url) {
         const oldPath = existing.pdf_url.match(/\/facturacion\/(.+?)(?:\?|$)/)?.[1]
-        if (oldPath) await supabase.storage.from('facturacion').remove([oldPath])
+        if (oldPath) await supabase.storage.from(BUCKETS.FACTURACION).remove([oldPath])
       }
 
       // 3. Actualizar fact_pos
       const record = { ...extracted, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
       const { data, error } = await supabase
-        .from('fact_pos').update(record).eq('spo_number', extracted.spo_number).select().single()
+        .from(TABLES.FACT_POS).update(record).eq('spo_number', extracted.spo_number).select().single()
       if (error) throw error
 
       // 4. Registrar historial
-      const { data: hRow } = await supabase.from('fact_pos_historial')
+      const { data: hRow } = await supabase.from(TABLES.FACT_POS_HIST)
         .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes: computeChanges(existing, extracted), old_pdf_url: existing.pdf_url })
         .select().single()
 
@@ -281,7 +282,7 @@ export const useFactStore = create((set, get) => ({
   // ── Actualizar PO manualmente ────────────────────────────────────
   actualizarPO: async (id, updates) => {
     const { data, error } = await supabase
-      .from('fact_pos').update({ ...updates, updated_at: new Date().toISOString() })
+      .from(TABLES.FACT_POS).update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id).select().single()
     if (error) throw error
     set(s => ({ pos: s.pos.map(p => p.id === id ? data : p) }))
@@ -290,7 +291,7 @@ export const useFactStore = create((set, get) => ({
   // ── Registrar factura ────────────────────────────────────────────
   registrarFactura: async ({ spo_number, evento, pct, numero_factura, fecha_factura, observaciones, absorbed = false }) => {
     const { data, error } = await supabase
-      .from('fact_invoices')
+      .from(TABLES.FACT_INVOICES)
       .upsert({ spo_number, evento, pct, numero_factura: numero_factura || null, fecha_factura: fecha_factura || null, observaciones, absorbed },
                { onConflict: 'spo_number,evento' })
       .select().single()
@@ -305,18 +306,18 @@ export const useFactStore = create((set, get) => ({
   // ── Importar facturas en bloque ──────────────────────────────────
   importarFacturas: async (items) => {
     const { data, error } = await supabase
-      .from('fact_invoices')
+      .from(TABLES.FACT_INVOICES)
       .upsert(items, { onConflict: 'spo_number,evento' })
       .select()
     if (error) throw error
-    const { data: all } = await supabase.from('fact_invoices').select('*').limit(15000)
+    const { data: all } = await supabase.from(TABLES.FACT_INVOICES).select('*').limit(15000)
     set({ invoices: all || [] })
     return (data || []).length
   },
 
   // ── Eliminar factura ─────────────────────────────────────────────
   eliminarFactura: async (id) => {
-    await supabase.from('fact_invoices').delete().eq('id', id)
+    await supabase.from(TABLES.FACT_INVOICES).delete().eq('id', id)
     set(s => ({ invoices: s.invoices.filter(i => i.id !== id) }))
   },
 
@@ -324,30 +325,30 @@ export const useFactStore = create((set, get) => ({
   saveCalendarPeriod: async (period) => {
     const { id, ...data } = period
     if (id) {
-      const { data: upd, error } = await supabase.from('fact_calendar').update(data).eq('id', id).select().single()
+      const { data: upd, error } = await supabase.from(TABLES.FACT_CALENDAR).update(data).eq('id', id).select().single()
       if (error) throw error
       set(s => ({ calendar: s.calendar.map(c => c.id === id ? upd : c) }))
     } else {
-      const { data: ins, error } = await supabase.from('fact_calendar').insert(data).select().single()
+      const { data: ins, error } = await supabase.from(TABLES.FACT_CALENDAR).insert(data).select().single()
       if (error) throw error
       set(s => ({ calendar: [...s.calendar, ins].sort((a, b) => a.year - b.year || a.month - b.month) }))
     }
   },
 
   deleteCalendarPeriod: async (id) => {
-    await supabase.from('fact_calendar').delete().eq('id', id)
+    await supabase.from(TABLES.FACT_CALENDAR).delete().eq('id', id)
     set(s => ({ calendar: s.calendar.filter(c => c.id !== id) }))
   },
 
   // ── Rechazados ───────────────────────────────────────────────────
   deleteRejectedPo: async (id) => {
-    await supabase.from('fact_rejected_pos').delete().eq('id', id)
+    await supabase.from(TABLES.FACT_REJECTED_POS).delete().eq('id', id)
     set(s => ({ rejectedPos: s.rejectedPos.filter(r => r.id !== id) }))
   },
 
   // ── Eliminar upload ──────────────────────────────────────────────
   deleteUpload: async (id) => {
-    await supabase.from('fact_uploads').delete().eq('id', id)
+    await supabase.from(TABLES.FACT_UPLOADS).delete().eq('id', id)
     const uploads = get().uploads.filter(u => u.id !== id)
     // fact_ppa rows are not tied to a single upload — leave them untouched
     set({ uploads, currUploadId: uploads[0]?.id || null })

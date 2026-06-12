@@ -2,6 +2,7 @@ import { useRef, useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, FINAL } from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
+import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -407,7 +408,8 @@ export default function AckDashboard() {
   const proyectoSel    = useAckStore(s => s.proyectoSel)
   const setProyectoSel = useAckStore(s => s.setProyectoSel)
 
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const role     = useAuthStore(s => s.user?.role)
+  const isViewer = !can(role, 'ack.upload')
 
   const [region,   setRegion]   = useState('todos')
   const [soloPend, setSoloPend] = useState(false)
