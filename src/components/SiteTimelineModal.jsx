@@ -130,14 +130,14 @@ function buildMilestones(rollout, forecast, sabana) {
   const closeDone  = !!(acepDate && isPast(acepDate))
 
   return [
-    { id: 'mos',    label: 'MOS',             iconKey: 'tower',    isDone: mosDone,    date: mosDate,  lastDate: rollout?.mosLastDate  || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : null },
+    { id: 'mos',    label: 'MOS',             iconKey: 'tower',    isDone: mosDone,    date: mosDate,  lastDate: rollout?.mosLastDate  || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : 'Sin datos Rollout' },
     { id: 'hwc',    label: 'HW Cierre',       iconKey: 'hardware', isDone: hwcDone,    date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre,     ndpdLabel: null },
-    { id: 'intg',   label: 'Integración',     iconKey: 'signal',   isDone: intgDone,   date: intgDate, lastDate: rollout?.intgLastDate || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : null },
+    { id: 'intg',   label: 'Integración',     iconKey: 'signal',   isDone: intgDone,   date: intgDate, lastDate: rollout?.intgLastDate || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : 'Sin datos Rollout' },
     { id: 'doc',    label: 'Documentación',   iconKey: 'doc',      isDone: docDone,    date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,           ndpdLabel: null },
     { id: 'so',     label: 'Entrega SO',      iconKey: 'person',   isDone: soDone,     date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner,    ndpdLabel: null },
     { id: 'loginv', label: 'Log. Inversa',    iconKey: 'truck',    isDone: logInvDone, date: null,     lastDate: null,                          fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv,       ndpdLabel: null },
     { id: 'onair',  label: 'On Air',          iconKey: 'bolt',     isDone: onAirDone,  date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air,        ndpdLabel: null },
-    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepDate, lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : null },
+    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepDate, lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout' },
   ]
 }
 
