@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useHwStore } from '../../store/useHwStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { useMatStore } from '../../store/useMatStore'
 import { useAppStore } from '../../store/useAppStore'
 import { showToast } from '../../components/Toast'
@@ -261,8 +260,8 @@ export default function HwMovimientos() {
   const navigate     = useNavigate()
   const location     = useLocation()
   const returnToRef  = useRef(null)
-  const canEdit   = can(user?.role, 'hw.movimientos.edit')
-  const canDelete = user?.role === 'admin'
+  const canEdit   = ['admin','logistica'].includes(user?.role)
+  const canDelete = ['admin'].includes(user?.role)
   const isAdmin   = user?.role === 'admin'
 
   function openTransferEdit(e) {

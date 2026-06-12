@@ -1,10 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore }     from '../store/useAppStore'
-import { useCatalogStore } from '../store/useCatalogStore'
-import { useEmpresaStore } from '../store/useEmpresaStore'
+import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { calcSitio, hasSN } from '../lib/calcSitio'
 import { cop, pct, mcls, mfcls } from '../lib/catalog'
 import { buildTCOptions, matchTipoCuadrilla, sinExternas } from '../lib/cuadrilla'
@@ -51,14 +48,14 @@ export default function Dashboard() {
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
   const subcs            = useAppStore(s => s.subcs)
-  const catalogTI        = useCatalogStore(s => s.catalogTI)
+  const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
-  const empresaConfig    = useEmpresaStore(s => s.empresaConfig)
+  const empresaConfig    = useAppStore(s => s.empresaConfig)
   const user             = useAuthStore(s => s.user)
   const navigate     = useNavigate()
 
   const isAdmin  = user?.role === 'admin'
-  const isViewer = !can(user?.role, 'liq.dashboard.edit')
+  const isViewer = user?.role === 'viewer'
 
   // Cuadrilla selector options — directo desde Supabase, sin hardcodear
   const tcOpts = useMemo(() => {

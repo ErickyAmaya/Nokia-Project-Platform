@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { useAppStore }     from '../store/useAppStore'
-import { useEmpresaStore } from '../store/useEmpresaStore'
-import { ACCESS, ROLE_BADGE, can } from '../config/permissions'
+import { useAppStore }  from '../store/useAppStore'
 import { useAlertsStore } from '../store/useAlertsStore'
 import { useFactStore }  from '../store/useFactStore'
 import { useMatStore }   from '../store/useMatStore'
@@ -16,57 +14,57 @@ import SiteTimelineModal from './SiteTimelineModal'
 
 // ── Nav Liquidador (Billing) ──────────────────────────────────────
 const ALL_NAV = [
-  { to: '/dashboard',      label: 'Dashboard',  icon: '📊', id: 'dashboard',      roles: ACCESS.MGMT },
-  { to: '/ti',             label: 'TI',         icon: '📡', id: 'ti',             roles: ACCESS.TI },
-  { to: '/tss',            label: 'TSS',        icon: '📡', id: 'tss',            roles: ACCESS.TSS },
-  { to: '/cw-consolidado', label: 'CW',         icon: '🔧', id: 'cw-consolidado', roles: ACCESS.CW },
+  { to: '/dashboard',      label: 'Dashboard',  icon: '📊', id: 'dashboard',      roles: ['admin','coordinador','viewer'] },
+  { to: '/ti',             label: 'TI',         icon: '📡', id: 'ti',             roles: ['admin','coordinador','TI','viewer'] },
+  { to: '/tss',            label: 'TSS',        icon: '📡', id: 'tss',            roles: ['admin','coordinador','TSS','viewer'] },
+  { to: '/cw-consolidado', label: 'CW',         icon: '🔧', id: 'cw-consolidado', roles: ['admin','coordinador','CW','viewer'] },
+
   { to: '/liquidador',     label: 'Liquidador', icon: '💰', id: 'liquidador',     roles: null },
-  { to: '/gastos',         label: 'Gastos',     icon: '💳', id: 'gastos',         roles: ACCESS.MGMT },
-  { to: '/reportes',       label: 'Reportes',   icon: '📄', id: 'reportes',       roles: ACCESS.MGMT },
+  { to: '/gastos',         label: 'Gastos',     icon: '💳', id: 'gastos',         roles: ['admin','coordinador','viewer'] },
+  { to: '/reportes',       label: 'Reportes',   icon: '📄', id: 'reportes',       roles: ['admin','coordinador','viewer'] },
 ]
 const ADMIN_NAV = [
-  { to: '/catalogo', label: 'Catálogo', icon: '📋', id: 'catalogo', roles: ACCESS.CATALOG },
+  { to: '/catalogo', label: 'Catálogo', icon: '📋', id: 'catalogo', roles: ['admin','coordinador'] },
 ]
 
 const ADMIN_PANEL_NAV = [
-  { to: '/admin/usuarios',      label: 'Usuarios',      icon: '👥', id: 'admin-usuarios',  roles: ACCESS.ADMIN },
-  { to: '/admin/estadisticas',  label: 'Estadísticas',  icon: '📊', id: 'admin-stats',     roles: ACCESS.ADMIN },
-  { to: '/admin/ack-glosario',  label: 'ACK Glosario',  icon: '🗂',  id: 'admin-ack-glos', roles: ACCESS.ADMIN },
-  { to: '/admin/config',        label: 'Config',        icon: '⚙',  id: 'admin-config',   roles: ACCESS.ADMIN },
+  { to: '/admin/usuarios',      label: 'Usuarios',      icon: '👥', id: 'admin-usuarios',   roles: ['admin'] },
+  { to: '/admin/estadisticas',  label: 'Estadísticas',  icon: '📊', id: 'admin-stats',      roles: ['admin'] },
+  { to: '/admin/ack-glosario',  label: 'ACK Glosario',  icon: '🗂',  id: 'admin-ack-glos',  roles: ['admin'] },
+  { to: '/admin/config',        label: 'Config',        icon: '⚙',  id: 'admin-config',    roles: ['admin'] },
 ]
 
 // ── Nav Materiales ────────────────────────────────────────────────
 const MAT_NAV = [
-  { to: '/materiales',             label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
-  { to: '/materiales/inventario',  label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
-  { to: '/materiales/movimientos', label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ACCESS.MAT_ED },
-  { to: '/materiales/reportes',    label: 'Reportes',    icon: '📊', id: 'mat-reportes',    roles: ACCESS.MAT_ED },
-  { to: '/materiales/catalogo',    label: 'Catálogo',    icon: '📋', id: 'mat-catalogo',    roles: ACCESS.MAT_ED },
-  { to: '/materiales/config',      label: 'Config',      icon: '⚙',  id: 'mat-config',     roles: ACCESS.MAT_ED },
+  { to: '/materiales',              label: 'Dashboard',   icon: '📊', id: 'mat-dashboard',   roles: null },
+  { to: '/materiales/inventario',   label: 'Inventario',  icon: '📦', id: 'mat-inventario',  roles: null },
+  { to: '/materiales/movimientos',  label: 'Movimientos', icon: '🔄', id: 'mat-movimientos', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/reportes', label: 'Reportes', icon: '📊', id: 'mat-reportes', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/catalogo', label: 'Catálogo', icon: '📋', id: 'mat-catalogo', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/config',       label: 'Config',      icon: '⚙',  id: 'mat-config',      roles: ['admin','coordinador','logistica'] },
 ]
 
 const HW_NAV = [
-  { to: '/materiales/hw/dashboard',    label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',    roles: null },
-  { to: '/materiales/hw/inventario',   label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',   roles: null },
-  { to: '/materiales/hw/movimientos',  label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos',  roles: null },
-  { to: '/materiales/hw/fallas',       label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',       roles: null },
-  { to: '/materiales/hw/bodega-nokia', label: 'Gestión HW',     icon: '🏭', id: 'hw-bodega-nokia', roles: null },
-  { to: '/materiales/hw/catalogo',     label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
+  { to: '/materiales/hw/dashboard',            label: 'Dashboard HW',   icon: '📊', id: 'hw-dashboard',   roles: null },
+  { to: '/materiales/hw/inventario',           label: 'Inventario HW',  icon: '📡', id: 'hw-inventario',  roles: null },
+  { to: '/materiales/hw/movimientos',          label: 'Movimientos HW', icon: '🔁', id: 'hw-movimientos',  roles: null },
+  { to: '/materiales/hw/fallas',               label: 'HW en Falla',    icon: '⚠',  id: 'hw-fallas',       roles: null },
+  { to: '/materiales/hw/bodega-nokia',         label: 'Gestión HW',    icon: '🏭', id: 'hw-bodega-nokia',  roles: null },
+  { to: '/materiales/hw/catalogo',             label: 'Catálogo HW',    icon: '🗂', id: 'hw-catalogo',     roles: null },
 ]
 
 const SITIOS_NAV = [
-  { to: '/materiales/sitios',                  label: 'Logística Directa', icon: '🚚', id: 'sit-directa',   roles: ACCESS.MAT_SITIOS },
-  { to: '/materiales/hw/despachos-pendientes', label: 'Pend. Despacho',    icon: '📦', id: 'sit-despachos', roles: ACCESS.MAT_SITIOS },
-  { to: '/materiales/hw/log-inversa',          label: 'Logística Inversa', icon: '↩',  id: 'sit-inversa',   roles: null },
+  { to: '/materiales/sitios',        label: 'Logística Directa',  icon: '🚚', id: 'sit-directa', roles: ['admin','coordinador','logistica'] },
+  { to: '/materiales/hw/log-inversa', label: 'Logística Inversa', icon: '↩',  id: 'sit-inversa', roles: null },
 ]
 
 const ROLLOUT_NAV = [
-  { to: '/rollout/ack',          label: 'Dashboard',    icon: '📊', id: 'ack-dashboard', roles: ACCESS.ROLLOUT },
-  { to: '/rollout/ack/tablas',   label: 'ACK',          icon: '📋', id: 'ack-tablas',    roles: ACCESS.ROLLOUT },
-  { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ACCESS.ROLLOUT },
-  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ACCESS.ROLLOUT },
-  { to: '/rollout/analitica',    label: 'Analítica',    icon: '📈', id: 'analitica',     roles: ACCESS.ANALITICA },
-  { to: '/rollout/mapa',         label: 'Mapa',         icon: '🗺', id: 'rollout-mapa',  roles: null },
+  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/tablas',   label: 'ACK',          icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer'] },
+  { to: '/rollout/analitica',    label: 'Analítica',   icon: '📈', id: 'analitica',     roles: ['admin','coordinador','viewer','TI','TSS','CW'] },
+  { to: '/rollout/mapa',         label: 'Mapa',        icon: '🗺', id: 'rollout-mapa',  roles: null },
 ]
 
 const FACT_NAV = [
@@ -78,6 +76,17 @@ const FACT_NAV = [
   { to: '/facturacion/pagos-subc',   label: 'Pagos SubC',     icon: '💳', id: 'fact-pagos'     },
 ]
 
+const BADGE = {
+  admin:       { label: '⚙ Admin',      cls: 'ub-admin' },
+  coordinador: { label: '🏢 Coord',     cls: 'ub-coord' },
+  TI:          { label: '📡 TI',        cls: 'ub-op'    },
+  TSS:         { label: '📡 TSS',       cls: 'ub-op'    },
+  CW:          { label: '🔧 CW',        cls: 'ub-op'    },
+  viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
+  logistica:   { label: '📦 Logística', cls: 'ub-op'    },
+  facturacion: { label: '🧾 Fact.',    cls: 'ub-op'    },
+}
+
 export default function Layout({ children }) {
   const [drawerOpen,   setDrawerOpen]   = useState(false)
   const [alertsOpen,   setAlertsOpen]   = useState(false)
@@ -87,7 +96,7 @@ export default function Layout({ children }) {
 
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)
-  const empresaConfig = useEmpresaStore(s => s.empresaConfig)
+  const empresaConfig = useAppStore(s => s.empresaConfig)
   const logoutApp     = useAppStore(s => s.logout)
   const navigate      = useNavigate()
   const location      = useLocation()
@@ -107,10 +116,10 @@ export default function Layout({ children }) {
   const forecasts           = useAckStore(s => s.forecasts)
   const sabana              = useAckStore(s => s.sabana)
 
-  const alertRoles = role => can(role, 'alerts.see')
+  const alertRoles = ['facturacion', 'admin', 'coordinador', 'logistica', 'TI', 'TSS', 'CW']
 
   const unreadCount = useMemo(() => {
-    if (!alertRoles(role)) return 0
+    if (!alertRoles.includes(role)) return 0
     return allAlerts.filter(a => a.roles.includes(role) && !dismissedIds.has(a.id)).length
   }, [allAlerts, dismissedIds, role])
 
@@ -127,9 +136,9 @@ export default function Layout({ children }) {
 
   const inHome        = location.pathname === '/modulos' || location.pathname === '/'
   const inMateriales  = location.pathname.startsWith('/materiales')
+  const inSitios      = location.pathname === '/materiales/sitios' || location.pathname === '/materiales/hw/log-inversa'
   const inDespachos   = location.pathname === '/materiales/hw/despachos-pendientes'
-  const inSitios      = location.pathname === '/materiales/sitios' || location.pathname === '/materiales/hw/log-inversa' || inDespachos
-  const inHw          = location.pathname.startsWith('/materiales/hw') && !inSitios
+  const inHw          = location.pathname.startsWith('/materiales/hw') && !inSitios && !inDespachos
   const inRollout     = location.pathname.startsWith('/rollout')
   const inFacturacion = location.pathname.startsWith('/facturacion')
   const inAdmin       = location.pathname.startsWith('/admin')
@@ -183,7 +192,7 @@ export default function Layout({ children }) {
     : inAdmin
       ? ADMIN_PANEL_NAV.filter(canSee)
       : inMateriales
-        ? (inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
+        ? (inDespachos ? [] : inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
         : inRollout
           ? ROLLOUT_NAV.filter(canSee)
           : inFacturacion
@@ -191,7 +200,7 @@ export default function Layout({ children }) {
             : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   const canSwitchModule = !!user
-  const badge = ROLE_BADGE[role] || ROLE_BADGE.viewer
+  const badge = BADGE[role] || BADGE.viewer
 
   const brand = empresa?.color || '#1a9c1a'
 
@@ -349,7 +358,7 @@ export default function Layout({ children }) {
             </button>
           )}
 
-          {alertRoles(role) && (
+          {alertRoles.includes(role) && (
             <BellButton onClick={handleOpenAlerts} unreadCount={unreadCount} />
           )}
 

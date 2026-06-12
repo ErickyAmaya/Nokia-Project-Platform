@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from './authStore'
-import { TABLES } from '../lib/tables'
 
 // ── Debounced Supabase sync ──────────────────────────────────────
 const _clientId    = Math.random().toString(36).slice(2)  // unique per tab
@@ -49,12 +48,27 @@ async function _debouncedSync(id, get, delay = 1500) {
     const sitio = get().sitios.find(s => s.id === id)
     if (!sitio) { _pendingIds.delete(id); return }
     try {
-      await supabase.from(TABLES.SITIOS).upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
+      await supabase.from('sitios').upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
     } finally {
       _pendingIds.delete(id)
       get()._broadcastChange()
     }
   }, delay)
+}
+
+const DEFAULT_EMPRESA = {
+  nombre:                'Empresa',
+  nombre_corto:          'Nokia',
+  logo_url:              '',
+  logo_icon_url:         '',
+  color_primario:        '#144E4A',
+  tipos_cuadrilla:       [],
+  cliente_nombre:        '',
+  cliente_logo_url:      '',
+  cliente_logo_icon_url: '',
+  dev_nombre:            '',
+  dev_logo_url:          '',
+  dev_logo_icon_url:     '',
 }
 
 export const useAppStore = create((set, get) => ({
@@ -67,8 +81,16 @@ export const useAppStore = create((set, get) => ({
   sitios:          [],
   gastos:          [],
   liquidaciones_cw: [],
+  catalogCW:       [],   // {actividad_id, nombre, unidad, precio_nokia_urbano, precio_nokia_rural, precio_subc_urbano, precio_subc_rural}
+  catalogTI:       [],   // {id, nombre, unidad, seccion, nokia:[4], A:[4], AA:[4], AAA:[4]}
   subcs:           [],
+  empresaConfig:   DEFAULT_EMPRESA,
   _syncChannel:    null,
+
+  // ── Derived role helpers (delegan a authStore) ──────────────────
+  isAdmin:  () => useAuthStore.getState().user?.role === 'admin',
+  isCoord:  () => useAuthStore.getState().user?.role === 'coordinador',
+  isViewer: () => useAuthStore.getState().user?.role === 'viewer',
 
   // ── Auth shims — delegan al authStore canónico ───────────────────
   setSession: session => set({ session }),
@@ -90,11 +112,13 @@ export const useAppStore = create((set, get) => ({
 
   // ── Data actions ─────────────────────────────────────────────────
   loadData: async () => {
-    const [sitiosRes, gastosRes, liqCWRes, subcRes] = await Promise.all([
-      supabase.from(TABLES.SITIOS).select('*').order('created_at', { ascending: true }),
-      supabase.from(TABLES.GASTOS).select('*').limit(5000),
-      supabase.from(TABLES.LIQUIDACIONES_CW).select('*').limit(5000),
-      supabase.from(TABLES.SUBCONTRATISTAS).select('*').order('lc'),
+    const [sitiosRes, gastosRes, liqCWRes, subcRes, catCWRes, catTIRes] = await Promise.all([
+      supabase.from('sitios').select('*').order('created_at', { ascending: true }),
+      supabase.from('gastos').select('*').limit(5000),
+      supabase.from('liquidaciones_cw').select('*').limit(5000),
+      supabase.from('subcontratistas').select('*').order('lc'),
+      supabase.from('catalogo_cw').select('*').order('actividad_id'),
+      supabase.from('catalogo_ti').select('*').order('seccion').order('id'),
     ])
 
     const sitiosData = sitiosRes.data
@@ -102,6 +126,8 @@ export const useAppStore = create((set, get) => ({
     const gastosData = gastosRes.data
     const liqCWData  = liqCWRes.data
     const subcData   = subcRes.data
+    const catCWData  = catCWRes.data
+    const catTIData  = catTIRes.data
 
     if (error || !sitiosData) return false
 
@@ -170,8 +196,43 @@ export const useAppStore = create((set, get) => ({
       esInterna: r.es_interna || false,
     }))
 
-    set({ sitios, gastos, liquidaciones_cw, subcs })
+    const catalogCW = (catCWData || []).map(r => ({
+      actividad_id:         r.actividad_id,
+      nombre:               r.nombre || r.actividad_id,
+      unidad:               (r.unidad || 'UN').trim(),
+      precio_nokia_urbano:  r.precio_nokia_urbano  || 0,
+      precio_nokia_rural:   r.precio_nokia_rural   || 0,
+      precio_subc_urbano:   r.precio_subc_urbano   || 0,
+      precio_subc_rural:    r.precio_subc_rural    || 0,
+    }))
+
+    const _n = v => (v === null || v === undefined) ? null : Number(v)
+    const catalogTI = (catTIData || []).map(r => ({
+      id:      r.id,
+      nombre:  r.nombre || r.id,
+      unidad:  (r.unidad || 'UN').trim(),
+      seccion: r.seccion || 'BASE',
+      nokia: [_n(r.nokia_0), _n(r.nokia_1), _n(r.nokia_2), _n(r.nokia_3)],
+      A:     [_n(r.a_0),     _n(r.a_1),     _n(r.a_2),     _n(r.a_3)],
+      AA:    [_n(r.aa_0),    _n(r.aa_1),    _n(r.aa_2),    _n(r.aa_3)],
+      AAA:   [_n(r.aaa_0),   _n(r.aaa_1),   _n(r.aaa_2),   _n(r.aaa_3)],
+    }))
+
+    set({ sitios, gastos, liquidaciones_cw, subcs, catalogCW, catalogTI })
     return true
+  },
+
+  loadEmpresaConfig: async () => {
+    const { data } = await supabase
+      .from('config')
+      .select('value')
+      .eq('key', 'empresa_config')
+      .single()
+    if (data?.value) {
+      try {
+        set({ empresaConfig: { ...DEFAULT_EMPRESA, ...JSON.parse(data.value) } })
+      } catch { /* ignore */ }
+    }
   },
 
   // ── Realtime sync ────────────────────────────────────────────────
@@ -228,7 +289,7 @@ export const useAppStore = create((set, get) => ({
     if (!sitio) { _pendingIds.delete(id); return }
     try {
       const payload = _buildSitioPayload(sitio)
-      const { error } = await supabase.from(TABLES.SITIOS).upsert(payload, { onConflict: 'id' })
+      const { error } = await supabase.from('sitios').upsert(payload, { onConflict: 'id' })
       if (error) console.error('[updateMainSmpNow]', error.message)
     } finally {
       _pendingIds.delete(id)
@@ -253,7 +314,7 @@ export const useAppStore = create((set, get) => ({
     _lastWriteTime[id] = Date.now()
     const sitio = get().sitios.find(s => s.id === id)
     if (!sitio) { _pendingIds.delete(id); return }
-    supabase.from(TABLES.SITIOS).upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
+    supabase.from('sitios').upsert(_buildSitioPayload(sitio), { onConflict: 'id' })
       .then(() => { _pendingIds.delete(id); get()._broadcastChange() })
       .catch(() => { _pendingIds.delete(id) })
   },
@@ -315,14 +376,14 @@ export const useAppStore = create((set, get) => ({
       descripcion: data.desc, valor: data.valor || 0,
       sub_sitio: data.sub_sitio || null,
     }
-    const { data: inserted, error } = await supabase.from(TABLES.GASTOS).insert(row).select().single()
+    const { data: inserted, error } = await supabase.from('gastos').insert(row).select().single()
     if (error) throw error
     set(s => ({ gastos: [...s.gastos, { id: inserted.id, sitio: inserted.sitio_id, tipo: inserted.tipo, desc: inserted.descripcion, valor: inserted.valor, sub_sitio: inserted.sub_sitio || '' }] }))
     get()._broadcastChange()
   },
 
   eliminarGasto: async (gastoId) => {
-    const { error } = await supabase.from(TABLES.GASTOS).delete().eq('id', gastoId)
+    const { error } = await supabase.from('gastos').delete().eq('id', gastoId)
     if (error) throw error
     set(s => ({ gastos: s.gastos.filter(g => g.id !== gastoId) }))
     get()._broadcastChange()
@@ -330,7 +391,7 @@ export const useAppStore = create((set, get) => ({
 
   editarGasto: async (gastoId, changes) => {
     const row = { tipo: changes.tipo, descripcion: changes.desc, valor: changes.valor }
-    const { error } = await supabase.from(TABLES.GASTOS).update(row).eq('id', gastoId)
+    const { error } = await supabase.from('gastos').update(row).eq('id', gastoId)
     if (error) throw error
     set(s => ({ gastos: s.gastos.map(g => g.id === gastoId ? { ...g, ...changes } : g) }))
     get()._broadcastChange()
@@ -356,7 +417,7 @@ export const useAppStore = create((set, get) => ({
       region:     sitioData.region || '',
       main_smp:   sitioData.main_smp || null,
     }
-    const { error } = await supabase.from(TABLES.SITIOS).insert(row)
+    const { error } = await supabase.from('sitios').insert(row)
     if (error) throw error
     const local = {
       ...row,
@@ -393,7 +454,7 @@ export const useAppStore = create((set, get) => ({
       cat_over_redesign: '',
       region: sitioData.region || '',
     }
-    const { error } = await supabase.from(TABLES.SITIOS).insert(row)
+    const { error } = await supabase.from('sitios').insert(row)
     if (error) throw error
     const local = {
       id: row.id, nombre: row.nombre, tipo: 'TSS',
@@ -419,9 +480,9 @@ export const useAppStore = create((set, get) => ({
     const tieneCW = liquidaciones_cw.some(l => l.sitio_id === id)
 
     if (tieneCW) {
-      await supabase.from(TABLES.LIQUIDACIONES_CW).delete().eq('sitio_id', id)
+      await supabase.from('liquidaciones_cw').delete().eq('sitio_id', id)
     }
-    const { error } = await supabase.from(TABLES.SITIOS).delete().eq('id', id)
+    const { error } = await supabase.from('sitios').delete().eq('id', id)
     if (error) throw error
 
     set({
@@ -435,7 +496,7 @@ export const useAppStore = create((set, get) => ({
   // ── Realtime patch ───────────────────────────────────────────
   // Called by useRealtime hook with raw DB records (snake_case)
   applyRT: (table, event, rec) => {
-    if (table === TABLES.SITIOS) {
+    if (table === 'sitios') {
       const local = {
         id: rec.id, nombre: rec.nombre, tipo: rec.tipo,
         fecha: rec.fecha, ciudad: rec.ciudad, lc: rec.lc,
@@ -469,7 +530,7 @@ export const useAppStore = create((set, get) => ({
       })
     }
 
-    if (table === TABLES.GASTOS) {
+    if (table === 'gastos') {
       const g = { id: rec.id, sitio: rec.sitio_id, tipo: rec.tipo || '', desc: rec.descripcion || '', valor: rec.valor || 0, sub_sitio: rec.sub_sitio || '' }
       set(s => {
         if (event === 'INSERT') {
@@ -482,7 +543,7 @@ export const useAppStore = create((set, get) => ({
       })
     }
 
-    if (table === TABLES.SUBCONTRATISTAS) {
+    if (table === 'subcontratistas') {
       const sc = { lc: rec.lc, empresa: rec.empresa || rec.lc, cat: rec.cat || 'A', tel: rec.tel || '', email: rec.email || '', tipoCuadrilla: rec.tipo_cuadrilla || 'TI Ingetel', esInterna: rec.es_interna || false }
       set(s => {
         if (event === 'INSERT') {
@@ -495,7 +556,7 @@ export const useAppStore = create((set, get) => ({
       })
     }
 
-    if (table === TABLES.LIQUIDACIONES_CW) {
+    if (table === 'liquidaciones_cw') {
       const liq = {
         id: rec.id, sitio_id: rec.sitio_id, smp: rec.smp || '',
         region: rec.region || '', tipo_zona: rec.tipo_zona || 'URBANO',
@@ -528,6 +589,16 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  // ── Empresa config ───────────────────────────────────────────
+  saveEmpresaConfig: async (config) => {
+    const value = JSON.stringify(config)
+    const { error } = await supabase
+      .from('config')
+      .upsert({ key: 'empresa_config', value }, { onConflict: 'key' })
+    if (error) throw error
+    set({ empresaConfig: { ...DEFAULT_EMPRESA, ...config } })
+  },
+
   // ── Subcontratistas CRUD ─────────────────────────────────────
   crearSubc: async (data) => {
     const row = {
@@ -539,7 +610,7 @@ export const useAppStore = create((set, get) => ({
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
     }
-    const { error } = await supabase.from(TABLES.SUBCONTRATISTAS).insert(row)
+    const { error } = await supabase.from('subcontratistas').insert(row)
     if (error) throw error
     const local = { lc: row.lc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna }
     set(s => ({ subcs: [...s.subcs, local].sort((a, b) => a.lc.localeCompare(b.lc)) }))
@@ -558,7 +629,7 @@ export const useAppStore = create((set, get) => ({
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
     }
-    const { error } = await supabase.from(TABLES.SUBCONTRATISTAS).update(row).eq('lc', originalLc)
+    const { error } = await supabase.from('subcontratistas').update(row).eq('lc', originalLc)
     if (error) throw error
     const lcChanged = newLc !== originalLc
     set(s => ({
@@ -572,7 +643,7 @@ export const useAppStore = create((set, get) => ({
   },
 
   eliminarSubc: async (lc) => {
-    const { error } = await supabase.from(TABLES.SUBCONTRATISTAS).delete().eq('lc', lc)
+    const { error } = await supabase.from('subcontratistas').delete().eq('lc', lc)
     if (error) throw error
     set(s => ({ subcs: s.subcs.filter(x => x.lc !== lc) }))
     get()._broadcastChange()
@@ -605,7 +676,7 @@ export const useAppStore = create((set, get) => ({
     _pendingLiqWrite[liq.id] = Date.now()
     _syncTimers['liq_cw_' + liq.id] = setTimeout(async () => {
       try {
-        const { error } = await supabase.from(TABLES.LIQUIDACIONES_CW).upsert({
+        const { error } = await supabase.from('liquidaciones_cw').upsert({
           id: liq.id, sitio_id: liq.sitio_id, smp: liq.smp,
           region: liq.region, tipo_zona: liq.tipo_zona,
           lc: liq.lc, estado: liq.estado, items: liq.items,
@@ -619,7 +690,7 @@ export const useAppStore = create((set, get) => ({
   },
 
   deleteLiqCW: async (liqId) => {
-    const { error } = await supabase.from(TABLES.LIQUIDACIONES_CW).delete().eq('id', liqId)
+    const { error } = await supabase.from('liquidaciones_cw').delete().eq('id', liqId)
     if (error) throw error
     set(s => ({ liquidaciones_cw: s.liquidaciones_cw.filter(l => l.id !== liqId) }))
     get()._broadcastChange()
@@ -629,9 +700,9 @@ export const useAppStore = create((set, get) => ({
     const { liquidaciones_cw } = get()
     const liq = liquidaciones_cw.find(l => l.sitio_id === sitioId)
     if (liq) {
-      await supabase.from(TABLES.LIQUIDACIONES_CW).delete().eq('id', liq.id)
+      await supabase.from('liquidaciones_cw').delete().eq('id', liq.id)
     }
-    const { error } = await supabase.from(TABLES.SITIOS).update({
+    const { error } = await supabase.from('sitios').update({
       tiene_cw: false, cw_conjunto: false, cw_nokia: 0, cw_costo: 0,
     }).eq('id', sitioId)
     if (error) throw error
@@ -652,6 +723,93 @@ export const useAppStore = create((set, get) => ({
     await get().saveLiqCW(updated)
   },
 
+  // ── Catálogo TI CRUD ─────────────────────────────────────────
+  saveCatalogTIItem: async (item) => {
+    // item: { id, nombre, unidad, seccion, nokia:[4], A:[4], AA:[4], AAA:[4] }
+    const row = {
+      id: item.id, nombre: item.nombre, unidad: item.unidad, seccion: item.seccion,
+      nokia_0: item.nokia[0], nokia_1: item.nokia[1], nokia_2: item.nokia[2], nokia_3: item.nokia[3],
+      a_0: item.A[0],   a_1: item.A[1],   a_2: item.A[2],   a_3: item.A[3],
+      aa_0: item.AA[0], aa_1: item.AA[1], aa_2: item.AA[2], aa_3: item.AA[3],
+      aaa_0: item.AAA[0], aaa_1: item.AAA[1], aaa_2: item.AAA[2], aaa_3: item.AAA[3],
+    }
+    set(s => ({
+      catalogTI: s.catalogTI.some(x => x.id === item.id)
+        ? s.catalogTI.map(x => x.id === item.id ? item : x)
+        : [...s.catalogTI, item],
+    }))
+    await supabase.from('catalogo_ti').upsert(row, { onConflict: 'id' })
+  },
+
+  deleteCatalogTIItem: async (id) => {
+    set(s => ({ catalogTI: s.catalogTI.filter(x => x.id !== id) }))
+    await supabase.from('catalogo_ti').delete().eq('id', id)
+  },
+
+  // ── Catálogo CW CRUD ─────────────────────────────────────────
+  saveCatalogCWItem: async (item) => {
+    // item: { actividad_id, nombre, unidad, precio_nokia_urbano, precio_nokia_rural, precio_subc_urbano, precio_subc_rural }
+    set(s => ({
+      catalogCW: s.catalogCW.some(x => x.actividad_id === item.actividad_id)
+        ? s.catalogCW.map(x => x.actividad_id === item.actividad_id ? item : x)
+        : [...s.catalogCW, item].sort((a, b) => a.actividad_id.localeCompare(b.actividad_id)),
+    }))
+    await supabase.from('catalogo_cw').upsert(item, { onConflict: 'actividad_id' })
+  },
+
+  deleteCatalogCWItem: async (actividad_id) => {
+    set(s => ({ catalogCW: s.catalogCW.filter(x => x.actividad_id !== actividad_id) }))
+    await supabase.from('catalogo_cw').delete().eq('actividad_id', actividad_id)
+  },
+
+  // Carga masiva precios TI — updates: [{ id, nokia_0..3, a_0..3, aa_0..3, aaa_0..3 }]
+  bulkUpdateTIPrices: async (updates) => {
+    for (const u of updates) {
+      const payload = {}
+      ;['nokia','a','aa','aaa'].forEach(tier => {
+        ;[0,1,2,3].forEach(z => {
+          const k = `${tier}_${z}`
+          if (k in u) payload[k] = u[k]
+        })
+      })
+      if (Object.keys(payload).length === 0) continue
+      await supabase.from('catalogo_ti').update(payload).eq('id', u.id)
+    }
+    set(s => ({
+      catalogTI: s.catalogTI.map(item => {
+        const u = updates.find(x => x.id === item.id)
+        if (!u) return item
+        return {
+          ...item,
+          nokia: [u.nokia_0 ?? item.nokia[0], u.nokia_1 ?? item.nokia[1], u.nokia_2 ?? item.nokia[2], u.nokia_3 ?? item.nokia[3]],
+          A:     [u.a_0     ?? item.A[0],     u.a_1     ?? item.A[1],     u.a_2     ?? item.A[2],     u.a_3     ?? item.A[3]],
+          AA:    [u.aa_0    ?? item.AA[0],    u.aa_1    ?? item.AA[1],    u.aa_2    ?? item.AA[2],    u.aa_3    ?? item.AA[3]],
+          AAA:   [u.aaa_0   ?? item.AAA[0],   u.aaa_1   ?? item.AAA[1],  u.aaa_2   ?? item.AAA[2],   u.aaa_3   ?? item.AAA[3]],
+        }
+      }),
+    }))
+  },
+
+  // Carga masiva precios CW — updates: [{ actividad_id, precio_nokia_urbano, ... }]
+  bulkUpdateCWPrices: async (updates) => {
+    const CW_PRICE_KEYS = ['precio_nokia_urbano','precio_nokia_rural','precio_subc_urbano','precio_subc_rural']
+    for (const u of updates) {
+      const payload = {}
+      CW_PRICE_KEYS.forEach(k => { if (k in u) payload[k] = u[k] })
+      if (Object.keys(payload).length === 0) continue
+      await supabase.from('catalogo_cw').update(payload).eq('actividad_id', u.actividad_id)
+    }
+    set(s => ({
+      catalogCW: s.catalogCW.map(item => {
+        const u = updates.find(x => x.actividad_id === item.actividad_id)
+        if (!u) return item
+        return {
+          ...item,
+          ...Object.fromEntries(CW_PRICE_KEYS.filter(k => k in u).map(k => [k, u[k]])),
+        }
+      }),
+    }))
+  },
 }))
 
 // ── Sync authStore → useAppStore ─────────────────────────────────

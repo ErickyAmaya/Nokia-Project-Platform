@@ -3,18 +3,319 @@ import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAckStore }  from '../../store/useAckStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { supabase }     from '../../lib/supabase'
-import { TABLES }       from '../../lib/tables'
 import { showToast } from '../../components/Toast'
 import { descargarPlantillaFacturas, parsearExcelFacturas } from '../../lib/factImport'
 import { parsearRollout, saveRolloutData, loadRolloutData, exportarSolicitudLib, saveRolloutToSupabase, loadRolloutFromSupabase } from '../../lib/rolloutImport'
-import {
-  SIBLING_KEY, EV_DATE_COL, SMP_FILTERS, EV_FILTERS, applyEvFilter,
-  TH, SpoCell, EventoBadge, DesempenoBadge, MissingBadge, HitoBadge, HitoBar,
-} from './factporfacturar/helpers'
-import FacturarModal       from './factporfacturar/FacturarModal'
-import AcuerdoEspecialModal from './factporfacturar/AcuerdoEspecialModal'
+
+const EMPTY_FORM  = { numero_factura: '', fecha_factura: '', observaciones: '' }
+const SIBLING_KEY = { cw_1: 'cw_2', cw_2: 'cw_1', tss_1: 'tss_2', tss_2: 'tss_1' }
+
+const EV_DATE_COL = {
+  acuerdo:  'acuerdo_ss_date',
+  tss_1:    'ss_tssr_enviado_ppa_date',
+  tss_2:    'ss_tssr_aprob_cliente_ppa_date',
+  cw_1:     'execute_cw_ppa_date',
+  cw_2:     'doc_final_ok_ppa_date',
+  servicio: 'servicio_ejecutado_ppa_date',
+}
+const SMP_FILTERS = [{ key: 'todos', label: 'Todas las categorías' }, ...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
+const EV_FILTERS = [
+  { key: 'todos',         label: 'Todos los servicios' },
+  { key: 'acuerdo',       label: 'Acuerdo' },
+  { key: 'servicio|impl', label: 'Servicio · Implementación' },
+  { key: 'servicio|adj',  label: 'Servicio · ADJ' },
+  { key: 'servicio|cr',   label: 'Servicio · CR' },
+  { key: 'servicio|cw',   label: 'Servicio · CW' },
+  { key: 'servicio|tss',  label: 'Servicio · TSS' },
+]
+
+function applyEvFilter(eventos, row, filtroEv) {
+  if (filtroEv === 'todos') return eventos
+  const cat = getSmpCat(row.smp_name).key
+  if (filtroEv === 'acuerdo')         return eventos.filter(e => e.key === 'acuerdo')
+  if (filtroEv === 'servicio|impl')   return eventos.filter(e => e.key === 'servicio'              && cat === 'impl')
+  if (filtroEv === 'servicio|adj')    return eventos.filter(e => e.key === 'servicio'              && cat === 'adj')
+  if (filtroEv === 'servicio|cr')     return eventos.filter(e => e.key === 'servicio'              && cat === 'cr')
+  if (filtroEv === 'servicio|cw')     return eventos.filter(e => (e.key === 'cw_1' || e.key === 'cw_2')   && cat === 'cw')
+  if (filtroEv === 'servicio|tss')    return eventos.filter(e => (e.key === 'tss_1' || e.key === 'tss_2') && cat === 'tss')
+  return eventos
+}
+
+const TH = ({ children, style }) => (
+  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1, ...style }}>
+    {children}
+  </th>
+)
+
+function SpoCell({ spo, pos }) {
+  const pdf = pos.find(p => p.spo_number === spo)?.pdf_url
+  if (pdf) return (
+    <a href={pdf} target="_blank" rel="noreferrer" style={{ fontFamily: 'monospace', fontSize: 10, color: '#1d4ed8', fontWeight: 700, textDecoration: 'none' }} title="Ver PDF de PO">
+      {spo} ↗
+    </a>
+  )
+  return <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{spo}</span>
+}
+
+function EventoBadge({ ev }) {
+  const absorbido = ev.status === 'absorbido'
+  const parcial   = ev.invoiceable_pct > 0 && ev.invoiceable_pct < ev.pct
+
+  if (absorbido) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f3f4f6', border: '1px solid #d1d5db', color: '#9ca3af', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4, textDecoration: 'line-through' }}>
+        {ev.label} · {ev.pct}%
+      </span>
+    )
+  }
+  if (parcial) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
+        {ev.label} · <span style={{ textDecoration: 'line-through', opacity: .5 }}>{ev.pct}%</span> → {ev.invoiceable_pct}%
+      </span>
+    )
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${ev.color}18`, border: `1px solid ${ev.color}40`, color: ev.color, borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', letterSpacing: .4 }}>
+      {ev.label} · {ev.pct}%
+    </span>
+  )
+}
+
+const DESEMP_STYLE = {
+  A:    { bg: '#fef2f2', color: '#b91c1c' },
+  AA:   { bg: '#fffbeb', color: '#b45309' },
+  AAA:  { bg: '#eff6ff', color: '#1d4ed8' },
+  AAAA: { bg: '#f0fdf4', color: '#166534' },
+}
+function DesempenoBadge({ val }) {
+  if (!val) return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
+  const s = DESEMP_STYLE[val] || { bg: '#f3f4f6', color: '#6b7280' }
+  return (
+    <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}40`, borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px' }}>
+      {val}
+    </span>
+  )
+}
+
+function MissingBadge({ missing, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <span
+      onClick={onClick}
+      onMouseEnter={() => onClick && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background:   hovered ? '#fee2e2' : '#fffbeb',
+        color:        hovered ? '#991b1b' : '#92400e',
+        border:       hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
+        borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
+        whiteSpace: 'nowrap', cursor: onClick ? 'pointer' : 'default',
+        transition: 'all .15s',
+      }}
+    >
+      {hovered ? 'Registrar Factura' : missing}
+    </span>
+  )
+}
+
+function HitoBadge({ ssDate, status }) {
+  if (status === 'facturado') return (
+    <span style={{ background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      FACTURADO
+    </span>
+  )
+  if (ssDate && status === 'pendiente') return (
+    <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 5, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      {ssDate}
+    </span>
+  )
+  return <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>
+}
+
+function HitoBar({ label, pct, color, status, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  if (status === 'done') return (
+    <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      ✓ {label}
+    </span>
+  )
+  if (status === 'ready') return (
+    <span
+      onClick={onClick}
+      onMouseEnter={() => onClick && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? '#fee2e2' : '#fffbeb',
+        color:      hovered ? '#991b1b' : '#92400e',
+        border:     hovered ? '1px solid #fca5a5' : '1px solid #fcd34d',
+        borderRadius: 6, fontSize: 9, fontWeight: 700, padding: '2px 8px',
+        whiteSpace: 'nowrap', cursor: onClick ? 'pointer' : 'default',
+        transition: 'all .15s',
+      }}
+    >
+      {hovered ? 'Registrar Factura' : `● ${label}`}
+    </span>
+  )
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 72 }}>
+      <div style={{ fontSize: 8, color: '#6b7280', fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ flex: 1, background: '#e5e7eb', borderRadius: 3, height: 5 }}>
+          <div style={{ width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 3, height: 5 }} />
+        </div>
+        <span style={{ fontSize: 8, color: '#6b7280', minWidth: 24, textAlign: 'right' }}>{pct}%</span>
+      </div>
+    </div>
+  )
+}
+
+function FacturarModal({ row, ev, siblingEv, pos, invoices, onClose, onSave }) {
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+  const poData = pos.find(p => p.spo_number === row.spo_number)
+
+  const conflicto = useMemo(() => {
+    const num = form.numero_factura.trim()
+    if (!num) return null
+    const matches = invoices.filter(inv => inv.numero_factura === num)
+    const otraPO  = matches.find(inv => inv.spo_number !== row.spo_number)
+    if (otraPO)  return { tipo: 'otra_po',  spo: otraPO.spo_number }
+    return null
+  }, [form.numero_factura, invoices, row.spo_number])
+
+  async function handleSave() {
+    if (!form.numero_factura.trim()) { showToast('Ingresa el número de factura', 'err'); return }
+    if (conflicto?.tipo === 'otra_po') return
+    setSaving(true)
+    try {
+      const payload = { numero_factura: form.numero_factura.trim(), fecha_factura: form.fecha_factura || null, observaciones: form.observaciones || null }
+      await onSave({ spo_number: row.spo_number, evento: ev.key, pct: ev.invoiceable_pct ?? ev.pct, ...payload })
+      if (siblingEv) {
+        await onSave({ spo_number: row.spo_number, evento: siblingEv.key, pct: siblingEv.invoiceable_pct ?? siblingEv.pct, ...payload })
+      }
+      showToast(siblingEv ? 'Factura registrada en ambos porcentajes' : 'Factura registrada')
+      onClose()
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Registrar Factura</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 18 }}>{row.customer_site_name} · SPO {row.spo_number}</div>
+        <div style={{ background: '#f8faf8', borderRadius: 8, padding: '10px 14px', marginBottom: siblingEv ? 8 : 16, fontSize: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#555' }}>Evento</span><EventoBadge ev={ev} />
+          </div>
+          {siblingEv && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ color: '#555' }}>También se registrará</span><EventoBadge ev={siblingEv} />
+            </div>
+          )}
+          {poData?.valor && (() => {
+            const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: poData.moneda || 'COP', maximumFractionDigits: 0 }).format(v)
+            const totalPct = (ev.invoiceable_pct ?? ev.pct) + (siblingEv ? (siblingEv.invoiceable_pct ?? siblingEv.pct) : 0)
+            return (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span style={{ color: '#555' }}>Valor a facturar</span>
+                  <span style={{ color: '#6b7280' }}>{fmt(poData.valor)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, borderTop: '1px solid #e5e7eb', paddingTop: 6 }}>
+                  <span style={{ color: '#555' }}>{`Valor a Facturar (${totalPct}%)`}</span>
+                  <span style={{ fontWeight: 700 }}>{fmt(poData.valor * totalPct / 100)}</span>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+        {siblingEv && (
+          <div style={{ fontSize: 10, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '6px 10px', marginBottom: 16 }}>
+            Ambos porcentajes están disponibles — se registrarán con la misma factura.
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="fg">
+            <label className="fl">Número de Factura *</label>
+            <input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" />
+            {conflicto?.tipo === 'otra_po' && (
+              <div style={{ marginTop: 5, fontSize: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 9px' }}>
+                ✕ Este número ya existe en la PO {conflicto.spo}. No es posible usar la misma factura en dos POs distintas.
+              </div>
+            )}
+          </div>
+          <div className="fg"><label className="fl">Fecha de Factura</label><input type="date" className="fc" value={form.fecha_factura} onChange={e => setForm(f => ({ ...f, fecha_factura: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Observaciones</label><input className="fc" value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Opcional" /></div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving || conflicto?.tipo === 'otra_po'} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: conflicto?.tipo === 'otra_po' ? '#d1d5db' : '#144E4A', color: '#fff', cursor: conflicto?.tipo === 'otra_po' ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+            {saving ? 'Guardando…' : '✓ Registrar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AcuerdoEspecialModal({ row, onClose, onSave }) {
+  const [form, setForm] = useState({ numero_factura: '', fecha_factura: '', observaciones: '' })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!form.numero_factura.trim()) { showToast('Ingresa el número de factura', 'err'); return }
+    setSaving(true)
+    try {
+      await onSave({
+        spo_number:     row.spo_number,
+        evento:         'servicio',
+        pct:            100,
+        numero_factura: form.numero_factura.trim(),
+        fecha_factura:  form.fecha_factura || null,
+        observaciones:  form.observaciones || null,
+        absorbed:       true,
+      })
+      showToast('Acuerdo especial registrado')
+      onClose()
+    } catch (e) { showToast('Error: ' + e.message, 'err') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Acuerdo Especial</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 6 }}>{row.customer_site_name} · SPO {row.spo_number}</div>
+        <div style={{ fontSize: 10, color: '#6b7280', background: '#f3f4f6', borderRadius: 6, padding: '6px 10px', marginBottom: 16 }}>
+          {row.ms_name} · Facturado por acuerdo especial sin registro en PPA
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="fg">
+            <label className="fl">Número de Factura *</label>
+            <input className="fc" value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="FE-001-2025" />
+          </div>
+          <div className="fg">
+            <label className="fl">Fecha de Factura</label>
+            <input type="date" className="fc" value={form.fecha_factura} onChange={e => setForm(f => ({ ...f, fecha_factura: e.target.value }))} />
+          </div>
+          <div className="fg">
+            <label className="fl">Observaciones</label>
+            <input className="fc" value={form.observaciones} onChange={e => setForm(f => ({ ...f, observaciones: e.target.value }))} placeholder="Opcional" />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: saving ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: saving ? .6 : 1 }}>
+            {saving ? 'Guardando…' : '✓ Registrar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function FactPorFacturar() {
   const ppa              = useFactStore(s => s.ppa)
@@ -27,15 +328,15 @@ export default function FactPorFacturar() {
   const sabana = useAckStore(s => s.sabana)
 
   const user       = useAuthStore(s => s.user)
-  const isViewer         = !can(user?.role, 'fact.edit')
-  const canUploadRollout = can(user?.role, 'fact.upload.rollout')
+  const isViewer   = user?.role === 'viewer'
+  const canUploadRollout = ['admin', 'coordinador', 'facturacion'].includes(user?.role)
 
   // Glosario ACK — estados bloqueantes (cache en localStorage)
   const [ackGlosario, setAckGlosario] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ack_glosario_v1') || 'null') } catch { return null }
   })
   useEffect(() => {
-    supabase.from(TABLES.ACK_GLOSARIO).select('gap, area, se_puede_liberar')
+    supabase.from('ack_glosario').select('gap, area, se_puede_liberar')
       .eq('se_puede_liberar', false)
       .then(({ data }) => {
         if (data) {

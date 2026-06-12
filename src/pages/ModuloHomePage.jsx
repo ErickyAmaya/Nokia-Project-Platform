@@ -2,12 +2,17 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { useAppStore }     from '../store/useAppStore'
-import { useEmpresaStore } from '../store/useEmpresaStore'
+import { useAppStore }  from '../store/useAppStore'
 import { useMatStore }  from '../store/useMatStore'
 import { useAckStore }  from '../store/useAckStore'
 import { useFactStore, buildInvoicesMap, getEventosRow } from '../store/useFactStore'
-import { MODULE_ACCESS, canAccessModule } from '../config/permissions'
+
+const MODULE_ACCESS = {
+  billing:     ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW'],
+  materiales:  ['admin', 'coordinador', 'logistica', 'viewer'],
+  rollout:     ['admin', 'coordinador', 'viewer'],
+  facturacion: ['admin', 'coordinador', 'facturacion', 'viewer'],
+}
 
 const MODULOS = [
   {
@@ -156,7 +161,7 @@ export default function ModuloHomePage() {
     return []
   }
 
-  const empresaConfig   = useEmpresaStore(s => s.empresaConfig)
+  const empresaConfig   = useAppStore(s => s.empresaConfig)
   const clienteNombre   = empresaConfig?.cliente_nombre   || ''
   const clienteLogoUrl  = empresaConfig?.cliente_logo_url || ''
   const primerNombre    = user?.nombre?.split(' ')[0] || 'Usuario'
@@ -238,14 +243,14 @@ export default function ModuloHomePage() {
         gap: 20, width: '100%', maxWidth: 980,
       }}>
         {MODULOS.map(m => {
-          const canAccess = canAccessModule(user?.role, m.id)
+          const canAccess = MODULE_ACCESS[m.id]?.includes(user?.role) ?? false
           const isH       = canAccess && hovered === m.id
           const metrics   = getMetrics(m.id)
 
           return (
             <div
               key={m.id}
-              onClick={() => canAccess && navigate(m.id === 'materiales' && user?.role === 'rollout' ? '/materiales/sitios' : m.ruta)}
+              onClick={() => canAccess && navigate(m.ruta)}
               onMouseEnter={() => canAccess && setHovered(m.id)}
               onMouseLeave={() => setHovered(null)}
               style={{

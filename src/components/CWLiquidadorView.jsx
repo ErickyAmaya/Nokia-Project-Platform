@@ -12,10 +12,8 @@ function IconEdit({ size = 13 }) {
   )
 }
 import { v4 as uuidv4 } from 'uuid'
-import { useAppStore }     from '../store/useAppStore'
-import { useCatalogStore } from '../store/useCatalogStore'
+import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { cop, pct, mfcls } from '../lib/catalog'
 import { useConfirm } from './ConfirmModal'
 import { showToast } from './Toast'
@@ -256,7 +254,7 @@ function ManualValorModal({ open, onClose, onSave, existing }) {
 
 // ── Main CW Liquidador View ───────────────────────────────────────
 export default function CWLiquidadorView({ sitio }) {
-  const catalogCW        = useCatalogStore(s => s.catalogCW)
+  const catalogCW        = useAppStore(s => s.catalogCW)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
   const saveLiqCW        = useAppStore(s => s.saveLiqCW)
   const marcarFinalLiqCW = useAppStore(s => s.marcarFinalLiqCW)
@@ -268,7 +266,9 @@ export default function CWLiquidadorView({ sitio }) {
   const [modalManual, setModalManual] = useState(false)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const isViewer = !can(user?.role, 'cw.write')
+  const isViewer = user?.role === 'viewer'
+  const isAdmin  = user?.role === 'admin'
+  const isCoord  = user?.role === 'coord'
   const canWrite = !isViewer
 
   // Find or create liq on mount

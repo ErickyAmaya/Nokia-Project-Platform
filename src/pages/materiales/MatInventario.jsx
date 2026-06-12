@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
 
@@ -73,8 +72,8 @@ export default function MatInventario() {
   const [corrModal, setCorrModal] = useState(null)
   const [corrQty,   setCorrQty]   = useState('')
 
-  const canEdit    = can(user?.role, 'mat.inventario.edit')
-  const canCorrect = user?.role === 'admin'
+  const canEdit    = ['admin','logistica'].includes(user?.role)
+  const canCorrect = ['admin'].includes(user?.role)
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()

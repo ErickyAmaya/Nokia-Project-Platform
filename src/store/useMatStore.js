@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { getSupabaseClient } from '../lib/supabase'
-import { TABLES } from '../lib/tables'
 
 const db = () => getSupabaseClient()
 
@@ -36,16 +35,16 @@ export const useMatStore = create((set, get) => ({
     if (firstLoad) set({ loading: true, error: null })
     try {
       const [cat, stk, bod, sit, mov, dep, pend, prov, prec, mdp] = await Promise.all([
-        db().from(TABLES.MAT_CATALOGO).select('*').order('categoria').order('nombre'),
-        db().from(TABLES.MAT_STOCK).select('*'),
-        db().from(TABLES.BODEGAS).select('*').order('nombre'),
-        db().from(TABLES.MAT_SITIOS).select('*').order('nombre'),
-        db().from(TABLES.MAT_MOVIMIENTOS).select('*').order('created_at', { ascending: false }).limit(10000),
-        db().from(TABLES.DESPACHOS).select('*').order('created_at', { ascending: false }).limit(5000),
-        db().from(TABLES.MAT_PENDIENTES).select('*').order('created_at', { ascending: false }).limit(2000),
-        db().from(TABLES.MAT_PROVEEDORES).select('*').order('nombre'),
-        db().from(TABLES.MAT_PRECIOS_PROV).select('*'),
-        db().from(TABLES.MAT_DESPACHOS_PEND).select('*').order('created_at', { ascending: false }),
+        db().from('mat_catalogo').select('*').order('categoria').order('nombre'),
+        db().from('mat_stock').select('*'),
+        db().from('bodegas').select('*').order('nombre'),
+        db().from('mat_sitios').select('*').order('nombre'),
+        db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
+        db().from('despachos').select('*').order('created_at', { ascending: false }).limit(5000),
+        db().from('mat_pendientes').select('*').order('created_at', { ascending: false }).limit(2000),
+        db().from('mat_proveedores').select('*').order('nombre'),
+        db().from('mat_precios_proveedor').select('*'),
+        db().from('mat_despachos_pendientes').select('*').order('created_at', { ascending: false }),
       ])
       if (cat.error)  console.error('[mat] catalogo:',              cat.error.message)
       if (stk.error)  console.error('[mat] stock:',                 stk.error.message)
@@ -99,8 +98,8 @@ export const useMatStore = create((set, get) => ({
       badge:       item.badge       || null,
     }
     const { data, error } = isNew
-      ? await db().from(TABLES.MAT_CATALOGO).insert(payload).select().single()
-      : await db().from(TABLES.MAT_CATALOGO).update(payload).eq('id', item.id).select().single()
+      ? await db().from('mat_catalogo').insert(payload).select().single()
+      : await db().from('mat_catalogo').update(payload).eq('id', item.id).select().single()
     if (error) throw error
     set(s => ({
       catalogo: isNew
@@ -111,16 +110,16 @@ export const useMatStore = create((set, get) => ({
     if (isNew) {
       const bodegas = get().bodegas
       await Promise.all(bodegas.map(b =>
-        db().from(TABLES.MAT_STOCK).upsert({ catalogo_id: data.id, bodega_id: b.id, stock_actual: 0 })
+        db().from('mat_stock').upsert({ catalogo_id: data.id, bodega_id: b.id, stock_actual: 0 })
       ))
-      const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+      const { data: stk } = await db().from('mat_stock').select('*')
       if (stk) set({ stock: stk })
     }
     return data
   },
 
   deleteCatItem: async (id) => {
-    const { error } = await db().from(TABLES.MAT_CATALOGO).delete().eq('id', id)
+    const { error } = await db().from('mat_catalogo').delete().eq('id', id)
     if (error) throw error
     set(s => ({ catalogo: s.catalogo.filter(c => c.id !== id) }))
   },
@@ -129,7 +128,7 @@ export const useMatStore = create((set, get) => ({
   bulkUpdateMatPrices: async (updates) => {
     for (const u of updates) {
       const { error } = await db()
-        .from(TABLES.MAT_CATALOGO)
+        .from('mat_catalogo')
         .update({ costo_unitario: u.costo_unitario })
         .eq('id', u.id)
       if (error) throw error
@@ -147,8 +146,8 @@ export const useMatStore = create((set, get) => ({
     const isNew = !bodega.id
     const payload = { nombre: bodega.nombre, regional: bodega.regional, ciudad: bodega.ciudad, direccion: bodega.direccion }
     const { data, error } = isNew
-      ? await db().from(TABLES.BODEGAS).insert(payload).select().single()
-      : await db().from(TABLES.BODEGAS).update(payload).eq('id', bodega.id).select().single()
+      ? await db().from('bodegas').insert(payload).select().single()
+      : await db().from('bodegas').update(payload).eq('id', bodega.id).select().single()
     if (error) throw error
     set(s => ({
       bodegas: isNew ? [...s.bodegas, data] : s.bodegas.map(b => b.id === data.id ? data : b),
@@ -157,17 +156,17 @@ export const useMatStore = create((set, get) => ({
     if (isNew) {
       const cat = get().catalogo
       await Promise.all(cat.map(c =>
-        db().from(TABLES.MAT_STOCK).upsert({ catalogo_id: c.id, bodega_id: data.id, stock_actual: 0 })
+        db().from('mat_stock').upsert({ catalogo_id: c.id, bodega_id: data.id, stock_actual: 0 })
       ))
-      const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+      const { data: stk } = await db().from('mat_stock').select('*')
       if (stk) set({ stock: stk })
     }
     return data
   },
 
   deleteBodega: async (id) => {
-    await db().from(TABLES.MAT_STOCK).delete().eq('bodega_id', id)
-    const { error } = await db().from(TABLES.BODEGAS).delete().eq('id', id)
+    await db().from('mat_stock').delete().eq('bodega_id', id)
+    const { error } = await db().from('bodegas').delete().eq('id', id)
     if (error) throw error
     set(s => ({
       bodegas: s.bodegas.filter(b => b.id !== id),
@@ -181,24 +180,24 @@ export const useMatStore = create((set, get) => ({
     const payload = { nombre: sitio.nombre, tipo_cw: sitio.tipo_cw || null, regional: sitio.regional, comentarios: sitio.comentarios || null, activo: sitio.activo ?? true, aplica_log_inversa: sitio.aplica_log_inversa ?? false }
 
     if (isNew) {
-      const { error } = await db().from(TABLES.MAT_SITIOS).insert(payload)
+      const { error } = await db().from('mat_sitios').insert(payload)
       if (error) throw error
-      const { data: newRow } = await db().from(TABLES.MAT_SITIOS).select('*').eq('nombre', payload.nombre).single()
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('nombre', payload.nombre).single()
       const saved = newRow || payload
       set(s => ({ sitios: [...s.sitios, saved] }))
       return saved
     } else if (sitio.id) {
-      const { error } = await db().from(TABLES.MAT_SITIOS).update(payload).eq('id', sitio.id)
+      const { error } = await db().from('mat_sitios').update(payload).eq('id', sitio.id)
       if (error) throw error
-      const { data: newRow } = await db().from(TABLES.MAT_SITIOS).select('*').eq('id', sitio.id).single()
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('id', sitio.id).single()
       const saved = newRow || { ...sitio, ...payload }
       set(s => ({ sitios: s.sitios.map(x => x.id === sitio.id ? saved : x) }))
       return saved
     } else {
       const originalNombre = sitio._originalNombre || sitio.nombre
-      const { error } = await db().from(TABLES.MAT_SITIOS).update(payload).eq('nombre', originalNombre)
+      const { error } = await db().from('mat_sitios').update(payload).eq('nombre', originalNombre)
       if (error) throw error
-      const { data: newRow } = await db().from(TABLES.MAT_SITIOS).select('*').eq('nombre', payload.nombre).single()
+      const { data: newRow } = await db().from('mat_sitios').select('*').eq('nombre', payload.nombre).single()
       const saved = newRow || { ...sitio, ...payload }
       set(s => ({ sitios: s.sitios.map(x => x.nombre === originalNombre ? saved : x) }))
       return saved
@@ -211,32 +210,32 @@ export const useMatStore = create((set, get) => ({
 
     if (resolvedNombre) {
       // ── Materiales ─────────────────────────────────────────────────
-      await db().from(TABLES.MAT_MOVIMIENTOS).delete().eq('destino', resolvedNombre)
-      await db().from(TABLES.DESPACHOS).delete().eq('destino', resolvedNombre)
+      await db().from('mat_movimientos').delete().eq('destino', resolvedNombre)
+      await db().from('despachos').delete().eq('destino', resolvedNombre)
 
       // ── HW Nokia ───────────────────────────────────────────────────
       // Eliminar todos los movimientos HW con destino u origen igual al sitio
-      await db().from(TABLES.HW_MOVIMIENTOS).delete().eq('destino', resolvedNombre)
-      await db().from(TABLES.HW_MOVIMIENTOS).delete().eq('origen', resolvedNombre)
+      await db().from('hw_movimientos').delete().eq('destino', resolvedNombre)
+      await db().from('hw_movimientos').delete().eq('origen', resolvedNombre)
       // Equipos que quedaron marcados como en_sitio aquí → volver a bodega
-      await db().from(TABLES.HW_EQUIPOS)
+      await db().from('hw_equipos')
         .update({ estado: 'en_bodega', ubicacion_actual: null, updated_at: new Date().toISOString() })
         .eq('ubicacion_actual', resolvedNombre)
       // ── Logística Inversa ──────────────────────────────────────────
-      await db().from(TABLES.HW_LOG_INVERSA).delete().eq('sitio', resolvedNombre)
+      await db().from('hw_log_inversa').delete().eq('sitio', resolvedNombre)
     }
 
     const q = id
-      ? db().from(TABLES.MAT_SITIOS).delete().eq('id', id)
-      : db().from(TABLES.MAT_SITIOS).delete().eq('nombre', resolvedNombre)
+      ? db().from('mat_sitios').delete().eq('id', id)
+      : db().from('mat_sitios').delete().eq('nombre', resolvedNombre)
     const { error } = await q
     if (error) throw error
 
     // Recargar estado Materiales
     const [{ data: stk }, { data: movData }, { data: depData }] = await Promise.all([
-      db().from(TABLES.MAT_STOCK).select('*'),
-      db().from(TABLES.MAT_MOVIMIENTOS).select('*').order('created_at', { ascending: false }).limit(10000),
-      db().from(TABLES.DESPACHOS).select('*').order('created_at', { ascending: false }).limit(5000),
+      db().from('mat_stock').select('*'),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
+      db().from('despachos').select('*').order('created_at', { ascending: false }).limit(5000),
     ])
     set(s => ({
       sitios:      s.sitios.filter(x => id ? x.id !== id : x.nombre !== resolvedNombre),
@@ -254,10 +253,10 @@ export const useMatStore = create((set, get) => ({
 
   // ── MOVIMIENTOS (Entrada / Salida directa) ───────────────────────
   addMovimiento: async (mov) => {
-    const { data, error } = await db().from(TABLES.MAT_MOVIMIENTOS).insert(mov).select().single()
+    const { data, error } = await db().from('mat_movimientos').insert(mov).select().single()
     if (error) throw error
     // Recargar stock desde DB (trigger lo actualizó)
-    const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+    const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     set(s => ({ movimientos: [data, ...s.movimientos] }))
     get()._broadcastChange()
@@ -265,9 +264,9 @@ export const useMatStore = create((set, get) => ({
   },
 
   deleteMovimiento: async (id) => {
-    const { error } = await db().from(TABLES.MAT_MOVIMIENTOS).delete().eq('id', id)
+    const { error } = await db().from('mat_movimientos').delete().eq('id', id)
     if (error) throw error
-    const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+    const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     set(s => ({ movimientos: s.movimientos.filter(m => m.id !== id) }))
     get()._broadcastChange()
@@ -287,8 +286,8 @@ export const useMatStore = create((set, get) => ({
       created_by:  despacho.created_by,
     }
     const { data, error } = isNew
-      ? await db().from(TABLES.DESPACHOS).insert(payload).select().single()
-      : await db().from(TABLES.DESPACHOS).update(payload).eq('id', despacho.id).select().single()
+      ? await db().from('despachos').insert(payload).select().single()
+      : await db().from('despachos').update(payload).eq('id', despacho.id).select().single()
     if (error) throw error
     set(s => ({
       despachos: isNew ? [data, ...s.despachos] : s.despachos.map(d => d.id === data.id ? data : d),
@@ -298,7 +297,7 @@ export const useMatStore = create((set, get) => ({
   },
 
   finalizarDespacho: async (id) => {
-    const { data, error } = await db().from(TABLES.DESPACHOS)
+    const { data, error } = await db().from('despachos')
       .update({ status: 'finalizado', finalizado_at: new Date().toISOString() })
       .eq('id', id).select().single()
     if (error) throw error
@@ -309,11 +308,11 @@ export const useMatStore = create((set, get) => ({
   deleteDespacho: async (id) => {
     const movs = get().movimientos.filter(m => m.numero_doc === get().despachos.find(d => d.id === id)?.numero_doc)
     for (const m of movs) {
-      await db().from(TABLES.MAT_MOVIMIENTOS).delete().eq('id', m.id)
+      await db().from('mat_movimientos').delete().eq('id', m.id)
     }
-    await db().from(TABLES.DESPACHOS).delete().eq('id', id)
-    const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
-    const { data: movData } = await db().from(TABLES.MAT_MOVIMIENTOS).select('*').order('created_at', { ascending: false }).limit(10000)
+    await db().from('despachos').delete().eq('id', id)
+    const { data: stk } = await db().from('mat_stock').select('*')
+    const { data: movData } = await db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000)
     set(s => ({
       despachos: s.despachos.filter(d => d.id !== id),
       movimientos: movData || [],
@@ -327,10 +326,10 @@ export const useMatStore = create((set, get) => ({
     if (!items.length) return
     const CHUNK = 200
     for (let i = 0; i < items.length; i += CHUNK) {
-      const { error } = await db().from(TABLES.MAT_PENDIENTES).insert(items.slice(i, i + CHUNK))
+      const { error } = await db().from('mat_pendientes').insert(items.slice(i, i + CHUNK))
       if (error) throw error
     }
-    const { data } = await db().from(TABLES.MAT_PENDIENTES).select('*').order('created_at', { ascending: false })
+    const { data } = await db().from('mat_pendientes').select('*').order('created_at', { ascending: false })
     if (data) set({ pendientes: data })
   },
 
@@ -338,7 +337,7 @@ export const useMatStore = create((set, get) => ({
     if (!sitio || !catalogoIds?.length) return
     const CHUNK = 200
     for (let i = 0; i < catalogoIds.length; i += CHUNK) {
-      await db().from(TABLES.MAT_PENDIENTES).delete().eq('sitio', sitio).in('catalogo_id', catalogoIds.slice(i, i + CHUNK))
+      await db().from('mat_pendientes').delete().eq('sitio', sitio).in('catalogo_id', catalogoIds.slice(i, i + CHUNK))
     }
     set(s => ({
       pendientes: s.pendientes.filter(p => !(p.sitio === sitio && catalogoIds.includes(p.catalogo_id)))
@@ -350,12 +349,12 @@ export const useMatStore = create((set, get) => ({
     // payload: { numero_doc, fecha, sitio_nombre, notas, items, created_by }
     // items: [{ catalogo_id, nombre, cantidad, bodega_id, bodega_nombre, costo_unitario }]
     const { data, error } = await db()
-      .from(TABLES.MAT_DESPACHOS_PEND)
+      .from('mat_despachos_pendientes')
       .insert({ ...payload, estado: 'pendiente' })
       .select().single()
     if (error) throw error
     // Marcar sitio como pendiente_despacho
-    await db().from(TABLES.MAT_SITIOS)
+    await db().from('mat_sitios')
       .update({ estado: 'pendiente_despacho' })
       .eq('nombre', payload.sitio_nombre)
     set(s => ({
@@ -371,7 +370,7 @@ export const useMatStore = create((set, get) => ({
     if (!despacho) throw new Error('Despacho pendiente no encontrado')
 
     // 1. Crear despacho en tabla despachos
-    const { data: dep, error: depErr } = await db().from(TABLES.DESPACHOS).insert({
+    const { data: dep, error: depErr } = await db().from('despachos').insert({
       numero_doc:  despacho.numero_doc,
       destino:     despacho.sitio_nombre,
       bodega_id:   bodega_id || despacho.items[0]?.bodega_id || null,
@@ -396,21 +395,21 @@ export const useMatStore = create((set, get) => ({
       costo_unitario: item.costo_unitario || null,
       created_at:    now,
     }))
-    const { error: movErr } = await db().from(TABLES.MAT_MOVIMIENTOS).insert(movs)
+    const { error: movErr } = await db().from('mat_movimientos').insert(movs)
     if (movErr) throw movErr
 
     // 3. Restaurar estado del sitio
-    await db().from(TABLES.MAT_SITIOS)
+    await db().from('mat_sitios')
       .update({ estado: 'activo' })
       .eq('nombre', despacho.sitio_nombre)
 
     // 4. Eliminar pendiente
-    await db().from(TABLES.MAT_DESPACHOS_PEND).delete().eq('id', despachoId)
+    await db().from('mat_despachos_pendientes').delete().eq('id', despachoId)
 
     // 5. Recargar stock y movimientos
     const [{ data: stk }, { data: movData }] = await Promise.all([
-      db().from(TABLES.MAT_STOCK).select('*'),
-      db().from(TABLES.MAT_MOVIMIENTOS).select('*').order('created_at', { ascending: false }).limit(10000),
+      db().from('mat_stock').select('*'),
+      db().from('mat_movimientos').select('*').order('created_at', { ascending: false }).limit(10000),
     ])
     set(s => ({
       matDespachosPendientes: s.matDespachosPendientes.filter(d => d.id !== despachoId),
@@ -427,8 +426,8 @@ export const useMatStore = create((set, get) => ({
     const despacho = get().matDespachosPendientes.find(d => d.id === despachoId)
     if (!despacho) throw new Error('Despacho pendiente no encontrado')
 
-    await db().from(TABLES.MAT_DESPACHOS_PEND).delete().eq('id', despachoId)
-    await db().from(TABLES.MAT_SITIOS)
+    await db().from('mat_despachos_pendientes').delete().eq('id', despachoId)
+    await db().from('mat_sitios')
       .update({ estado: 'activo' })
       .eq('nombre', despacho.sitio_nombre)
 
@@ -451,11 +450,11 @@ export const useMatStore = create((set, get) => ({
     // Canal separado para postgres_changes (respaldo)
     const pgChannel = db()
       .channel('mat-pg-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLES.MAT_MOVIMIENTOS }, reload)
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: TABLES.MAT_MOVIMIENTOS }, reload)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLES.DESPACHOS       }, reload)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: TABLES.DESPACHOS       }, reload)
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: TABLES.DESPACHOS       }, reload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mat_movimientos' }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'mat_movimientos' }, reload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'despachos'       }, reload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'despachos'       }, reload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'despachos'       }, reload)
       .subscribe()
 
     set({ _syncChannel: syncChannel })
@@ -474,12 +473,12 @@ export const useMatStore = create((set, get) => ({
 
   // ── Corrección directa de stock (sin movimiento) ─────────────────
   correccionStock: async (catalogo_id, bodega_id, stockNuevo) => {
-    const { error } = await db().from(TABLES.MAT_STOCK)
+    const { error } = await db().from('mat_stock')
       .update({ stock_actual: stockNuevo })
       .eq('catalogo_id', catalogo_id)
       .eq('bodega_id', bodega_id)
     if (error) throw error
-    const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+    const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     get()._broadcastChange()
   },
@@ -488,7 +487,7 @@ export const useMatStore = create((set, get) => ({
   ajustarStock: async (catalogo_id, bodega_id, delta) => {
     const { error } = await db().rpc('ajustar_stock', { p_cat: catalogo_id, p_bod: bodega_id, p_delta: delta })
     if (error) throw error
-    const { data: stk } = await db().from(TABLES.MAT_STOCK).select('*')
+    const { data: stk } = await db().from('mat_stock').select('*')
     if (stk) set({ stock: stk })
     get()._broadcastChange()
   },
@@ -505,8 +504,8 @@ export const useMatStore = create((set, get) => ({
       activo:    prov.activo    ?? true,
     }
     const { data, error } = isNew
-      ? await db().from(TABLES.MAT_PROVEEDORES).insert(payload).select().single()
-      : await db().from(TABLES.MAT_PROVEEDORES).update(payload).eq('id', prov.id).select().single()
+      ? await db().from('mat_proveedores').insert(payload).select().single()
+      : await db().from('mat_proveedores').update(payload).eq('id', prov.id).select().single()
     if (error) throw error
     set(s => ({
       proveedores: isNew ? [...s.proveedores, data] : s.proveedores.map(p => p.id === data.id ? data : p),
@@ -515,7 +514,7 @@ export const useMatStore = create((set, get) => ({
   },
 
   deleteProveedor: async (id) => {
-    const { error } = await db().from(TABLES.MAT_PROVEEDORES).delete().eq('id', id)
+    const { error } = await db().from('mat_proveedores').delete().eq('id', id)
     if (error) throw error
     set(s => ({
       proveedores: s.proveedores.filter(p => p.id !== id),
@@ -530,7 +529,7 @@ export const useMatStore = create((set, get) => ({
   },
 
   upsertPrecio: async (catalogo_id, proveedor_id, precio) => {
-    const { data, error } = await db().from(TABLES.MAT_PRECIOS_PROV)
+    const { data, error } = await db().from('mat_precios_proveedor')
       .upsert({ catalogo_id, proveedor_id, precio, updated_at: new Date().toISOString() },
                { onConflict: 'catalogo_id,proveedor_id' })
       .select().single()
@@ -547,7 +546,7 @@ export const useMatStore = create((set, get) => ({
   },
 
   deletePrecio: async (id) => {
-    const { error } = await db().from(TABLES.MAT_PRECIOS_PROV).delete().eq('id', id)
+    const { error } = await db().from('mat_precios_proveedor').delete().eq('id', id)
     if (error) throw error
     set(s => ({ precios: s.precios.filter(p => p.id !== id) }))
   },

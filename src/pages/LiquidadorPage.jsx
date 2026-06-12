@@ -1,9 +1,7 @@
 import { useMemo, useState, useEffect, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAppStore }     from '../store/useAppStore'
-import { useCatalogStore } from '../store/useCatalogStore'
+import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { useMatStore }  from '../store/useMatStore'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, mcls, CAT } from '../lib/catalog'
@@ -13,10 +11,6 @@ import GastoModal from '../modals/GastoModal'
 import AgregarActividadModal from '../modals/AgregarActividadModal'
 import CWLiquidadorView from '../components/CWLiquidadorView'
 import TSSLiquidadorView from '../components/TSSLiquidadorView'
-import { estadoBadge } from './liquidador/helpers'
-import NokiaRow      from './liquidador/NokiaRow'
-import SubcRow       from './liquidador/SubcRow'
-import SectionDivider from './liquidador/SectionDivider'
 
 const SECC_ORDER = ['MODERNIZACION', '5G', 'MIMO', 'SITIO_NUEVO', 'ADJ', 'CR']
 const CAT_ORDER  = ['A', 'AA', 'AAA']
@@ -24,6 +18,122 @@ const CAT_ORDER  = ['A', 'AA', 'AAA']
 // Módulo-nivel: sobreviven unmount y cambios del store
 const _smpTimer    = { id: null }
 const _inflightSmp = {} // siteId → valor escrito aún no confirmado por Supabase
+
+function IconEdit({ size = 13 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+    </svg>
+  )
+}
+
+const btnEdit    = { background: '#e8f4fd', color: '#1a56db', border: '1px solid #93c5fd', borderRadius: 4, cursor: 'pointer', padding: '2px 5px', fontSize: 12, lineHeight: 1 }
+const btnConfirm = { background: '#e8f4fd', color: '#1a56db', border: '1px solid #93c5fd', borderRadius: 4, cursor: 'pointer', padding: '2px 5px', fontSize: 13, fontWeight: 700, lineHeight: 1 }
+const btnDel     = { background: '#fff0f0', color: '#c0392b', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', padding: '2px 5px', fontSize: 12, lineHeight: 1 }
+
+function estadoBadge(estado) {
+  if (estado === 'final') {
+    return <span className="badge" style={{ background: '#1a7a1a', color: '#fff', fontSize: 9, padding: '2px 10px' }}>FINAL</span>
+  }
+  return <span className="badge" style={{ background: '#d68910', color: '#fff', fontSize: 9, padding: '2px 10px' }}>PRE</span>
+}
+
+// variant: 'nokia' (green) | 'subc' (yellow)
+function SectionDivider({ label, colSpan, variant = 'nokia' }) {
+  const isSubc = variant === 'subc'
+  return (
+    <tr>
+      <td colSpan={colSpan} style={{
+        background:   isSubc ? '#fffbeb'        : '#f0f7f0',
+        fontWeight:   700,
+        fontSize:     9,
+        color:        isSubc ? '#92400e'        : '#144E4A',
+        padding:      '4px 8px',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        borderTop:    isSubc ? '2px solid #fde68a' : '2px solid #d4e4d4',
+      }}>
+        {label}
+      </td>
+    </tr>
+  )
+}
+
+// ── Nokia activity row ────────────────────────────────────────────
+function NokiaRow({ act, actIdx, onCantChange, onDelete, isViewer, isFinal }) {
+  const [editing, setEditing] = useState(false)
+  const [tempCant, setTempCant] = useState(act.cant)
+
+  function startEdit() { setTempCant(act.cant); setEditing(true) }
+  function confirmEdit() { onCantChange(actIdx, Math.max(0, parseInt(tempCant) || 0)); setEditing(false) }
+  function cancelEdit() { setEditing(false) }
+
+  return (
+    <tr>
+      <td style={{ fontSize: 10, fontWeight: 600 }}>{act.nombre || act.id}</td>
+      <td style={{ fontSize: 9, color: '#777' }}>{act.def?.unidad || '—'}</td>
+      <td className="num">
+        {editing ? (
+          <input
+            autoFocus
+            type="number" min="0"
+            style={{ width: 50, textAlign: 'right', border: '1px solid #93c5fd', borderRadius: 4, padding: '2px 4px', fontSize: 11, background: '#fff' }}
+            value={tempCant}
+            onChange={e => setTempCant(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') cancelEdit() }}
+          />
+        ) : (
+          <span>{act.cant}</span>
+        )}
+      </td>
+      <td className="num" style={{ color: '#144E4A' }}>{cop(act.preNokia)}</td>
+      <td className="num fw7" style={{ color: '#144E4A' }}>{cop(act.totalNokia)}</td>
+      {!isViewer && !isFinal && (
+        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+          {editing ? (
+            <>
+              <button style={btnConfirm} onClick={confirmEdit} title="Confirmar">✓</button>
+              {' '}
+              <button style={btnDel} onClick={cancelEdit} title="Cancelar">✕</button>
+            </>
+          ) : (
+            <>
+              <button style={btnEdit} onClick={startEdit} title="Editar cantidad"><IconEdit /></button>
+              {' '}
+              <button style={btnDel} onClick={() => onDelete(actIdx)} title="Eliminar actividad">✕</button>
+            </>
+          )}
+        </td>
+      )}
+    </tr>
+  )
+}
+
+// ── SubC activity row ─────────────────────────────────────────────
+function SubcRow({ act, actIdx, onExclCR, isViewer, isFinal }) {
+  return (
+    <tr>
+      <td style={{ fontSize: 10, fontWeight: 600 }}>{act.nombre || act.id}</td>
+      <td style={{ fontSize: 9, color: '#777' }}>{act.def?.unidad || '—'}</td>
+      <td className="num fw6">{act.cant}</td>
+      <td className="num" style={{ color: '#b45309' }}>{cop(act.preSubc)}</td>
+      <td className="num fw7" style={{ color: '#b45309' }}>{cop(act.totalSubc)}</td>
+      {!isViewer && !isFinal && (
+        <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+          {act.tipo === 'CR' && (
+            <button
+              style={btnDel}
+              onClick={() => onExclCR(actIdx)}
+              title="Excluir solo del costo SubC (permanece en Nokia)"
+            >
+              × SubC
+            </button>
+          )}
+        </td>
+      )}
+    </tr>
+  )
+}
 
 // ── Main page ─────────────────────────────────────────────────────
 export default function LiquidadorPage() {
@@ -43,7 +153,7 @@ export default function LiquidadorPage() {
   const sitios           = useAppStore(s => s.sitios)
   const gastos           = useAppStore(s => s.gastos)
   const subcs            = useAppStore(s => s.subcs)
-  const catalogTI        = useCatalogStore(s => s.catalogTI)
+  const catalogTI        = useAppStore(s => s.catalogTI)
   const liquidaciones_cw = useAppStore(s => s.liquidaciones_cw)
   const user             = useAuthStore(s => s.user)
   const updateSitioAct   = useAppStore(s => s.updateSitioAct)
@@ -77,8 +187,9 @@ export default function LiquidadorPage() {
   }, [])
 
   const userRole  = user?.role ?? ''
-  const isViewer  = !can(userRole, 'liq.edit')
+  const isViewer  = userRole === 'viewer'
   const isAdmin   = userRole === 'admin'
+  const isCoord   = userRole === 'coordinador'
   const isTIUser  = userRole === 'TI'
   const isTSSUser = userRole === 'TSS'
   const isCWUser  = userRole === 'CW'
@@ -311,7 +422,7 @@ export default function LiquidadorPage() {
             <div style={{ display: 'flex', gap: 6 }}>
               {view === 'cw' && liqCW && (
                 liqCW.estado === 'final'
-                  ? can(userRole, 'liq.finalize') && (
+                  ? (isAdmin || isCoord) && (
                     <button className="btn bou btn-sm" style={{ borderColor: '#c0392b', color: '#c0392b' }} onClick={handleReabrirCW}>
                       ↩ Reabrir CW
                     </button>
@@ -835,7 +946,7 @@ export default function LiquidadorPage() {
           </div>
 
           {/* BACKOFFICE + COSTO CUADRILLA (side-by-side when interna) */}
-          {can(userRole, 'liq.finalize') && !isTSS && (
+          {(isAdmin || isCoord) && !isTSS && (
             <div style={esInternaSitio ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 } : {}}>
               {/* Backoffice */}
               <div className="card" style={{ margin: 0 }}>
@@ -902,7 +1013,7 @@ export default function LiquidadorPage() {
                 { label: 'Materiales CW',      value: efectMatCW,     hide: efectMatCW === 0, auto: hasDespacho && matCW_auto > 0 },
                 { label: 'Logística',          value: calc.logist,    hide: calc.logist === 0 },
                 { label: 'Adicionales',        value: calc.adicion,   hide: calc.adicion === 0 },
-                { label: 'Backoffice',         value: calc.backoffice, hide: !can(userRole, 'liq.finalize') || calc.backoffice === 0 },
+                { label: 'Backoffice',         value: calc.backoffice, hide: (!isAdmin && !isCoord) || calc.backoffice === 0 },
               ].filter(r => !r.hide).map(r => (
                 <div key={r.label} className="fb" style={{ marginBottom: 4 }}>
                   <span style={{ fontSize: 11, color: '#555f55', display: 'flex', alignItems: 'center', gap: 4 }}>

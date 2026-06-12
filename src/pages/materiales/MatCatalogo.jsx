@@ -2,7 +2,6 @@ import { useState, useMemo, useRef } from 'react'
 import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { supabase } from '../../lib/supabase'
@@ -69,7 +68,7 @@ export default function MatCatalogo() {
   const [provForm,   setProvForm]   = useState({})      // form exclusivo proveedores
   const [priceModal, setPriceModal] = useState(false)
 
-  const canEdit = can(user?.role, 'mat.catalogo.edit')
+  const canEdit = ['admin','coordinador'].includes(user?.role)
   const isAdmin = user?.role === 'admin'
   const isProveedoresTab = filCat === 'PROVEEDORES'
 

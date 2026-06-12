@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
 import { useFactStore, computeChanges } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import { parsePOPdf } from '../../lib/pdfParser'
 
@@ -239,7 +238,7 @@ export default function FactPOs() {
   const rejectedPos              = useFactStore(s => s.rejectedPos)
 
   const user     = useAuthStore(s => s.user)
-  const isViewer = !can(user?.role, 'fact.edit')
+  const isViewer = user?.role === 'viewer'
 
   const [search,          setSearch]          = useState('')
   const [editPO,          setEditPO]          = useState(null)

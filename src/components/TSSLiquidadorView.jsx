@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { cop, pct, mcls, ZONAS } from '../lib/catalog'
 import { useConfirm } from './ConfirmModal'
 import { showToast } from './Toast'
@@ -599,7 +598,7 @@ export default function TSSLiquidadorView({ sitio, calc }) {
   const user             = useAuthStore(s => s.user)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const isViewer = !can(user?.role, 'liq.edit')
+  const isViewer = user?.role === 'viewer'
   const isFinal  = sitio.estado === 'final'
   const hasButtons = !isViewer && !isFinal
 

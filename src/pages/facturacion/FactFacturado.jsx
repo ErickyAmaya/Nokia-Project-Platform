@@ -2,7 +2,6 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 
 const CAT_ORDER = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
@@ -156,7 +155,7 @@ export default function FactFacturado() {
   const eliminarFactura = useFactStore(s => s.eliminarFactura)
   const registrarFactura = useFactStore(s => s.registrarFactura)
 
-  const isViewer = useAuthStore(s => !can(s.user?.role, 'fact.edit'))
+  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
 
   const [search,        setSearch]        = useState('')
   const [filtroEv,      setFiltroEv]      = useState('todos')

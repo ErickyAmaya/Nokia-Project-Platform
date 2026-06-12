@@ -1,9 +1,7 @@
 import { useMemo, useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppStore }     from '../store/useAppStore'
-import { useCatalogStore } from '../store/useCatalogStore'
+import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { getPrecio, cop } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
@@ -147,12 +145,12 @@ export default function ConsolidadoTSS() {
 
   const sitios        = useAppStore(s => s.sitios)
   const subcs         = useAppStore(s => s.subcs)
-  const catalogTI     = useCatalogStore(s => s.catalogTI)
+  const catalogTI     = useAppStore(s => s.catalogTI)
   const gastos        = useAppStore(s => s.gastos)
   const user          = useAuthStore(s => s.user)
   const eliminarSitio = useAppStore(s => s.eliminarSitio)
 
-  const isViewer = !can(user?.role, 'consolidado.edit')
+  const isViewer = user?.role === 'viewer'
 
   // LCs únicos por tipo
   const lcsVisita = useMemo(() =>

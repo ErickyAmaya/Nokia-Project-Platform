@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAppStore }  from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import SearchableSelect from '../../components/materiales/SearchableSelect'
@@ -365,8 +364,8 @@ export default function MatDespachos() {
   const [search,  setSearch]  = useState('')
   const [filStat, setFilStat] = useState('')
 
-  const canEdit   = can(user?.role, 'mat.despachos.edit')
-  const canDelete = can(user?.role, 'mat.despachos.delete')
+  const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
+  const canDelete = ['admin','coordinador'].includes(user?.role)
 
   const filtered = despachos.filter(d => {
     if (filStat && d.status !== filStat) return false

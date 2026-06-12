@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CAT, ZONAS, cop } from '../lib/catalog'
-import { useAppStore }     from '../store/useAppStore'
-import { useCatalogStore } from '../store/useCatalogStore'
+import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import CatalogItemModal from '../modals/CatalogItemModal'
 import SubcModal from '../modals/SubcModal'
 import { useConfirm } from '../components/ConfirmModal'
@@ -216,25 +214,25 @@ function ConfirmDelete({ onConfirm, onCancel }) {
 export default function CatalogoPage() {
   const user                = useAuthStore(s => s.user)
 
-  const isCoord = user?.role === 'coordinador'
+  const isCoord = user?.role === 'coordinador' || user?.role === 'coord'
   const [seccion,   setSeccion]   = useState(isCoord ? 'SubC' : 'BASE')
   const [zonaIdx,   setZonaIdx]   = useState(0)
   const [search,    setSearch]    = useState('')
   const [viewMode,  setViewMode]  = useState('zona')
   const [modal,     setModal]     = useState(null)   // {type, item, isNew}
   const [deleting,  setDeleting]  = useState(null)   // item to delete
-  const catalogTI           = useCatalogStore(s => s.catalogTI)
-  const catalogCW           = useCatalogStore(s => s.catalogCW)
-  const saveCatalogTIItem    = useCatalogStore(s => s.saveCatalogTIItem)
-  const deleteCatalogTIItem  = useCatalogStore(s => s.deleteCatalogTIItem)
-  const saveCatalogCWItem    = useCatalogStore(s => s.saveCatalogCWItem)
-  const deleteCatalogCWItem  = useCatalogStore(s => s.deleteCatalogCWItem)
-  const bulkUpdateTIPrices   = useCatalogStore(s => s.bulkUpdateTIPrices)
-  const bulkUpdateCWPrices   = useCatalogStore(s => s.bulkUpdateCWPrices)
+  const catalogTI           = useAppStore(s => s.catalogTI)
+  const catalogCW           = useAppStore(s => s.catalogCW)
+  const saveCatalogTIItem    = useAppStore(s => s.saveCatalogTIItem)
+  const deleteCatalogTIItem  = useAppStore(s => s.deleteCatalogTIItem)
+  const saveCatalogCWItem    = useAppStore(s => s.saveCatalogCWItem)
+  const deleteCatalogCWItem  = useAppStore(s => s.deleteCatalogCWItem)
+  const bulkUpdateTIPrices   = useAppStore(s => s.bulkUpdateTIPrices)
+  const bulkUpdateCWPrices   = useAppStore(s => s.bulkUpdateCWPrices)
 
   const [priceModal, setPriceModal] = useState(null)  // null | 'TI' | 'CW'
 
-  const canEdit = can(user?.role, 'catalogo.edit')
+  const canEdit = user?.role === 'admin' || user?.role === 'coordinador' || user?.role === 'coord'
   const isAdmin = user?.role === 'admin'
 
   if (!canEdit) {

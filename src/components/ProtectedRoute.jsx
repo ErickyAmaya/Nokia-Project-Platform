@@ -1,6 +1,5 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { getRoleHome } from '../config/permissions'
 
 /**
  * ProtectedRoute
@@ -43,7 +42,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (!user) return <Navigate to="/login" replace />
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to={getRoleHome(user.role)} replace />
+    const roleHome = { TI: '/ti', TSS: '/tss', CW: '/cw-consolidado', logistica: '/materiales', facturacion: '/facturacion' }
+    return <Navigate to={roleHome[user.role] || '/dashboard'} replace />
   }
 
   return children

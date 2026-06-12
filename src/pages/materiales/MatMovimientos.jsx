@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { EmptyRow } from '../../components/EmptyState'
 import { useMatStore, matCop } from '../../store/useMatStore'
 import { useAuthStore } from '../../store/authStore'
-import { can } from '../../config/permissions'
 import { showToast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmModal'
 import { useNavigate } from 'react-router-dom'
@@ -33,9 +32,9 @@ export default function MatMovimientos() {
   const [filDate,      setFilDate]        = useState('')
 
 
-  const canEdit   = can(user?.role, 'mat.movimientos.edit')
-  const canAdmin  = can(user?.role, 'mat.movimientos.admin')
-  const canDelete = can(user?.role, 'mat.movimientos.delete')
+  const canEdit   = ['admin','coordinador','logistica'].includes(user?.role)
+  const canAdmin  = ['admin','coordinador'].includes(user?.role)
+  const canDelete = ['admin','coordinador'].includes(user?.role)
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()

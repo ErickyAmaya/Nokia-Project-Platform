@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import * as XLSX   from 'xlsx'
 import { getSupabaseClient } from '../lib/supabase'
-import { TABLES } from '../lib/tables'
 
 const db = () => getSupabaseClient()
 
@@ -271,7 +270,7 @@ export const useAckStore = create((set, get) => ({
     // ack_uploads: cuando otro usuario sube un nuevo Excel, todos recargan
     const uploadsChannel = db()
       .channel('ack-uploads-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLES.ACK_UPLOADS }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ack_uploads' }, (payload) => {
         if (payload.new?.id !== get().currUpload?.id) get().loadAll()
       })
       .subscribe()
@@ -279,8 +278,8 @@ export const useAckStore = create((set, get) => ({
     // ack_forecast: sincronización en tiempo real entre dispositivos
     const forecastChannel = db()
       .channel('ack-forecast-sync')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLES.ACK_FORECAST }, () => get().loadForecasts())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: TABLES.ACK_FORECAST }, () => get().loadForecasts())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ack_forecast' }, () => get().loadForecasts())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ack_forecast' }, () => get().loadForecasts())
       .subscribe()
 
     return () => {
@@ -292,7 +291,7 @@ export const useAckStore = create((set, get) => ({
   // Recarga solo los forecasts — liviano, usado en polling
   loadForecasts: async () => {
     try {
-      const { data } = await db().from(TABLES.ACK_FORECAST).select('*')
+      const { data } = await db().from('ack_forecast').select('*')
       if (!data) return
       const fcMap = {}
       for (const f of data) fcMap[f.smp] = f
@@ -322,7 +321,7 @@ export const useAckStore = create((set, get) => ({
       const { data: { user } } = await db().auth.getUser()
       if (!user) return
       const { data } = await db()
-        .from(TABLES.USER_PREFS)
+        .from('user_prefs')
         .select('ack_proyectos')
         .eq('user_id', user.id)
         .maybeSingle()
@@ -340,7 +339,7 @@ export const useAckStore = create((set, get) => ({
     }
     db().auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      return db().from(TABLES.USER_PREFS).upsert(
+      return db().from('user_prefs').upsert(
         { user_id: user.id, ack_proyectos: arr, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       )
@@ -361,13 +360,13 @@ export const useAckStore = create((set, get) => ({
       // Lanzar todo en paralelo: prefs + uploads + sabanas (usando IDs cacheados)
       const [, { data: uploads }, sabCacheRes, fcRes, prevCacheRes] = await Promise.all([
         get().loadUserPrefs(),
-        db().from(TABLES.ACK_UPLOADS).select('*').order('loaded_at', { ascending: false }).limit(30),
+        db().from('ack_uploads').select('*').order('loaded_at', { ascending: false }).limit(30),
         cachedCurrId
-          ? db().from(TABLES.ACK_SABANA).select('*').eq('upload_id', cachedCurrId).limit(20000)
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedCurrId).limit(20000)
           : Promise.resolve({ data: null }),
-        db().from(TABLES.ACK_FORECAST).select('*'),
+        db().from('ack_forecast').select('*'),
         cachedPrevId
-          ? db().from(TABLES.ACK_SABANA).select('*').eq('upload_id', cachedPrevId).limit(20000)
+          ? db().from('ack_sabana').select('*').eq('upload_id', cachedPrevId).limit(20000)
           : Promise.resolve({ data: null }),
       ])
 
@@ -391,13 +390,13 @@ export const useAckStore = create((set, get) => ({
         sabana     = sabCacheRes.data || []
         prevSabana = (prevUpload && cachedPrevId === prevUpload.id)
           ? (prevCacheRes.data || [])
-          : (prevUpload ? (await db().from(TABLES.ACK_SABANA).select('*').eq('upload_id', prevUpload.id).limit(20000)).data || [] : [])
+          : (prevUpload ? (await db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id).limit(20000)).data || [] : [])
       } else {
         // IDs cambiaron → recargar sabanas con los correctos
         const [sabRes, prevRes] = await Promise.all([
-          db().from(TABLES.ACK_SABANA).select('*').eq('upload_id', currUpload.id).limit(20000),
+          db().from('ack_sabana').select('*').eq('upload_id', currUpload.id).limit(20000),
           prevUpload
-            ? db().from(TABLES.ACK_SABANA).select('*').eq('upload_id', prevUpload.id).limit(20000)
+            ? db().from('ack_sabana').select('*').eq('upload_id', prevUpload.id).limit(20000)
             : Promise.resolve({ data: [] }),
         ])
         sabana     = sabRes.data  || []
@@ -431,7 +430,7 @@ export const useAckStore = create((set, get) => ({
 
       // 1. Crear registro de upload primero → obtenemos el id
       const { data: uploadRec, error: uplErr } = await db()
-        .from(TABLES.ACK_UPLOADS)
+        .from('ack_uploads')
         .insert({ file_name: file.name, rows_loaded: sabana.length })
         .select()
         .single()
@@ -441,7 +440,7 @@ export const useAckStore = create((set, get) => ({
       const BATCH = 500
       const rows  = sabana.map(r => ({ ...r, upload_id: uploadRec.id }))
       for (let i = 0; i < rows.length; i += BATCH) {
-        const { error } = await db().from(TABLES.ACK_SABANA).insert(rows.slice(i, i + BATCH))
+        const { error } = await db().from('ack_sabana').insert(rows.slice(i, i + BATCH))
         if (error) throw error
       }
 
@@ -450,13 +449,13 @@ export const useAckStore = create((set, get) => ({
       //    - Si ya tiene datos (cargas posteriores) → preservar ediciones de la app, ignorar Excel
       if (forecasts.length) {
         const { count } = await db()
-          .from(TABLES.ACK_FORECAST)
+          .from('ack_forecast')
           .select('*', { count: 'exact', head: true })
         const ignoreDuplicates = (count ?? 0) > 0
 
         for (let i = 0; i < forecasts.length; i += BATCH) {
           await db()
-            .from(TABLES.ACK_FORECAST)
+            .from('ack_forecast')
             .upsert(forecasts.slice(i, i + BATCH), { onConflict: 'smp', ignoreDuplicates })
         }
       }
@@ -472,14 +471,14 @@ export const useAckStore = create((set, get) => ({
 
   // Estados ocultos del reporte Nokia (compartido, guardado en config)
   loadEstadosOcultos: async () => {
-    const { data } = await db().from(TABLES.CONFIG).select('value').eq('key', 'ack_estados_ocultos').single()
+    const { data } = await db().from('config').select('value').eq('key', 'ack_estados_ocultos').single()
     if (data?.value) {
       try { set({ estadosOcultos: JSON.parse(data.value) }) } catch {}
     }
   },
 
   saveEstadosOcultos: async (ocultos) => {
-    await db().from(TABLES.CONFIG)
+    await db().from('config')
       .upsert({ key: 'ack_estados_ocultos', value: JSON.stringify(ocultos) }, { onConflict: 'key' })
     set({ estadosOcultos: ocultos })
   },
@@ -487,7 +486,7 @@ export const useAckStore = create((set, get) => ({
   // Guardar/editar un FC desde la tabla
   saveForecast: async (smp, fields) => {
     const row = { smp, ...fields, updated_at: new Date().toISOString() }
-    const { error } = await db().from(TABLES.ACK_FORECAST)
+    const { error } = await db().from('ack_forecast')
       .upsert(row, { onConflict: 'smp' })
     if (error) throw error
     set(s => ({ forecasts: { ...s.forecasts, [smp]: { ...(s.forecasts[smp] || {}), ...row } } }))

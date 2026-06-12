@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { initSupabaseClient, getSupabaseClient } from '../lib/supabase'
 import { getEmpresaByDomain } from '../config/empresas'
 import { useAuthStore } from '../store/authStore'
-import { isFieldRole } from '../config/permissions'
 
 const LS_DOMAIN_KEY = 'npp_empresa_domain'
+
+const LC_ROLES = ['TI', 'TSS']
 
 const SUPABASE_ERRORS = {
   'New password should be different from the old password': 'La nueva contraseña debe ser diferente a la anterior.',
@@ -32,7 +33,7 @@ export default function SetPasswordPage() {
   // LC con sesión activa que abre el link de invitación por error → redirigir directo
   useEffect(() => {
     if (loading) return
-    if (user && isFieldRole(user.role)) navigate('/ubicacion', { replace: true })
+    if (user && LC_ROLES.includes(user.role)) navigate('/ubicacion', { replace: true })
     else if (user) navigate('/', { replace: true })
   }, [user, loading, navigate])
 

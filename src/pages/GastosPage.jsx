@@ -9,7 +9,6 @@ function IconEdit({ size = 13 }) {
 }
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { cop } from '../lib/catalog'
 import { useConfirm } from '../components/ConfirmModal'
 import { showToast } from '../components/Toast'
@@ -36,7 +35,7 @@ export default function GastosPage() {
   const eliminarGasto = useAppStore(s => s.eliminarGasto)
 
   const { confirm, ConfirmModalUI } = useConfirm()
-  const isViewer = !can(user?.role, 'gastos.edit')
+  const isViewer = user?.role === 'viewer'
 
   // Sitios únicos que tienen gastos
   const sitiosConGastos = useMemo(() => {

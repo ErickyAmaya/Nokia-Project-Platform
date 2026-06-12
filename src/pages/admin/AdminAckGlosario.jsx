@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
-import { TABLES }   from '../../lib/tables'
 import { showToast } from '../../components/Toast'
 
 const AREAS_ORDER = ['HW_Cierre', 'ONAIR', 'DOC', 'LI', 'LOG_INV', 'SO', 'SO_DEC']
@@ -39,7 +38,7 @@ export default function AdminAckGlosario() {
   const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
-    supabase.from(TABLES.ACK_GLOSARIO)
+    supabase.from('ack_glosario')
       .select('*')
       .order('area').order('secuencia')
       .then(({ data, error }) => {
@@ -50,7 +49,7 @@ export default function AdminAckGlosario() {
   }, [])
 
   async function reloadRows() {
-    const { data, error } = await supabase.from(TABLES.ACK_GLOSARIO).select('*').order('area').order('secuencia')
+    const { data, error } = await supabase.from('ack_glosario').select('*').order('area').order('secuencia')
     if (!error && data) setRows(data)
   }
 
@@ -83,7 +82,7 @@ export default function AdminAckGlosario() {
                : row.se_puede_liberar === true  ? false
                :                                  null
     setSaving(row.id)
-    const { error } = await supabase.from(TABLES.ACK_GLOSARIO)
+    const { error } = await supabase.from('ack_glosario')
       .update({ se_puede_liberar: next })
       .eq('id', row.id)
     if (error) {
@@ -97,13 +96,13 @@ export default function AdminAckGlosario() {
   async function handleDelete(row) {
     if (!window.confirm(`¿Eliminar el estado "${row.gap}" (${row.area})?`)) return
     setDeleting(row.id)
-    const { error } = await supabase.from(TABLES.ACK_GLOSARIO).delete().eq('id', row.id)
+    const { error } = await supabase.from('ack_glosario').delete().eq('id', row.id)
     if (error) { showToast('Error al eliminar: ' + error.message, 'err'); setDeleting(null); return }
 
     if (row.secuencia !== null) {
       const toShift = rows.filter(r => r.id !== row.id && r.area === row.area && r.secuencia !== null && r.secuencia > row.secuencia)
       if (toShift.length > 0) {
-        await Promise.all(toShift.map(r => supabase.from(TABLES.ACK_GLOSARIO).update({ secuencia: r.secuencia - 1 }).eq('id', r.id)))
+        await Promise.all(toShift.map(r => supabase.from('ack_glosario').update({ secuencia: r.secuencia - 1 }).eq('id', r.id)))
       }
     }
 
@@ -128,7 +127,7 @@ export default function AdminAckGlosario() {
     e.preventDefault()
     if (!editForm.gap.trim() || !editForm.area.trim()) { showToast('Gap y Área son obligatorios', 'err'); return }
     setEditSaving(true)
-    const { error } = await supabase.from(TABLES.ACK_GLOSARIO).update({
+    const { error } = await supabase.from('ack_glosario').update({
       gap:              editForm.gap.trim(),
       area:             editForm.area.trim(),
       secuencia:        editForm.secuencia !== '' ? Number(editForm.secuencia) : null,
@@ -158,7 +157,7 @@ export default function AdminAckGlosario() {
       const toShift = rows.filter(r => r.area === area && r.secuencia !== null && r.secuencia >= seq)
       if (toShift.length > 0) {
         const results = await Promise.all(
-          toShift.map(r => supabase.from(TABLES.ACK_GLOSARIO).update({ secuencia: r.secuencia + 1 }).eq('id', r.id))
+          toShift.map(r => supabase.from('ack_glosario').update({ secuencia: r.secuencia + 1 }).eq('id', r.id))
         )
         const shiftErr = results.find(r => r.error)?.error
         if (shiftErr) {
@@ -174,7 +173,7 @@ export default function AdminAckGlosario() {
       }
     }
 
-    const { error } = await supabase.from(TABLES.ACK_GLOSARIO).insert({
+    const { error } = await supabase.from('ack_glosario').insert({
       gap:              form.gap.trim(),
       area,
       secuencia:        seq,

@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
-import { can } from '../config/permissions'
 import { cop, pct, mcls } from '../lib/catalog'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
@@ -50,7 +49,7 @@ export default function ConsolidadoCW() {
   const quitarCW            = useAppStore(s => s.quitarCW)
   const { confirm, ConfirmModalUI } = useConfirm()
 
-  const isViewer = !can(user?.role, 'consolidado.edit')
+  const isViewer = user?.role === 'viewer'
 
   const [compact, setCompact] = useState(
     typeof window !== 'undefined' && window.innerHeight < 600
@@ -166,7 +165,7 @@ export default function ConsolidadoCW() {
             <option value="">Todos los LC</option>
             {lcsUniq.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
-          {can(user?.role, 'cw.write') && (
+          {!['viewer','TI','TSS'].includes(user?.role) && (
             <button className="btn bp btn-sm" onClick={() => setModalCW(true)}>
               ＋ Agregar CW
             </button>
