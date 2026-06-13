@@ -668,13 +668,21 @@ export default function MapaSitios() {
   const [ctxMenu,     setCtxMenu]     = useState(null)
   const [routeMode,    setRouteMode]   = useState(false)
   const [routePins,    setRoutePins]   = useState([])
-  const [lcFilter,     setLcFilter]    = useState('')
-  const [uploadModal,  setUploadModal] = useState(false)
-  const [lcLive,       setLcLive]      = useState([]) // { lc, lat, lng, updated_at }
+  const [lcFilter,       setLcFilter]      = useState('')
+  const [uploadModal,    setUploadModal]    = useState(false)
+  const [lcLive,         setLcLive]        = useState([]) // { lc, lat, lng, updated_at }
+  const [rolloutItems,   setRolloutItems]  = useState([])
 
   const sabana   = useAckStore(s => s.sabana)
   const sitios   = useAppStore(s => s.sitios)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const db = getSupabaseClient()
+    if (!db) return
+    db.from('rollout_uploads').select('items').order('uploaded_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (data?.items) setRolloutItems(data.items) })
+  }, [])
 
   useEffect(() => {
     if (!ctxMenu) return
@@ -842,6 +850,13 @@ export default function MapaSitios() {
   const selectedMainSmp = useMemo(() =>
     selectedSmps.find(r => r.main_smp === r.smp)?.main_smp || null
   , [selectedSmps])
+
+  // SMP del Rollout para sitios que aún no tienen entrada en ACK
+  const selectedRolloutSmp = useMemo(() => {
+    if (selectedMainSmp || !selectedPin || !rolloutItems.length) return null
+    const match = rolloutItems.find(i => norm(i.siteName) === norm(selectedPin.site_name))
+    return match?.smpId || null
+  }, [selectedMainSmp, selectedPin, rolloutItems])
 
   const lcLiveActive = useMemo(() => {
     const cutoff = Date.now() - 60 * 60_000
@@ -1310,13 +1325,13 @@ export default function MapaSitios() {
 
               {/* Acciones */}
               <div style={{ padding: '11px 15px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {selectedMainSmp && (
+                {(selectedMainSmp || selectedRolloutSmp) && (
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: selectedMainSmp } }))}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: selectedMainSmp || selectedRolloutSmp } }))}
                     className="btn bp"
                     style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
                   >
-                    📊 Ver Timeline
+                    📊 Ver Timeline{!selectedMainSmp ? ' (solo Rollout)' : ''}
                   </button>
                 )}
                 {selectedMainSmp && (

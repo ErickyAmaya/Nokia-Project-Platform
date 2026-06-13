@@ -235,7 +235,7 @@ const MS_TO_AREAS = {
 // ── Main component ─────────────────────────────────────────────────
 export default function SiteTimelineModal({ smpId, onClose }) {
   const navigate = useNavigate()
-  const [rolloutItem, setRolloutItem] = useState(null)
+  const [rolloutRawItems, setRolloutRawItems] = useState(null)
   const [loading, setLoading] = useState(false)
   const [hoveredMs, setHoveredMs] = useState(null)
   const [ackGlosario, setAckGlosario] = useState([])
@@ -257,11 +257,9 @@ export default function SiteTimelineModal({ smpId, onClose }) {
       db.from('rollout_uploads').select('items').order('uploaded_at', { ascending: false }).limit(1).single(),
       db.from('ack_glosario').select('id,gap,area,secuencia').order('area').order('secuencia'),
     ]).then(([rolloutRes, glosarioRes]) => {
-      const items = rolloutRes.data?.items || []
-      const item  = items.find(i => (i.smpId || '').toUpperCase() === smpId.toUpperCase())
-      setRolloutItem(item || null)
+      setRolloutRawItems(rolloutRes.data?.items || [])
       setAckGlosario(glosarioRes.data || [])
-    }).catch(() => { setRolloutItem(null); setAckGlosario([]) })
+    }).catch(() => { setRolloutRawItems([]); setAckGlosario([]) })
       .finally(() => setLoading(false))
   }, [smpId])
 
@@ -281,6 +279,18 @@ export default function SiteTimelineModal({ smpId, onClose }) {
     if (!normSiteName) return []
     return ppa.filter(p => normStr(p.customer_site_name) === normSiteName)
   }, [ppa, sabanaRow])
+
+  // Busca el item del Rollout usando el smp_id del PPA (fuente confiable) como clave primaria.
+  // Fallback al main_smp de Sabaña por si el PPA aún no cargó.
+  const rolloutItem = useMemo(() => {
+    if (!rolloutRawItems || !smpId) return null
+    const ppaSmpId = sitePpa[0]?.smp_id
+    if (ppaSmpId) {
+      const byPpa = rolloutRawItems.find(i => (i.smpId || '').toUpperCase() === ppaSmpId.toUpperCase())
+      if (byPpa) return byPpa
+    }
+    return rolloutRawItems.find(i => (i.smpId || '').toUpperCase() === smpId.toUpperCase()) || null
+  }, [rolloutRawItems, sitePpa, smpId])
 
   // Incluir un PO de fact_pos solo si el PPA lo confirma como de este sitio.
   // Esto garantiza que solo aportamos valor monetario desde PDFs, sin contaminar
@@ -366,7 +376,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   }, [milestones, statuses, rolloutItem, ackGlosario])
 
   const onAirBlocked = statuses[6] === 'blocked'
-  const siteName     = sabanaRow?.site_name || allSitePos[0]?.site_name || smpId
+  const siteName     = sabanaRow?.site_name || allSitePos[0]?.site_name || rolloutItem?.siteName || smpId
   const siteCode     = allSitePos[0]?.site_id || '—'
   const region       = sabanaRow?.region || '—'
   const doneCount    = statuses.filter(s => s === 'done').length
@@ -443,7 +453,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
               {[
-                { label: smpId, bg: '#1e3a5f', color: '#93c5fd' },
+                { label: rolloutItem?.smpId || smpId, bg: '#1e3a5f', color: '#93c5fd' },
                 siteCode !== '—' ? { label: `Código: ${siteCode}`, bg: '#2d1f4e', color: '#c4b5fd' } : null,
                 region !== '—'   ? { label: region, bg: '#0d3320', color: '#4ade80' } : null,
                 onAirBlocked     ? { label: '⚠ On Air Pendiente', bg: '#450a0a', color: '#f87171' } : null,
@@ -476,6 +486,24 @@ export default function SiteTimelineModal({ smpId, onClose }) {
         </div>
 
         {/* ── Alert banners ── */}
+        {!sabanaRow && rolloutItem && (
+          <div style={{ padding: '10px 24px 0', flexShrink: 0 }}>
+            <div style={{
+              background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 12,
+              padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12,
+            }}>
+              <div style={{ flexShrink: 0, marginTop: 1 }}>{ICONS.warn('#d97706')}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', lineHeight: 1.3 }}>
+                  Sitio aún no registrado en el ACK
+                </div>
+                <div style={{ fontSize: 11, color: '#b45309', marginTop: 3, lineHeight: 1.4 }}>
+                  Se muestran los datos del Rollout Nokia. Los hitos de seguimiento ACK aparecen como pendientes hasta que el sitio sea registrado.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {onAirBlocked && (
           <div style={{ padding: '10px 24px 0', flexShrink: 0 }}>
             <div style={{

@@ -23,6 +23,10 @@ function extractDate(val) {
     const n = parseFloat(s)
     if (!isNaN(n) && n > 10000) return serialToIso(n)
   }
+  // Colombian date-time string "D/MM/YYYY HH:MM:SS" or "D/MM/YYYY"
+  const datePart = s.split(' ')[0]
+  const dmy = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
   return s.length >= 10 ? s.slice(0, 10) : (s || null)
 }
 
@@ -77,6 +81,31 @@ export async function parsearRollout(file) {
 
   const headerRow = allRows[0]
 
+  // Busca una columna por palabras clave en el header (normalizado, sin tildes).
+  // Intenta cada grupo de palabras en orden; si ninguno coincide, usa el índice fijo de respaldo.
+  function findCol(fallbackIdx, ...keywordGroups) {
+    for (const kws of keywordGroups) {
+      const idx = headerRow.findIndex(h => {
+        const hn = (h || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        return kws.every(k => hn.includes(k))
+      })
+      if (idx >= 0) return idx
+    }
+    return fallbackIdx
+  }
+
+  // Columnas clave — detectadas por header, con índice fijo como respaldo
+  const idxSiteName = findCol(2,  ['site', 'name'],  ['customer', 'site'])
+  const idxSmpName  = findCol(8,  ['smp', 'name'],   ['process',  'name'])
+  const idxSmpId    = findCol(9,  ['smp', 'id'],     ['wo', 'number'],    ['work', 'order'])
+  const idxMosSS    = findCol(31, ['mos', 'ok'],     ['ss', 'mos'])
+  const idxIntgSS   = findCol(55, ['qcp4'],          ['integ', 'ok'],     ['ss', 'integ'])
+  const idxAcepSS   = findCol(65, ['acep', 'ok'],    ['final', 'ok'],     ['ss', 'acep'])
+
+  // Pasos de progreso: MOS = 12 cols antes de mosSS; Intg y Acep = rango dinámico entre SS fechas
+  const intgSteps = Math.max(idxIntgSS - idxMosSS - 1, 1)
+  const acepSteps = Math.max(idxAcepSS - idxIntgSS - 1, 1)
+
   function lastFilledHeader(row, fromCol, toCol) {
     let lastIdx = null
     for (let c = fromCol - 1; c < toCol; c++) {
@@ -89,20 +118,24 @@ export async function parsearRollout(file) {
   const items = []
   for (let i = 1; i < allRows.length; i++) {
     const row = allRows[i]
-    const rawId = row[9]   // col 10
+    const rawId = row[idxSmpId]
     if (!rawId) continue
 
     const smpId    = String(rawId).trim()
-    const siteName = String(row[2] || '').trim()   // col 3
-    const smpName  = String(row[8] || '').trim()   // col 9
+    const siteName = String(row[idxSiteName] || '').trim()
+    const smpName  = String(row[idxSmpName]  || '').trim()
 
-    const mosSS  = extractDate(row[31])  // col 32
-    const intgSS = extractDate(row[55])  // col 56
-    const acepSS = extractDate(row[65])  // col 66
+    const mosSS  = extractDate(row[idxMosSS])
+    const intgSS = extractDate(row[idxIntgSS])
+    const acepSS = extractDate(row[idxAcepSS])
 
-    const mosFilled  = countFilled(row, 20, 31)
-    const intgFilled = countFilled(row, 33, 55)
-    const acepFilled = countFilled(row, 57, 65)
+    // 1-based args para countFilled/lastFilled*:
+    //   MOS steps  → 12 cols que terminan justo antes de mosSS
+    //   Intg steps → cols entre mosSS+1 e intgSS-1 (dinámico)
+    //   Acep steps → cols entre intgSS+1 e acepSS-1 (dinámico)
+    const mosFilled  = countFilled(row, idxMosSS - 11, idxMosSS)
+    const intgFilled = countFilled(row, idxMosSS + 2,  idxIntgSS)
+    const acepFilled = countFilled(row, idxIntgSS + 2, idxAcepSS)
 
     items.push({
       smpId,
@@ -111,15 +144,15 @@ export async function parsearRollout(file) {
       mosSS,
       intgSS,
       acepSS,
-      mosPct:  Math.round((mosFilled  / 12) * 100),
-      intgPct: intgSS ? 100 : Math.round((intgFilled / 23) * 100),
-      acepPct: Math.round((acepFilled /  9) * 100),
-      mosLastCol:   lastFilledHeader(row, 20, 31),
-      intgLastCol:  lastFilledHeader(row, 33, 55),
-      acepLastCol:  lastFilledHeader(row, 57, 65),
-      mosLastDate:  lastFilledDate(row, 20, 31),
-      intgLastDate: lastFilledDate(row, 33, 55),
-      acepLastDate: lastFilledDate(row, 57, 65),
+      mosPct:  Math.round((mosFilled  / 12)        * 100),
+      intgPct: intgSS ? 100 : Math.round((intgFilled / intgSteps) * 100),
+      acepPct: Math.round((acepFilled / acepSteps) * 100),
+      mosLastCol:   lastFilledHeader(row, idxMosSS - 11, idxMosSS),
+      intgLastCol:  lastFilledHeader(row, idxMosSS + 2,  idxIntgSS),
+      acepLastCol:  lastFilledHeader(row, idxIntgSS + 2, idxAcepSS),
+      mosLastDate:  lastFilledDate(row, idxMosSS - 11, idxMosSS),
+      intgLastDate: lastFilledDate(row, idxMosSS + 2,  idxIntgSS),
+      acepLastDate: lastFilledDate(row, idxIntgSS + 2, idxAcepSS),
     })
   }
 

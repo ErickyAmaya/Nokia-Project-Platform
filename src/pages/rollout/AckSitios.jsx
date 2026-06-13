@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAckStore, PROCESOS } from '../../store/useAckStore'
+import { getSupabaseClient } from '../../lib/supabase'
 
 // ── Dropdown de búsqueda personalizado ────────────────────────────
 function SearchableSelect({ options, value, onChange, placeholder }) {
@@ -100,6 +101,8 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
     </div>
   )
 }
+
+function normStr(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim() }
 
 function isFinal(val) {
   if (!val) return false
@@ -290,11 +293,20 @@ export default function AckSitios() {
   const [region, setRegion] = useState('')
   const [filtro, setFiltro] = useState(() => searchParams.get('smp') ? 'todos' : 'pendientes')
   const [search, setSearch] = useState('')
+  const [rolloutAllItems, setRolloutAllItems] = useState([])
+  const [sinAckOpen, setSinAckOpen] = useState(false)
 
   // Si el componente ya estaba montado y cambia el ?smp en la URL, forzar filtro 'todos'
   useEffect(() => {
     if (autoSmp) setFiltro('todos')
   }, [autoSmp])
+
+  useEffect(() => {
+    const db = getSupabaseClient()
+    if (!db) return
+    db.from('rollout_uploads').select('items').order('uploaded_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (data?.items) setRolloutAllItems(data.items) })
+  }, [])
 
   const regiones = useMemo(() =>
     [...new Set(sabana.map(r => r.region).filter(Boolean))].sort()
@@ -339,6 +351,17 @@ export default function AckSitios() {
         return (a.smps[0]?.site_name || '').localeCompare(b.smps[0]?.site_name || '')
       })
   }, [allGroups, filtro])
+
+  // Sitios del Rollout que no tienen ninguna entrada en la Sabaña (ACK aún no registrado)
+  const rolloutSinAck = useMemo(() => {
+    if (!rolloutAllItems.length) return []
+    const sabanaNames = new Set(sabanaRaw.map(r => normStr(r.site_name)).filter(Boolean))
+    return rolloutAllItems
+      .filter(item => !sabanaNames.has(normStr(item.siteName)))
+      .filter(item => !search ||
+        normStr(item.siteName).includes(normStr(search)) ||
+        normStr(item.smpId).includes(normStr(search)))
+  }, [rolloutAllItems, sabanaRaw, search])
 
   const totalAll      = allGroups.length
   const totalCerrados = allGroups.filter(s => s.todoFin).length
@@ -439,6 +462,67 @@ export default function AckSitios() {
           </table>
         </div>
       </div>
+
+      {/* ── Sitios en Rollout sin ACK ── */}
+      {rolloutSinAck.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div
+            onClick={() => setSinAckOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+              background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 10,
+              padding: '10px 14px',
+            }}
+          >
+            <span style={{ fontSize: 11, color: '#b45309' }}>{sinAckOpen ? '▼' : '▶'}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
+              ⚠ Sitios en Rollout sin ACK
+            </span>
+            <span style={{
+              fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
+              background: '#fef3c7', color: '#b45309',
+            }}>
+              {rolloutSinAck.length} sitios
+            </span>
+          </div>
+          {sinAckOpen && (
+            <div className="card-b" style={{ padding: 0, overflow: 'hidden', marginTop: 6 }}>
+              <table className="tbl" style={{ fontSize: 10, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead>
+                  <tr>
+                    {['Sitio', 'SMP (Rollout)', 'SS MOS', 'SS Integración', 'SS Aceptación', ''].map(h => (
+                      <th key={h} style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d', color: '#92400e' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rolloutSinAck.map(item => (
+                    <tr key={item.smpId} style={{ background: '#fff' }}>
+                      <td style={{ fontWeight: 700, fontSize: 11 }}>{item.siteName || '—'}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#888' }}>{item.smpId}</td>
+                      <td style={{ fontSize: 10, color: item.mosSS ? '#166534' : '#9ca3af' }}>{item.mosSS || '—'}</td>
+                      <td style={{ fontSize: 10, color: item.intgSS ? '#166534' : '#9ca3af' }}>{item.intgSS || '—'}</td>
+                      <td style={{ fontSize: 10, color: item.acepSS ? '#166534' : '#9ca3af' }}>{item.acepSS || '—'}</td>
+                      <td>
+                        <span
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: item.smpId } }))}
+                          style={{
+                            cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                            color: '#d97706', textDecoration: 'underline',
+                            textDecorationStyle: 'dotted', whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Ver Timeline
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: 8, fontSize: 9, color: '#4b5563' }}>
         💡 Haz clic en una fila para ver los SMPs del sitio. Haz clic en un círculo rojo <span style={{ color: '#991b1b', fontWeight: 700 }}>●</span> para ir directamente al proceso pendiente en Tablas.
