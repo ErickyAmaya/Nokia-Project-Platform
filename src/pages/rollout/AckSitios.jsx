@@ -498,7 +498,19 @@ export default function AckSitios() {
                 <tbody>
                   {rolloutSinAck.map(item => (
                     <tr key={item.smpId} style={{ background: '#fff' }}>
-                      <td style={{ fontWeight: 700, fontSize: 11 }}>{item.siteName || '—'}</td>
+                      <td style={{ fontWeight: 700, fontSize: 11 }}>
+                        {item.siteName || '—'}
+                        {item.mosSS && (
+                          <span style={{
+                            marginLeft: 8, fontSize: 8, fontWeight: 800,
+                            padding: '1px 7px', borderRadius: 10,
+                            background: '#dbeafe', color: '#1e40af',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            Pendiente Integración
+                          </span>
+                        )}
+                      </td>
                       <td style={{ fontFamily: 'monospace', fontSize: 8, color: '#888' }}>{item.smpId}</td>
                       <td style={{ fontSize: 10, color: item.mosSS ? '#166534' : '#9ca3af' }}>{item.mosSS || '—'}</td>
                       <td style={{ fontSize: 10, color: item.intgSS ? '#166534' : '#9ca3af' }}>{item.intgSS || '—'}</td>
