@@ -2,6 +2,14 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS } from '../../store/useFactStore'
 
+function hitoRank(ms_name) {
+  const ms = (ms_name || '').toLowerCase()
+  if (ms.includes('mos')   || ms.includes('instalacion')) return 0
+  if (ms.includes('integ'))                               return 1
+  if (ms.includes('final') || ms.includes('aceptacion')) return 2
+  return 3
+}
+
 const STATUS_STYLES = {
   facturar:  { bg: '#fee2e2', color: '#991b1b', label: 'Facturar' },
   facturado: { bg: '#dcfce7', color: '#166534', label: 'Facturado' },
@@ -21,8 +29,8 @@ export default function FactSMPs() {
 
   const [search,   setSearch]   = useState('')
   const [filtro,   setFiltro]   = useState('todos')
-  const [sortCol,  setSortCol]  = useState('spo_date')
-  const [sortDir,  setSortDir]  = useState(-1)
+  const [sortCol,  setSortCol]  = useState('ms_name')
+  const [sortDir,  setSortDir]  = useState(1)
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -42,6 +50,10 @@ export default function FactSMPs() {
         return `${row.customer_site_name} ${row.spo_number} ${row.smp_id} ${row.ms_name} ${row.sgr || ''}`.toLowerCase().includes(search.toLowerCase())
       })
       .sort((a, b) => {
+        if (sortCol === 'ms_name') {
+          const diff = hitoRank(a.row.ms_name) - hitoRank(b.row.ms_name)
+          if (diff !== 0) return diff * sortDir
+        }
         const va = a.row[sortCol] || '', vb = b.row[sortCol] || ''
         return String(va).localeCompare(String(vb)) * sortDir
       })

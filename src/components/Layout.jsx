@@ -74,6 +74,7 @@ const FACT_NAV = [
   { to: '/facturacion/pos',          label: 'POs',            icon: '📁', id: 'fact-pos'       },
   { to: '/facturacion/smps',         label: 'Todos los SMPs', icon: '🗂', id: 'fact-smps'      },
   { to: '/facturacion/pagos-subc',   label: 'Pagos SubC',     icon: '💳', id: 'fact-pagos'     },
+  { to: '/facturacion/scytel',       label: 'SCYTEL',         icon: '🏗', id: 'fact-scytel', roles: ['admin','coordinador'] },
 ]
 
 const BADGE = {
@@ -196,7 +197,7 @@ export default function Layout({ children }) {
         : inRollout
           ? ROLLOUT_NAV.filter(canSee)
           : inFacturacion
-            ? FACT_NAV
+            ? FACT_NAV.filter(canSee)
             : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   const canSwitchModule = !!user

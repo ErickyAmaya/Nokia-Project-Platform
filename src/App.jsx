@@ -57,6 +57,7 @@ const FactFacturado   = lazy(() => import('./pages/facturacion/FactFacturado'))
 const FactPOs         = lazy(() => import('./pages/facturacion/FactPOs'))
 const FactSMPs        = lazy(() => import('./pages/facturacion/FactSMPs'))
 const FactPagosSubc   = lazy(() => import('./pages/facturacion/FactPagosSubc'))
+const FactScytel      = lazy(() => import('./pages/facturacion/FactScytel'))
 
 // Other heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
@@ -258,6 +259,11 @@ function AppRoutes() {
         <Route path="pos"               element={<FactPOs />} />
         <Route path="smps"              element={<FactSMPs />} />
         <Route path="pagos-subc"        element={<FactPagosSubc />} />
+        <Route path="scytel"            element={
+          <ProtectedRoute allowedRoles={['admin','coordinador']}>
+            <FactScytel />
+          </ProtectedRoute>
+        } />
       </Route>
 
       {/* ── /rollout/analitica ─────────────────────────────── */}

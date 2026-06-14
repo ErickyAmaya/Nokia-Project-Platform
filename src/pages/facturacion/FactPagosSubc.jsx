@@ -315,7 +315,7 @@ export default function FactPagosSubc() {
 
   return (
     <>
-      <div style={{ ...((compact || narrow) ? {} : { position: 'sticky', top: 'calc(96px + env(safe-area-inset-top))', zIndex: 10 }), background: '#f0f2f0', paddingBottom: 8, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
+      <div style={{ ...((compact || narrow) ? {} : { position: 'sticky', top: 'calc(86px + env(safe-area-inset-top))', zIndex: 10, paddingTop: 10 }), background: '#f0f2f0', paddingBottom: 8, boxShadow: '0 4px 8px -4px rgba(0,0,0,.07)' }}>
       {/* Header */}
       <div className="dash-hdr" style={{ marginBottom: 8 }}>
         <div>

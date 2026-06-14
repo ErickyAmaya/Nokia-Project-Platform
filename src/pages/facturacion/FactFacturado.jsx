@@ -7,6 +7,14 @@ import { showToast } from '../../components/Toast'
 const CAT_ORDER = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
 const CAT_MAP   = Object.fromEntries([...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }].map(c => [c.key, c]))
 
+function hitoRank(ms_name) {
+  const ms = (ms_name || '').toLowerCase()
+  if (ms.includes('integ'))                               return 1
+  if (ms.includes('final') || ms.includes('aceptacion')) return 2
+  if (ms.includes('mos')   || ms.includes('instalacion')) return 0
+  return 3
+}
+
 function NumFactura({ numero, observaciones }) {
   const [show, setShow] = useState(false)
   return (
@@ -240,7 +248,10 @@ export default function FactFacturado() {
         if (!byCat[k]) byCat[k] = []
         byCat[k].push(item)
       }
-      const catGroups = CAT_ORDER.filter(k => byCat[k]).map(k => ({ cat: CAT_MAP[k], items: byCat[k] }))
+      const catGroups = CAT_ORDER.filter(k => byCat[k]).map(k => ({
+        cat: CAT_MAP[k],
+        items: byCat[k].slice().sort((a, b) => hitoRank(a.row.ms_name) - hitoRank(b.row.ms_name)),
+      }))
       return { ...site, pctFacturado, catGroups }
     })
   }, [rows, pos, ppaTotalBySite])
