@@ -48,7 +48,8 @@ import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
 import AckForecast        from './pages/rollout/AckForecast'
 import MapaSitios         from './pages/rollout/MapaSitios'
-import FactWrapper from './pages/facturacion/FactWrapper'
+import FactWrapper            from './pages/facturacion/FactWrapper'
+import ScytelReporteViewer   from './pages/ScytelReporteViewer'
 
 // Fact pages: lazy-load so they don't bloat the initial bundle
 const FactDashboard   = lazy(() => import('./pages/facturacion/FactDashboard'))
@@ -139,7 +140,9 @@ function SessionRedirect() {
       if (!lcAllowed.includes(location.pathname)) navigate('/rollout/mapa', { replace: true })
     } else if (!done.current) {
       done.current = true
-      if (!allSkip.includes(location.pathname)) navigate('/modulos', { replace: true })
+      if (!allSkip.includes(location.pathname) && !location.pathname.startsWith('/r/')) {
+        navigate('/modulos', { replace: true })
+      }
     }
   }, [loading, user, location.pathname, navigate])
 
@@ -153,6 +156,7 @@ function AppRoutes() {
       <Routes>
       <Route path="/login"        element={<LoginPage />} />
       <Route path="/set-password" element={<SetPasswordPage />} />
+      <Route path="/r/:id"        element={<ScytelReporteViewer />} />
 
       <Route path="/" element={
         <ProtectedRoute><Layout><RoleHome /></Layout></ProtectedRoute>

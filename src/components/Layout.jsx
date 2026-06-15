@@ -74,7 +74,7 @@ const FACT_NAV = [
   { to: '/facturacion/pos',          label: 'POs',            icon: '📁', id: 'fact-pos'       },
   { to: '/facturacion/smps',         label: 'Todos los SMPs', icon: '🗂', id: 'fact-smps'      },
   { to: '/facturacion/pagos-subc',   label: 'Pagos SubC',     icon: '💳', id: 'fact-pagos'     },
-  { to: '/facturacion/scytel',       label: 'SCYTEL',         icon: '🏗', id: 'fact-scytel', roles: ['admin','coordinador'] },
+  { to: '/facturacion/scytel',       label: 'SCYTEL',         icon: '🏗', iconImg: 'https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/SCYTEL%20solologo.png', id: 'fact-scytel', roles: ['admin','coordinador'] },
 ]
 
 const BADGE = {
@@ -86,6 +86,11 @@ const BADGE = {
   viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
   logistica:   { label: '📦 Logística', cls: 'ub-op'    },
   facturacion: { label: '🧾 Fact.',    cls: 'ub-op'    },
+}
+
+function NavIcon({ item }) {
+  if (item.iconImg) return <img src={item.iconImg} alt={item.label} style={{ width:18, height:18, objectFit:'contain', flexShrink:0 }} />
+  return <span style={{ fontSize:16, width:22, textAlign:'center', flexShrink:0 }}>{item.icon}</span>
 }
 
 export default function Layout({ children }) {
@@ -564,7 +569,7 @@ export default function Layout({ children }) {
               onClick={() => setDrawerOpen(false)}
               style={{ textDecoration: 'none' }}
             >
-              <span style={{ fontSize: 16, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+              <NavIcon item={item} />
               {item.label}
             </NavLink>
           ))}

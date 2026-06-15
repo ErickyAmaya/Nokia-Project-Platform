@@ -6,6 +6,7 @@ import { useFactStore, getSmpCat, buildInvoicesMap } from '../../store/useFactSt
 import { useScytelStore }                        from '../../store/useScytelStore'
 import { useAuthStore }                          from '../../store/authStore'
 import { calcSitio }                             from '../../lib/calcSitio'
+import { supabase }                             from '../../lib/supabase'
 
 // ── Constantes ────────────────────────────────────────────────────
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -378,6 +379,726 @@ function FacturaDetalleModal({ factura, billing, spoRows, onClose }) {
   )
 }
 
+// ── Generador HTML del reporte (multi-mes) ───────────────────────
+async function generateReporteHTML({ selectedRows, mesPctMap }) {
+  const fecha = new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'})
+
+  // Embeber logo como base64 para que el HTML sea 100% self-contained
+  let logoSrc = ''
+  try {
+    const resp = await fetch('https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/SCYTEL%20solologo.png')
+    const blob = await resp.blob()
+    logoSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob) })
+  } catch(_) { /* logo opcional */ }
+  const totalPO     = selectedRows.reduce((s,r)=>s+r.netValue,0)
+  const totalSCYTEL = selectedRows.reduce((s,r)=>{
+    const pct = mesPctMap[r.mes||'sin-fecha']?.pctAcordado ?? 10
+    return s + r.netValue*pct/100
+  },0)
+
+  // Agrupar por mes, ordenado cronológicamente
+  const byMes = new Map()
+  for (const r of selectedRows) {
+    const mes = r.mes||'sin-fecha'
+    if (!byMes.has(mes)) byMes.set(mes,[])
+    byMes.get(mes).push(r)
+  }
+  const meses      = [...byMes.entries()].sort(([a],[b])=>a.localeCompare(b))
+  const mesesLabel = meses.map(([m])=>mesLabel(m)).join(', ')
+
+  const mesesHTML = meses.map(([mes, rows])=>{
+    const { pctAcordado=10, bracketReal=10, margenPct=0 } = mesPctMap[mes]||{}
+    const mesPO     = rows.reduce((s,r)=>s+r.netValue,0)
+    const mesScytel = rows.reduce((s,r)=>s+r.netValue*pctAcordado/100,0)
+    const rowsHTML  = [...rows]
+      .sort((a,b)=>a.site_name.localeCompare(b.site_name)||(HITO_ORDER[a.hito]??9)-(HITO_ORDER[b.hito]??9))
+      .map(r=>{
+        const hm  = HITO_META[r.hito]||{color:'#555',bg:'#f3f4f6',label:r.hito}
+        const val = r.netValue*pctAcordado/100
+        return `<tr>
+          <td>${r.site_name}</td>
+          <td><span style="background:${hm.bg};color:${hm.color};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">${hm.label}</span></td>
+          <td style="font-family:monospace">${r.spo_number}</td>
+          <td style="text-align:right">${fmtCOP(r.netValue)}</td>
+          <td style="text-align:center">${bracketReal}%</td>
+          <td style="text-align:center;font-weight:700;color:${pctAcordado!==bracketReal?'#b45309':'#374151'}">${pctAcordado}%</td>
+          <td style="text-align:right;font-weight:600;color:#1a5fa8">${fmtCOP(val)}</td>
+        </tr>`
+      }).join('\n')
+    return `<div class="mes-section">
+      <div class="mes-hdr">
+        <span class="mes-lbl">${mesLabel(mes)}</span>
+        <span class="mes-info">Margen: ${(+margenPct).toFixed(1)}% &nbsp;·&nbsp; Bracket: ${bracketReal}%${pctAcordado!==bracketReal?` &nbsp;·&nbsp; <span style="color:#b45309">Facturando: ${pctAcordado}%</span>`:''}</span>
+        <span class="mes-tot">${rows.length} SPO${rows.length!==1?'s':''} &nbsp;·&nbsp; SCYTEL: ${fmtCOP(mesScytel)}</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Sitio</th><th>Hito</th><th>SPO</th>
+          <th style="text-align:right">Valor PO</th>
+          <th style="text-align:center">Bracket</th>
+          <th style="text-align:center">% Fact.</th>
+          <th style="text-align:right">Valor SCYTEL</th>
+        </tr></thead>
+        <tbody>${rowsHTML}</tbody>
+        <tfoot><tr>
+          <td colspan="3" style="color:#6b7280;font-size:10px">Subtotal ${mesLabel(mes)}</td>
+          <td style="text-align:right;color:#374151">${fmtCOP(mesPO)}</td>
+          <td colspan="2"></td>
+          <td style="text-align:right;color:#1a5fa8">${fmtCOP(mesScytel)}</td>
+        </tr></tfoot>
+      </table>
+    </div>`
+  }).join('\n')
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reporte Facturación SCYTEL</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;background:#f4f6f9;color:#1a202c;padding:32px}
+  .wrap{max-width:920px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.12);overflow:hidden}
+  .hdr{background:linear-gradient(105deg,#0d1f3c 0%,#1a5fa8 100%);color:#fff;padding:28px 36px;display:flex;align-items:center;gap:18px}
+  .hdr img{width:46px;height:46px;object-fit:contain;filter:brightness(0) invert(1)}
+  .hdr h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  .hdr .sub{font-size:11px;opacity:.7;margin-top:3px;font-weight:400;letter-spacing:.3px}
+  .stripe{height:4px;background:linear-gradient(90deg,#4fa3e8,#1a5fa8,#0d3d6e)}
+  .cards{display:flex;gap:0;background:#eef4fb;border-bottom:1px solid #c8d4e2}
+  .card{flex:1;padding:14px 20px;border-right:1px solid #c8d4e2}
+  .card:last-child{border-right:none}
+  .card .lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:4px}
+  .card .val{font-size:17px;font-weight:700}
+  .card .sub{font-size:10px;color:#a0aec0;margin-top:2px}
+  .body{padding:0 36px 36px}
+  .mes-section{margin-top:28px}
+  .mes-hdr{display:flex;align-items:baseline;gap:12px;padding:10px 0 8px;border-bottom:2px solid #1a5fa8;flex-wrap:wrap}
+  .mes-lbl{font-size:15px;font-weight:700;color:#0d3d6e;letter-spacing:.3px}
+  .mes-info{font-size:11px;color:#718096;flex:1}
+  .mes-tot{font-size:11px;font-weight:600;color:#1a5fa8}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{padding:8px 12px;text-align:left;font-size:9px;font-weight:600;color:#1a5fa8;text-transform:uppercase;letter-spacing:1px;background:#eef4fb;border-bottom:1px solid #c8d4e2;white-space:nowrap}
+  td{padding:7px 12px;border-bottom:1px solid #edf2f7;vertical-align:middle}
+  td:first-child{font-weight:500}
+  tbody tr:hover{background:#f7fafd}
+  tfoot tr{background:#eef4fb;border-top:2px solid #c8d4e2}
+  tfoot td{font-weight:600;padding:9px 12px}
+  .grand{margin-top:24px;padding:16px 24px;background:linear-gradient(105deg,#0d1f3c,#1a5fa8);border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;color:#fff}
+  .grand .lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.6);margin-bottom:3px}
+  .foot{padding:14px 36px;background:#f4f6f9;border-top:1px solid #c8d4e2;font-size:10px;color:#a0aec0;display:flex;justify-content:space-between;align-items:center}
+  .foot-line{width:30px;height:2px;background:#1a5fa8}
+  @media(max-width:640px){body{padding:8px}.hdr{padding:20px 16px}.body{padding:0 16px 24px}.cards{flex-wrap:wrap}.card{min-width:50%}.foot{padding:10px 16px;flex-direction:column;gap:6px}}
+  @media print{body{background:#fff;padding:0}.wrap{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    ${logoSrc ? `<img src="${logoSrc}" alt="SCYTEL" style="width:46px;height:46px;object-fit:contain;filter:brightness(0) invert(1)">` : ''}
+    <div>
+      <h1>Reporte de Facturación</h1>
+      <div class="sub">Generado el ${fecha} &nbsp;·&nbsp; ${selectedRows.length} SPO${selectedRows.length!==1?'s':''} &nbsp;·&nbsp; ${meses.length} mes${meses.length!==1?'es':''}</div>
+    </div>
+  </div>
+  <div class="stripe"></div>
+  <div class="cards">
+    <div class="card"><div class="lbl">Período</div><div class="val" style="color:#0d3d6e;font-size:13px;line-height:1.4">${mesesLabel}</div></div>
+    <div class="card"><div class="lbl">Total POs</div><div class="val" style="color:#0d3d6e">${fmtCOP(totalPO)}</div><div class="sub">${selectedRows.length} SPOs</div></div>
+    <div class="card"><div class="lbl">Total SCYTEL</div><div class="val" style="color:#1a5fa8">${fmtCOP(totalSCYTEL)}</div></div>
+  </div>
+  <div class="body">
+    ${mesesHTML}
+    ${meses.length > 1 ? `<div class="grand">
+      <div><div class="lbl">Total general</div><div style="font-size:12px;color:rgba(255,255,255,.6);font-weight:300">${selectedRows.length} SPOs &nbsp;·&nbsp; ${meses.length} meses</div></div>
+      <div><div class="lbl">Total POs</div><div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700">${fmtCOP(totalPO)}</div></div>
+      <div><div class="lbl">Total SCYTEL</div><div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#4fa3e8">${fmtCOP(totalSCYTEL)}</div></div>
+    </div>` : ''}
+  </div>
+  <div class="foot">
+    <div class="foot-line"></div>
+    <span>Nokia Project Platform · SCYTEL Networks</span>
+    <span>Documento preliminar — sujeto a aprobación</span>
+  </div>
+</div>
+</body>
+</html>`
+}
+
+async function generateDiferencialHTML({ difRows }) {
+  const fecha = new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'})
+  let logoSrc = ''
+  try {
+    const resp = await fetch('https://tvlskyihhxfnxfgifilk.supabase.co/storage/v1/object/public/logos/SCYTEL%20solologo.png')
+    const blob = await resp.blob()
+    logoSrc = await new Promise(res => { const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob) })
+  } catch(_) {}
+
+  const byMes = new Map()
+  for (const r of difRows) {
+    const m = r.mes||'sin-fecha'
+    if (!byMes.has(m)) byMes.set(m,[])
+    byMes.get(m).push(r)
+  }
+  const totalDelta = difRows.reduce((s,r)=>s+r.delta,0)
+
+  const rowsHTML = [...byMes.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([mes,rows])=>`
+    <tr style="background:#f0f4fa">
+      <td colspan="6" style="padding:8px 12px;font-weight:700;color:#0d3d6e;font-size:12px">${mesLabel(mes)}</td>
+    </tr>
+    ${rows.map(r=>{
+      const pos = r.delta >= 0
+      return `<tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:6px 12px;font-size:11px;color:#374151">${r.site_name||'—'}</td>
+        <td style="padding:6px 12px;font-family:monospace;font-size:10px;color:#6b7280">${r.spo_number}</td>
+        <td style="padding:6px 12px;font-size:11px;text-align:right">${fmtCOP(r.netValue)}</td>
+        <td style="padding:6px 12px;font-size:11px;text-align:center;color:#b45309;font-weight:700">${r.pctUsado}%</td>
+        <td style="padding:6px 12px;font-size:11px;text-align:center;color:#1a5fa8;font-weight:700">${r.bracketReal}%</td>
+        <td style="padding:6px 12px;font-size:12px;text-align:right;font-weight:700;color:${pos?'#166534':'#991b1b'}">${pos?'+':''}${fmtCOP(r.delta)}</td>
+      </tr>`
+    }).join('')}
+  `).join('')
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diferencial % SCYTEL — ${fecha}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6f9;color:#1a2332}
+  .wrap{max-width:860px;margin:0 auto;padding:24px}
+  .header{background:linear-gradient(105deg,#0d1f3c,#1a5fa8);border-radius:12px;padding:24px 28px;display:flex;align-items:center;gap:20px;margin-bottom:24px}
+  .header-text h1{color:#fff;font-size:20px;font-weight:800;margin-bottom:4px}
+  .header-text p{color:#a8c4e8;font-size:11px}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  thead tr{background:linear-gradient(105deg,#0d1f3c,#1a5fa8)}
+  thead th{padding:10px 12px;font-size:10px;font-weight:700;color:#fff;text-align:left;text-transform:uppercase;letter-spacing:.5px}
+  thead th:nth-child(n+3){text-align:right}
+  thead th:nth-child(4),thead th:nth-child(5){text-align:center}
+  tfoot td{padding:10px 12px;font-weight:800;font-size:13px;border-top:2px solid #c8d4e2;background:#eef4fb}
+  .footer{margin-top:20px;text-align:center;font-size:9px;color:#9ca3af}
+</style></head><body>
+<div class="wrap">
+  <div class="header">
+    ${logoSrc?`<img src="${logoSrc}" style="height:48px;width:auto;filter:brightness(0)invert(1)" alt="SCYTEL">`:''}
+    <div class="header-text">
+      <h1>Diferencial de Porcentaje SCYTEL</h1>
+      <p>SPOs facturados con % diferente al bracket real del mes · Generado ${fecha}</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Sitio</th><th>SPO</th><th style="text-align:right">Valor PO</th>
+      <th style="text-align:center">% Facturado</th><th style="text-align:center">% Bracket Real</th>
+      <th style="text-align:right">Diferencia SCYTEL</th>
+    </tr></thead>
+    <tbody>${rowsHTML}</tbody>
+    <tfoot><tr>
+      <td colspan="5">Total diferencial (${difRows.length} SPOs)</td>
+      <td style="text-align:right;color:${totalDelta>=0?'#166534':'#991b1b'}">${totalDelta>=0?'+':''}${fmtCOP(totalDelta)}</td>
+    </tr></tfoot>
+  </table>
+  <div class="footer"><span>Nokia Project Platform · SCYTEL Networks</span></div>
+</div>
+</body></html>`
+}
+
+// ── Modal Generar Reporte (multi-mes, selección acumulada) ────────
+function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, liveMargenMes, onClose }) {
+  const meses = useMemo(()=>{
+    const map = new Map()
+    for (const r of pendingRows) {
+      const mes = r.mes||'sin-fecha'
+      if (!map.has(mes)) map.set(mes,[])
+      map.get(mes).push(r)
+    }
+    return [...map.entries()].sort(([a],[b])=>a.localeCompare(b))
+  },[pendingRows])
+
+  // selected es global — acumula a través de tabs
+  const [selected,        setSelected]        = useState(()=>new Set(pendingRows.map(r=>r.spo_number)))
+  const [selectedMes,     setSelectedMes]     = useState(()=>meses[0]?.[0]||null)
+  const [pctOverrides,    setPctOverrides]    = useState({})
+  const [uploading,    setUploading]    = useState(false)
+  const [generating,   setGenerating]   = useState(false)
+  const [previewHtml,  setPreviewHtml]  = useState(null)
+  const [mailHref,     setMailHref]     = useState(null)
+  const [tab,          setTab]          = useState('fact')
+
+  const difRows = useMemo(()=>
+    billedRows.map(r=>{
+      const br  = pctBracket(liveMargenMes[r.mes||'sin-fecha']??0)
+      const pct = r.pctFacturado ?? br
+      return { ...r, pctUsado: pct, bracketReal: br, delta: r.netValue*(br-pct)/100 }
+    }).filter(r=>r.pctUsado !== r.bracketReal)
+  ,[billedRows, liveMargenMes])
+
+  // Calcula pct info para un mes
+  function getMesPctInfo(mes) {
+    const locked   = lockedMargenMap[mes]
+    const m        = liveMargenMes[mes]??0
+    const br       = pctBracket(m)
+    const margen   = locked ? locked.margen_pct : +(m*100).toFixed(1)
+    const isLocked = billedMonths.has(mes)
+    const pct      = isLocked
+      ? (locked?.pct_scytel ?? br)
+      : (pctOverrides[mes] ?? locked?.pct_scytel ?? br)
+    return { pct, bracketReal: br, margenPct: margen, isLocked }
+  }
+
+  // mesPctMap para el generador HTML
+  const mesPctMap = useMemo(()=>{
+    const map = {}
+    for (const [mes] of meses) {
+      const { pct, bracketReal, margenPct } = getMesPctInfo(mes)
+      map[mes] = { pctAcordado: pct, bracketReal, margenPct }
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[meses, lockedMargenMap, liveMargenMes, billedMonths, pctOverrides])
+
+  const mesRows = useMemo(()=>meses.find(([m])=>m===selectedMes)?.[1]||[]
+  ,[meses,selectedMes])
+
+  const selectedRows = useMemo(()=>pendingRows.filter(r=>selected.has(r.spo_number)),[pendingRows,selected])
+
+  const totalSCYTEL = useMemo(()=>
+    selectedRows.reduce((s,r)=>{
+      const pct = mesPctMap[r.mes||'sin-fecha']?.pctAcordado ?? 10
+      return s + r.netValue*pct/100
+    },0)
+  ,[selectedRows,mesPctMap])
+
+  function toggleGlobalAll() {
+    if (selected.size===pendingRows.length) setSelected(new Set())
+    else setSelected(new Set(pendingRows.map(r=>r.spo_number)))
+  }
+  function toggleMesAll() {
+    const allMes     = mesRows.map(r=>r.spo_number)
+    const allSel     = mesRows.every(r=>selected.has(r.spo_number))
+    setSelected(s=>{ const n=new Set(s); allSel?allMes.forEach(id=>n.delete(id)):allMes.forEach(id=>n.add(id)); return n })
+  }
+  function toggleRow(spo) {
+    setSelected(s=>{ const n=new Set(s); n.has(spo)?n.delete(spo):n.add(spo); return n })
+  }
+
+  async function handlePreview() {
+    const win = window.open('about:blank', '_blank')
+    if (!win) return
+    win.document.write('<html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:13px;color:#9ca3af;background:#f4f6f9">Generando reporte…</body></html>')
+    setGenerating(true)
+    const html = await generateReporteHTML({ selectedRows, mesPctMap })
+    setPreviewHtml(html)
+    setGenerating(false)
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+  }
+
+  async function handleEnviar() {
+    if (!previewHtml || uploading) return
+    setUploading(true)
+    setMailHref(null)
+
+    const mesesStr = [...new Set(selectedRows.map(r=>mesLabel(r.mes||'sin-fecha')))].join(', ')
+    const { data, error } = await supabase
+      .from('scytel_reports')
+      .insert({ html_content: previewHtml, meses: mesesStr })
+      .select('id')
+      .single()
+
+    setUploading(false)
+    if (error) { showToast(error.message||'Error al guardar','err'); return }
+
+    const url    = `${window.location.origin}/r/${data.id}`
+    const byMes  = new Map()
+    for (const r of selectedRows) {
+      const mes = r.mes||'sin-fecha'
+      if (!byMes.has(mes)) byMes.set(mes,[])
+      byMes.get(mes).push(r)
+    }
+    const resumen = [...byMes.entries()]
+      .sort(([a],[b])=>a.localeCompare(b))
+      .map(([mes,rows])=>{
+        const pct = mesPctMap[mes]?.pctAcordado ?? 10
+        const sub = rows.reduce((s,r)=>s+r.netValue*pct/100,0)
+        return `  • ${mesLabel(mes)}: ${rows.length} SPO${rows.length!==1?'s':''} — SCYTEL: ${fmtCOP(sub)}`
+      }).join('\n')
+    const totalAcumulado = pendingRows.reduce((s,r)=>{
+      const pct = mesPctMap[r.mes||'sin-fecha']?.bracketReal ?? 10
+      return s + r.netValue * pct / 100
+    }, 0)
+    const subject = encodeURIComponent(`Reporte Facturación SCYTEL — ${mesesStr}`)
+    const body    = encodeURIComponent(
+`Estimados,
+
+Comparto el reporte de facturación SCYTEL para revisión:
+
+${url}
+
+Total acumulado facturable SCYTEL: ${fmtCOP(totalAcumulado)}
+Facturación de este período:       ${fmtCOP(totalSCYTEL)}
+
+Resumen del período:
+${resumen}
+
+SPOs incluidos: ${selectedRows.length}
+
+Nokia Project Platform · SCYTEL Networks`
+    )
+    setMailHref(`mailto:?subject=${subject}&body=${body}`)
+  }
+
+  async function handlePreviewDiff() {
+    const win = window.open('about:blank', '_blank')
+    if (!win) return
+    win.document.write('<html><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:13px;color:#9ca3af;background:#f4f6f9">Generando reporte…</body></html>')
+    setGenerating(true)
+    const html = await generateDiferencialHTML({ difRows })
+    setPreviewHtml(html)
+    setGenerating(false)
+    win.document.open()
+    win.document.write(html)
+    win.document.close()
+  }
+
+  async function handleEnviarDiff() {
+    if (!previewHtml || uploading) return
+    setUploading(true)
+    setMailHref(null)
+    const { data, error } = await supabase
+      .from('scytel_reports')
+      .insert({ html_content: previewHtml, meses: 'diferencial' })
+      .select('id').single()
+    setUploading(false)
+    if (error) { showToast(error.message||'Error al guardar','err'); return }
+    const url         = `${window.location.origin}/r/${data.id}`
+    const totalDelta  = difRows.reduce((s,r)=>s+r.delta,0)
+    const subject     = encodeURIComponent('Diferencial % Facturación SCYTEL')
+    const body        = encodeURIComponent(
+`Estimados,
+
+Adjunto el detalle de SPOs facturados con un porcentaje distinto al bracket real del mes:
+
+${url}
+
+SPOs con diferencial: ${difRows.length}
+Diferencia total SCYTEL: ${totalDelta>=0?'+':''}${fmtCOP(totalDelta)}
+
+Nokia Project Platform · SCYTEL Networks`
+    )
+    setMailHref(`mailto:?subject=${subject}&body=${body}`)
+  }
+
+  const bySite = useMemo(()=>{
+    const map = new Map()
+    for (const r of mesRows) {
+      if (!map.has(r.site_name)) map.set(r.site_name,[])
+      map.get(r.site_name).push(r)
+    }
+    return [...map.entries()].sort(([a],[b])=>a.localeCompare(b))
+  },[mesRows])
+
+  const { pct:mesPct, bracketReal:mesBracket, margenPct:mesMargen, isLocked:mesIsLocked } =
+    getMesPctInfo(selectedMes||'')
+  const mesAllSel = mesRows.length > 0 && mesRows.every(r=>selected.has(r.spo_number))
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:1000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:680,
+        maxHeight:'90vh', display:'flex', flexDirection:'column',
+        boxShadow:'0 20px 60px rgba(0,0,0,.2)', overflow:'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #e5e7eb',
+          display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'#9ca89c' }}>
+              Facturación SCYTEL
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
+              {[['fact','Facturación'],['diff','Diferencial %']].map(([key,label])=>(
+                <button key={key} onClick={()=>{ setTab(key); setPreviewHtml(null); setMailHref(null) }}
+                  style={{ fontSize:12, fontWeight:700, padding:'3px 12px', borderRadius:20,
+                    border: tab===key ? '2px solid #1a5fa8' : '2px solid #e5e7eb',
+                    background: tab===key ? '#dbeafe' : '#f9fafb',
+                    color: tab===key ? '#1a5fa8' : '#6b7280', cursor:'pointer' }}>
+                  {label}
+                  {key==='diff' && difRows.length>0 && (
+                    <span style={{ marginLeft:5, background:'#b45309', color:'#fff',
+                      borderRadius:10, fontSize:9, padding:'1px 5px' }}>{difRows.length}</span>
+                  )}
+                </button>
+              ))}
+              {tab==='fact' && (
+                <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
+                  fontSize:10, fontWeight:600, color:'#6b7280', marginLeft:6 }}>
+                  <input type="checkbox"
+                    checked={selected.size===pendingRows.length && pendingRows.length>0}
+                    onChange={toggleGlobalAll} />
+                  Todos los meses
+                </label>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose}
+            style={{ border:'none', background:'#f3f4f6', borderRadius:8, width:28, height:28,
+              cursor:'pointer', fontSize:14, color:'#6b7280',
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+            ✕
+          </button>
+        </div>
+
+        {tab === 'fact' && <>
+        {/* Tabs de meses */}
+        <div style={{ padding:'8px 20px', background:'#eef4fb', borderBottom:'1px solid #c8d4e2',
+          display:'flex', gap:6, flexWrap:'wrap' }}>
+          {meses.map(([mes, rows])=>{
+            const selCount = rows.filter(r=>selected.has(r.spo_number)).length
+            return (
+              <button key={mes} onClick={()=>setSelectedMes(mes)}
+                style={{ border: selectedMes===mes?'2px solid #1a5fa8':'1px solid #c8d4e2',
+                  borderRadius:8, padding:'4px 10px', fontSize:10, fontWeight:700,
+                  background: selectedMes===mes?'#deeaf6':'#fff',
+                  color: selectedMes===mes?'#0d3d6e':'#9ca3af',
+                  cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                {mesLabel(mes)}
+                <span style={{ background: selCount>0?(selectedMes===mes?'#1a5fa8':'#4fa3e8'):'#e5e7eb',
+                  color: selCount>0?'#fff':'#6b7280',
+                  borderRadius:8, padding:'0 5px', fontSize:9 }}>
+                  {selCount}/{rows.length}
+                </span>
+                {billedMonths.has(mes) && <span style={{ fontSize:9 }}>🔒</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Barra bracket del mes visible */}
+        <div style={{ padding:'6px 20px', background:'#f9fafb', borderBottom:'1px solid #e5e7eb',
+          display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+          <span style={{ fontSize:10, color:'#6b7280' }}>
+            Margen: <strong style={{ color:'#166534' }}>{(+mesMargen).toFixed(1)}%</strong>
+          </span>
+          <span style={{ fontSize:10, color:'#6b7280' }}>
+            Bracket: <strong style={{ color:'#1a5fa8' }}>{mesBracket}%</strong>
+          </span>
+          {mesIsLocked ? (
+            <span style={{ fontSize:10, fontWeight:700, color:'#1a5fa8',
+              background:'#deeaf6', padding:'2px 8px', borderRadius:6 }}>
+              🔒 Facturando {mesPct}%
+            </span>
+          ) : (
+            <div style={{ display:'flex', gap:3, background:'#f3f4f6', borderRadius:8, padding:2 }}>
+              {[8,10,12].map(p=>{
+                const sel = mesPct===p
+                const col = p===12?'#166534':p===10?'#1a5fa8':'#991b1b'
+                const bg  = p===12?'#dcfce7':p===10?'#deeaf6':'#fee2e2'
+                return (
+                  <button key={p}
+                    onClick={()=>setPctOverrides(v=>({...v,[selectedMes]:p}))}
+                    style={{ border:'none', borderRadius:6, padding:'3px 10px', cursor:'pointer',
+                      background: sel?bg:'transparent',
+                      fontWeight:800, fontSize:11, color: sel?col:'#9ca3af',
+                      display:'flex', alignItems:'center', gap:2 }}>
+                    {p}%
+                    {p===mesBracket && <span style={{ fontSize:7, opacity:.7 }}>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <span style={{ flex:1 }} />
+          <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
+            fontSize:11, fontWeight:600, color:'#374151' }}>
+            <input type="checkbox" checked={mesAllSel} onChange={toggleMesAll} />
+            Todos este mes ({mesRows.length})
+          </label>
+        </div>
+
+        {/* Lista SPOs del mes visible */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {bySite.map(([siteName, rows])=>{
+            const siteSelected = rows.filter(r=>selected.has(r.spo_number)).length
+            return (
+              <div key={siteName} style={{ borderBottom:'1px solid #f3f4f6' }}>
+                <div style={{ padding:'7px 20px', background:'#f8faf8',
+                  display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:'#374151', flex:1 }}>{siteName}</span>
+                  <span style={{ fontSize:10, color:'#9ca3af' }}>{siteSelected}/{rows.length}</span>
+                </div>
+                {rows.map(r=>{
+                  const hm  = HITO_META[r.hito]||HITO_META.MOS
+                  const val = r.netValue*mesPct/100
+                  return (
+                    <label key={r.spo_number}
+                      style={{ display:'flex', alignItems:'center', gap:10,
+                        padding:'6px 20px 6px 28px', cursor:'pointer',
+                        background: selected.has(r.spo_number)?'#eef4fb':'#fff',
+                        borderTop:'1px solid #fafafa', transition:'background .1s' }}>
+                      <input type="checkbox"
+                        checked={selected.has(r.spo_number)}
+                        onChange={()=>toggleRow(r.spo_number)} />
+                      <span style={{ background:hm.bg, color:hm.color, fontSize:9, fontWeight:700,
+                        padding:'1px 7px', borderRadius:8, whiteSpace:'nowrap' }}>
+                        {hm.label}
+                      </span>
+                      <span style={{ fontFamily:'monospace', fontSize:10, color:'#6b7280', flex:1 }}>
+                        {r.spo_number}
+                      </span>
+                      <span style={{ fontSize:11, color:'#374151', textAlign:'right', minWidth:90 }}>
+                        {fmtCOP(r.netValue)}
+                      </span>
+                      <span style={{ fontSize:11, fontWeight:700, color:'#1a5fa8', textAlign:'right', minWidth:90 }}>
+                        {fmtCOP(val)}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer resumen global + acciones */}
+        <div style={{ position:'relative', padding:'10px 20px', borderTop:'2px solid #c8d4e2',
+          background:'#eef4fb', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+          <div>
+            <div style={{ fontSize:9, color:'#9ca89c', fontWeight:700 }}>Total seleccionados</div>
+            <div style={{ fontSize:14, fontWeight:800, color:'#374151' }}>
+              {selectedRows.length} SPO{selectedRows.length!==1?'s':''}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize:9, color:'#9ca89c', fontWeight:700 }}>Total SCYTEL</div>
+            <div style={{ fontSize:14, fontWeight:800, color:'#1a5fa8' }}>{fmtCOP(totalSCYTEL)}</div>
+          </div>
+          <span style={{ flex:1 }} />
+          <button onClick={onClose}
+            style={{ background:'#f3f4f6', border:'none', borderRadius:8,
+              padding:'7px 14px', fontSize:11, cursor:'pointer', color:'#6b7280' }}>
+            Cancelar
+          </button>
+          <button onClick={handlePreview} disabled={!selectedRows.length || generating}
+            style={{ background: selectedRows.length&&!generating?'#0d3d6e':'#f3f4f6',
+              color: selectedRows.length&&!generating?'#fff':'#d1d5db',
+              border:'none', borderRadius:8, padding:'7px 14px', fontSize:11,
+              fontWeight:700, cursor: selectedRows.length&&!generating?'pointer':'default' }}>
+            {generating ? 'Generando…' : 'Ver reporte ↗'}
+          </button>
+          {mailHref ? (
+            <a href={mailHref} onClick={()=>{ setMailHref(null); setPreviewHtml(null) }}
+              style={{ background:'#166534', color:'#fff', borderRadius:8,
+                padding:'7px 14px', fontSize:11, fontWeight:700,
+                textDecoration:'none', whiteSpace:'nowrap' }}>
+              Enviar Reporte ✉
+            </a>
+          ) : previewHtml ? (
+            <button onClick={handleEnviar} disabled={uploading}
+              style={{ background: uploading?'#6b7280':'#1a5fa8', color:'#fff',
+                border:'none', borderRadius:8, padding:'7px 14px', fontSize:11,
+                fontWeight:700, cursor: uploading?'default':'pointer', whiteSpace:'nowrap' }}>
+              {uploading ? 'Guardando…' : 'Aprobar Reporte ✉'}
+            </button>
+          ) : null}
+        </div>
+        </>}
+
+        {tab === 'diff' && <>
+        {/* Contenido tab Diferencial % */}
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
+          {difRows.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'40px 0', color:'#9ca3af', fontSize:13 }}>
+              No hay SPOs con diferencial de porcentaje
+            </div>
+          ) : (() => {
+            const byMes = new Map()
+            for (const r of difRows) {
+              const m = r.mes||'sin-fecha'
+              if (!byMes.has(m)) byMes.set(m,[])
+              byMes.get(m).push(r)
+            }
+            return [...byMes.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([mes,rows])=>(
+              <div key={mes} style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:800, color:'#0d3d6e',
+                  background:'#eef4fb', padding:'5px 10px', borderRadius:6, marginBottom:4 }}>
+                  {mesLabel(mes)}
+                </div>
+                {rows.map(r=>{
+                  const pos = r.delta >= 0
+                  return (
+                    <div key={r.spo_number} style={{ display:'flex', alignItems:'center',
+                      gap:8, padding:'5px 8px', borderBottom:'1px solid #f3f4f6',
+                      background:'#fff', flexWrap:'wrap' }}>
+                      <span style={{ fontSize:10, color:'#374151', flex:1, minWidth:100 }}>{r.site_name||'—'}</span>
+                      <span style={{ fontFamily:'monospace', fontSize:10, color:'#6b7280', minWidth:110 }}>{r.spo_number}</span>
+                      <span style={{ fontSize:10, color:'#374151', minWidth:80, textAlign:'right' }}>{fmtCOP(r.netValue)}</span>
+                      <span style={{ fontSize:10, fontWeight:700, color:'#b45309', minWidth:40, textAlign:'center' }}>{r.pctUsado}%</span>
+                      <span style={{ fontSize:9, color:'#9ca3af' }}>→</span>
+                      <span style={{ fontSize:10, fontWeight:700, color:'#1a5fa8', minWidth:40, textAlign:'center' }}>{r.bracketReal}%</span>
+                      <span style={{ fontSize:11, fontWeight:800, color: pos?'#166534':'#991b1b',
+                        minWidth:80, textAlign:'right' }}>
+                        {pos?'+':''}{fmtCOP(r.delta)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ))
+          })()}
+        </div>
+        {/* Footer diferencial */}
+        <div style={{ padding:'10px 20px', borderTop:'2px solid #c8d4e2',
+          background:'#eef4fb', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+          {(() => {
+            const totalDelta = difRows.reduce((s,r)=>s+r.delta,0)
+            return (
+              <div>
+                <div style={{ fontSize:9, color:'#9ca89c', fontWeight:700 }}>Diferencia total</div>
+                <div style={{ fontSize:14, fontWeight:800, color: totalDelta>=0?'#166534':'#991b1b' }}>
+                  {totalDelta>=0?'+':''}{fmtCOP(totalDelta)}
+                </div>
+              </div>
+            )
+          })()}
+          <span style={{ flex:1 }} />
+          <button onClick={onClose}
+            style={{ background:'#f3f4f6', border:'none', borderRadius:8,
+              padding:'7px 14px', fontSize:11, cursor:'pointer', color:'#6b7280' }}>
+            Cancelar
+          </button>
+          <button onClick={handlePreviewDiff} disabled={!difRows.length || generating}
+            style={{ background: difRows.length&&!generating?'#0d3d6e':'#f3f4f6',
+              color: difRows.length&&!generating?'#fff':'#d1d5db',
+              border:'none', borderRadius:8, padding:'7px 14px', fontSize:11,
+              fontWeight:700, cursor: difRows.length&&!generating?'pointer':'default' }}>
+            {generating ? 'Generando…' : 'Ver reporte ↗'}
+          </button>
+          {mailHref ? (
+            <a href={mailHref} onClick={()=>{ setMailHref(null); setPreviewHtml(null) }}
+              style={{ background:'#166534', color:'#fff', borderRadius:8,
+                padding:'7px 14px', fontSize:11, fontWeight:700,
+                textDecoration:'none', whiteSpace:'nowrap' }}>
+              Enviar Reporte ✉
+            </a>
+          ) : previewHtml ? (
+            <button onClick={handleEnviarDiff} disabled={uploading}
+              style={{ background: uploading?'#6b7280':'#1a5fa8', color:'#fff',
+                border:'none', borderRadius:8, padding:'7px 14px', fontSize:11,
+                fontWeight:700, cursor: uploading?'default':'pointer', whiteSpace:'nowrap' }}>
+              {uploading ? 'Guardando…' : 'Aprobar Reporte ✉'}
+            </button>
+          ) : null}
+        </div>
+        </>}
+      </div>
+
+    </div>
+  )
+}
+
 // ── Página principal ──────────────────────────────────────────────
 export default function FactScytel() {
   const sitiosRaw        = useAppStore(s=>s.sitios)
@@ -398,6 +1119,7 @@ export default function FactScytel() {
   const [expandedSites,  setExpandedSites] = useState(new Set())
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [showFacturas,   setShowFacturas]  = useState(false)
+  const [reporteModal,   setReporteModal]  = useState(false)
   const sentinelRef = useRef(null)
 
   useEffect(()=>{ loadAll() },[]) // eslint-disable-line
@@ -613,6 +1335,16 @@ export default function FactScytel() {
 
   return (
     <div>
+      {reporteModal && (
+        <ReporteModal
+          pendingRows={spoRows.filter(r=>r.ingetelBilled&&!r.scytelBilled)}
+          billedRows={spoRows.filter(r=>r.scytelBilled)}
+          billedMonths={new Set(spoRows.filter(r=>r.scytelBilled).map(r=>r.mes||'sin-fecha'))}
+          lockedMargenMap={lockedMargenMap}
+          liveMargenMes={liveMargenMes}
+          onClose={()=>setReporteModal(false)}
+        />
+      )}
       {facturaModal && (
         <FacturaDetalleModal
           factura={facturaModal}
@@ -675,6 +1407,17 @@ export default function FactScytel() {
           </button>
 
           <span style={{ flex:1 }} />
+
+          {/* Botón reportes — solo admin */}
+          {canBill && (
+            <button onClick={()=>setReporteModal(true)}
+              style={{ border:'1px solid #c8d4e2', borderRadius:8, cursor:'pointer',
+                padding:'4px 10px', display:'flex', alignItems:'center', gap:5,
+                background:'#eef4fb', color:'#1a5fa8', fontSize:10, fontWeight:700,
+                whiteSpace:'nowrap' }}>
+              Reportes ↗
+            </button>
+          )}
 
           {/* Dropdown facturas emitidas — alineado a la derecha */}
           {facturasList.length > 0 && (
@@ -782,10 +1525,10 @@ export default function FactScytel() {
         const mc  = margen>=30?'#166534':margen>=20?'#854d0e':'#991b1b'
         const pc  = pct===12?'#166534':pct===10?'#1e40af':'#991b1b'
         const pb  = pct===12?'#dcfce7':pct===10?'#dbeafe':'#fee2e2'
-        const allRows     = Object.values(sites).flatMap(cats=>Object.values(cats).flat())
-        const pendMes     = allRows.filter(r=>r.ingetelBilled&&!r.scytelBilled).length
-        const pendienteMes = allRows.filter(r=>r.ingetelBilled&&!r.scytelBilled).reduce((s,r)=>s+r.netValue*pct/100,0)
-        const factMes     = allRows.filter(r=>r.scytelBilled).reduce((s,r)=>s+r.netValue*(r.pctFacturado||pct)/100,0)
+        const allRows        = Object.values(sites).flatMap(cats=>Object.values(cats).flat())
+        const porFacturarMes = allRows.filter(r=>r.ingetelBilled&&!r.scytelBilled).reduce((s,r)=>s+r.netValue*pct/100,0)
+        const pendienteMes   = allRows.filter(r=>!r.ingetelBilled).reduce((s,r)=>s+r.netValue*pct/100,0)
+        const factMes        = allRows.filter(r=>r.scytelBilled).reduce((s,r)=>s+r.netValue*(r.pctFacturado||pct)/100,0)
 
         return (
           <div key={mesKey} style={{ marginBottom:20 }}>
@@ -810,12 +1553,14 @@ export default function FactScytel() {
                 <span style={{ fontSize:8, opacity:.6 }}>✎</span>
               </button>
               <span style={{ flex:1 }} />
-              <span style={{ fontSize:10, color: pendMes>0?'#b45309':'#9ca3af', fontWeight:700 }}>{pendMes} pend.</span>
-              {pendienteMes > 0 && (
-                <span style={{ fontSize:10, color:'#b45309', fontWeight:700 }}>Por facturar: {fmtCOP(pendienteMes)}</span>
-              )}
               {factMes > 0 && (
-                <span style={{ fontSize:10, color:'#6d28d9', fontWeight:700 }}>Facturado: {fmtCOP(factMes)}</span>
+                <span style={{ fontSize:10, color:'#475569', fontWeight:700 }}>Facturado: {fmtCOP(factMes)}</span>
+              )}
+              {porFacturarMes > 0 && (
+                <span style={{ fontSize:10, color:'#1e40af', fontWeight:700 }}>Facturar: {fmtCOP(porFacturarMes)}</span>
+              )}
+              {pendienteMes > 0 && (
+                <span style={{ fontSize:10, color:'#b45309', fontWeight:700 }}>Pendiente: {fmtCOP(pendienteMes)}</span>
               )}
             </div>
 
