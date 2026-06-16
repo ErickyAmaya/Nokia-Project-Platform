@@ -71,13 +71,24 @@ Deno.serve(async (req) => {
       const { email, nombre, role, modulo, redirectTo } = body
       if (!email || !role) return json({ error: 'Faltan campos requeridos' }, 400)
 
+      let userId: string | null = null
+
       const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
         redirectTo: redirectTo || undefined,
       })
-      if (error) return json({ error: error.message }, 400)
+
+      if (error) {
+        // Si el usuario ya existe, buscarlo por email para obtener su ID
+        const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        const existing = users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+        if (!existing) return json({ error: error.message }, 400)
+        userId = existing.id
+      } else {
+        userId = data.user.id
+      }
 
       await admin.from('user_roles').upsert({
-        user_id: data.user.id,
+        user_id: userId,
         email:   email.toLowerCase().trim(),
         role,
         nombre:  nombre || email.split('@')[0],

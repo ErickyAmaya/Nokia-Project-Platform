@@ -10,7 +10,7 @@ import { useFactStore, buildInvoicesMap, getEventosRow } from '../store/useFactS
 const MODULE_ACCESS = {
   billing:     ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW'],
   materiales:  ['admin', 'coordinador', 'logistica', 'viewer'],
-  rollout:     ['admin', 'coordinador', 'viewer'],
+  rollout:     ['admin', 'coordinador', 'viewer', 'rollout'],
   facturacion: ['admin', 'coordinador', 'facturacion', 'viewer'],
 }
 

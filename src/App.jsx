@@ -106,7 +106,7 @@ const R_TSS     = ['admin', 'coordinador', 'TSS', 'viewer']
 const R_CW      = ['admin', 'coordinador', 'CW',  'viewer']
 const R_ADMIN    = ['admin']
 const R_CATALOG  = ['admin', 'coordinador']
-const R_MGMT     = ['admin', 'coordinador', 'viewer']
+const R_MGMT     = ['admin', 'coordinador', 'viewer', 'rollout']
 const R_ANALITICA = ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW']
 
 function W(page) {
@@ -118,6 +118,7 @@ const LC_ROLES = ['TI', 'TSS']
 function RoleHome() {
   const user = useAuthStore(s => s.user)
   if (LC_ROLES.includes(user?.role)) return <Navigate to="/rollout/mapa" replace />
+  if (user?.role === 'rollout') return <Navigate to="/rollout/ack" replace />
   return <Navigate to="/modulos" replace />
 }
 
@@ -277,7 +278,7 @@ function AppRoutes() {
 
       {/* ── /rollout/mapa — accesible también para TI / TSS ─── */}
       <Route path="/rollout/mapa" element={
-        <ProtectedRoute allowedRoles={['admin','coordinador','viewer','TI','TSS']}>
+        <ProtectedRoute allowedRoles={['admin','coordinador','viewer','TI','TSS','rollout']}>
           <Layout><MapaSitios /></Layout>
         </ProtectedRoute>
       } />

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAckStore, PROCESOS, nokiaWeekLabel, getNokiaWeek } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
+import { useAuthStore } from '../../store/authStore'
 import { exportAckToExcel } from '../../lib/ackExcelExport'
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -872,6 +873,7 @@ export default function AckForecast() {
     proyectoSel.length ? prevSabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : prevSabanaRaw
   , [prevSabanaRaw, proyectoSel])
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
+  const canUpload = useAuthStore(s => !['viewer', 'rollout'].includes(s.user?.role))
 
   const [filtro,     setFiltro]     = useState('pendientes')
   const [activeView, setActiveView] = useState('reporte')
@@ -973,7 +975,7 @@ export default function AckForecast() {
               </span>
             )}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
+          {canUpload && <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
             {/* Botón Semana Anterior */}
             <label
               onMouseEnter={() => setHoverPrev(true)}
@@ -1019,7 +1021,7 @@ export default function AckForecast() {
               <span>{loadingCurr ? '⏳' : '📂'}</span>
               <span>{loadingCurr ? 'Cargando...' : 'Cargar ACK Actual'}</span>
             </label>
-          </div>
+          </div>}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
           {/* Tab switcher */}
@@ -1047,7 +1049,7 @@ export default function AckForecast() {
             </select>
           )}
 
-          {activeView === 'seguimiento' && (
+          {activeView === 'seguimiento' && canUpload && (
             <button onClick={() => setSetupOpen(true)}
               style={{ padding: '7px 12px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#fff', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 5 }}
               title="Configurar estados visibles en el reporte Nokia"

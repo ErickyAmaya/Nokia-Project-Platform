@@ -12,6 +12,7 @@ const ROLES = [
   { value: 'CW',          label: 'CW'          },
   { value: 'logistica',   label: 'Logística'   },
   { value: 'facturacion', label: 'Facturación' },
+  { value: 'rollout',     label: 'Rollout'     },
   { value: 'viewer',      label: 'Viewer'      },
 ]
 

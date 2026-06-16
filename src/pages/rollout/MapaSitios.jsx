@@ -529,10 +529,12 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={onClose} className="btn" style={{ fontSize: 11, padding: '7px 16px', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={saveSingle} disabled={singleSaving} className="btn bp"
-                style={{ fontSize: 11, padding: '7px 16px', cursor: singleSaving ? 'not-allowed' : 'pointer', opacity: singleSaving ? .6 : 1 }}>
-                {singleSaving ? 'Guardando…' : 'Guardar coordenadas'}
-              </button>
+              {!['viewer','rollout'].includes(userRole) && (
+                <button onClick={saveSingle} disabled={singleSaving} className="btn bp"
+                  style={{ fontSize: 11, padding: '7px 16px', cursor: singleSaving ? 'not-allowed' : 'pointer', opacity: singleSaving ? .6 : 1 }}>
+                  {singleSaving ? 'Guardando…' : 'Guardar coordenadas'}
+                </button>
+              )}
             </div>
           </div>
         )}

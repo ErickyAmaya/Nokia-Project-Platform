@@ -29,7 +29,7 @@ function badge(val) {
 
 // Modal de comentario con textarea
 function FcCell({ value, onSave, siteLabel }) {
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const isViewer = useAuthStore(s => ['viewer', 'rollout'].includes(s.user?.role))
   const [open, setOpen] = useState(false)
   const [val,  setVal]  = useState(value || '')
 
@@ -124,7 +124,7 @@ function FcCell({ value, onSave, siteLabel }) {
 }
 
 function FcDateCell({ value, onSave }) {
-  const isViewer = useAuthStore(s => s.user?.role === 'viewer')
+  const isViewer = useAuthStore(s => ['viewer', 'rollout'].includes(s.user?.role))
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(value || '')
 
