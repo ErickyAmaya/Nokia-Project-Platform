@@ -284,7 +284,7 @@ function FacturaDetalleModal({ factura, billing, spoRows, onClose }) {
     : '—'
 
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,.45)',
+    <div style={{ position:'fixed', inset:0, zIndex:1100, background:'rgba(0,0,0,.45)',
       display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
       onClick={onClose}>
       <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:680,
@@ -502,7 +502,7 @@ async function generateReporteHTML({ selectedRows, mesPctMap }) {
       <h1>Reporte de Facturación</h1>
       <div class="sub">Generado el ${fecha} &nbsp;·&nbsp; ${selectedRows.length} SPO${selectedRows.length!==1?'s':''} &nbsp;·&nbsp; ${meses.length} mes${meses.length!==1?'es':''}</div>
     </div>
-    <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
+    <button class="btn-close" onclick="window.parent.close()">✕ Cerrar</button>
   </div>
   <div class="stripe"></div>
   <div class="cards">
@@ -589,7 +589,7 @@ async function generateDiferencialHTML({ difRows }) {
       <h1>Diferencial de Porcentaje SCYTEL</h1>
       <p>SPOs facturados con % diferente al bracket real del mes · Generado ${fecha}</p>
     </div>
-    <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
+    <button class="btn-close" onclick="window.parent.close()">✕ Cerrar</button>
   </div>
   <table>
     <thead><tr>
@@ -609,7 +609,7 @@ async function generateDiferencialHTML({ difRows }) {
 }
 
 // ── Modal Generar Reporte (multi-mes, selección acumulada) ────────
-function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, liveMargenMes, onClose }) {
+function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, liveMargenMes, facturasList = [], onFacturaClick, onClose }) {
   const meses = useMemo(()=>{
     const map = new Map()
     for (const r of pendingRows) {
@@ -824,7 +824,7 @@ Nokia Project Platform · SCYTEL Networks`
               Facturación SCYTEL
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
-              {[['fact','Facturación'],['diff','Diferencial %']].map(([key,label])=>(
+              {[['fact','Facturación'],['diff','Diferencial %'],['facturas','Facturas emitidas']].map(([key,label])=>(
                 <button key={key} onClick={()=>{ setTab(key); setPreviewHtml(null); setMailHref(null) }}
                   style={{ fontSize:12, fontWeight:700, padding:'3px 12px', borderRadius:20,
                     border: tab===key ? '2px solid #1a5fa8' : '2px solid #e5e7eb',
@@ -834,6 +834,11 @@ Nokia Project Platform · SCYTEL Networks`
                   {key==='diff' && difRows.length>0 && (
                     <span style={{ marginLeft:5, background:'#b45309', color:'#fff',
                       borderRadius:10, fontSize:9, padding:'1px 5px' }}>{difRows.length}</span>
+                  )}
+                  {key==='facturas' && facturasList.length>0 && (
+                    <span style={{ marginLeft:5, background: tab==='facturas' ? '#1a5fa8' : '#e5e7eb',
+                      color: tab==='facturas' ? '#fff' : '#6b7280',
+                      borderRadius:10, fontSize:9, padding:'1px 5px' }}>{facturasList.length}</span>
                   )}
                 </button>
               ))}
@@ -1099,6 +1104,48 @@ Nokia Project Platform · SCYTEL Networks`
           ) : null}
         </div>
         </>}
+
+        {tab === 'facturas' && <>
+        <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+          {facturasList.length === 0 ? (
+            <div style={{ textAlign:'center', color:'#9ca3af', fontSize:12, padding:32 }}>Sin facturas emitidas</div>
+          ) : (
+            <table style={{ borderCollapse:'collapse', fontSize:11, width:'100%' }}>
+              <thead>
+                <tr style={{ background:'#f8f9fb', borderBottom:'1px solid #e5e7eb' }}>
+                  {['# Factura','Fecha','Valor'].map(h=>(
+                    <th key={h} style={{ padding:'6px 12px', textAlign:'left', fontSize:9,
+                      fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:.5 }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {facturasList.map((f,i)=>(
+                  <tr key={f.numero}
+                    onClick={()=> onFacturaClick?.(f)}
+                    style={{ borderTop: i>0?'1px solid #f3f4f6':'none', background:'#fff',
+                      cursor:'pointer', transition:'background .1s' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#faf5ff'}
+                    onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
+                    <td style={{ padding:'7px 12px', fontWeight:700, color:'#6d28d9', fontFamily:'monospace' }}>{f.numero}</td>
+                    <td style={{ padding:'7px 12px', color:'#6b7280' }}>
+                      {f.fecha ? new Date(f.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—'}
+                    </td>
+                    <td style={{ padding:'7px 12px', fontWeight:700, color:'#374151' }}>{fmtCOP(f.valor)}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop:'1px solid #e5e7eb', background:'#faf5ff' }}>
+                  <td style={{ padding:'6px 12px', fontSize:9, fontWeight:700, color:'#6b7280' }}>TOTAL</td>
+                  <td style={{ padding:'6px 12px' }} />
+                  <td style={{ padding:'6px 12px', fontWeight:800, color:'#6d28d9' }}>{fmtCOP(facturasList.reduce((s,f)=>s+f.valor,0))}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+        </>}
       </div>
 
     </div>
@@ -1124,7 +1171,6 @@ export default function FactScytel() {
   const [facturaModal,   setFacturaModal]  = useState(null)
   const [expandedSites,  setExpandedSites] = useState(new Set())
   const [soloPendientes, setSoloPendientes] = useState(false)
-  const [showFacturas,   setShowFacturas]  = useState(false)
   const [reporteModal,   setReporteModal]  = useState(false)
   const sentinelRef = useRef(null)
 
@@ -1348,6 +1394,8 @@ export default function FactScytel() {
           billedMonths={new Set(spoRows.filter(r=>r.scytelBilled).map(r=>r.mes||'sin-fecha'))}
           lockedMargenMap={lockedMargenMap}
           liveMargenMes={liveMargenMes}
+          facturasList={facturasList}
+          onFacturaClick={f=>{ setFacturaModal(f) }}
           onClose={()=>setReporteModal(false)}
         />
       )}
@@ -1425,64 +1473,6 @@ export default function FactScytel() {
             </button>
           )}
 
-          {/* Dropdown facturas emitidas — alineado a la derecha */}
-          {facturasList.length > 0 && (
-            <div style={{ position:'relative' }}>
-              <button onClick={()=>setShowFacturas(v=>!v)}
-                style={{ background: showFacturas ? '#f3f4f6' : 'none',
-                  border:'1px solid #e5e7eb', borderRadius:8, cursor:'pointer',
-                  padding:'4px 10px', display:'flex', alignItems:'center', gap:6,
-                  color: showFacturas ? '#6d28d9' : '#9ca3af', fontSize:10, fontWeight:600,
-                  whiteSpace:'nowrap', transition:'all .15s' }}>
-                Facturas emitidas
-                <span style={{ background: showFacturas ? '#ede9fe' : '#f3f4f6',
-                  color: showFacturas ? '#6d28d9' : '#6b7280',
-                  borderRadius:8, padding:'0 6px', fontSize:9, fontWeight:700 }}>
-                  {facturasList.length}
-                </span>
-                <span style={{ fontSize:8, opacity:.6 }}>{showFacturas ? '▾' : '▸'}</span>
-              </button>
-              {showFacturas && (
-                <div style={{ position:'absolute', right:0, top:'calc(100% + 6px)', zIndex:50,
-                  background:'#fff', border:'1px solid #e5e7eb', borderRadius:10,
-                  boxShadow:'0 8px 24px rgba(0,0,0,.1)', overflow:'hidden', minWidth:320 }}>
-                  <table style={{ borderCollapse:'collapse', fontSize:10, width:'100%' }}>
-                    <thead>
-                      <tr style={{ background:'#f8f9fb', borderBottom:'1px solid #e5e7eb' }}>
-                        {['# Factura','Fecha','Valor'].map(h=>(
-                          <th key={h} style={{ padding:'6px 12px', textAlign:'left', fontSize:9,
-                            fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:.5 }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {facturasList.map((f,i)=>(
-                        <tr key={f.numero}
-                          onClick={()=>{ setFacturaModal(f); setShowFacturas(false) }}
-                          style={{ borderTop: i>0?'1px solid #f3f4f6':'none', background:'#fff',
-                            cursor:'pointer', transition:'background .1s' }}
-                          onMouseEnter={e=>e.currentTarget.style.background='#faf5ff'}
-                          onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
-                          <td style={{ padding:'6px 12px', fontWeight:700, color:'#6d28d9', fontFamily:'monospace' }}>{f.numero}</td>
-                          <td style={{ padding:'6px 12px', color:'#6b7280' }}>
-                            {f.fecha ? new Date(f.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—'}
-                          </td>
-                          <td style={{ padding:'6px 12px', fontWeight:700, color:'#374151' }}>{fmtCOP(f.valor)}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ borderTop:'1px solid #e5e7eb', background:'#faf5ff' }}>
-                        <td style={{ padding:'5px 12px', fontSize:9, fontWeight:700, color:'#6b7280' }}>TOTAL</td>
-                        <td style={{ padding:'5px 12px', color:'#6b7280' }} />
-                        <td style={{ padding:'5px 12px', fontWeight:800, color:'#6d28d9' }}>{fmtCOP(facturasList.reduce((s,f)=>s+f.valor,0))}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Fila 2: cards estilo Pagos Subc */}

@@ -265,6 +265,26 @@ export function nokiaWeekLabel(dateInput) {
   return `W${String(week).padStart(2, '0')}`
 }
 
+// ── Extraer fecha ISO del nombre de archivo Nokia ────────────────────
+// Intenta YYYYMMDD primero, luego DDMMYYYY. Retorna ISO string o null.
+function dateFromFilename(filename) {
+  if (!filename) return null
+  function valid(y, mo, d) {
+    if (+y < 2020 || +y > 2035 || +mo < 1 || +mo > 12 || +d < 1 || +d > 31) return null
+    return new Date(Date.UTC(+y, +mo - 1, +d)).toISOString()
+  }
+  let m = filename.match(/(\d{4})(\d{2})(\d{2})/)
+  if (m) { const r = valid(m[1], m[2], m[3]); if (r) return r }
+  m = filename.match(/(\d{2})(\d{2})(\d{4})/)
+  if (m) { const r = valid(m[3], m[2], m[1]); if (r) return r }
+  return null
+}
+
+// Semana Nokia de un upload: usa fecha del filename, cae a loaded_at si no parsea.
+function getUploadWeek(u) {
+  return getNokiaWeek(dateFromFilename(u.file_name) || u.loaded_at)
+}
+
 // ── Seleccionar el mejor par (curr, prev) para la comparación ────
 //
 // Reglas:
@@ -277,23 +297,29 @@ export function nokiaWeekLabel(dateInput) {
 function findComparePair(uploads) {
   if (!uploads?.length) return { currUpload: null, prevUpload: null }
 
-  // De-duplicar por semana Nokia: queda el upload más reciente de cada semana
+  // De-duplicar por semana Nokia (desde filename): queda el upload más reciente de cada semana
   const weekMap = new Map()
   for (const u of uploads) { // uploads ya viene DESC por loaded_at
-    const wl = nokiaWeekLabel(u.loaded_at)
-    if (!weekMap.has(wl)) weekMap.set(wl, u)
+    const { week, year } = getUploadWeek(u)
+    const key = `${year}-${week}`
+    if (!weekMap.has(key)) weekMap.set(key, u)
   }
   const weeks = [...weekMap.values()]
-    .sort((a, b) => new Date(b.loaded_at) - new Date(a.loaded_at))
+    .sort((a, b) => {
+      const wa = getUploadWeek(a), wb = getUploadWeek(b)
+      if (wb.year !== wa.year) return wb.year - wa.year
+      if (wb.week !== wa.week) return wb.week - wa.week
+      return new Date(b.loaded_at) - new Date(a.loaded_at) // desempate: más reciente primero
+    })
 
-  // Diferencia en semanas Nokia reales (no días/7 redondeado)
+  // Diferencia en semanas Nokia reales usando fecha del archivo
   function weeksDiff(a, b) {
-    const wa = getNokiaWeek(a.loaded_at)
-    const wb = getNokiaWeek(b.loaded_at)
+    const wa = getUploadWeek(a)
+    const wb = getUploadWeek(b)
     if (wa.year === wb.year) return wa.week - wb.week
     // Cruce de año: contar semanas del año anterior
     const lastWeekOfPrevYear = getNokiaWeek(
-      new Date(Date.UTC(wb.year, 11, 28)).toISOString() // 28 dic siempre está en la última semana
+      new Date(Date.UTC(wb.year, 11, 28)).toISOString()
     ).week
     return lastWeekOfPrevYear - wb.week + wa.week
   }
@@ -320,17 +346,19 @@ function findComparePair(uploads) {
 }
 
 export const useAckStore = create((set, get) => ({
-  sabana:         [],
-  prevSabana:     [],
-  prevUpload:     null,
-  currUpload:     null,
-  forecasts:      {},
-  uploads:        [],
-  loading:        false,
-  uploading:      false,
-  proyectoSel:    [],
-  estadosOcultos: {},   // { gap_doc: ['estado1'], gap_hw_cierre: [], ... }
-  _prefsChannel:  null,
+  sabana:             [],
+  prevSabana:         [],
+  prevUpload:         null,
+  currUpload:         null,
+  forecasts:          {},
+  uploads:            [],
+  loading:            false,
+  uploading:          false,
+  proyectoSel:        [],
+  estadosOcultos:     {},
+  manualPrevSabana:   [],
+  manualPrevFileName: null,
+  _prefsChannel:      null,
 
   // Suscripciones Realtime del módulo ACK — lo llama AckWrapper al montar
   initRealtimeSync: () => {
@@ -535,6 +563,26 @@ export const useAckStore = create((set, get) => ({
       set({ uploading: false })
     }
   },
+
+  // Carga ACK anterior solo en memoria — sin guardar en Supabase
+  loadManualPrev: async (file) => {
+    try {
+      const buf  = await file.arrayBuffer()
+      const wb   = XLSX.read(buf, { type: 'array', cellDates: false })
+      const sheetName = wb.SheetNames.find(n =>
+        n.toLowerCase().includes('sabana') || n.toLowerCase().includes('sábana')
+      )
+      if (!sheetName) return { ok: false, error: 'No se encontró la hoja ACK_Report_Sabana' }
+      const { sabana } = parseSheet(wb.Sheets[sheetName])
+      if (!sabana.length) return { ok: false, error: 'El archivo no contiene filas válidas' }
+      set({ manualPrevSabana: sabana, manualPrevFileName: file.name })
+      return { ok: true, rows: sabana.length }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  },
+
+  clearManualPrev: () => set({ manualPrevSabana: [], manualPrevFileName: null }),
 
   // Estados ocultos del reporte Nokia (compartido, guardado en config)
   loadEstadosOcultos: async () => {

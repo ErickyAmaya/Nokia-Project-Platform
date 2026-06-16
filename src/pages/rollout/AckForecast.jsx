@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useAckStore, PROCESOS, nokiaWeekLabel } from '../../store/useAckStore'
+import { useAckStore, PROCESOS, nokiaWeekLabel, getNokiaWeek } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
 import { exportAckToExcel } from '../../lib/ackExcelExport'
 
@@ -20,6 +20,38 @@ function fmtDate(dateStr) {
 function rangeLabel(prev, curr) {
   if (prev && curr && prev !== curr) return `${prev}-${curr}`
   return curr || prev || ''
+}
+
+const MESES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+function parseLabelFromFilename(filename) {
+  if (!filename) return null
+
+  function tryDate(y, mo, d, h, mi) {
+    if (+y < 2020 || +y > 2035) return null
+    if (+mo < 1   || +mo > 12)  return null
+    if (+d  < 1   || +d  > 31)  return null
+    const iso     = new Date(Date.UTC(+y, +mo - 1, +d)).toISOString()
+    const { week } = getNokiaWeek(iso)
+    const timeStr = h && mi ? ` ${h}:${mi}` : ''
+    return `W${String(week).padStart(2,'0')} · ${+d} ${MESES_SHORT[+mo - 1]}${timeStr}`
+  }
+
+  // 1. YYYYMMDD_HHMM o YYYYMMDD
+  let m = filename.match(/(\d{4})(\d{2})(\d{2})[_\-]?(\d{2})(\d{2})/) || filename.match(/(\d{4})(\d{2})(\d{2})/)
+  if (m) {
+    const r = tryDate(m[1], m[2], m[3], m[4], m[5])
+    if (r) return r
+  }
+
+  // 2. DDMMYYYY_HHMM o DDMMYYYY
+  m = filename.match(/(\d{2})(\d{2})(\d{4})[_\-]?(\d{2})(\d{2})/) || filename.match(/(\d{2})(\d{2})(\d{4})/)
+  if (m) {
+    const r = tryDate(m[3], m[2], m[1], m[4], m[5])
+    if (r) return r
+  }
+
+  return null
 }
 
 // ── Builders de árbol ─────────────────────────────────────────────
@@ -177,10 +209,10 @@ function NokiaTable({ rows, procesoKey, label, color = '#7030A0', forPrint = fal
             })
         }
         <tr>
-          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+          <td style={{ padding: forPrint ? '4px 7px' : '5px 10px', fontWeight: 800, background: color, color: '#fff', border: `1px solid ${color}` }}>
             Total general
           </td>
-          <td style={{ padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center', fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }}>
+          <td style={{ padding: forPrint ? '4px 5px' : '5px 8px', textAlign: 'center', fontWeight: 800, background: color, color: '#fff', border: `1px solid ${color}` }}>
             {total}
           </td>
         </tr>
@@ -204,7 +236,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
   )
 
   const FS    = forPrint ? 8 : 10
-  const totBg = { background: '#003366', color: '#fff', border: '1px solid #003366', fontWeight: 800 }
+  const totBg = { background: color, color: '#fff', border: `1px solid ${color}`, fontWeight: 800 }
 
   function goToTablas(siteName) {
     if (!forPrint) navigate(`/rollout/ack/tablas?sitio=${encodeURIComponent(siteName)}`)
@@ -217,9 +249,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
           <th style={thStyle(color, forPrint)}>{label}</th>
           {weeks.map(w => <th key={w} style={thCenterStyle(color, forPrint, { width: 'auto' })}>{w}</th>)}
           <th style={thCenterStyle(color, forPrint, { width: 44 })}>TICKETS</th>
-          <th style={{ ...thCenterStyle('#003366', forPrint, { width: 'auto' }), background: '#003366', border: '1px solid #003366' }}>
-            No de Actividades
-          </th>
+          <th style={thCenterStyle(color, forPrint, { width: 'auto' })}>No de Actividades</th>
         </tr>
       </thead>
       <tbody>
@@ -231,7 +261,7 @@ function NokiaFcTable({ rows, procesoKey, forecasts, ticketKey, label, color = '
               <td style={{ padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0', color: '#C00000' }}>{gap}</td>
               {weeks.map(w => <td key={w} style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700 }}>{g.weeks.get(w) || ''}</td>)}
               <td style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700, color: gapTickets ? '#1a3a5c' : '#ccc' }}>{gapTickets || '—'}</td>
-              <td style={{ ...totBg, padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center' }}>{gapTotal}</td>
+              <td style={{ padding: forPrint ? '3px 5px' : '4px 7px', textAlign: 'center', background: '#DCE6F1', border: '1px solid #c0c0c0', fontWeight: 700 }}>{gapTotal}</td>
             </tr>,
             ...[...g.sites.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([site, s]) => {
               const siteTotal = [...s.weeks.values()].reduce((a, sw) => a + sw.count, 0)
@@ -317,7 +347,7 @@ function NokiaTicketTable({ rows, procesoKey, ticketKey, label, color = '#7030A0
 
   const cellGap = { padding: forPrint ? '3px 7px' : '4px 10px', fontWeight: 700, background: '#DCE6F1', border: '1px solid #c0c0c0' }
   const cellSub = { background: '#fff', border: '1px solid #e8e8e8', fontSize: forPrint ? 7.5 : 9 }
-  const cellTot = { fontWeight: 800, background: '#003366', color: '#fff', border: '1px solid #003366' }
+  const cellTot = { fontWeight: 800, background: color, color: '#fff', border: `1px solid ${color}` }
 
   function goToTablas(siteName) {
     if (!forPrint) navigate(`/rollout/ack/tablas?sitio=${encodeURIComponent(siteName)}`)
@@ -417,9 +447,9 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
   const pct    = total ? Math.round(((total - pend) / total) * 100) : 0
   const barClr = pct >= 97 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444'
 
-  const prevGapLabel = `${cfg.nokia} - ${prevLabel || 'Semana Anterior'}`
-  const currGapLabel = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
-  const soloLabel    = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const prevGapLabel = `${cfg.nokia} - Estados`
+  const currGapLabel = `${cfg.nokia} - Estados`
+  const soloLabel    = `${cfg.nokia} - Estados`
 
   return (
     <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,.07)' }}>
@@ -450,20 +480,22 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
           {/* Tablas GAP */}
           {hasPrev ? (
             <>
-              <div style={{ textAlign: 'center', color: cfg.color, fontWeight: 600, fontSize: 11, marginBottom: 10 }}>
-                {prevLabel} &nbsp;——▶&nbsp; {currLabel}
+              {/* Encabezado con flecha */}
+              <div style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
+                <div style={{ flex:1, textAlign:'center', fontSize:13, fontWeight:600, color:cfg.color }}>
+                  Semana Anterior <span style={{ fontWeight:400, color:'#4b5563' }}>({prevLabel})</span>
+                </div>
+                <div style={{ padding:'0 12px', color:cfg.color, fontSize:18, fontWeight:700, flexShrink:0 }}>——▶</div>
+                <div style={{ flex:1, textAlign:'center', fontSize:13, fontWeight:600, color:cfg.color }}>
+                  Semana Actual <span style={{ fontWeight:400, color:'#4b5563' }}>({currLabel})</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
-                  </div>
+              {/* Tablas GAP */}
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                <div style={{ flex:1, minWidth:0 }}>
                   <NokiaTable rows={prev} procesoKey={proceso.key} label={prevGapLabel} color={cfg.color} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
-                  </div>
+                <div style={{ flex:1, minWidth:0 }}>
                   <NokiaTable rows={curr} procesoKey={proceso.key} label={currGapLabel} color={cfg.color} />
                 </div>
               </div>
@@ -475,44 +507,32 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
           {/* Tablas FC */}
           <div style={{ marginTop: 16 }}>
             {hasPrev ? (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
-                  </div>
-                  <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${prevLabel}`} color={cfg.color} />
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
-                  </div>
-                  <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel}`} color={cfg.color} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
                 </div>
               </div>
             ) : (
-              <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST ${currLabel || 'Actual'}`} color={cfg.color} />
+              <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
             )}
           </div>
 
           {/* Tablas Tickets */}
           <div style={{ marginTop: 16 }}>
             {hasPrev ? (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Anterior <span style={{ fontWeight: 400, color: '#4b5563' }}>({prevLabel})</span>
-                  </div>
-                  <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${prevLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
+              <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: cfg.color, marginBottom: 4 }}>
-                    Semana Actual <span style={{ fontWeight: 400, color: '#4b5563' }}>({currLabel})</span>
-                  </div>
-                  <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel}`} color={cfg.color} empresaNombre={empresaNombre} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
               </div>
             ) : (
-              <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET ${currLabel || 'Actual'}`} color={cfg.color} empresaNombre={empresaNombre} />
+              <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
             )}
           </div>
         </div>
@@ -528,9 +548,9 @@ function PrintSlide({ proceso, currRows, prevRows, currLabel, prevLabel, forecas
   const lastFile = uploads[0]
   const rl       = rangeLabel(prevLabel, currLabel)
 
-  const prevGapLabel = `${cfg.nokia} - ${prevLabel || 'Semana Anterior'}`
-  const currGapLabel = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
-  const soloLabel    = `${cfg.nokia} - ${currLabel || 'Semana Actual'}`
+  const prevGapLabel = `${cfg.nokia} - Estados`
+  const currGapLabel = `${cfg.nokia} - Estados`
+  const soloLabel    = `${cfg.nokia} - Estados`
   const fcLabel      = `${cfg.nokia} - FORECAST ${rl}`
   const ticketLabel  = `${cfg.nokia} - TICKET ${rl}`
 
@@ -805,7 +825,9 @@ function SeguimientoView({ sabana, prevSabana, estadosOcultos, forecasts, currLa
 // ── Página principal ──────────────────────────────────────────────
 export default function AckForecast() {
   const sabanaRaw         = useAckStore(s => s.sabana)
-  const prevSabanaRaw     = useAckStore(s => s.prevSabana)
+  const prevSabanaAuto    = useAckStore(s => s.prevSabana)
+  const manualPrevSabana  = useAckStore(s => s.manualPrevSabana)
+  const manualPrevFileName = useAckStore(s => s.manualPrevFileName)
   const forecasts         = useAckStore(s => s.forecasts)
   const uploads           = useAckStore(s => s.uploads)
   const prevUpload        = useAckStore(s => s.prevUpload)
@@ -813,6 +835,34 @@ export default function AckForecast() {
   const proyectoSel       = useAckStore(s => s.proyectoSel)
   const estadosOcultos    = useAckStore(s => s.estadosOcultos)
   const saveEstadosOcultos = useAckStore(s => s.saveEstadosOcultos)
+  const uploadExcel       = useAckStore(s => s.uploadExcel)
+  const loadManualPrev    = useAckStore(s => s.loadManualPrev)
+  const clearManualPrev   = useAckStore(s => s.clearManualPrev)
+
+  const prevSabanaRaw = manualPrevSabana.length ? manualPrevSabana : prevSabanaAuto
+
+  const [loadingPrev,  setLoadingPrev]  = useState(false)
+  const [loadingCurr,  setLoadingCurr]  = useState(false)
+  const [currUploaded, setCurrUploaded] = useState(false)
+  const [hoverPrev,    setHoverPrev]    = useState(false)
+  const [hoverCurr,    setHoverCurr]    = useState(false)
+  const [dragPrev,     setDragPrev]     = useState(false)
+  const [dragCurr,     setDragCurr]     = useState(false)
+
+  async function handlePrevFile(file) {
+    if (!file) return
+    setLoadingPrev(true)
+    await loadManualPrev(file)
+    setLoadingPrev(false)
+  }
+
+  async function handleCurrFile(file) {
+    if (!file) return
+    setLoadingCurr(true)
+    await uploadExcel(file)
+    setLoadingCurr(false)
+    setCurrUploaded(true)
+  }
 
   const sabana     = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
@@ -837,9 +887,11 @@ export default function AckForecast() {
     setSetupOpen(false)
   }
 
-  // Etiquetas Nokia calculadas desde el par (curr, prev) seleccionado por el store
-  const currLabel = currUpload ? nokiaWeekLabel(currUpload.loaded_at) : 'Actual'
-  const prevLabel = prevUpload ? nokiaWeekLabel(prevUpload.loaded_at) : ''
+  const currLabel  = currUpload ? nokiaWeekLabel(currUpload.loaded_at) : 'Actual'
+  const prevLabel  = manualPrevSabana.length
+    ? (parseLabelFromFilename(manualPrevFileName) || 'Anterior')
+    : (prevUpload ? (parseLabelFromFilename(prevUpload.file_name) || nokiaWeekLabel(prevUpload.loaded_at)) : '')
+  const currFileLabel = parseLabelFromFilename(currUpload?.file_name) || currLabel
 
   // CSS de impresión global
   useEffect(() => {
@@ -887,7 +939,7 @@ export default function AckForecast() {
         forecasts,
         filtro,
         estadosOcultos,
-        currLabel,
+        currLabel: currFileLabel,
         prevLabel,
         hasPrev,
         empresaNombre,
@@ -921,20 +973,53 @@ export default function AckForecast() {
               </span>
             )}
           </div>
-          {hasPrev
-            ? (
-              <div style={{ fontSize: 11, color: '#555', fontWeight: 500, marginTop: 4 }}>
-                Comparando: <b style={{ fontWeight: 700 }}>{prevLabel}</b> ——▶ <b style={{ fontWeight: 700 }}>{currLabel}</b>
-                <span style={{ marginLeft: 8, fontSize: 10, color: '#4b5563' }}>
-                  (auto · {new Date(prevUpload.loaded_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })})
-                </span>
-              </div>
-            ) : (
-              <div style={{ fontSize: 10, color: '#4b5563', marginTop: 4 }}>
-                Sin periodo anterior. Carga un segundo reporte con ≥10 días de diferencia para activar la comparación.
-              </div>
-            )
-          }
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
+            {/* Botón Semana Anterior */}
+            <label
+              onMouseEnter={() => setHoverPrev(true)}
+              onMouseLeave={() => { setHoverPrev(false); setDragPrev(false) }}
+              onDragOver={e => { e.preventDefault(); setDragPrev(true) }}
+              onDragEnter={e => { e.preventDefault(); setDragPrev(true) }}
+              onDragLeave={() => setDragPrev(false)}
+              onDrop={e => { e.preventDefault(); setDragPrev(false); const f = e.dataTransfer.files[0]; if (f && window.confirm(`¿Cargar "${f.name}" como Semana Anterior?`)) handlePrevFile(f) }}
+              style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer',
+                border: dragPrev ? '1px dashed #3b82f6' : '1px solid #e0e4e0',
+                borderRadius:8, padding:'4px 10px', transition:'all .15s',
+                background: dragPrev ? '#eff6ff' : manualPrevSabana.length ? (hoverPrev ? '#bfdbfe' : '#dbeafe') : (hoverPrev ? '#dbeafe' : '#f9fafb'),
+                color: manualPrevSabana.length || hoverPrev ? '#1e40af' : '#6b7280',
+                fontSize:10, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
+              <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
+                onChange={e=>{ handlePrevFile(e.target.files?.[0]); e.target.value='' }} />
+              <span>{loadingPrev ? '⏳' : '📂'}</span>
+              <span>{loadingPrev ? 'Cargando...' : 'Cargar ACK Anterior'}</span>
+              {manualPrevSabana.length > 0 && !loadingPrev && (
+                <span onClick={e=>{ e.preventDefault(); clearManualPrev() }}
+                  style={{ marginLeft:2, opacity:.6, fontWeight:900, cursor:'pointer' }}>✕</span>
+              )}
+            </label>
+
+            <span style={{ fontSize:11, color:'#9ca3af' }}>——▶</span>
+
+            {/* Botón Semana Actual */}
+            <label
+              onMouseEnter={() => setHoverCurr(true)}
+              onMouseLeave={() => { setHoverCurr(false); setDragCurr(false) }}
+              onDragOver={e => { e.preventDefault(); setDragCurr(true) }}
+              onDragEnter={e => { e.preventDefault(); setDragCurr(true) }}
+              onDragLeave={() => setDragCurr(false)}
+              onDrop={e => { e.preventDefault(); setDragCurr(false); const f = e.dataTransfer.files[0]; if (f && window.confirm(`¿Cargar "${f.name}" como Semana Actual?`)) handleCurrFile(f) }}
+              style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer',
+                border: dragCurr ? '1px dashed #16a34a' : '1px solid #e0e4e0',
+                borderRadius:8, padding:'4px 10px', transition:'all .15s',
+                background: dragCurr ? '#dcfce7' : currUploaded ? (hoverCurr ? '#dcfce7' : '#f0fdf4') : (hoverCurr ? '#dcfce7' : '#f9fafb'),
+                color: currUploaded || hoverCurr ? '#166534' : '#6b7280',
+                fontSize:10, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
+              <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
+                onChange={e=>{ handleCurrFile(e.target.files?.[0]); e.target.value='' }} />
+              <span>{loadingCurr ? '⏳' : '📂'}</span>
+              <span>{loadingCurr ? 'Cargando...' : 'Cargar ACK Actual'}</span>
+            </label>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
           {/* Tab switcher */}
@@ -1014,7 +1099,7 @@ export default function AckForecast() {
             proceso={p}
             currRows={sabana}
             prevRows={prevSabana}
-            currLabel={currLabel}
+            currLabel={currFileLabel}
             prevLabel={prevLabel}
             forecasts={forecasts}
             filtro={filtro}
@@ -1030,7 +1115,7 @@ export default function AckForecast() {
           prevSabana={prevSabana}
           estadosOcultos={estadosOcultos}
           forecasts={forecasts}
-          currLabel={currLabel}
+          currLabel={currFileLabel}
           prevLabel={prevLabel}
           empresaNombre={empresaNombre}
         />
@@ -1059,7 +1144,7 @@ export default function AckForecast() {
                 proceso={p}
                 currRows={filteredCurr}
                 prevRows={filteredPrev}
-                currLabel={currLabel}
+                currLabel={currFileLabel}
                 prevLabel={prevLabel}
                 forecasts={forecasts}
                 uploads={uploads}
