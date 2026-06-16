@@ -461,6 +461,8 @@ async function generateReporteHTML({ selectedRows, mesPctMap }) {
   body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;background:#f4f6f9;color:#1a202c;padding:32px}
   .wrap{max-width:920px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.12);overflow:hidden}
   .hdr{background:linear-gradient(105deg,#0d1f3c 0%,#1a5fa8 100%);color:#fff;padding:28px 36px;display:flex;align-items:center;gap:18px}
+  .btn-close{margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px}
+  .btn-close:hover{background:rgba(255,255,255,.28)}
   .hdr img{width:46px;height:46px;object-fit:contain;filter:brightness(0) invert(1)}
   .hdr h1{font-size:22px;font-weight:700;letter-spacing:.5px}
   .hdr .sub{font-size:11px;opacity:.7;margin-top:3px;font-weight:400;letter-spacing:.3px}
@@ -500,6 +502,7 @@ async function generateReporteHTML({ selectedRows, mesPctMap }) {
       <h1>Reporte de Facturación</h1>
       <div class="sub">Generado el ${fecha} &nbsp;·&nbsp; ${selectedRows.length} SPO${selectedRows.length!==1?'s':''} &nbsp;·&nbsp; ${meses.length} mes${meses.length!==1?'es':''}</div>
     </div>
+    <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
   </div>
   <div class="stripe"></div>
   <div class="cards">
@@ -567,6 +570,8 @@ async function generateDiferencialHTML({ difRows }) {
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6f9;color:#1a2332}
   .wrap{max-width:860px;margin:0 auto;padding:24px}
   .header{background:linear-gradient(105deg,#0d1f3c,#1a5fa8);border-radius:12px;padding:24px 28px;display:flex;align-items:center;gap:20px;margin-bottom:24px}
+  .btn-close{margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px}
+  .btn-close:hover{background:rgba(255,255,255,.28)}
   .header-text h1{color:#fff;font-size:20px;font-weight:800;margin-bottom:4px}
   .header-text p{color:#a8c4e8;font-size:11px}
   table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
@@ -584,6 +589,7 @@ async function generateDiferencialHTML({ difRows }) {
       <h1>Diferencial de Porcentaje SCYTEL</h1>
       <p>SPOs facturados con % diferente al bracket real del mes · Generado ${fecha}</p>
     </div>
+    <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
   </div>
   <table>
     <thead><tr>
