@@ -107,7 +107,7 @@ const R_CW      = ['admin', 'coordinador', 'CW',  'viewer']
 const R_ADMIN    = ['admin']
 const R_CATALOG  = ['admin', 'coordinador']
 const R_MGMT     = ['admin', 'coordinador', 'viewer', 'rollout']
-const R_ANALITICA = ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW']
+const R_ANALITICA = ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW', 'rollout']
 
 function W(page) {
   return <Layout><Suspense fallback={<PageLoader />}>{page}</Suspense></Layout>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
+import { getSupabaseClient } from '../lib/supabase'
 import { useAlertsStore } from '../store/useAlertsStore'
 import { useFactStore }  from '../store/useFactStore'
 import { useMatStore }   from '../store/useMatStore'
@@ -59,11 +60,11 @@ const SITIOS_NAV = [
 ]
 
 const ROLLOUT_NAV = [
-  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/tablas',   label: 'ACK',          icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer'] },
-  { to: '/rollout/analitica',    label: 'Analítica',   icon: '📈', id: 'analitica',     roles: ['admin','coordinador','viewer','TI','TSS','CW'] },
+  { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer','rollout'] },
+  { to: '/rollout/ack/tablas',   label: 'Forecast ACK', icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer','rollout'] },
+  { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer','rollout'] },
+  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer','rollout'] },
+  { to: '/rollout/analitica',    label: 'Analítica',   icon: '📈', id: 'analitica',     roles: ['admin','coordinador','viewer','TI','TSS','CW','rollout'] },
   { to: '/rollout/mapa',         label: 'Mapa',        icon: '🗺', id: 'rollout-mapa',  roles: null },
 ]
 
@@ -84,6 +85,7 @@ const BADGE = {
   TSS:         { label: '📡 TSS',       cls: 'ub-op'    },
   CW:          { label: '🔧 CW',        cls: 'ub-op'    },
   viewer:      { label: '👁 Viewer',    cls: 'ub-viewer' },
+  rollout:     { label: '📡 Rollout',   cls: 'ub-op'    },
   logistica:   { label: '📦 Logística', cls: 'ub-op'    },
   facturacion: { label: '🧾 Fact.',    cls: 'ub-op'    },
 }
@@ -99,6 +101,13 @@ export default function Layout({ children }) {
   const [searchOpen,   setSearchOpen]   = useState(false)
   const [timelineSmp,  setTimelineSmp]  = useState(null)
   const [rtStatus,     setRtStatus]     = useState(window.__rtStatus || 'connecting')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [pwOpen,       setPwOpen]       = useState(false)
+  const [pwVal,        setPwVal]        = useState('')
+  const [pwVal2,       setPwVal2]       = useState('')
+  const [pwLoading,    setPwLoading]    = useState(false)
+  const [pwError,      setPwError]      = useState('')
+  const userMenuRef = useRef(null)
 
   const user          = useAuthStore(s => s.user)
   const empresaBase   = useAuthStore(s => s.empresa)
@@ -215,6 +224,25 @@ export default function Layout({ children }) {
     await logoutApp()
     navigate('/login')
   }
+
+  async function handleChangePassword() {
+    if (pwVal.length < 6) { setPwError('Mínimo 6 caracteres'); return }
+    if (pwVal !== pwVal2)  { setPwError('Las contraseñas no coinciden'); return }
+    setPwLoading(true); setPwError('')
+    const { error } = await getSupabaseClient().auth.updateUser({ password: pwVal })
+    setPwLoading(false)
+    if (error) { setPwError(error.message); return }
+    setPwOpen(false); setPwVal(''); setPwVal2('')
+    alert('Contraseña actualizada correctamente.')
+  }
+
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setUserMenuOpen(false)
+    }
+    if (userMenuOpen) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [userMenuOpen])
 
   const pillBase = {
     padding: '3px 13px', borderRadius: 20, border: 'none', cursor: 'pointer',
@@ -403,9 +431,31 @@ export default function Layout({ children }) {
               transition: 'background .4s',
             }}
           />
-          <span className={`user-badge ${badge.cls}`} onClick={handleLogout} style={{ cursor: 'pointer' }}>
-            {badge.label} ▸ Salir
-          </span>
+          <div ref={userMenuRef} style={{ position: 'relative' }}>
+            <span className={`user-badge ${badge.cls}`} onClick={() => setUserMenuOpen(v => !v)} style={{ cursor: 'pointer' }}>
+              {user?.nombre || badge.label} ▾
+            </span>
+            {userMenuOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10,
+                boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 300,
+                minWidth: 170, overflow: 'hidden',
+              }}>
+                <button onClick={() => { setUserMenuOpen(false); setPwOpen(true) }} style={{
+                  display: 'block', width: '100%', padding: '10px 16px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#374151',
+                }}>🔑 Cambiar contraseña</button>
+                <div style={{ height: 1, background: '#f0f0f0' }} />
+                <button onClick={handleLogout} style={{
+                  display: 'block', width: '100%', padding: '10px 16px',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#dc2626',
+                }}>▸ Cerrar sesión</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -615,6 +665,43 @@ export default function Layout({ children }) {
       }}>
         {children}
       </main>
+
+      {/* ── Cambiar contraseña modal ───────────────────────────── */}
+      {pwOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 400,
+          background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setPwOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 16, padding: '28px 28px 24px',
+            width: 340, boxShadow: '0 8px 40px rgba(0,0,0,.18)',
+          }}>
+            <h3 style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 700, color: '#111' }}>🔑 Cambiar contraseña</h3>
+            <input
+              type="password" placeholder="Nueva contraseña"
+              value={pwVal} onChange={e => { setPwVal(e.target.value); setPwError('') }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, marginBottom: 10 }}
+            />
+            <input
+              type="password" placeholder="Confirmar contraseña"
+              value={pwVal2} onChange={e => { setPwVal2(e.target.value); setPwError('') }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, marginBottom: pwError ? 6 : 16 }}
+            />
+            {pwError && <p style={{ color: '#dc2626', fontSize: 11, margin: '0 0 12px' }}>{pwError}</p>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setPwOpen(false); setPwVal(''); setPwVal2(''); setPwError('') }} style={{
+                padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db',
+                background: '#f9fafb', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              }}>Cancelar</button>
+              <button onClick={handleChangePassword} disabled={pwLoading} style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: '#1a9c1a', color: '#fff', cursor: pwLoading ? 'default' : 'pointer',
+                fontSize: 12, fontWeight: 700, opacity: pwLoading ? .6 : 1,
+              }}>{pwLoading ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ─────────────────────────────────────────────── */}
       <div style={{
