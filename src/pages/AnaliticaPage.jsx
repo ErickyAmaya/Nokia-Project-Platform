@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, ReferenceLine, Treemap,
+  FunnelChart, Funnel, LabelList,
 } from 'recharts'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
@@ -273,8 +274,6 @@ function FilterBar({ filters, setFilter, sitios, subcs }) {
 // ── Tab 1: Rendimiento por LC ─────────────────────────────────────
 function Tab1({ porLC }) {
   const sorted = useMemo(() => [...porLC].sort((a, b) => b.margen - a.margen), [porLC])
-  const chartH = Math.max(220, sorted.length * 38)
-
   const bestMargen = sorted[0]
   const mossSitios = [...porLC].sort((a, b) => b.sitios - a.sitios)[0]
   const masCostoso = [...porLC].sort((a, b) => b.costo - a.costo)[0]
@@ -302,37 +301,35 @@ function Tab1({ porLC }) {
       </div>
 
       {/* Barras agrupadas: Venta vs Costo por LC */}
-      <ChartCard title="Venta vs Costo por LC" sub="Nokia · Costo · Utilidad" height={chartH}>
+      <ChartCard title="Venta vs Costo por LC" sub="Nokia · Costo · Utilidad" height={280}>
         <BarChart
           data={porLC}
-          layout="vertical"
-          margin={{ top: 4, right: 20, left: 10, bottom: 4 }}
+          margin={{ top: 4, right: 20, left: 10, bottom: 50 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => `$${(v/1e6).toFixed(0)}M`} tick={{ fontSize: 9 }} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={85} />
-          <Tooltip content={<CopTip />} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" vertical={false} />
+          <XAxis dataKey="name" tick={{ fontSize: 9, angle: -35, textAnchor: 'end' }} interval={0} />
+          <YAxis tickFormatter={v => `$${(v/1e6).toFixed(0)}M`} tick={{ fontSize: 9 }} />
+          <Tooltip content={<CopTip />} cursor={{ fill: 'transparent' }} />
           <Legend wrapperStyle={{ fontSize: 10 }} />
-          <Bar dataKey="venta" name="Venta Nokia" fill={CN} radius={[0, 2, 2, 0]} />
-          <Bar dataKey="costo" name="Costo"        fill={CS} radius={[0, 2, 2, 0]} />
+          <Bar dataKey="venta" name="Venta Nokia" fill={CN} radius={[2, 2, 0, 0]} />
+          <Bar dataKey="costo" name="Costo"        fill={CS} radius={[2, 2, 0, 0]} />
         </BarChart>
       </ChartCard>
 
       {/* Barras: Margen % ordenado + línea meta */}
-      <ChartCard title="Margen % por LC" sub={`ordenado de mayor a menor · meta ${META_MARGEN}%`} height={chartH}>
+      <ChartCard title="Margen % por LC" sub={`ordenado de mayor a menor · meta ${META_MARGEN}%`} height={280}>
         <BarChart
           data={sorted}
-          layout="vertical"
-          barSize={14}
-          margin={{ top: 4, right: 30, left: 10, bottom: 4 }}
+          barSize={22}
+          margin={{ top: 4, right: 30, left: 10, bottom: 50 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 9 }} domain={[0, 'auto']} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={85} />
-          <Tooltip formatter={(v) => [`${v.toFixed(1)}%`, 'Margen']} labelStyle={{ fontWeight: 700, fontSize: 11 }} />
-          <ReferenceLine x={META_MARGEN} stroke={CU} strokeDasharray="5 3"
-            label={{ value: `Meta ${META_MARGEN}%`, position: 'top', fontSize: 9, fill: CU }} />
-          <Bar dataKey="margen" name="Margen %" radius={[0, 2, 2, 0]}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" vertical={false} />
+          <XAxis dataKey="name" tick={{ fontSize: 9, angle: -35, textAnchor: 'end' }} interval={0} />
+          <YAxis tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 9 }} domain={[0, 'auto']} />
+          <Tooltip formatter={(v) => [`${v.toFixed(1)}%`, 'Margen']} labelStyle={{ fontWeight: 700, fontSize: 11 }} cursor={{ fill: 'transparent' }} />
+          <ReferenceLine y={META_MARGEN} stroke={CU} strokeDasharray="5 3"
+            label={{ value: `Meta ${META_MARGEN}%`, position: 'insideTopRight', fontSize: 9, fill: CU }} />
+          <Bar dataKey="margen" name="Margen %" radius={[2, 2, 0, 0]}>
             {sorted.map((entry, i) => (
               <Cell key={i} fill={mColPct(entry.margen)} />
             ))}
@@ -355,15 +352,28 @@ function Tab2({ filteredCalcs }) {
       tipo:   s.tipo || 'TI',
     })), [filteredCalcs])
 
-  const top10 = useMemo(() =>
+  const top10Venta = useMemo(() =>
     [...filteredCalcs]
-      .sort((a, b) => b.c.margen - a.c.margen)
+      .sort((a, b) => b.c.totalVenta - a.c.totalVenta)
       .slice(0, 10)
       .map(({ s, c }) => ({
-        name:   s.nombre.length > 16 ? s.nombre.slice(0, 16) + '…' : s.nombre,
-        margen: parseFloat((c.margen * 100).toFixed(1)),
-        venta:  c.totalVenta,
+        name:  s.nombre.length > 18 ? s.nombre.slice(0, 18) + '…' : s.nombre,
+        venta: c.totalVenta,
       })), [filteredCalcs])
+
+  const top10MenorMargen = useMemo(() =>
+    [...filteredCalcs]
+      .filter(({ c }) => c.totalCosto > 0)
+      .sort((a, b) => a.c.margen - b.c.margen)
+      .slice(0, 10)
+      .map(({ s, c }) => {
+        const margen = parseFloat((c.margen * 100).toFixed(1))
+        return {
+          name:   s.nombre.length > 18 ? s.nombre.slice(0, 18) + '…' : s.nombre,
+          margen,
+          delta:  parseFloat((margen - META_MARGEN).toFixed(1)),
+        }
+      }), [filteredCalcs])
 
   const maxVenta = useMemo(() =>
     Math.ceil(Math.max(...scatterData.map(d => Math.max(d.venta, d.costo))) / 1e6) * 1e6 + 1e6
@@ -414,20 +424,85 @@ function Tab2({ filteredCalcs }) {
         </div>
       </div>
 
-      {/* Top 10 sitios por margen */}
-      <ChartCard title="Top 10 Sitios — Mayor Margen %" sub="porcentaje de margen" height={Math.max(200, top10.length * 36)}>
-        <BarChart data={top10} layout="vertical" barSize={14} margin={{ top: 4, right: 30, left: 10, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 9 }} domain={[0, 'auto']} />
-          <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={100} />
-          <Tooltip formatter={(v) => [`${v.toFixed(1)}%`, 'Margen']} labelStyle={{ fontWeight: 700, fontSize: 11 }} />
-          <ReferenceLine x={META_MARGEN} stroke={CU} strokeDasharray="5 3"
-            label={{ value: `${META_MARGEN}%`, position: 'top', fontSize: 9, fill: CU }} />
-          <Bar dataKey="margen" name="Margen %" radius={[0, 2, 2, 0]}>
-            {top10.map((entry, i) => <Cell key={i} fill={mColPct(entry.margen)} />)}
-          </Bar>
-        </BarChart>
-      </ChartCard>
+      {/* Funnel — Top 10 por venta */}
+      <div className="card">
+        <div className="card-h">
+          <h2>Top 10 Sitios — Mayor Venta</h2>
+          <span style={{ fontSize: 10, color: '#9ca89c', fontWeight: 400 }}>ingresos Nokia facturados</span>
+        </div>
+        <div className="card-b" style={{ paddingTop: 4 }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <FunnelChart margin={{ top: 4, right: 120, bottom: 4, left: 120 }}>
+              <Tooltip
+                formatter={v => [cop(v), 'Venta Nokia']}
+                contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+              />
+              <Funnel
+                dataKey="venta"
+                data={top10Venta.map((d, i) => ({
+                  ...d,
+                  fill: `hsl(${173 - i * 4}, ${65 - i * 2}%, ${38 + i * 2}%)`,
+                }))}
+                isAnimationActive
+              >
+                <LabelList
+                  dataKey="venta"
+                  content={(props) => {
+                    const item = top10Venta[props.index]
+                    if (!item || !item.venta) return null
+                    const { x, y, width, height } = props
+                    const cx = x + width / 2
+                    const cy = y + height / 2
+                    const fmtV = `$${(item.venta / 1e6).toFixed(1)}M`
+                    return (
+                      <text x={cx} y={cy + 4} textAnchor="middle"
+                        fill="#fff" fontSize={9} fontWeight={700}>
+                        {item.name} ({fmtV})
+                      </text>
+                    )
+                  }}
+                />
+              </Funnel>
+            </FunnelChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Barras divergentes — Menor Margen % vs Meta */}
+      {top10MenorMargen.length > 0 ? (
+        <ChartCard
+          title="Top 10 Sitios — Desviación vs Meta de Margen"
+          sub={`solo sitios con costos · verde = supera meta ${META_MARGEN}% · rojo = por debajo`}
+          height={Math.max(200, top10MenorMargen.length * 36 + 20)}
+        >
+          <BarChart data={top10MenorMargen} layout="vertical" barSize={14}
+            margin={{ top: 4, right: 50, left: 10, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
+            <XAxis type="number" tickFormatter={v => `${v > 0 ? '+' : ''}${v.toFixed(0)}%`}
+              tick={{ fontSize: 9 }} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={120} />
+            <Tooltip
+              cursor={{ fill: 'transparent' }}
+              formatter={(v, n, { payload }) => [
+                `${payload.margen.toFixed(1)}% (${v > 0 ? '+' : ''}${v.toFixed(1)}% vs meta)`,
+                'Margen'
+              ]}
+              labelStyle={{ fontWeight: 700, fontSize: 11 }}
+            />
+            <ReferenceLine x={0} stroke="#374151" strokeWidth={1.5}
+              label={{ value: `Meta ${META_MARGEN}%`, position: 'insideTopRight', fontSize: 9, fill: '#374151' }} />
+            <Bar dataKey="delta" name="Desviación" radius={[0, 3, 3, 0]}>
+              {top10MenorMargen.map((entry, i) => (
+                <Cell key={i} fill={entry.delta >= 0 ? CU : CR} fillOpacity={0.85} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartCard>
+      ) : (
+        <div className="card" style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: 12 }}>
+          Sin sitios con costos cargados en el período seleccionado
+        </div>
+      )}
 
     </div>
   )
@@ -477,7 +552,7 @@ function Tab3({ filteredCalcs }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
             <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-25} textAnchor="end" />
             <YAxis tickFormatter={v => `$${(v/1e6).toFixed(0)}M`} tick={{ fontSize: 9 }} width={52} />
-            <Tooltip content={<CopTip />} />
+            <Tooltip content={<CopTip />} cursor={{ fill: 'transparent' }} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
             <Line type="monotone" dataKey="VentaAcum" name="Venta Acumulada" stroke={CN} strokeWidth={2.5} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="Venta"     name="Venta Mensual"   stroke={CN} strokeWidth={1} strokeDasharray="4 2" dot={{ r: 2 }} />
@@ -491,7 +566,7 @@ function Tab3({ filteredCalcs }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" />
             <XAxis dataKey="name" tick={{ fontSize: 9 }} angle={-25} textAnchor="end" />
             <YAxis tickFormatter={v => `${v.toFixed(0)}%`} tick={{ fontSize: 9 }} width={38} />
-            <Tooltip formatter={(v) => [`${v.toFixed(1)}%`, 'Margen']} labelStyle={{ fontWeight: 700, fontSize: 11 }} />
+            <Tooltip formatter={(v) => [`${v.toFixed(1)}%`, 'Margen']} labelStyle={{ fontWeight: 700, fontSize: 11 }} cursor={{ fill: 'transparent' }} />
             <ReferenceLine y={META_MARGEN} stroke={CU} strokeDasharray="5 3"
               label={{ value: `Meta ${META_MARGEN}%`, position: 'left', fontSize: 9, fill: CU }} />
             <Line type="monotone" dataKey="Margen" name="Margen %" stroke={CS} strokeWidth={2.5} dot={{ r: 3 }} />
@@ -1080,7 +1155,7 @@ function Tab6() {
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="cuadrilla" tick={{ fontSize: 9 }} width={90} />
-              <Tooltip formatter={v => [`${v} días`, 'Prom. TILT']} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={v => [`${v} días`, 'Prom. TILT']} contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
               <Bar dataKey="prom" radius={[0,4,4,0]}>
                 {(() => {
                   const p = porCuadrilla.length ? Math.round(porCuadrilla.reduce((s, r) => s + r.prom, 0) / porCuadrilla.length) : 1
@@ -1126,7 +1201,7 @@ function Tab6() {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="sitio" tick={{ fontSize: 8 }} angle={-45} textAnchor="end" interval={0} />
               <YAxis tick={{ fontSize: 10 }} unit=" d" />
-              <Tooltip formatter={v => [`${v} días`, 'TILT']} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={v => [`${v} días`, 'TILT']} contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
               {promTilt && <ReferenceLine y={promTilt} stroke="#9ca3af" strokeDasharray="4 4"
                 label={{ value: `Prom. ${promTilt}d`, position: 'right', fontSize: 9, fill: '#6b7280' }} />}
               <Bar dataKey="tilt" radius={[4,4,0,0]}
@@ -1175,7 +1250,7 @@ function Tab6() {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="tipo" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={v => [`${v} días`, 'Prom. TILT']} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={v => [`${v} días`, 'Prom. TILT']} contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
               <ReferenceLine y={promTilt} stroke="#9ca3af" strokeDasharray="4 4" label={{ value: `Prom. ${promTilt}d`, position: 'right', fontSize: 9, fill: '#6b7280' }} />
               <Bar dataKey="prom" radius={[4,4,0,0]}>
                 {porComplejidad.map((r, i) => <Cell key={i} fill={r.fill} />)}
@@ -1199,7 +1274,7 @@ function Tab6() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip formatter={v => [v, 'Integraciones']} contentStyle={{ fontSize: 11 }} />
+                <Tooltip formatter={v => [v, 'Integraciones']} contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
                 <Line type="monotone" dataKey="count" stroke="#7c3aed" strokeWidth={2.5}
                   dot={{ r: 4, fill: '#7c3aed' }} activeDot={{ r: 6 }}
                   label={{ position: 'top', fontSize: 10, fill: CN, fontWeight: 700 }} />
@@ -1218,6 +1293,7 @@ function Tab6() {
                 <XAxis dataKey="cuadrilla" tick={{ fontSize: 8 }} angle={-40} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                 <Tooltip
+                  cursor={{ fill: 'transparent' }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null
                     const d = payload[0]?.payload
@@ -1396,41 +1472,31 @@ function Tab5({ filteredCalcs, subcs }) {
         <ChartCard
           title="Producción por LC — Período completo"
           sub={`Total ${cop(totalGeneral)} · Promedio ${cop(avgVenta)}`}
-          height={Math.max(200, chartData.length * 30)}
+          height={280}
         >
           <BarChart
             data={chartData}
-            layout="vertical"
-            barSize={14}
-            margin={{ top: 4, right: 70, left: 10, bottom: 4 }}
+            barSize={22}
+            margin={{ top: 4, right: 10, left: 10, bottom: 50 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" horizontal={false} />
-            <XAxis
-              type="number"
-              tickFormatter={v => `$${(v / 1e6).toFixed(1)}M`}
-              tick={{ fontSize: 9 }}
-            />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={120} />
-            <Tooltip content={<LCProdTip />} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e8f0e8" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 9, angle: -35, textAnchor: 'end' }} interval={0} />
+            <YAxis tickFormatter={v => `$${(v / 1e6).toFixed(1)}M`} tick={{ fontSize: 9 }} />
+            <Tooltip content={<LCProdTip />} cursor={{ fill: 'transparent' }} />
             <ReferenceLine
-              x={avgVenta}
+              y={avgVenta}
               stroke={CS}
               strokeDasharray="5 3"
-              label={{ value: 'Promedio', position: 'top', fontSize: 9, fill: CS }}
+              label={{ value: 'Promedio', position: 'insideTopRight', fontSize: 9, fill: CS }}
             />
-            <Bar dataKey="venta" name="Producción" radius={[0, 4, 4, 0]} label={{
-              position: 'right',
-              formatter: v => cop(v),
-              fontSize: 9,
-              fill: '#555f55',
-            }}>
+            <Bar dataKey="venta" name="Producción" radius={[2, 2, 0, 0]}>
               {chartData.map((entry, i) => (
                 <Cell
                   key={i}
                   fill={
-                    i === 0                       ? CU :   // mejor → verde
-                    i === chartData.length - 1    ? CR :   // peor  → rojo
-                    CN                                     // resto → teal
+                    i === 0                       ? CU :
+                    i === chartData.length - 1    ? CR :
+                    CN
                   }
                   fillOpacity={0.88}
                 />

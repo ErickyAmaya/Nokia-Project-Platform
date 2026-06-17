@@ -181,7 +181,7 @@ function VejezChart({ data, onBarClick }) {
         <BarChart data={bins} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
           <XAxis dataKey="nombre" tick={{ fontSize: 9 }} />
           <YAxis tick={{ fontSize: 9 }} />
-          <Tooltip content={vejezTooltip} cursor={{ fill: 'rgba(0,0,0,.05)' }} />
+          <Tooltip content={vejezTooltip} cursor={{ fill: 'transparent' }} />
           <Bar
             dataKey="smps"
             barSize={44}
@@ -245,7 +245,7 @@ function AvancePorRegionChart({ data }) {
         <BarChart data={byRegion} layout="vertical" margin={{ top: 4, right: 36, left: 4, bottom: 4 }}>
           <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
           <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={90} />
-          <Tooltip content={regionTooltip} />
+          <Tooltip content={regionTooltip} cursor={{ fill: 'transparent' }} />
           <Bar dataKey="pct" radius={[0, 3, 3, 0]} barSize={18}>
             {byRegion.map((d, i) => (
               <Cell key={i} fill={d.pct >= 97 ? '#22c55e' : d.pct >= 80 ? '#f59e0b' : '#ef4444'} />

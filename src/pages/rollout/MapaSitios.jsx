@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet'
 import { divIcon } from 'leaflet'
@@ -151,10 +151,20 @@ function lcCurrentIcon(color) {
   })
 }
 
-function FlyTo({ pin }) {
-  const map = useMap()
+function FlyTo({ pin, allPins }) {
+  const map     = useMap()
+  const prevPin = useRef(null)
   useEffect(() => {
-    if (pin) map.flyTo([pin.lat, pin.lng], 16, { duration: 1.2 })
+    if (pin) {
+      map.flyTo([pin.lat, pin.lng], 16, { duration: 1.2 })
+    } else if (prevPin.current && allPins?.length) {
+      if (allPins.length === 1) {
+        map.flyTo([allPins[0].lat, allPins[0].lng], 13, { duration: 1.2 })
+      } else {
+        map.flyToBounds(allPins.map(p => [p.lat, p.lng]), { padding: [60, 60], duration: 1.2, maxZoom: 13 })
+      }
+    }
+    prevPin.current = pin
   }, [pin, map])
   return null
 }
@@ -849,9 +859,11 @@ export default function MapaSitios() {
     return sabana.filter(r => norm(r.site_name) === norm(selectedPin.site_name))
   }, [selectedPin, sabana])
 
-  const selectedMainSmp = useMemo(() =>
-    selectedSmps.find(r => r.main_smp === r.smp)?.main_smp || null
+  const selectedAllMainSmps = useMemo(() =>
+    selectedSmps.filter(r => r.main_smp === r.smp).map(r => ({ smp: r.main_smp, proyecto: r.proyecto_alcance || '' }))
   , [selectedSmps])
+
+  const selectedMainSmp = selectedAllMainSmps[0]?.smp || null
 
   // SMP del Rollout para sitios que aún no tienen entrada en ACK
   const selectedRolloutSmp = useMemo(() => {
@@ -1067,7 +1079,7 @@ export default function MapaSitios() {
             style={{ height: '100%', width: '100%' }}
             scrollWheelZoom={true}
           >
-            <FlyTo pin={selectedPin} />
+            <FlyTo pin={selectedPin} allPins={filtered} />
             <FitBounds lcFilter={lcFilter} pins={filtered} />
             {mapLayer === 'street' ? (
               <TileLayer
@@ -1327,22 +1339,30 @@ export default function MapaSitios() {
 
               {/* Acciones */}
               <div style={{ padding: '11px 15px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(selectedMainSmp || selectedRolloutSmp) && (
+                {selectedAllMainSmps.length > 0 ? selectedAllMainSmps.map(({ smp, proyecto }) => (
+                  <Fragment key={smp}>
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp } }))}
+                      className="btn bp"
+                      style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
+                    >
+                      📊 Ver BaseLine{selectedAllMainSmps.length > 1 && proyecto ? ` (${proyecto})` : ''}
+                    </button>
+                    <button
+                      onClick={() => navigate(`/rollout/ack/sitios?smp=${encodeURIComponent(smp)}`)}
+                      className="btn"
+                      style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
+                    >
+                      📋 Ver en ACK{selectedAllMainSmps.length > 1 && proyecto ? ` (${proyecto})` : ''}
+                    </button>
+                  </Fragment>
+                )) : selectedRolloutSmp && (
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: selectedMainSmp || selectedRolloutSmp } }))}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: selectedRolloutSmp } }))}
                     className="btn bp"
                     style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
                   >
-                    📊 Ver Timeline{!selectedMainSmp ? ' (solo Rollout)' : ''}
-                  </button>
-                )}
-                {selectedMainSmp && (
-                  <button
-                    onClick={() => navigate(`/rollout/ack/sitios?smp=${encodeURIComponent(selectedMainSmp)}`)}
-                    className="btn"
-                    style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
-                  >
-                    📋 Ver en ACK
+                    📊 Ver BaseLine (solo Rollout)
                   </button>
                 )}
                 <div style={{ display: 'flex', gap: 6 }}>

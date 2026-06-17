@@ -427,7 +427,7 @@ export default function MatDashboard() {
                       labelLine={false}>
                       {pieValor.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
                   </PieChart>
                 </ResponsiveContainer>
               )
@@ -448,7 +448,7 @@ export default function MatDashboard() {
                       labelLine={false}>
                       {pieEstado.map((_, i) => <Cell key={i} fill={STATUS_COLORS[i]} />)}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
                     <Legend iconSize={10} wrapperStyle={{ fontSize:10 }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -512,7 +512,7 @@ export default function MatDashboard() {
                   <BarChart data={siteChart} layout="vertical" margin={{ left:8, right:24 }}>
                     <XAxis type="number" hide />
                     <YAxis type="category" dataKey="name" width={150} tick={{ fontSize:9 }} />
-                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} />
+                    <Tooltip formatter={v => matCop(v)} contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
                     <Bar dataKey="valor" fill={C.teal} radius={[0,3,3,0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -531,7 +531,7 @@ export default function MatDashboard() {
                   <BarChart data={top10Consumo} layout="vertical" margin={{ left:8, right:24 }}>
                     <XAxis type="number" hide />
                     <YAxis type="category" dataKey="nombre" width={150} tick={{ fontSize:9 }} />
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'transparent' }} />
                     <Bar dataKey="cant" name="Unidades" fill={C.purple} radius={[0,3,3,0]} />
                   </BarChart>
                 </ResponsiveContainer>

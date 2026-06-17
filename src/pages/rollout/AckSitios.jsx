@@ -180,7 +180,7 @@ function SmpRow({ r }) {
 }
 
 // Fila colapsable de un sitio
-function SitioRow({ mainSmp, smps, autoOpen }) {
+function SitioRow({ mainSmp, smps, autoOpen, showProyecto }) {
   const [open, setOpen] = useState(autoOpen || false)
   const [flash, setFlash] = useState(false)
   const rowRef = useRef(null)
@@ -209,6 +209,7 @@ function SitioRow({ mainSmp, smps, autoOpen }) {
   }, [smps])
 
   const siteName = smps[0]?.site_name || mainSmp
+  const proyecto = smps[0]?.proyecto_alcance || ''
   const region   = smps[0]?.region   || '—'
   const rowBg    = stats.todos ? '#f0fdf4' : open ? '#f8faff' : '#fff'
 
@@ -231,10 +232,10 @@ function SitioRow({ mainSmp, smps, autoOpen }) {
         <td style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
           <span
             onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp: mainSmp } })) }}
-            title="Ver Timeline del sitio"
+            title="Ver BaseLine del sitio"
             style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
           >
-            {siteName}
+            {siteName}{showProyecto && proyecto ? ` (${proyecto})` : ''}
           </span>
           {stats.todos && (
             <span style={{
@@ -325,11 +326,10 @@ export default function AckSitios() {
       if (!map[r.main_smp]) map[r.main_smp] = []
       map[r.main_smp].push(r)
     }
-    return Object.entries(map)
-      .map(([mainSmp, smps]) => {
-        const todoFin = PROCESOS.every(p => smps.every(r => isFinal(r[p.key])))
-        return { mainSmp, smps, todoFin }
-      })
+    return Object.entries(map).map(([mainSmp, smps]) => {
+      const todoFin = PROCESOS.every(p => smps.every(r => isFinal(r[p.key])))
+      return { mainSmp, smps, todoFin }
+    })
       .filter(({ mainSmp, smps }) => {
         if (region && smps[0]?.region !== region) return false
         if (search && !smps[0]?.site_name?.toLowerCase().includes(search.toLowerCase()) &&
@@ -338,9 +338,9 @@ export default function AckSitios() {
       })
   }, [sabana, region, search])
 
-  // Aplica filtro de estado y ordena
+  // Aplica filtro de estado, ordena y calcula showProyecto sobre lo visible
   const sitios = useMemo(() => {
-    return allGroups
+    const filtered = allGroups
       .filter(({ todoFin }) => {
         if (filtro === 'pendientes') return !todoFin
         if (filtro === 'cerrados')   return todoFin
@@ -350,6 +350,12 @@ export default function AckSitios() {
         if (a.todoFin !== b.todoFin) return a.todoFin ? 1 : -1
         return (a.smps[0]?.site_name || '').localeCompare(b.smps[0]?.site_name || '')
       })
+    const siteCount = {}
+    for (const g of filtered) {
+      const name = g.smps[0]?.site_name || ''
+      siteCount[name] = (siteCount[name] || 0) + 1
+    }
+    return filtered.map(g => ({ ...g, showProyecto: (siteCount[g.smps[0]?.site_name || ''] || 0) > 1 }))
   }, [allGroups, filtro])
 
   // Sitios del Rollout que no tienen ninguna entrada en la Sabaña (ACK aún no registrado)
@@ -455,8 +461,8 @@ export default function AckSitios() {
                     <EmptyState icon="🔍" title="Sin resultados" subtitle="Prueba ajustando los filtros." style={{ padding: '32px' }} />
                   </td>
                 </tr>
-              ) : sitios.map(({ mainSmp, smps }) => (
-                <SitioRow key={mainSmp} mainSmp={mainSmp} smps={smps} autoOpen={autoSmp === mainSmp} />
+              ) : sitios.map(({ mainSmp, smps, showProyecto }) => (
+                <SitioRow key={mainSmp} mainSmp={mainSmp} smps={smps} autoOpen={autoSmp === mainSmp} showProyecto={showProyecto} />
               ))}
             </tbody>
           </table>
@@ -524,7 +530,7 @@ export default function AckSitios() {
                             textDecorationStyle: 'dotted', whiteSpace: 'nowrap',
                           }}
                         >
-                          Ver Timeline
+                          Ver BaseLine
                         </span>
                       </td>
                     </tr>

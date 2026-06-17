@@ -199,7 +199,7 @@ export default function HwDashboard() {
             <BarChart data={barData} barSize={10}>
               <XAxis dataKey="mes" tick={{ fontSize: 9 }} />
               <YAxis tick={{ fontSize: 9 }} allowDecimals={false} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
               <Bar dataKey="entradas" name="Entradas" fill={C.green}  radius={[2,2,0,0]} />
               <Bar dataKey="salidas"  name="Salidas"  fill={C.amber}  radius={[2,2,0,0]} />
             </BarChart>

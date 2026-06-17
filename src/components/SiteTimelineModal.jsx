@@ -117,7 +117,7 @@ const GAP_DONE_OA  = ['9999. Producción', '70. Producción', '9999.Producción'
 // ── Milestone definitions ──────────────────────────────────────────
 function buildMilestones(rollout, forecast, sabana) {
   const mosDate  = rollout?.mosSS  || sabana?.mos
-  const intgDate = rollout?.intgSS || null
+  const intgDate = rollout?.intgSS || sabana?.integracion || null
   const acepDate = rollout?.acepSS || null
 
   const mosDone    = !!(mosDate  && isPast(mosDate))
@@ -275,10 +275,9 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   // Los PDFs (fact_pos) no son confiables para site_name/site_id/smp_id —
   // Nokia usa campos distintos en el PDF que pueden tener datos de otro sitio.
   const sitePpa = useMemo(() => {
-    const normSiteName = normStr(sabanaRow?.site_name)
-    if (!normSiteName) return []
-    return ppa.filter(p => normStr(p.customer_site_name) === normSiteName)
-  }, [ppa, sabanaRow])
+    if (!smpId) return []
+    return ppa.filter(p => (p.smp_id || '').toUpperCase() === smpId.toUpperCase())
+  }, [ppa, smpId])
 
   // Busca el item del Rollout usando el smp_id del PPA (fuente confiable) como clave primaria.
   // Fallback al main_smp de Sabaña por si el PPA aún no cargó.
@@ -696,7 +695,27 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#bfdbfe,transparent)' }}/>
             </div>
 
-            {allSitePos.length > 0 ? (() => {
+            {(() => {
+              if (sitePpa.length === 0 && ppa.length > 0) return (
+                <div style={{
+                  border: '1.5px solid #e5e7eb', borderRadius: 10, background: '#f9fafb',
+                  padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 10,
+                  color: '#9ca3af', fontSize: 12, fontWeight: 600,
+                }}>
+                  <span style={{ fontSize: 18 }}>📋</span>
+                  Sin datos en PPA — este SMP no pertenece al proyecto actual
+                </div>
+              )
+              if (allSitePos.length === 0) return (
+                <div style={{
+                  background: '#fff', borderRadius: 14, padding: '20px',
+                  border: '1.5px solid #e5e7eb', textAlign: 'center',
+                  color: '#9ca3af', fontSize: 13,
+                }}>
+                  Sin SPO / PO asignada a este sitio
+                </div>
+              )
+              return (() => {
               // MOS=0, HW Cierre=1, Integración=2, Doc=3, Entrega SO=4, Log.Inversa=5, On Air=6, Cerrado=7
               const SLOT_LABEL = { 0: 'MOS', 2: 'Integración', 7: 'Aceptación Final' }
               const STD_SLOTS  = [0, 2, 7]
@@ -865,15 +884,8 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                   </div>
                 </div>
               )
-            })() : (
-              <div style={{
-                background: '#fff', borderRadius: 14, padding: '20px',
-                border: '1.5px solid #e5e7eb', textAlign: 'center',
-                color: '#9ca3af', fontSize: 13,
-              }}>
-                Sin SPO / PO asignada a este sitio
-              </div>
-            )}
+            })()
+            })()}
 
             {/* ── SECCIÓN: Pagos Subcontratistas ── */}
             {(() => {

@@ -453,6 +453,13 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 /* ═══════════════════════════════════════════════════════════════
    SMALL PHONES — iPhone SE / mini / 13 mini (≤390px)
 ═══════════════════════════════════════════════════════════════ */
+/* ── Recharts: resaltar barra activa al hacer hover ── */
+.recharts-bar-rectangle:hover path,
+.recharts-bar-rectangle:hover rect {
+  filter: brightness(1.15);
+  transition: filter 0.15s ease;
+}
+
 @media (max-width: 390px) {
   .page-main { padding: 8px 8px max(12px, env(safe-area-inset-bottom)) !important; }
   .card-b    { padding: 8px; }

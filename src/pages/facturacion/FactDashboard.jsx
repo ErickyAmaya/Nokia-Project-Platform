@@ -1,7 +1,8 @@
 import { useRef, useMemo, useState } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { showToast } from '../../components/Toast'
-import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, Legend } from 'recharts'
+import ReactApexChart from 'react-apexcharts'
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 function fmtMes(yyyymm) {
@@ -185,16 +186,16 @@ function CatProgressBar({ cat, pf, fc, sinGR, total }) {
   const pct_fc = total > 0 ? (fc / total) * 100 : 0
   const pct_pf = total > 0 ? (pf / total) * 100 : 0
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
         <span style={{ fontWeight: 700, color: cat.color }}>{cat.label}</span>
-        <span style={{ color: '#4b5563', fontSize: 9 }}>
+        <span style={{ color: '#4b5563', fontSize: 11 }}>
           {fc > 0 && <span style={{ color: '#22c55e', marginRight: 8 }}>✓ {fc} facturado{fc !== 1 ? 's' : ''}</span>}
           {pf > 0 && <span style={{ color: '#ef4444', marginRight: 8 }}>⚠ {pf} pendiente{pf !== 1 ? 's' : ''}</span>}
           {sinGR > 0 && <span style={{ color: '#f59e0b' }}>○ {sinGR} sin sGR</span>}
         </span>
       </div>
-      <div style={{ height: 7, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
+      <div style={{ height: 16, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', display: 'flex' }}>
         <div style={{ width: `${pct_fc}%`, background: '#22c55e', transition: 'width .4s' }} />
         <div style={{ width: `${pct_pf}%`, background: '#ef4444', transition: 'width .4s' }} />
       </div>
@@ -214,7 +215,8 @@ export default function FactDashboard() {
   const rejectedPos      = useFactStore(s => s.rejectedPos)
   const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
 
-  const [showRejected, setShowRejected] = useState(false)
+  const [showRejected,   setShowRejected]   = useState(false)
+  const [selectedMonth,  setSelectedMonth]  = useState('')
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
@@ -287,6 +289,68 @@ export default function FactDashboard() {
       return { ...item, tendencia: Math.round(avg) }
     })
   }, [invoices, ppa, pos])
+
+  const ohlcData = useMemo(() => {
+    const monthDays = {}
+    for (const inv of invoices) {
+      if (!inv.fecha_factura) continue
+      const ppaRow = ppa.find(r => r.spo_number === inv.spo_number)
+      if (!ppaRow) continue
+      const ev = EVENTOS.find(e => e.key === inv.evento)
+      if (!ev) continue
+      const pct = ppaRow[ev.pctCol] || 0
+      if (!pct) continue
+      const poData = pos.find(p => p.spo_number === inv.spo_number)
+      if (!poData?.valor) continue
+      const month = inv.fecha_factura.slice(0, 7)
+      const day   = inv.fecha_factura
+      if (!monthDays[month]) monthDays[month] = {}
+      if (!monthDays[month][day]) monthDays[month][day] = 0
+      monthDays[month][day] += poData.valor * pct / 100
+    }
+    return Object.entries(monthDays)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, days]) => {
+        const vals   = Object.values(days)
+        const sorted = Object.entries(days).sort(([a], [b]) => a.localeCompare(b))
+        const open   = Math.round(sorted[0][1])
+        const close  = Math.round(sorted[sorted.length - 1][1])
+        const high   = Math.round(Math.max(...vals))
+        const low    = Math.round(Math.min(...vals))
+        const [y, m] = month.split('-')
+        return { x: `${MESES[parseInt(m) - 1]} '${y.slice(2)}`, y: [open, high, low, close] }
+      })
+  }, [invoices, ppa, pos])
+
+  const activeMonth = selectedMonth || (monthlyData.length ? monthlyData[monthlyData.length - 1].month : '')
+
+  const dailyData = useMemo(() => {
+    if (!activeMonth) return []
+    const map = {}
+    for (const inv of invoices) {
+      if (!inv.fecha_factura) continue
+      if (inv.fecha_factura.slice(0, 7) !== activeMonth) continue
+      const ppaRow = ppa.find(r => r.spo_number === inv.spo_number)
+      if (!ppaRow) continue
+      const ev = EVENTOS.find(e => e.key === inv.evento)
+      if (!ev) continue
+      const pct = ppaRow[ev.pctCol] || 0
+      if (!pct) continue
+      const poData = pos.find(p => p.spo_number === inv.spo_number)
+      if (!poData?.valor) continue
+      const day = inv.fecha_factura.slice(8, 10)
+      if (!map[day]) map[day] = 0
+      map[day] += poData.valor * pct / 100
+    }
+    const sorted = Object.entries(map)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+      .map(([day, valor]) => ({ day: parseInt(day), label: `${parseInt(day)}`, valor: Math.round(valor) }))
+    return sorted.map((item, i) => {
+      const slice = sorted.slice(Math.max(0, i - 2), i + 1)
+      const avg = slice.reduce((s, x) => s + x.valor, 0) / slice.length
+      return { ...item, tendencia: Math.round(avg) }
+    })
+  }, [invoices, ppa, pos, activeMonth])
 
   const catValueStats = useMemo(() => {
     const CAT_KEYS = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
@@ -428,76 +492,154 @@ export default function FactDashboard() {
             </div>
           )}
 
-          {/* Gráfica mensual */}
+          {/* Fila 1: Facturación mensual (barras) + Evolución del período (diaria) */}
           {monthlyData.length > 0 && (
-            <div className="card">
-              <div className="card-h"><h2>Facturación mensual</h2></div>
-              <div className="card-b">
-                <ResponsiveContainer width="100%" height={220}>
-                  <ComposedChart data={monthlyData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
-                    <Tooltip
-                      formatter={(val, name) => [fmtCOP(val), name === 'valor' ? 'Facturado' : 'Tendencia 3M']}
-                      labelStyle={{ fontSize: 11, fontWeight: 700 }}
-                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
-                    />
-                    <Bar dataKey="valor" fill="#144E4A" radius={[3, 3, 0, 0]} name="valor" />
-                    <Line dataKey="tendencia" stroke="#f59e0b" strokeWidth={2} dot={false} name="tendencia" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-                <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563' }}>
-                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#144E4A', borderRadius: 2, marginRight: 4 }} />Facturado (mes)</span>
-                  <span><span style={{ display: 'inline-block', width: 24, height: 2, background: '#f59e0b', borderRadius: 1, marginRight: 4, verticalAlign: 'middle' }} />Tendencia 3 meses</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+              {/* Facturación mensual — barras + tendencia */}
+              <div className="card">
+                <div className="card-h"><h2>Facturación mensual</h2></div>
+                <div className="card-b">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={monthlyData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
+                      <Tooltip
+                        formatter={(val, name) => [fmtCOP(val), name === 'valor' ? 'Facturado' : 'Tendencia 3M']}
+                        labelStyle={{ fontSize: 11, fontWeight: 700 }}
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+                        cursor={{ fill: 'transparent' }}
+                      />
+                      <Bar dataKey="valor" fill="#144E4A" radius={[3, 3, 0, 0]} name="valor" />
+                      <Line dataKey="tendencia" stroke="#f59e0b" strokeWidth={2} dot={false} name="tendencia" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563' }}>
+                    <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#144E4A', borderRadius: 2, marginRight: 4 }} />Facturado (mes)</span>
+                    <span><span style={{ display: 'inline-block', width: 24, height: 2, background: '#f59e0b', borderRadius: 1, marginRight: 4, verticalAlign: 'middle' }} />Tendencia 3 meses</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Evolución diaria del período */}
+              <div className="card">
+                <div className="card-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h2 style={{ margin: 0 }}>Evolución del período</h2>
+                    {dailyData.length > 0 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 20, padding: '2px 10px' }}>
+                        {fmtCOP(dailyData.reduce((s, d) => s + d.valor, 0))}
+                      </span>
+                    )}
+                  </div>
+                  <select value={activeMonth} onChange={e => setSelectedMonth(e.target.value)}
+                    style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid #d1d5db', color: '#374151', background: '#fff', cursor: 'pointer' }}>
+                    {monthlyData.map(m => <option key={m.month} value={m.month}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div className="card-b">
+                  {dailyData.length > 0 ? (
+                    <>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <ComposedChart data={dailyData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                          <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
+                          <Tooltip
+                            formatter={(val, name) => [fmtCOP(val), name === 'valor' ? 'Facturado' : 'Tendencia 3D']}
+                            labelFormatter={label => `Día ${label}`}
+                            labelStyle={{ fontSize: 11, fontWeight: 700 }}
+                            contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+                            cursor={{ fill: 'transparent' }}
+                          />
+                          <Bar dataKey="valor" fill="#1d4ed8" radius={[3, 3, 0, 0]} name="valor" />
+                          <Line dataKey="tendencia" stroke="#f59e0b" strokeWidth={2} dot={false} name="tendencia" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563' }}>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8', borderRadius: 2, marginRight: 4 }} />Facturado por día</span>
+                        <span><span style={{ display: 'inline-block', width: 24, height: 2, background: '#f59e0b', borderRadius: 1, marginRight: 4, verticalAlign: 'middle' }} />Tendencia 3 días</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca89c', fontSize: 12 }}>Sin facturas registradas para este período</div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Valor COP por categoría */}
-          {catValueStats.length > 0 && (
-            <div className="card">
-              <div className="card-h"><h2>Valor COP por categoría</h2></div>
-              <div className="card-b">
-                <ResponsiveContainer width="100%" height={catValueStats.length * 44 + 40}>
-                  <BarChart data={catValueStats} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                    <XAxis type="number" tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={44} />
-                    <Tooltip
-                      formatter={(val, name) => [fmtCOP(val), name === 'fc' ? 'Facturado' : name === 'pf' ? 'Por Facturar' : 'Pend. Liberación']}
-                      labelStyle={{ fontSize: 11, fontWeight: 700 }}
-                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
-                    />
-                    <Bar dataKey="fc"  stackId="a" fill="#22c55e" name="fc" />
-                    <Bar dataKey="pf"  stackId="a" fill="#ef4444" name="pf" />
-                    <Bar dataKey="lib" stackId="a" fill="#f59e0b" name="lib" radius={[0, 3, 3, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 9, color: '#4b5563' }}>
-                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4 }} />Facturado</span>
-                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Por Facturar</span>
-                  <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#f59e0b', borderRadius: 2, marginRight: 4 }} />Pend. Liberación</span>
+          {/* Fila 2: RadialBar (valor por categoría) + Candlestick (distribución mensual) */}
+          {(catValueStats.length > 0 || ohlcData.length > 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+              {/* RadialBarChart — valor total por categoría */}
+              {catValueStats.length > 0 && (
+                <div className="card">
+                  <div className="card-h"><h2>Valor COP por categoría</h2></div>
+                  <div className="card-b" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <RadialBarChart
+                        innerRadius="20%" outerRadius="90%"
+                        data={catValueStats.map(c => ({ name: c.label, valor: c.fc + c.pf + c.lib, fill: c.color })).sort((a, b) => b.valor - a.valor)}
+                        startAngle={180} endAngle={-180}
+                      >
+                        <RadialBar dataKey="valor" cornerRadius={4} background={{ fill: '#f4f4f5' }} />
+                        <Tooltip formatter={val => [fmtCOP(val), 'Valor total']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }} />
+                        <Legend iconSize={8} iconType="circle" layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 10, color: '#4b5563' }} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Candlestick — distribución diaria por mes */}
+              {ohlcData.length > 0 && (
+                <div className="card">
+                  <div className="card-h"><h2>Distribución diaria por mes</h2></div>
+                  <div className="card-b">
+                    <ReactApexChart
+                      type="candlestick"
+                      height={250}
+                      series={[{ data: ohlcData }]}
+                      options={{
+                        chart: { toolbar: { show: false }, background: 'transparent' },
+                        xaxis: { type: 'category', labels: { style: { fontSize: '10px', colors: '#617561' } }, axisBorder: { show: false }, axisTicks: { show: false } },
+                        yaxis: { labels: { formatter: fmtK, style: { fontSize: '10px', colors: '#617561' } } },
+                        grid: { borderColor: '#f0f0f0', strokeDashArray: 3, xaxis: { lines: { show: false } } },
+                        plotOptions: {
+                          candlestick: {
+                            colors: { upward: '#86efac', downward: '#ef4444' },
+                            wick: { useFillColor: true },
+                          },
+                        },
+                        tooltip: {
+                          custom({ seriesIndex, dataPointIndex, w }) {
+                            const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex]
+                            const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex]
+                            const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex]
+                            const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex]
+                            const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
+                            return `<div style="padding:10px;font-size:11px;line-height:1.8">
+                              <b>${w.globals.labels[dataPointIndex]}</b><br/>
+                              🟢 Primer día: ${fmt(o)}<br/>
+                              ↑ Máximo día: ${fmt(h)}<br/>
+                              ↓ Mínimo día: ${fmt(l)}<br/>
+                              🔵 Último día: ${fmt(c)}
+                            </div>`
+                          }
+                        },
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 16, fontSize: 9, color: '#4b5563' }}>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#86efac', borderRadius: 2, marginRight: 4 }} />Último día &gt; primer día</span>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Primer día &gt; último día</span>
+                      <span style={{ color: '#9ca3af' }}>Mechas = día máx/mín</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-
-          {/* Gráfica por categoría */}
-          <div className="card">
-            <div className="card-h"><h2>Progreso por categoría de trabajo</h2></div>
-            <div className="card-b">
-              {catStats.map(({ cat, pf, fc, sinGR, total }) => (
-                <CatProgressBar key={cat.key} cat={cat} pf={pf} fc={fc} sinGR={sinGR} total={total} />
-              ))}
-              <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 9, color: '#4b5563' }}>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4 }} />Facturado</span>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Por facturar</span>
-                <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#f0f0f0', borderRadius: 2, marginRight: 4 }} />Sin sGR / no aplica</span>
-              </div>
-            </div>
-          </div>
 
           {/* Breakdown por evento */}
           <div className="card">
