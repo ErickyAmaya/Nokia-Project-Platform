@@ -23,19 +23,23 @@ function StatusChip({ status }) {
 }
 
 export default function FactSMPs() {
-  const ppa      = useFactStore(s => s.ppa)
-  const invoices = useFactStore(s => s.invoices)
-  const loading  = useFactStore(s => s.loading)
+  const ppa           = useFactStore(s => s.ppa)
+  const invoices      = useFactStore(s => s.invoices)
+  const _rawPos       = useFactStore(s => s.pos)
+  const loading       = useFactStore(s => s.loading)
+  const cancelledSpos = useMemo(() => new Set(_rawPos.filter(p => p.cancelled).map(p => p.spo_number)), [_rawPos])
 
   const [search,   setSearch]   = useState('')
   const [filtro,   setFiltro]   = useState('todos')
   const [sortCol,  setSortCol]  = useState('ms_name')
   const [sortDir,  setSortDir]  = useState(1)
 
-  const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
+  const invMap         = useMemo(() => buildInvoicesMap(invoices), [invoices])
+  const activePpaCount = useMemo(() => ppa.filter(r => !cancelledSpos.has(r.spo_number)).length, [ppa, cancelledSpos])
 
   const rows = useMemo(() => {
     return ppa
+      .filter(row => !cancelledSpos.has(row.spo_number))
       .map(row => {
         if (!row.sgr) return { row, overallStatus: 'sin_sgr', eventos: [] }
         const eventos = getEventosRow(row, invMap)
@@ -95,7 +99,7 @@ export default function FactSMPs() {
       <div className="dash-hdr mb14">
         <div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>Todos los SMPs</h1>
-          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} de {ppa.length} SPOs</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>{rows.length} de {activePpaCount} SPOs</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
           <input className="fc" placeholder="Buscar sitio, SPO, SMP, sGR…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 'auto', minWidth: 200 }} />

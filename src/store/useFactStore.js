@@ -158,11 +158,12 @@ export const useFactStore = create((set, get) => ({
       if (upErr) throw upErr
 
       // Detect SPOs that were in fact_ppa but are NOT in the new PPA upload
-      const newSpoSet  = new Set(parsed.map(r => r.spo_number))
+      const newSpoSet       = new Set(parsed.map(r => r.spo_number))
+      const alreadyCancelled = new Set(get().pos.filter(p => p.cancelled).map(p => p.spo_number))
       const seenRemoved = new Set()
       const removed = []
       for (const r of get().ppa) {
-        if (newSpoSet.has(r.spo_number) || seenRemoved.has(r.spo_number)) continue
+        if (newSpoSet.has(r.spo_number) || seenRemoved.has(r.spo_number) || alreadyCancelled.has(r.spo_number)) continue
         seenRemoved.add(r.spo_number)
         const posRecord = get().pos.find(p => p.spo_number === r.spo_number)
         removed.push({
