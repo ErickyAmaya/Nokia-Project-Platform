@@ -259,7 +259,7 @@ export const useFactStore = create((set, get) => ({
   },
 
   // ── Confirmar actualización de PO (reemplaza PDF + registra historial) ──
-  confirmarActualizacionPO: async ({ file, extracted, existing, changedBy, isCancelled }) => {
+  confirmarActualizacionPO: async ({ file, extracted, existing, changedBy, isCancelled, notaCredito = null, invoicesToReset = [] }) => {
     set({ uploading: true })
     try {
       // 1. Subir nuevo PDF
@@ -291,14 +291,24 @@ export const useFactStore = create((set, get) => ({
         .from('fact_pos').update(record).eq('spo_number', extracted.spo_number).select().single()
       if (error) throw error
 
-      // 4. Registrar historial
+      // 4. Registrar historial (nota_credito queda null cuando no aplica)
       const { data: hRow } = await supabase.from('fact_pos_historial')
-        .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes: computeChanges(existing, extracted), old_pdf_url: existing.pdf_url })
+        .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes: computeChanges(existing, extracted), old_pdf_url: existing.pdf_url, nota_credito: notaCredito || null })
         .select().single()
 
+      // 5. Ajuste de precio: eliminar facturas revertidas por nota de crédito
+      let updatedInvoices = get().invoices
+      if (invoicesToReset.length > 0) {
+        const ids = invoicesToReset.map(i => i.id)
+        const { error: delErr } = await supabase.from('fact_invoices').delete().in('id', ids)
+        if (delErr) throw delErr
+        updatedInvoices = updatedInvoices.filter(i => !ids.includes(i.id))
+      }
+
       set(s => ({
-        pos:      s.pos.map(p => p.spo_number === data.spo_number ? data : p),
+        pos:       s.pos.map(p => p.spo_number === data.spo_number ? data : p),
         historial: hRow ? [hRow, ...s.historial] : s.historial,
+        invoices:  updatedInvoices,
         uploading: false,
       }))
       return { ok: true, data }

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
-import { useFactStore, computeChanges } from '../../store/useFactStore'
+import { useFactStore, computeChanges, EVENTOS } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { parsePOPdf } from '../../lib/pdfParser'
@@ -114,9 +114,12 @@ const PO_FIELDS = [
   { key: 'doc_date',        label: 'Fecha PO',          fmt: v => v || '—' },
 ]
 
-function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueIndex, onClose, onConfirm }) {
+function UpdateConfirmModal({ preview, spoInvoices, uploading, queueTotal, queueIndex, onClose, onConfirm }) {
   const { extracted, existing } = preview
   const isCancelled = preview.isCancelled || false
+
+  const [notaCreditoNum,   setNotaCreditoNum]   = useState('')
+  const [notaCreditoFecha, setNotaCreditoFecha] = useState('')
 
   // For cancelled POs the store preserves key fields — show effective values in preview
   const effectiveExtracted = isCancelled ? {
@@ -128,9 +131,17 @@ function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueInd
     site_id:   existing.site_id,
   } : extracted
 
-  const changes    = computeChanges(existing, effectiveExtracted)
-  const hasChanges = Object.keys(changes).length > 0
-  const hasInvoices = invoices.some(inv => inv.spo_number === existing.spo_number)
+  const changes         = computeChanges(existing, effectiveExtracted)
+  const hasChanges      = Object.keys(changes).length > 0
+  const valorChanged    = 'valor' in changes
+  const showNotaCredito = !isCancelled && valorChanged && spoInvoices.length > 0
+
+  function handleConfirmClick() {
+    onConfirm({
+      notaCredito:     showNotaCredito ? { numero: notaCreditoNum || null, fecha: notaCreditoFecha || null } : null,
+      invoicesToReset: showNotaCredito ? spoInvoices : [],
+    })
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -192,7 +203,39 @@ function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueInd
           </div>
         )}
 
-        {hasInvoices && (
+        {showNotaCredito && (
+          <div style={{ border: '1px solid #fbbf24', borderRadius: 8, background: '#fffbeb', padding: 12, marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: '#92400e', marginBottom: 6 }}>
+              Ajuste de precio — facturas a revertir
+            </div>
+            <div style={{ fontSize: 11, color: '#78350f', marginBottom: 8 }}>
+              El cambio de valor requiere nota de crédito. Las siguientes facturas serán eliminadas del sistema al confirmar:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+              {spoInvoices.map(inv => (
+                <div key={inv.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 11, padding: '2px 0' }}>
+                  <span style={{ fontWeight: 700, color: '#b45309', minWidth: 90 }}>
+                    {EVENTOS.find(e => e.key === inv.evento)?.label || inv.evento}
+                  </span>
+                  {inv.numero_factura && <span style={{ color: '#6b7280' }}>Fact. {inv.numero_factura}</span>}
+                  {inv.pct != null && <span style={{ color: '#9ca3af' }}>{inv.pct}%</span>}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div className="fg" style={{ flex: 1 }}>
+                <label className="fl">N° Nota de Crédito <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional)</span></label>
+                <input className="fc" placeholder="NC-2024-001" value={notaCreditoNum} onChange={e => setNotaCreditoNum(e.target.value)} />
+              </div>
+              <div className="fg" style={{ flex: 1 }}>
+                <label className="fl">Fecha <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional)</span></label>
+                <input className="fc" type="date" value={notaCreditoFecha} onChange={e => setNotaCreditoFecha(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!showNotaCredito && spoInvoices.length > 0 && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#991b1b', marginBottom: 10 }}>
             ⚠ Esta PO tiene facturas registradas. El valor en Facturado se recalculará con el nuevo valor.
           </div>
@@ -202,7 +245,7 @@ function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueInd
           <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>
             {queueTotal > 1 ? 'Omitir' : 'Cancelar'}
           </button>
-          <button onClick={onConfirm} disabled={uploading} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: uploading ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: uploading ? .6 : 1 }}>
+          <button onClick={handleConfirmClick} disabled={uploading} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: uploading ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, opacity: uploading ? .6 : 1 }}>
             {uploading ? '⏳ Actualizando…' : '✓ Confirmar actualización'}
           </button>
         </div>
@@ -247,6 +290,13 @@ function HistorialModal({ spo_number, historial, onClose }) {
                     </div>
                   )
                 })
+              )}
+              {h.nota_credito && (
+                <div style={{ marginTop: 8, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, fontSize: 11 }}>
+                  <span style={{ fontWeight: 700, color: '#92400e' }}>Nota de Crédito</span>
+                  {h.nota_credito.numero && <span style={{ color: '#374151', marginLeft: 6 }}>N° {h.nota_credito.numero}</span>}
+                  {h.nota_credito.fecha  && <span style={{ color: '#6b7280',  marginLeft: 8 }}>{new Date(h.nota_credito.fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+                </div>
               )}
             </div>
           )
@@ -348,12 +398,13 @@ export default function FactPOs() {
     }
   }
 
-  async function handleConfirmarActualizacion() {
+  async function handleConfirmarActualizacion({ notaCredito, invoicesToReset } = {}) {
     if (!updatePreview) return
-    const result = await confirmarActualizacionPO({ ...updatePreview, changedBy: user?.email })
+    const result = await confirmarActualizacionPO({ ...updatePreview, changedBy: user?.email, notaCredito, invoicesToReset: invoicesToReset || [] })
     if (result.ok) {
       const remaining = pendingUpdates.length
-      showToast(`PO actualizada${remaining > 0 ? ` — ${remaining} pendiente${remaining !== 1 ? 's' : ''}` : ' correctamente'}`)
+      const resetMsg  = invoicesToReset?.length > 0 ? ` — ${invoicesToReset.length} factura${invoicesToReset.length !== 1 ? 's' : ''} revertida${invoicesToReset.length !== 1 ? 's' : ''}` : ''
+      showToast(`PO actualizada${resetMsg}${remaining > 0 ? ` — ${remaining} pendiente${remaining !== 1 ? 's' : ''}` : ''}`)
     } else {
       showToast('Error al actualizar: ' + result.error, 'err')
     }
@@ -460,6 +511,11 @@ export default function FactPOs() {
     } catch (e) { showToast('Error al exportar: ' + e.message, 'err') }
   }
 
+  const spoInvoices = useMemo(
+    () => updatePreview ? invoices.filter(i => i.spo_number === updatePreview.existing?.spo_number) : [],
+    [invoices, updatePreview]
+  )
+
   const historialMap = useMemo(() => {
     const map = {}
     for (const h of historial) {
@@ -509,7 +565,7 @@ export default function FactPOs() {
   return (
     <>
       {editPO && <EditModal po={editPO} onClose={() => setEditPO(null)} onSave={actualizarPO} />}
-      {updatePreview && <UpdateConfirmModal preview={updatePreview} invoices={invoices} uploading={uploading} queueTotal={pendingUpdates.length + 1} queueIndex={pendingUpdates.length} onClose={advanceUpdateQueue} onConfirm={handleConfirmarActualizacion} />}
+      {updatePreview && <UpdateConfirmModal preview={updatePreview} spoInvoices={spoInvoices} uploading={uploading} queueTotal={pendingUpdates.length + 1} queueIndex={pendingUpdates.length} onClose={advanceUpdateQueue} onConfirm={handleConfirmarActualizacion} />}
       {historialModal && <HistorialModal spo_number={historialModal} historial={historial} onClose={() => setHistorialModal(null)} />}
       {showRechazados && <RechazadosModal items={rejectedPos} onClose={() => setShowRechazados(false)} onDelete={deleteRejectedPo} />}
 

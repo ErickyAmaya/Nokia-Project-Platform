@@ -560,12 +560,13 @@ export default function FactPorFacturar() {
   const libSpoSet   = useMemo(() => new Set(libRows.map(r => r.row.spo_number)), [libRows])
   const ppaByHito   = useMemo(() => new Map(ppa.map(r => [`${r.smp_id}|${r.ms_name}`, r])), [ppa])
 
-  // Returns 'done' (facturado), 'ready' (100% sin facturar), or null (en progreso)
+  // Returns 'done' (facturado o en Pendiente Liberación), 'ready' (facturable ahora), or null (en progreso)
   function getHitoBarStatus(smpId, msName, pct) {
     if (pct < 100) return null
     const r = ppaByHito.get(`${smpId}|${msName}`)
     if (!r) return 'ready'
-    if (libSpoSet.has(r.spo_number) || rowsSpoSet.has(r.spo_number)) return 'ready'
+    if (rowsSpoSet.has(r.spo_number)) return 'ready'  // tiene GR + % → facturable ahora
+    if (libSpoSet.has(r.spo_number))  return 'done'   // en Pendiente Liberación → no mostrar badge aquí
     if (r.sgr) {
       const evs = getEventosRow(r, invMap)
       if (evs.length > 0 && evs.every(e => e.status === 'facturado')) return 'done'
