@@ -296,7 +296,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   // la identidad del sitio con datos incorrectos del campo Delivery Address.
   const sitePos = useMemo(() => {
     const sitePpaSpos = new Set(sitePpa.map(p => p.spo_number))
-    return pos.filter(p => sitePpaSpos.has(p.spo_number))
+    return pos.filter(p => sitePpaSpos.has(p.spo_number) && !p.cancelled)
   }, [pos, sitePpa])
 
   // Unión: pos enriched con ms_name del PPA + entradas sintéticas para SPOs sin PDF

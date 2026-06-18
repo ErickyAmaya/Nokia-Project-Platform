@@ -5,7 +5,7 @@ import { showToast } from '../../components/Toast'
 import { parsePOPdf } from '../../lib/pdfParser'
 
 function EditModal({ po, onClose, onSave }) {
-  const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', smp_id: po.smp_id || '', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '' })
+  const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', smp_id: po.smp_id || '', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '', cancelled: po.cancelled || false })
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -35,6 +35,13 @@ function EditModal({ po, onClose, onSave }) {
           <div className="fg"><label className="fl">Proveedor</label><input className="fc" value={form.supplier_name} onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Condición de pago</label><input className="fc" value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Descripción (PCI)</label><input className="fc" value={form.pci_description} onChange={e => setForm(f => ({ ...f, pci_description: e.target.value }))} /></div>
+          <div className="fg">
+            <label className="fl">Estado</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, padding: '6px 0' }}>
+              <input type="checkbox" checked={form.cancelled} onChange={e => setForm(f => ({ ...f, cancelled: e.target.checked }))} />
+              Marcar como cancelada (excluir de cálculos)
+            </label>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
@@ -95,6 +102,8 @@ const fmtVal = (v, mon = 'COP') => v != null
   ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: mon, maximumFractionDigits: 0 }).format(v)
   : '—'
 
+const PRESERVED_ON_CANCEL = ['valor', 'moneda', 'smp_id']
+
 const PO_FIELDS = [
   { key: 'valor',           label: 'Valor',             fmt: (v, mon) => fmtVal(v, mon) },
   { key: 'moneda',          label: 'Moneda',            fmt: v => v || '—' },
@@ -106,8 +115,21 @@ const PO_FIELDS = [
 ]
 
 function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueIndex, onClose, onConfirm }) {
-  const { extracted, existing, changes } = preview
-  const hasChanges  = Object.keys(changes).length > 0
+  const { extracted, existing } = preview
+  const isCancelled = preview.isCancelled || false
+
+  // For cancelled POs the store preserves key fields — show effective values in preview
+  const effectiveExtracted = isCancelled ? {
+    ...extracted,
+    valor:     existing.valor,
+    moneda:    existing.moneda,
+    smp_id:    existing.smp_id,
+    site_name: existing.site_name,
+    site_id:   existing.site_id,
+  } : extracted
+
+  const changes    = computeChanges(existing, effectiveExtracted)
+  const hasChanges = Object.keys(changes).length > 0
   const hasInvoices = invoices.some(inv => inv.spo_number === existing.spo_number)
 
   return (
@@ -141,13 +163,24 @@ function UpdateConfirmModal({ preview, invoices, uploading, queueTotal, queueInd
                     {fmt(existing[key], existing.moneda)}
                   </td>
                   <td style={{ padding: '6px 10px', fontSize: 10, color: changed ? '#166534' : '#374151', fontWeight: changed ? 700 : 400 }}>
-                    {fmt(extracted[key], extracted.moneda)}
+                    {fmt(effectiveExtracted[key], effectiveExtracted.moneda)}
+                    {isCancelled && PRESERVED_ON_CANCEL.includes(key) && String(extracted[key] ?? '') !== String(existing[key] ?? '') && (
+                      <span style={{ color: '#dc2626', marginLeft: 5, fontWeight: 400 }}>
+                        ({fmt(extracted[key], extracted.moneda)})
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </table>
+
+        {isCancelled && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#991b1b', marginBottom: 10, fontWeight: 700 }}>
+            🚫 Nokia canceló esta PO — se marcará como excluida al confirmar
+          </div>
+        )}
 
         {hasChanges ? (
           <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e', marginBottom: 10 }}>
@@ -296,7 +329,7 @@ export default function FactPOs() {
     if (existingPOs.length > 0) {
       const queue = existingPOs.map(({ file, extracted }) => {
         const existing = pos.find(p => p.spo_number === extracted.spo_number)
-        return { file, extracted, existing, changes: computeChanges(existing, extracted) }
+        return { file, extracted, existing, changes: computeChanges(existing, extracted), isCancelled: !!extracted.isCancelled }
       })
       if (queue.length > 1) showToast(`${queue.length} POs ya existen — confírmalas una a una`, 'err')
       const [first, ...rest] = queue
@@ -575,8 +608,15 @@ export default function FactPOs() {
             </thead>
             <tbody>
               {enriched.map(po => (
-                <tr key={po.id} style={{ borderTop: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700 }}>{po.spo_number}</td>
+                <tr key={po.id} style={{ borderTop: '1px solid #f0f0f0', opacity: po.cancelled ? 0.55 : 1 }}>
+                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700 }}>
+                    {po.spo_number}
+                    {po.cancelled && (
+                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4, padding: '1px 5px', verticalAlign: 'middle' }}>
+                        Cancelada
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: '7px 10px', color: '#555' }}>{po.doc_date || '—'}</td>
                   <td style={{ padding: '7px 10px' }}>{po.customer_site_name}</td>
                   <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{po.smp_id}</td>

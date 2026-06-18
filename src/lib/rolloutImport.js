@@ -98,9 +98,9 @@ export async function parsearRollout(file) {
   const idxSiteName = findCol(2,  ['site', 'name'],  ['customer', 'site'])
   const idxSmpName  = findCol(8,  ['smp', 'name'],   ['process',  'name'])
   const idxSmpId    = findCol(9,  ['smp', 'id'],     ['wo', 'number'],    ['work', 'order'])
-  const idxMosSS    = findCol(31, ['mos', 'ok'],     ['ss', 'mos'])
-  const idxIntgSS   = findCol(55, ['qcp4'],          ['integ', 'ok'],     ['ss', 'integ'])
-  const idxAcepSS   = findCol(65, ['acep', 'ok'],    ['final', 'ok'],     ['ss', 'acep'])
+  const idxMosSS    = findCol(31, ['ss', 'mos'],     ['mos', 'ok'])
+  const idxIntgSS   = findCol(55, ['qcp4', 'ok'],    ['qcp4'])
+  const idxAcepSS   = findCol(65, ['acep', 'final'], ['ss', 'acep'])
 
   // Pasos de progreso: MOS = 12 cols antes de mosSS; Intg y Acep = rango dinámico entre SS fechas
   const intgSteps = Math.max(idxIntgSS - idxMosSS - 1, 1)
@@ -147,9 +147,9 @@ export async function parsearRollout(file) {
       mosPct:  Math.round((mosFilled  / 12)        * 100),
       intgPct: intgSS ? 100 : Math.round((intgFilled / intgSteps) * 100),
       acepPct: Math.round((acepFilled / acepSteps) * 100),
-      mosLastCol:   lastFilledHeader(row, idxMosSS - 11, idxMosSS),
-      intgLastCol:  lastFilledHeader(row, idxMosSS + 2,  idxIntgSS),
-      acepLastCol:  lastFilledHeader(row, idxIntgSS + 2, idxAcepSS),
+      mosLastCol:   extractDate(row[idxMosSS])  ? (headerRow[idxMosSS]  || null) : lastFilledHeader(row, idxMosSS - 11, idxMosSS),
+      intgLastCol:  extractDate(row[idxIntgSS]) ? (headerRow[idxIntgSS] || null) : lastFilledHeader(row, idxMosSS + 2,  idxIntgSS),
+      acepLastCol:  extractDate(row[idxAcepSS]) ? (headerRow[idxAcepSS] || null) : lastFilledHeader(row, idxIntgSS + 2, idxAcepSS),
       mosLastDate:  lastFilledDate(row, idxMosSS - 11, idxMosSS),
       intgLastDate: lastFilledDate(row, idxMosSS + 2,  idxIntgSS),
       acepLastDate: lastFilledDate(row, idxIntgSS + 2, idxAcepSS),

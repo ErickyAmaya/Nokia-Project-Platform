@@ -320,7 +320,9 @@ function AcuerdoEspecialModal({ row, onClose, onSave }) {
 export default function FactPorFacturar() {
   const ppa              = useFactStore(s => s.ppa)
   const invoices         = useFactStore(s => s.invoices)
-  const pos              = useFactStore(s => s.pos)
+  const _rawPos          = useFactStore(s => s.pos)
+  const pos              = useMemo(() => _rawPos.filter(p => !p.cancelled), [_rawPos])
+  const cancelledSpos    = useMemo(() => new Set(_rawPos.filter(p => p.cancelled).map(p => p.spo_number)), [_rawPos])
   const loading          = useFactStore(s => s.loading)
   const registrarFactura = useFactStore(s => s.registrarFactura)
   const importarFacturas = useFactStore(s => s.importarFacturas)
@@ -416,6 +418,7 @@ export default function FactPorFacturar() {
   const allPendingRows = useMemo(() => {
     const result = []
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       if (!row.sgr) continue
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturar')
       if (!eventos.length) continue
@@ -452,6 +455,7 @@ export default function FactPorFacturar() {
   const rows = useMemo(() => {
     const result = []
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       if (!row.sgr) continue
       const cat     = getSmpCat(row.smp_name)
       const allEvs  = getEventosRow(row, invMap)
@@ -480,6 +484,7 @@ export default function FactPorFacturar() {
   const libRows = useMemo(() => {
     const result = []
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       const evs   = getEventosRow(row, invMap)
       const hasPF = evs.some(e => e.status === 'facturar')
       const hasFC = evs.some(e => e.status === 'facturado')
@@ -716,7 +721,7 @@ export default function FactPorFacturar() {
       </div>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 20px', color: '#22c55e', fontSize: 14, fontWeight: 600 }}>
-          ✓ No hay SPOs facturables pendientes con los filtros actuales
+          ✓ No hay SPOs facturables pendientes
         </div>
       ) : (
         <div className="card" style={{ overflow: 'auto', maxHeight: '55vh', marginBottom: 16 }}>

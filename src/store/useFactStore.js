@@ -157,6 +157,23 @@ export const useFactStore = create((set, get) => ({
         .select().single()
       if (upErr) throw upErr
 
+      // Detect SPOs that were in fact_ppa but are NOT in the new PPA upload
+      const newSpoSet  = new Set(parsed.map(r => r.spo_number))
+      const seenRemoved = new Set()
+      const removed = []
+      for (const r of get().ppa) {
+        if (newSpoSet.has(r.spo_number) || seenRemoved.has(r.spo_number)) continue
+        seenRemoved.add(r.spo_number)
+        const posRecord = get().pos.find(p => p.spo_number === r.spo_number)
+        removed.push({
+          spo_number: r.spo_number,
+          site_name:  r.customer_site_name || r.site_reference_id || '—',
+          smp_name:   r.smp_name === 'Process_Implementation' ? (r.ms_name || r.smp_name) : (r.smp_name || '—'),
+          pos_id:     posRecord?.id    || null,
+          has_pdf:    !!posRecord?.pdf_url,
+        })
+      }
+
       // Delete existing rows in chunks (large IN clauses exceed URL limits)
       const spoNumbers = parsed.map(r => r.spo_number)
       const CHUNK = 200
@@ -182,7 +199,7 @@ export const useFactStore = create((set, get) => ({
         currUploadId: upload.id,
         uploading:    false,
       }))
-      return { ok: true, count: parsed.length }
+      return { ok: true, count: parsed.length, removed }
     } catch (e) {
       set({ uploading: false })
       return { ok: false, error: e.message }
@@ -211,7 +228,9 @@ export const useFactStore = create((set, get) => ({
       if (stErr) throw stErr
       const { data: urlData } = supabase.storage.from('facturacion').getPublicUrl(path)
 
-      const record = { ...extracted, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
+      // eslint-disable-next-line no-unused-vars
+      const { isCancelled: _ic2, ...extractedClean2 } = extracted
+      const record = { ...extractedClean2, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
 
       const { data, error } = await supabase
         .from('fact_pos')
@@ -240,7 +259,7 @@ export const useFactStore = create((set, get) => ({
   },
 
   // ── Confirmar actualización de PO (reemplaza PDF + registra historial) ──
-  confirmarActualizacionPO: async ({ file, extracted, existing, changedBy }) => {
+  confirmarActualizacionPO: async ({ file, extracted, existing, changedBy, isCancelled }) => {
     set({ uploading: true })
     try {
       // 1. Subir nuevo PDF
@@ -256,7 +275,18 @@ export const useFactStore = create((set, get) => ({
       }
 
       // 3. Actualizar fact_pos
-      const record = { ...extracted, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
+      // eslint-disable-next-line no-unused-vars
+      const { isCancelled: _ic, ...extractedClean } = extracted
+      const record = { ...extractedClean, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
+      if (isCancelled) {
+        record.cancelled = true
+        // Preserve key fields from existing record — cancellation PDFs carry garbage data
+        if (existing.valor     != null) record.valor     = existing.valor
+        if (existing.moneda)            record.moneda    = existing.moneda
+        if (existing.smp_id)            record.smp_id    = existing.smp_id
+        if (existing.site_name)         record.site_name = existing.site_name
+        if (existing.site_id)           record.site_id   = existing.site_id
+      }
       const { data, error } = await supabase
         .from('fact_pos').update(record).eq('spo_number', extracted.spo_number).select().single()
       if (error) throw error
@@ -340,6 +370,25 @@ export const useFactStore = create((set, get) => ({
   },
 
   // ── Rechazados ───────────────────────────────────────────────────
+  cancelPOBySpo: async (spoNumber) => {
+    const { data, error } = await supabase
+      .from('fact_pos').update({ cancelled: true, updated_at: new Date().toISOString() })
+      .eq('spo_number', spoNumber).select().single()
+    if (error) return { ok: false, error: error.message }
+    set(s => ({ pos: s.pos.map(p => p.spo_number === spoNumber ? data : p) }))
+    return { ok: true }
+  },
+
+  removePOFromSystem: async (spoNumber) => {
+    await supabase.from('fact_pos').delete().eq('spo_number', spoNumber)
+    await supabase.from('fact_ppa').delete().eq('spo_number', spoNumber)
+    set(s => ({
+      pos: s.pos.filter(p => p.spo_number !== spoNumber),
+      ppa: s.ppa.filter(p => p.spo_number !== spoNumber),
+    }))
+    return { ok: true }
+  },
+
   deleteRejectedPo: async (id) => {
     await supabase.from('fact_rejected_pos').delete().eq('id', id)
     set(s => ({ rejectedPos: s.rejectedPos.filter(r => r.id !== id) }))

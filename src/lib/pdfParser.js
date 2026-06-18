@@ -69,9 +69,11 @@ export async function parsePOPdf(file) {
   const siteName = smpIdx > start + 1 ? parts.slice(start + 1, smpIdx).join('_') : (parts[start + 1] || '')
   const smpId    = smpIdx >= 0 ? parts[smpIdx] : (grab(text, /(SMP-WO-\d+)/i))
 
+  const isCancelled = /SPO Cancelled By/i.test(text)
+
   return { spo_number: normSPO(spo), smp_id: smpId, site_id: siteId, site_name: siteName,
            doc_date: docDate, supplier_name: supplierName, valor, moneda,
-           payment_terms: paymentTerms, pci_description: pciDesc }
+           payment_terms: paymentTerms, pci_description: pciDesc, isCancelled }
 }
 
 function normSPO(v) {

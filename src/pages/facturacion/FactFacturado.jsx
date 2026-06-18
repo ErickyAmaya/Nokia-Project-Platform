@@ -158,7 +158,9 @@ function EditFacturaModal({ inv, onClose, onSave }) {
 export default function FactFacturado() {
   const ppa              = useFactStore(s => s.ppa)
   const invoices         = useFactStore(s => s.invoices)
-  const pos              = useFactStore(s => s.pos)
+  const _rawPos          = useFactStore(s => s.pos)
+  const pos              = useMemo(() => _rawPos.filter(p => !p.cancelled), [_rawPos])
+  const cancelledSpos    = useMemo(() => new Set(_rawPos.filter(p => p.cancelled).map(p => p.spo_number)), [_rawPos])
   const loading          = useFactStore(s => s.loading)
   const eliminarFactura = useFactStore(s => s.eliminarFactura)
   const registrarFactura = useFactStore(s => s.registrarFactura)
@@ -178,6 +180,7 @@ export default function FactFacturado() {
   const rows = useMemo(() => {
     const result = []
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       const eventos = getEventosRow(row, invMap).filter(e => e.status === 'facturado')
       if (!eventos.length) continue
       let filtered = applyEvFilter(eventos, row, filtroEv)
@@ -217,11 +220,12 @@ export default function FactFacturado() {
   const ppaTotalBySite = useMemo(() => {
     const map = {}
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       const key = row.customer_site_name || row.site_reference_id || '(Sin sitio)'
       map[key] = (map[key] || 0) + 1
     }
     return map
-  }, [ppa])
+  }, [ppa, cancelledSpos])
 
   const rowsBySite = useMemo(() => {
     const siteMap = new Map()

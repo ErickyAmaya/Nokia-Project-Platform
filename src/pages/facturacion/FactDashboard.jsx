@@ -203,27 +203,103 @@ function CatProgressBar({ cat, pf, fc, sinGR, total }) {
   )
 }
 
+function PpaRemovedModal({ items, onClose, onCancel, onDelete }) {
+  const [done, setDone] = useState({})  // { spo_number: 'cancelled' | 'deleted' }
+  const [loading, setLoading] = useState({})
+
+  async function handleCancel(spo) {
+    setLoading(l => ({ ...l, [spo]: true }))
+    await onCancel(spo)
+    setDone(d => ({ ...d, [spo]: 'cancelled' }))
+    setLoading(l => ({ ...l, [spo]: false }))
+  }
+
+  async function handleDelete(spo) {
+    setLoading(l => ({ ...l, [spo]: true }))
+    await onDelete(spo)
+    setDone(d => ({ ...d, [spo]: 'deleted' }))
+    setLoading(l => ({ ...l, [spo]: false }))
+  }
+
+  const allDone = items.every(i => done[i.spo_number])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 580, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>SPOs removidos del PPA</div>
+        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 16 }}>
+          {items.length} SPO{items.length !== 1 ? 's' : ''} que estaban en el sistema ya no aparecen en el nuevo PPA — es probable que Nokia los haya eliminado o cancelado.
+        </div>
+
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+          {items.map((item, i) => {
+            const status = done[item.spo_number]
+            const busy   = loading[item.spo_number]
+            return (
+              <div key={item.spo_number} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: i > 0 ? '1px solid #f0f0f0' : undefined, background: status ? '#f9fafb' : '#fff', opacity: status ? 0.7 : 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11, color: '#374151' }}>{item.spo_number}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{item.site_name} · {item.smp_name}</div>
+                  {item.has_pdf && <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1 }}>📄 Tiene PDF cargado</div>}
+                </div>
+                {status === 'cancelled' && <span style={{ fontSize: 10, fontWeight: 700, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>Marcada cancelada</span>}
+                {status === 'deleted'   && <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 5, padding: '2px 8px', whiteSpace: 'nowrap' }}>Eliminada</span>}
+                {!status && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => handleCancel(item.spo_number)} disabled={busy}
+                      style={{ fontSize: 10, fontWeight: 700, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {busy ? '…' : 'Marcar cancelada'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.spo_number)} disabled={busy}
+                      style={{ fontSize: 10, fontWeight: 700, color: '#374151', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {busy ? '…' : 'Eliminar del sistema'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '7px 20px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+            {allDone ? 'Cerrar' : 'Cerrar sin acción'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FactDashboard() {
   const fileRef          = useRef(null)
   const uploadPPA        = useFactStore(s => s.uploadPPA)
+  const cancelPOBySpo    = useFactStore(s => s.cancelPOBySpo)
+  const removePOFromSystem = useFactStore(s => s.removePOFromSystem)
   const uploading        = useFactStore(s => s.uploading)
   const uploads          = useFactStore(s => s.uploads)
   const ppa              = useFactStore(s => s.ppa)
   const invoices         = useFactStore(s => s.invoices)
-  const pos              = useFactStore(s => s.pos)
+  const _rawPos          = useFactStore(s => s.pos)
+  const pos              = useMemo(() => _rawPos.filter(p => !p.cancelled), [_rawPos])
+  const cancelledSpos    = useMemo(() => new Set(_rawPos.filter(p => p.cancelled).map(p => p.spo_number)), [_rawPos])
   const calendar         = useFactStore(s => s.calendar)
   const rejectedPos      = useFactStore(s => s.rejectedPos)
   const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
 
   const [showRejected,   setShowRejected]   = useState(false)
   const [selectedMonth,  setSelectedMonth]  = useState('')
+  const [removedModal,   setRemovedModal]   = useState(null)  // array of removed SPO items
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
 
   const stats = useMemo(() => {
-    let totalSPOs = ppa.length, porFacturar = 0, facturado = 0, sinGR = 0
+    const activePpa = ppa.filter(r => !cancelledSpos.has(r.spo_number))
+    let totalSPOs = activePpa.length, porFacturar = 0, facturado = 0, sinGR = 0
     let valorFacturar = 0, valorFacturado = 0, valorPendienteLib = 0
-    for (const row of ppa) {
+    for (const row of activePpa) {
       const eventos   = getEventosRow(row, invMap)
       const hasPF     = eventos.some(e => e.status === 'facturar')
       const hasFC     = eventos.some(e => e.status === 'facturado')
@@ -244,7 +320,7 @@ export default function FactDashboard() {
       }
     }
     return { totalSPOs, porFacturar, facturado, sinGR, valorFacturar, valorFacturado, valorPendienteLib }
-  }, [ppa, invMap, pos])
+  }, [ppa, invMap, pos, cancelledSpos])
 
   // Stats por categoría SMP
   const catStats = useMemo(() => {
@@ -253,6 +329,7 @@ export default function FactDashboard() {
       map[cat.key] = { cat, total: 0, pf: 0, fc: 0, sinGR: 0 }
     }
     for (const row of ppa) {
+      if (cancelledSpos.has(row.spo_number)) continue
       const cat = getSmpCat(row.smp_name)
       const k   = cat.key in map ? cat.key : 'other'
       map[k].total++
@@ -388,8 +465,12 @@ export default function FactDashboard() {
     const file = e.target.files?.[0]
     if (!file) return
     const result = await uploadPPA(file)
-    if (result.ok) showToast(`PPA cargado — ${result.count} SPOs`)
-    else showToast('Error: ' + result.error, 'err')
+    if (result.ok) {
+      showToast(`PPA cargado — ${result.count} SPOs`)
+      if (result.removed?.length > 0) setRemovedModal(result.removed)
+    } else {
+      showToast('Error: ' + result.error, 'err')
+    }
     e.target.value = ''
   }
 
@@ -409,6 +490,20 @@ export default function FactDashboard() {
           items={rejectedPos}
           onClose={() => setShowRejected(false)}
           onDelete={async id => { try { await deleteRejectedPo(id) } catch (e) { showToast('Error: ' + e.message, 'err') } }}
+        />
+      )}
+      {removedModal && (
+        <PpaRemovedModal
+          items={removedModal}
+          onClose={() => setRemovedModal(null)}
+          onCancel={async spo => {
+            const r = await cancelPOBySpo(spo)
+            if (!r.ok) showToast('Error al cancelar: ' + r.error, 'err')
+          }}
+          onDelete={async spo => {
+            const r = await removePOFromSystem(spo)
+            if (!r.ok) showToast('Error al eliminar: ' + r.error, 'err')
+          }}
         />
       )}
 
