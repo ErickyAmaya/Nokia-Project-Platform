@@ -679,7 +679,7 @@ export default function FactPorFacturar() {
                 </button>
                 {rolloutItems && (
                   <span style={{ position: 'absolute', top: '100%', left: 0, fontSize: 9, color: '#6b7280', whiteSpace: 'nowrap', marginTop: 2 }}>
-                    {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {rolloutItems.length} SMPs · {new Date(rolloutTs).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date(rolloutTs).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
               </div>
