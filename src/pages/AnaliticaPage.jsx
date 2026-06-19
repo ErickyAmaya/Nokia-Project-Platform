@@ -1190,18 +1190,30 @@ function Tab6() {
           <ResponsiveContainer width="100%" height={270}>
             <BarChart
               data={[...filteredConTilt].sort((a, b) => a.tilt - b.tilt).map(s => ({
-                sitio:    s.sitio.length > 12 ? s.sitio.slice(0, 11) + '…' : s.sitio,
+                sitio:     s.sitio.length > 12 ? s.sitio.slice(0, 11) + '…' : s.sitio,
                 sitioFull: s.sitio,
-                tilt:     s.tilt,
-                esCwConj: s.esCwConj,
-                es5G:     s.es5G,
+                cuadrilla: s.cuadrilla || '—',
+                tilt:      s.tilt,
+                esCwConj:  s.esCwConj,
+                es5G:      s.es5G,
               }))}
               margin={{ left: 0, right: 8, top: 20, bottom: 50 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="sitio" tick={{ fontSize: 8 }} angle={-45} textAnchor="end" interval={0} />
               <YAxis tick={{ fontSize: 10 }} unit=" d" />
-              <Tooltip formatter={v => [`${v} días`, 'TILT']} contentStyle={{ fontSize: 11 }} cursor={{ fill: 'transparent' }} />
+              <Tooltip cursor={{ fill: 'transparent' }} content={({ active, payload }) => {
+                if (!active || !payload?.length) return null
+                const d = payload[0].payload
+                return (
+                  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
+                    padding: '8px 12px', fontSize: 11, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                    <div style={{ fontWeight: 700, color: '#111', marginBottom: 2 }}>{d.sitioFull}</div>
+                    <div style={{ color: '#6b7280', fontSize: 10, marginBottom: 4 }}>LC: {d.cuadrilla}</div>
+                    <div style={{ fontWeight: 700, color: '#6d28d9' }}>{d.tilt} días</div>
+                  </div>
+                )
+              }} />
               {promTilt && <ReferenceLine y={promTilt} stroke="#9ca3af" strokeDasharray="4 4"
                 label={{ value: `Prom. ${promTilt}d`, position: 'right', fontSize: 9, fill: '#6b7280' }} />}
               <Bar dataKey="tilt" radius={[4,4,0,0]}
