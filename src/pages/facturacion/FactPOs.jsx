@@ -324,6 +324,7 @@ export default function FactPOs() {
   const isViewer = user?.role === 'viewer'
 
   const [search,          setSearch]          = useState('')
+  const [filtro,          setFiltro]          = useState('todas')
   const [editPO,          setEditPO]          = useState(null)
   const [updatePreview,   setUpdatePreview]   = useState(null)   // { file, extracted, existing, changes }
   const [pendingUpdates,  setPendingUpdates]  = useState([])    // cola de POs existentes por confirmar
@@ -528,10 +529,17 @@ export default function FactPOs() {
 
   const ppaMap = useMemo(() => new Map(ppa.map(r => [r.spo_number, r])), [ppa])
 
+  const cancelledCount = useMemo(() => pos.filter(p => p.cancelled).length, [pos])
+
   const enriched = useMemo(() => pos
     .map(po => {
       const ppaRow = ppaMap.get(po.spo_number)
       return { ...po, ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '', spo_date: ppaRow?.spo_date || '' }
+    })
+    .filter(po => {
+      if (filtro === 'activas')   return !po.cancelled
+      if (filtro === 'canceladas') return  po.cancelled
+      return true
     })
     .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.ms_name} ${po.smp_name} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
@@ -540,7 +548,7 @@ export default function FactPOs() {
       if (!ad) return 1
       if (!bd) return -1
       return bd.localeCompare(ad)
-    }), [pos, ppaMap, search])
+    }), [pos, ppaMap, search, filtro])
 
   // SPOs del PPA que no tienen PDF cargado (sin PO o con PO pero sin pdf_url)
   const sinPdf = useMemo(() => {
@@ -586,6 +594,11 @@ export default function FactPOs() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar SPO, sitio…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
+          <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
+            <option value="activas">Activas ({pos.filter(p => !p.cancelled).length})</option>
+            <option value="canceladas">Canceladas ({cancelledCount})</option>
+            <option value="todas">Todas ({pos.length})</option>
+          </select>
           {pos.length > 0 && (
             <button onClick={handleExportExcel} style={{ fontSize: 11, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5z"/></svg>
