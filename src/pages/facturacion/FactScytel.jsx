@@ -270,7 +270,11 @@ function FacturarScytelModal({ row, pctReal, pctAcordado, margenPct, periodoMes,
 }
 
 // ── Modal detalle de factura SCYTEL ──────────────────────────────
-function FacturaDetalleModal({ factura, billing, spoRows, onClose }) {
+function FacturaDetalleModal({ factura, billing, spoRows, onClose, onMarcarPagada }) {
+  const [paying,    setPaying]    = useState(false)
+  const [fechaPago, setFechaPago] = useState('')
+  const [saving,    setSaving]    = useState(false)
+
   const rows = useMemo(()=>{
     const items = billing.filter(b=>b.numero_factura===factura.numero)
     return items.map(b=>{
@@ -283,6 +287,22 @@ function FacturaDetalleModal({ factura, billing, spoRows, onClose }) {
     ? new Date(factura.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'})
     : '—'
 
+  const fechaPagoFmt = factura.fecha_pago
+    ? new Date(factura.fecha_pago+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'})
+    : null
+
+  async function handleConfirmarPago() {
+    setSaving(true)
+    try {
+      await onMarcarPagada(factura.numero, fechaPago || null)
+      showToast(`Factura ${factura.numero} marcada como pagada`)
+      onClose()
+    } catch(e) {
+      showToast(e.message || 'Error al marcar como pagada', 'err')
+      setSaving(false)
+    }
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, zIndex:1100, background:'rgba(0,0,0,.45)',
       display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
@@ -292,29 +312,66 @@ function FacturaDetalleModal({ factura, billing, spoRows, onClose }) {
         onClick={e=>e.stopPropagation()}>
 
         {/* Header modal */}
-        <div style={{ padding:'14px 20px', borderBottom:'1px solid #e5e7eb',
-          display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'#9ca89c', marginBottom:2 }}>
-              Factura SCYTEL
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #e5e7eb' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom: paying ? 10 : 0 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'#9ca89c', marginBottom:2 }}>
+                Factura SCYTEL
+              </div>
+              <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
+                <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#6d28d9' }}>
+                  {factura.numero}
+                </span>
+                <span style={{ fontSize:11, color:'#6b7280' }}>{fechaFmt}</span>
+                {factura.pagada && (
+                  <span style={{ fontSize:10, fontWeight:700, color:'#166534', background:'#dcfce7',
+                    border:'1px solid #86efac', borderRadius:8, padding:'1px 8px' }}>
+                    ● Pagada{fechaPagoFmt ? ` — ${fechaPagoFmt}` : ''}
+                  </span>
+                )}
+              </div>
             </div>
-            <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
-              <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#6d28d9' }}>
-                {factura.numero}
-              </span>
-              <span style={{ fontSize:11, color:'#6b7280' }}>{fechaFmt}</span>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'#9ca89c', marginBottom:2 }}>Total facturado</div>
+              <div style={{ fontSize:16, fontWeight:800, color:'#374151' }}>{fmtCOP(factura.valor)}</div>
+              <div style={{ fontSize:9, color:'#9ca89c' }}>{factura.spos} SPO{factura.spos!==1?'s':''}</div>
             </div>
+            {!factura.pagada && onMarcarPagada && !paying && (
+              <button onClick={()=>setPaying(true)}
+                style={{ border:'1px solid #86efac', background:'#f0fdf4', color:'#166534',
+                  borderRadius:8, padding:'6px 14px', fontSize:11, fontWeight:700,
+                  cursor:'pointer', whiteSpace:'nowrap' }}>
+                Pagada
+              </button>
+            )}
+            <button onClick={onClose}
+              style={{ border:'none', background:'#f3f4f6', borderRadius:8, width:28, height:28,
+                cursor:'pointer', fontSize:14, color:'#6b7280', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              ✕
+            </button>
           </div>
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:.8, color:'#9ca89c', marginBottom:2 }}>Total facturado</div>
-            <div style={{ fontSize:16, fontWeight:800, color:'#374151' }}>{fmtCOP(factura.valor)}</div>
-            <div style={{ fontSize:9, color:'#9ca89c' }}>{factura.spos} SPO{factura.spos!==1?'s':''}</div>
-          </div>
-          <button onClick={onClose}
-            style={{ border:'none', background:'#f3f4f6', borderRadius:8, width:28, height:28,
-              cursor:'pointer', fontSize:14, color:'#6b7280', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            ✕
-          </button>
+
+          {paying && (
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 0 2px',
+              borderTop:'1px solid #e5e7eb', flexWrap:'wrap' }}>
+              <span style={{ fontSize:11, fontWeight:600, color:'#374151' }}>Fecha de pago</span>
+              <input type="date" value={fechaPago} onChange={e=>setFechaPago(e.target.value)}
+                style={{ border:'1px solid #d1d5db', borderRadius:6, padding:'4px 8px', fontSize:11 }} />
+              <span style={{ fontSize:10, color:'#9ca3af' }}>(opcional)</span>
+              <span style={{ flex:1 }} />
+              <button onClick={()=>{ setPaying(false); setFechaPago('') }}
+                style={{ border:'none', background:'#f3f4f6', borderRadius:6, padding:'5px 12px',
+                  fontSize:11, cursor:'pointer', color:'#6b7280' }}>
+                Cancelar
+              </button>
+              <button onClick={handleConfirmarPago} disabled={saving}
+                style={{ border:'none', background: saving ? '#6b7280' : '#166534', color:'#fff',
+                  borderRadius:6, padding:'5px 14px', fontSize:11, fontWeight:700,
+                  cursor: saving ? 'default' : 'pointer' }}>
+                {saving ? 'Guardando…' : 'Confirmar pago'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tabla SPOs */}
@@ -609,7 +666,7 @@ async function generateDiferencialHTML({ difRows }) {
 }
 
 // ── Modal Generar Reporte (multi-mes, selección acumulada) ────────
-function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, liveMargenMes, facturasList = [], onFacturaClick, onClose }) {
+function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, liveMargenMes, facturasList = [], reports = [], onFacturaClick, onDeleteReport, onClose }) {
   const meses = useMemo(()=>{
     const map = new Map()
     for (const r of pendingRows) {
@@ -628,7 +685,8 @@ function ReporteModal({ pendingRows, billedRows, billedMonths, lockedMargenMap, 
   const [generating,   setGenerating]   = useState(false)
   const [previewHtml,  setPreviewHtml]  = useState(null)
   const [mailHref,     setMailHref]     = useState(null)
-  const [tab,          setTab]          = useState('fact')
+  const [tab,             setTab]             = useState('fact')
+  const [filtroFacturas,  setFiltroFacturas]  = useState('todas')
 
   const difRows = useMemo(()=>
     billedRows.map(r=>{
@@ -824,7 +882,7 @@ Nokia Project Platform · SCYTEL Networks`
               Facturación SCYTEL
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
-              {[['fact','Facturación'],['diff','Diferencial %'],['facturas','Facturas emitidas']].map(([key,label])=>(
+              {[['fact','Facturación'],['diff','Diferencial %'],['facturas','Facturas emitidas'],['historial','Historial']].map(([key,label])=>(
                 <button key={key} onClick={()=>{ setTab(key); setPreviewHtml(null); setMailHref(null) }}
                   style={{ fontSize:12, fontWeight:700, padding:'3px 12px', borderRadius:20,
                     border: tab===key ? '2px solid #1a5fa8' : '2px solid #e5e7eb',
@@ -839,6 +897,11 @@ Nokia Project Platform · SCYTEL Networks`
                     <span style={{ marginLeft:5, background: tab==='facturas' ? '#1a5fa8' : '#e5e7eb',
                       color: tab==='facturas' ? '#fff' : '#6b7280',
                       borderRadius:10, fontSize:9, padding:'1px 5px' }}>{facturasList.length}</span>
+                  )}
+                  {key==='historial' && reports.length>0 && (
+                    <span style={{ marginLeft:5, background: tab==='historial' ? '#1a5fa8' : '#e5e7eb',
+                      color: tab==='historial' ? '#fff' : '#6b7280',
+                      borderRadius:10, fontSize:9, padding:'1px 5px' }}>{reports.length}</span>
                   )}
                 </button>
               ))}
@@ -1106,14 +1169,105 @@ Nokia Project Platform · SCYTEL Networks`
         </>}
 
         {tab === 'facturas' && <>
-        <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
-          {facturasList.length === 0 ? (
-            <div style={{ textAlign:'center', color:'#9ca3af', fontSize:12, padding:32 }}>Sin facturas emitidas</div>
+        {/* Filtros */}
+        <div style={{ padding:'8px 20px', background:'#f9fafb', borderBottom:'1px solid #e5e7eb',
+          display:'flex', gap:6, alignItems:'center' }}>
+          {[['todas','Todas'],['emitidas','Emitidas'],['pagadas','Pagadas']].map(([key,label])=>{
+            const count = key==='todas' ? facturasList.length
+              : key==='emitidas' ? facturasList.filter(f=>!f.pagada).length
+              : facturasList.filter(f=>f.pagada).length
+            return (
+              <button key={key} onClick={()=>setFiltroFacturas(key)}
+                style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:16,
+                  border: filtroFacturas===key ? '2px solid #6d28d9' : '1px solid #e5e7eb',
+                  background: filtroFacturas===key ? '#ede9fe' : '#fff',
+                  color: filtroFacturas===key ? '#6d28d9' : '#6b7280', cursor:'pointer',
+                  display:'flex', alignItems:'center', gap:5 }}>
+                {label}
+                <span style={{ background: filtroFacturas===key ? '#6d28d9' : '#e5e7eb',
+                  color: filtroFacturas===key ? '#fff' : '#9ca3af',
+                  borderRadius:10, fontSize:9, padding:'0 5px' }}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
+          {(() => {
+            const lista = filtroFacturas==='emitidas' ? facturasList.filter(f=>!f.pagada)
+              : filtroFacturas==='pagadas' ? facturasList.filter(f=>f.pagada)
+              : facturasList
+            if (lista.length === 0) return (
+              <div style={{ textAlign:'center', color:'#9ca3af', fontSize:12, padding:32 }}>Sin facturas</div>
+            )
+            return (
+              <table style={{ borderCollapse:'collapse', fontSize:11, width:'100%' }}>
+                <thead>
+                  <tr style={{ background:'#f8f9fb', borderBottom:'1px solid #e5e7eb' }}>
+                    {['# Factura','Fecha','Valor','Estado'].map(h=>(
+                      <th key={h} style={{ padding:'6px 12px', textAlign:'left', fontSize:9,
+                        fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:.5 }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.map((f,i)=>{
+                    const fechaPagoFmt = f.fecha_pago
+                      ? new Date(f.fecha_pago+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})
+                      : null
+                    return (
+                      <tr key={f.numero}
+                        onClick={()=> onFacturaClick?.(f)}
+                        style={{ borderTop: i>0?'1px solid #f3f4f6':'none', background:'#fff',
+                          cursor:'pointer', transition:'background .1s' }}
+                        onMouseEnter={e=>e.currentTarget.style.background='#faf5ff'}
+                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
+                        <td style={{ padding:'7px 12px', fontWeight:700, color:'#6d28d9', fontFamily:'monospace' }}>{f.numero}</td>
+                        <td style={{ padding:'7px 12px', color:'#6b7280' }}>
+                          {f.fecha ? new Date(f.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—'}
+                        </td>
+                        <td style={{ padding:'7px 12px', fontWeight:700, color:'#374151' }}>{fmtCOP(f.valor)}</td>
+                        <td style={{ padding:'7px 12px' }}>
+                          {f.pagada
+                            ? <span style={{ fontSize:10, fontWeight:700, color:'#166534', background:'#dcfce7',
+                                border:'1px solid #86efac', borderRadius:8, padding:'2px 8px', whiteSpace:'nowrap' }}>
+                                ● Pagada{fechaPagoFmt ? ` ${fechaPagoFmt}` : ''}
+                              </span>
+                            : <span style={{ fontSize:10, color:'#6b7280', background:'#f3f4f6',
+                                borderRadius:8, padding:'2px 8px' }}>Emitida</span>
+                          }
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr style={{ borderTop:'1px solid #e5e7eb', background:'#faf5ff' }}>
+                    <td style={{ padding:'6px 12px', fontSize:9, fontWeight:700, color:'#6b7280' }}>TOTAL</td>
+                    <td colSpan={2} style={{ padding:'6px 12px', fontWeight:800, color:'#6d28d9' }}>
+                      {fmtCOP(lista.reduce((s,f)=>s+f.valor,0))}
+                    </td>
+                    <td style={{ padding:'6px 12px', fontSize:9, color:'#6b7280' }}>
+                      {lista.filter(f=>f.pagada).length > 0 && `${lista.filter(f=>f.pagada).length} pagada(s)`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )
+          })()}
+        </div>
+        </>}
+
+        {tab === 'historial' && <>
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
+          {reports.length === 0 ? (
+            <div style={{ textAlign:'center', color:'#9ca3af', fontSize:12, padding:32 }}>
+              Sin reportes guardados
+            </div>
           ) : (
             <table style={{ borderCollapse:'collapse', fontSize:11, width:'100%' }}>
               <thead>
                 <tr style={{ background:'#f8f9fb', borderBottom:'1px solid #e5e7eb' }}>
-                  {['# Factura','Fecha','Valor'].map(h=>(
+                  {['Fecha','Período / Descripción',''].map(h=>(
                     <th key={h} style={{ padding:'6px 12px', textAlign:'left', fontSize:9,
                       fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:.5 }}>
                       {h}
@@ -1122,25 +1276,18 @@ Nokia Project Platform · SCYTEL Networks`
                 </tr>
               </thead>
               <tbody>
-                {facturasList.map((f,i)=>(
-                  <tr key={f.numero}
-                    onClick={()=> onFacturaClick?.(f)}
-                    style={{ borderTop: i>0?'1px solid #f3f4f6':'none', background:'#fff',
-                      cursor:'pointer', transition:'background .1s' }}
-                    onMouseEnter={e=>e.currentTarget.style.background='#faf5ff'}
-                    onMouseLeave={e=>e.currentTarget.style.background='#fff'}>
-                    <td style={{ padding:'7px 12px', fontWeight:700, color:'#6d28d9', fontFamily:'monospace' }}>{f.numero}</td>
-                    <td style={{ padding:'7px 12px', color:'#6b7280' }}>
-                      {f.fecha ? new Date(f.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—'}
-                    </td>
-                    <td style={{ padding:'7px 12px', fontWeight:700, color:'#374151' }}>{fmtCOP(f.valor)}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop:'1px solid #e5e7eb', background:'#faf5ff' }}>
-                  <td style={{ padding:'6px 12px', fontSize:9, fontWeight:700, color:'#6b7280' }}>TOTAL</td>
-                  <td style={{ padding:'6px 12px' }} />
-                  <td style={{ padding:'6px 12px', fontWeight:800, color:'#6d28d9' }}>{fmtCOP(facturasList.reduce((s,f)=>s+f.valor,0))}</td>
-                </tr>
+                {reports.map((r,i)=>{
+                  const fechaFmt = new Date(r.created_at).toLocaleDateString('es-CO',{
+                    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+                  })
+                  const url = `${window.location.origin}/r/${r.id}`
+                  const isDiff = r.meses === 'diferencial'
+                  return (
+                    <ReporteHistorialRow key={r.id}
+                      r={r} i={i} fechaFmt={fechaFmt} url={url} isDiff={isDiff}
+                      onDelete={onDeleteReport} />
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -1149,6 +1296,62 @@ Nokia Project Platform · SCYTEL Networks`
       </div>
 
     </div>
+  )
+}
+
+function ReporteHistorialRow({ r, i, fechaFmt, url, isDiff, onDelete }) {
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+
+  async function handleDelete() {
+    if (!confirmDel) return setConfirmDel(true)
+    setDeleting(true)
+    try { await onDelete(r.id) }
+    catch(e) { showToast(e.message || 'Error al eliminar', 'err'); setDeleting(false) }
+  }
+
+  return (
+    <tr style={{ borderTop: i>0?'1px solid #f3f4f6':'none', background:'#fff' }}>
+      <td style={{ padding:'8px 12px', color:'#6b7280', whiteSpace:'nowrap', fontSize:10 }}>
+        {fechaFmt}
+      </td>
+      <td style={{ padding:'8px 12px' }}>
+        {isDiff
+          ? <span style={{ fontSize:10, fontWeight:700, color:'#b45309', background:'#fffbeb',
+              border:'1px solid #fde68a', borderRadius:6, padding:'2px 8px' }}>
+              Diferencial %
+            </span>
+          : <span style={{ fontSize:11, fontWeight:600, color:'#374151' }}>{r.meses}</span>
+        }
+      </td>
+      <td style={{ padding:'8px 12px', textAlign:'right', whiteSpace:'nowrap' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end' }}>
+          <a href={url} target="_blank" rel="noreferrer"
+            style={{ background:'#1a5fa8', color:'#fff', borderRadius:6,
+              padding:'4px 12px', fontSize:10, fontWeight:700,
+              textDecoration:'none', whiteSpace:'nowrap' }}>
+            Abrir ↗
+          </a>
+          {onDelete && (
+            <button onClick={handleDelete} disabled={deleting}
+              style={{ background: confirmDel ? '#991b1b' : 'none',
+                border:`1px solid ${confirmDel ? '#991b1b' : '#fca5a5'}`,
+                color: confirmDel ? '#fff' : '#ef4444',
+                borderRadius:6, padding:'4px 10px', fontSize:10, fontWeight:700,
+                cursor: deleting ? 'default' : 'pointer', whiteSpace:'nowrap' }}>
+              {deleting ? '…' : confirmDel ? '¿Confirmar?' : 'Eliminar'}
+            </button>
+          )}
+          {confirmDel && !deleting && (
+            <button onClick={()=>setConfirmDel(false)}
+              style={{ border:'none', background:'#f3f4f6', borderRadius:6,
+                padding:'4px 8px', fontSize:10, cursor:'pointer', color:'#6b7280' }}>
+              ✕
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
   )
 }
 
@@ -1163,7 +1366,7 @@ export default function FactScytel() {
   const _rawPos          = useFactStore(s=>s.pos)
   const pos              = useMemo(() => _rawPos.filter(p => !p.cancelled), [_rawPos])
   const invoices         = useFactStore(s=>s.invoices)
-  const { margenes, billing, loading, loadAll, registrarSpo, deleteBilling, actualizarPctMes } = useScytelStore()
+  const { margenes, billing, reports, loading, loadAll, registrarSpo, deleteBilling, actualizarPctMes, marcarPagada, deleteReport } = useScytelStore()
   const user       = useAuthStore(s=>s.user)
   const canBill    = user?.role === 'admin'
 
@@ -1174,8 +1377,13 @@ export default function FactScytel() {
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [reporteModal,   setReporteModal]  = useState(false)
   const sentinelRef = useRef(null)
+  const savedScrollY = useRef(0)
 
   useEffect(()=>{ loadAll() },[]) // eslint-disable-line
+
+  useEffect(()=>{
+    if (!modal) window.scrollTo({ top: savedScrollY.current, behavior: 'instant' })
+  },[modal])
 
   function toggleSite(key) {
     setExpandedSites(s=>{ const n=new Set(s); n.has(key)?n.delete(key):n.add(key); return n })
@@ -1268,6 +1476,8 @@ export default function FactScytel() {
           numeroFactura: bil?.numero_factura,
           fechaFactura:  bil?.fecha_factura || '',
           pctFacturado:  bil?.pct_scytel    || null,
+          pagada:        bil?.pagada        || false,
+          fecha_pago:    bil?.fecha_pago    || null,
         }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1345,12 +1555,13 @@ export default function FactScytel() {
     for (const b of billing) {
       if (!b.numero_factura) continue
       if (!map.has(b.numero_factura)) {
-        map.set(b.numero_factura, { numero: b.numero_factura, fecha: b.fecha_factura, valor: 0, spos: 0 })
+        map.set(b.numero_factura, { numero: b.numero_factura, fecha: b.fecha_factura, valor: 0, spos: 0, pagada: false, fecha_pago: null })
       }
       const f = map.get(b.numero_factura)
       f.valor += b.valor_scytel || 0
       f.spos  += 1
       if (b.fecha_factura && (!f.fecha || b.fecha_factura > f.fecha)) f.fecha = b.fecha_factura
+      if (b.pagada) { f.pagada = true; if (b.fecha_pago) f.fecha_pago = b.fecha_pago }
     }
     return [...map.values()].sort((a,b)=>a.numero.localeCompare(b.numero))
   },[billing])
@@ -1363,9 +1574,9 @@ export default function FactScytel() {
   }
 
   function handleOpenModal(row, isEdit = false) {
+    savedScrollY.current = window.scrollY
     const mes = row.mes||'sin-fecha'
     const { pct, margen } = getPctForMes(mes)
-    // pctAcordado: si el SPO ya tiene registro propio usa ese, sino el del mes
     const pctAcordado = (isEdit && row.pctFacturado) ? row.pctFacturado : pct
     setModal({ row, pctReal:pct, pctAcordado, margenPct:margen, periodoMes:mes, isEdit })
   }
@@ -1396,7 +1607,9 @@ export default function FactScytel() {
           lockedMargenMap={lockedMargenMap}
           liveMargenMes={liveMargenMes}
           facturasList={facturasList}
+          reports={reports}
           onFacturaClick={f=>{ setFacturaModal(f) }}
+          onDeleteReport={deleteReport}
           onClose={()=>setReporteModal(false)}
         />
       )}
@@ -1406,6 +1619,7 @@ export default function FactScytel() {
           billing={billing}
           spoRows={spoRows}
           onClose={()=>setFacturaModal(null)}
+          onMarcarPagada={canBill ? marcarPagada : null}
         />
       )}
       {pctModal && (
@@ -1523,19 +1737,26 @@ export default function FactScytel() {
         const pc  = pct===12?'#166534':pct===10?'#1e40af':'#991b1b'
         const pb  = pct===12?'#dcfce7':pct===10?'#dbeafe':'#fee2e2'
         const allRows        = Object.values(sites).flatMap(cats=>Object.values(cats).flat())
+        const allRowsOrig    = Object.values(sitesOrig).flatMap(cats=>Object.values(cats).flat())
         const porFacturarMes = allRows.filter(r=>r.ingetelBilled&&!r.scytelBilled).reduce((s,r)=>s+r.netValue*pct/100,0)
         const pendienteMes   = allRows.filter(r=>!r.ingetelBilled).reduce((s,r)=>s+r.netValue*pct/100,0)
         const factMes        = allRows.filter(r=>r.scytelBilled).reduce((s,r)=>s+r.netValue*(r.pctFacturado||pct)/100,0)
+        const mesCompleto    = allRowsOrig.length > 0 && allRowsOrig.every(r => r.ingetelBilled && r.scytelBilled)
 
         return (
           <div key={mesKey} style={{ marginBottom:20 }}>
             {/* Header mes */}
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
               padding:'6px 12px', marginBottom:4 }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:500, color:'#4c1d95' }}>
+              <span style={{
+                fontFamily:"'Barlow Condensed',sans-serif", fontSize:17, fontWeight:500,
+                color: mesCompleto ? '#166534' : '#4c1d95',
+                background: mesCompleto ? 'rgba(134,239,172,.25)' : 'transparent',
+                padding: mesCompleto ? '1px 12px' : '0',
+                borderRadius: mesCompleto ? 20 : 0,
+              }}>
                 {mesLabel(mesKey)}
               </span>
-              {locked && <span style={{ fontSize:8, fontWeight:800, color:'#6d28d9', background:'#ede9fe', padding:'1px 7px', borderRadius:8 }}>🔒</span>}
               <span style={{ fontSize:11, fontWeight:700, color:mc }}>
                 Margen: {margen.toFixed(1)}%{' '}
                 <span style={{ fontWeight: pct===bracketReal ? 600 : 400, color: pct===bracketReal ? '#166534' : '#6b7280' }}>
@@ -1565,8 +1786,8 @@ export default function FactScytel() {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11, minWidth:640 }}>
                 <thead>
                   <tr style={{ background:'#f8faf8', borderBottom:'1px solid #e0e4e0' }}>
-                    {['Sitio / Hito','Descripción','SPO','Valor PO','# Fact Ingetel','Valor SCYTEL','# Fact SCYTEL'].map(h=>(
-                      <th key={h} style={{ padding:'6px 10px', textAlign:'left', fontWeight:600,
+                    {[['Sitio / Hito','left'],['Descripción','left'],['SPO','left'],['Valor PO','center'],['# Fact Ingetel','center'],['Valor SCYTEL','center'],['# Fact SCYTEL','center']].map(([h,align])=>(
+                      <th key={h} style={{ padding:'6px 10px', textAlign:align, fontWeight:600,
                         color:'#617561', fontSize:10, whiteSpace:'nowrap',
                         position:'sticky', top:0, background:'#f8faf8',
                         borderBottom:'1px solid #e0e4e0', zIndex:1 }}>
@@ -1660,7 +1881,7 @@ export default function FactScytel() {
                                 <td style={{ padding:'5px 10px', fontFamily:'monospace', fontSize:10, color:'#374151', fontWeight:600 }}>
                                   {r.spo_number}
                                 </td>
-                                <td style={{ padding:'5px 10px', textAlign:'right', color:'#374151' }}>
+                                <td style={{ padding:'5px 10px', textAlign:'center', color:'#374151' }}>
                                   {r.netValue ? fmtCOP(r.netValue) : <span style={{ color:'#d4d4d8' }}>Sin PO</span>}
                                 </td>
                                 <td style={{ padding:'5px 10px', textAlign:'center' }}>
@@ -1671,26 +1892,30 @@ export default function FactScytel() {
                                     : <span style={{ color:'#d1d5db', fontSize:9 }}>Pendiente</span>
                                   }
                                 </td>
-                                <td style={{ padding:'5px 10px', textAlign:'right', fontWeight:700,
+                                <td style={{ padding:'5px 10px', textAlign:'center', fontWeight:700,
                                   color:(r.ingetelBilled||r.scytelBilled)?'#1e40af':'#d1d5db' }}>
                                   {(r.ingetelBilled||r.scytelBilled) ? fmtCOP(valorScytel) : '—'}
                                 </td>
                                 <td style={{ padding:'5px 10px', textAlign:'center' }}>
                                   {r.scytelBilled
                                     ? <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                                        <span style={{ fontSize:10, fontWeight:800, color:'#6d28d9',
-                                          background:'#ede9fe', padding:'2px 10px', borderRadius:10, whiteSpace:'nowrap' }}>
-                                          {r.numeroFactura}
+                                        <span style={{ fontSize:10, fontWeight:800,
+                                          color: r.pagada ? '#166534' : '#6d28d9',
+                                          background: r.pagada ? '#dcfce7' : '#ede9fe',
+                                          padding:'2px 10px', borderRadius:10, whiteSpace:'nowrap' }}>
+                                          {r.pagada ? '● ' : ''}{r.numeroFactura}
                                         </span>
                                         {r.pctFacturado && r.pctFacturado !== pct && (
                                           <span style={{ fontSize:8, color:'#b45309', fontWeight:700 }}>{r.pctFacturado}%</span>
                                         )}
+                                        {!r.pagada && (
                                         <button onClick={()=>handleOpenModal(r, true)}
                                           style={{ background:'none', border:'1px solid #c4b5fd', color:'#6d28d9',
                                             borderRadius:6, padding:'2px 8px', fontSize:9,
                                             fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                                           Editar
                                         </button>
+                                        )}
                                       </div>
                                     : r.ingetelBilled
                                       ? canBill

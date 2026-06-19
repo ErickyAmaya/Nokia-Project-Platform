@@ -4,16 +4,18 @@ import { supabase } from '../lib/supabase'
 export const useScytelStore = create((set, get) => ({
   margenes: [],
   billing:  [],
+  reports:  [],
   loading:  false,
 
   loadAll: async () => {
     set({ loading: true })
     try {
-      const [{ data: m }, { data: b }] = await Promise.all([
+      const [{ data: m }, { data: b }, { data: r }] = await Promise.all([
         supabase.from('scytel_margenes_mes').select('*').order('year').order('month'),
         supabase.from('scytel_billing').select('*').order('created_at', { ascending: false }),
+        supabase.from('scytel_reports').select('id, meses, created_at').order('created_at', { ascending: false }).limit(50),
       ])
-      set({ margenes: m || [], billing: b || [], loading: false })
+      set({ margenes: m || [], billing: b || [], reports: r || [], loading: false })
     } catch { set({ loading: false }) }
   },
 
@@ -54,5 +56,20 @@ export const useScytelStore = create((set, get) => ({
     const { error } = await supabase.from('scytel_billing').delete().eq('id', id)
     if (error) throw error
     set(s => ({ billing: s.billing.filter(b => b.id !== id) }))
+  },
+
+  marcarPagada: async (numeroFactura, fechaPago) => {
+    const { error } = await supabase
+      .from('scytel_billing')
+      .update({ pagada: true, fecha_pago: fechaPago || null })
+      .eq('numero_factura', numeroFactura)
+    if (error) throw error
+    await get().loadAll()
+  },
+
+  deleteReport: async (id) => {
+    const { error } = await supabase.from('scytel_reports').delete().eq('id', id)
+    if (error) throw error
+    set(s => ({ reports: s.reports.filter(r => r.id !== id) }))
   },
 }))
