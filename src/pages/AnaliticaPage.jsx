@@ -880,9 +880,12 @@ function Tab6() {
   const [filMeses,  setFilMeses]  = useState(new Set())
   const [fil5G,     setFil5G]     = useState('TODOS')
   const [filAño,    setFilAño]    = useState(null)
-  const [showCW,    setShowCW]    = useState(false)
-  const [show5G,    setShow5G]    = useState(false)
-  const fileRef = React.useRef()
+  const [showCW,      setShowCW]      = useState(false)
+  const [show5G,      setShow5G]      = useState(false)
+  const [cuadSearch,  setCuadSearch]  = useState('')
+  const [cuadOpen,    setCuadOpen]    = useState(false)
+  const fileRef  = React.useRef()
+  const cuadRef  = React.useRef()
 
   async function fetchFromSheets(force = false) {
     setLoading(true); setFetchErr(null)
@@ -1115,10 +1118,42 @@ function Tab6() {
 
       {/* Filtros + recargar en una sola línea */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
-        <select className="fc" style={{ fontSize: 11, width: 200 }} value={filCuad} onChange={e => setFilCuad(e.target.value)}>
-          <option value="">Todas las cuadrillas</option>
-          {cuadrillas.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <div ref={cuadRef} style={{ position: 'relative', width: 200 }}>
+          <div style={{ position: 'relative' }}>
+            <input className="fc" style={{ fontSize: 11, width: '100%', paddingRight: 22 }}
+              placeholder="Todas las cuadrillas"
+              value={cuadOpen ? cuadSearch : (filCuad || '')}
+              onFocus={() => { setCuadOpen(true); setCuadSearch(filCuad || '') }}
+              onChange={e => { setCuadSearch(e.target.value); setCuadOpen(true) }}
+              onBlur={() => setTimeout(() => setCuadOpen(false), 150)}
+            />
+            {filCuad && (
+              <button onClick={() => { setFilCuad(''); setCuadSearch(''); setCuadOpen(false) }}
+                style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)',
+                  border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: '#9ca3af', padding: 0, lineHeight: 1 }}>
+                ✕
+              </button>
+            )}
+          </div>
+          {cuadOpen && (() => {
+            const opts = cuadrillas.filter(c => !cuadSearch || c.toLowerCase().includes(cuadSearch.toLowerCase()))
+            return opts.length > 0 ? (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginTop: 2,
+                boxShadow: '0 8px 24px rgba(0,0,0,.12)', maxHeight: 220, overflowY: 'auto' }}>
+                {opts.map(c => (
+                  <div key={c} onMouseDown={() => { setFilCuad(c); setCuadSearch(''); setCuadOpen(false) }}
+                    style={{ padding: '7px 12px', fontSize: 11, cursor: 'pointer',
+                      background: c === filCuad ? '#ede9fe' : '#fff', color: c === filCuad ? '#6d28d9' : '#374151' }}
+                    onMouseEnter={e => e.currentTarget.style.background = c === filCuad ? '#ede9fe' : '#f3f4f6'}
+                    onMouseLeave={e => e.currentTarget.style.background = c === filCuad ? '#ede9fe' : '#fff'}>
+                    {c}
+                  </div>
+                ))}
+              </div>
+            ) : null
+          })()}
+        </div>
         <select className="fc" style={{ fontSize: 11, width: 160 }} value={filEstado} onChange={e => setFilEstado(e.target.value)}>
           {estados.map(c => <option key={c} value={c}>{c === 'TODOS' ? 'Todos los estados' : c}</option>)}
         </select>
