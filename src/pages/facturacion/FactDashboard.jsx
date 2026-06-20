@@ -955,7 +955,20 @@ export default function FactDashboard() {
                             ))}
                           </div>
                           {/* Period cells */}
-                          <div style={{ display: 'flex' }}>
+                          <div
+                            style={{ display: 'flex' }}
+                            onTouchMove={e => {
+                              if (kpiDragStart.current === null) return
+                              const touch = e.touches[0]
+                              const target = document.elementFromPoint(touch.clientX, touch.clientY)
+                              const cell = target?.closest('[data-pidx]')
+                              if (!cell) return
+                              const j = Number(cell.dataset.pidx)
+                              const s = kpiDragStart.current
+                              setKpiSelRange([Math.min(s, j), Math.max(s, j)])
+                            }}
+                            onTouchEnd={() => { kpiDragStart.current = null }}
+                          >
                             {availablePeriods.map((k, i) => {
                               const sel = kpiSelRange && i >= kpiSelRange[0] && i <= kpiSelRange[1]
                               const isStart = kpiSelRange && i === kpiSelRange[0]
@@ -963,6 +976,7 @@ export default function FactDashboard() {
                               return (
                                 <div
                                   key={k}
+                                  data-pidx={i}
                                   style={{
                                     flex: `0 0 ${CELL_W}px`,
                                     height: 30,
@@ -985,6 +999,10 @@ export default function FactDashboard() {
                                     if (kpiDragStart.current === null) return
                                     const s = kpiDragStart.current
                                     setKpiSelRange([Math.min(s, i), Math.max(s, i)])
+                                  }}
+                                  onTouchStart={e => {
+                                    kpiDragStart.current = i
+                                    setKpiSelRange([i, i])
                                   }}
                                 >
                                   {getPeriodLabel(k, kpiGroupBy)}
