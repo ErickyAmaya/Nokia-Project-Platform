@@ -116,28 +116,41 @@ const GAP_DONE_OA  = ['9999. Producción', '70. Producción', '9999.Producción'
 
 // ── Milestone definitions ──────────────────────────────────────────
 function buildMilestones(rollout, forecast, sabana) {
-  const mosDate  = rollout?.mosSS  || sabana?.mos
-  const intgDate = rollout?.intgSS || sabana?.integracion || null
-  const acepDate = rollout?.acepSS || null
+  // Fechas de actividad física (para el círculo)
+  const mosActDate  = rollout?.mosDate  || null
+  const intgActDate = rollout?.intgDate || null
+  const acepActDate = rollout?.acepDate || null
 
-  const mosDone    = !!(mosDate  && isPast(mosDate))
-  const intgDone   = !!(intgDate && isPast(intgDate))
+  // Fechas SS (requisito de facturación)
+  const mosSsDate  = rollout?.mosSS  || sabana?.mos  || null
+  const intgSsDate = rollout?.intgSS || null   // QCP4 — no fallback sabana
+  const acepSsDate = rollout?.acepSS || null
+
+  // isDone del círculo = actividad física completada (si hay rollout), si no sabana
+  const mosDone   = rollout ? !!(mosActDate  && isPast(mosActDate))  : !!(mosSsDate && isPast(mosSsDate))
+  const intgDone  = rollout ? !!(intgActDate && isPast(intgActDate)) : !!(sabana?.integracion && isPast(sabana.integracion))
+  const closeDone = rollout ? !!(acepActDate && isPast(acepActDate)) : !!(acepSsDate && isPast(acepSsDate))
+
   const hwcDone    = sabana?.gap_hw_cierre === GAP_DONE_HWC
   const docDone    = !!(sabana?.gap_doc && String(sabana.gap_doc).startsWith('9999'))
   const soDone     = sabana?.gap_site_owner === GAP_DONE_SO
   const logInvDone = sabana?.gap_log_inv === GAP_DONE_LI
   const onAirDone  = GAP_DONE_OA.some(v => sabana?.gap_on_air === v)
-  const closeDone  = !!(acepDate && isPast(acepDate))
+
+  // billable: null = no aplica, false = actividad hecha pero SS pendiente, true = SS certificada
+  const mosBillable  = rollout ? (mosDone  ? !!(mosSsDate  && isPast(mosSsDate))  : null) : null
+  const intgBillable = rollout ? (intgDone ? !!(intgSsDate && isPast(intgSsDate)) : null) : null
+  const acepBillable = rollout ? (closeDone? !!(acepSsDate && isPast(acepSsDate)) : null) : null
 
   return [
-    { id: 'mos',    label: 'MOS',             iconKey: 'tower',    isDone: mosDone,    date: mosDate,  lastDate: rollout?.mosLastDate  || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : 'Sin datos Rollout' },
-    { id: 'hwc',    label: 'HW Cierre',       iconKey: 'hardware', isDone: hwcDone,    date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre,     ndpdLabel: null },
-    { id: 'intg',   label: 'Integración',     iconKey: 'signal',   isDone: intgDone,   date: intgDate, lastDate: rollout?.intgLastDate || null, fcDate: null,                          blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : 'Sin datos Rollout' },
-    { id: 'doc',    label: 'Documentación',   iconKey: 'doc',      isDone: docDone,    date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,           ndpdLabel: null },
-    { id: 'so',     label: 'Entrega SO',      iconKey: 'person',   isDone: soDone,     date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner,    ndpdLabel: null },
-    { id: 'loginv', label: 'Log. Inversa',    iconKey: 'truck',    isDone: logInvDone, date: null,     lastDate: null,                          fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv,       ndpdLabel: null },
-    { id: 'onair',  label: 'On Air',          iconKey: 'bolt',     isDone: onAirDone,  date: null,     lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air,        ndpdLabel: null },
-    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepDate, lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,                      ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout' },
+    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    date: mosActDate  || mosSsDate,  lastDate: rollout?.mosLastDate  || null, fcDate: null,                          blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : 'Sin datos Rollout', billable: mosBillable,  ssDate: mosSsDate  },
+    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre, ndpdLabel: null,                                                                     billable: null,         ssDate: null       },
+    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   date: intgActDate || null,       lastDate: rollout?.intgLastDate || null, fcDate: null,                          blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: intgBillable, ssDate: intgSsDate },
+    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,   ndpdLabel: null,                                                                     billable: null,         ssDate: null       },
+    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner, ndpdLabel: null,                                                                billable: null,         ssDate: null       },
+    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,                      lastDate: null,                          fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv, ndpdLabel: null,                                                                   billable: null,         ssDate: null       },
+    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air, ndpdLabel: null,                                                                    billable: null,         ssDate: null       },
+    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepActDate || acepSsDate, lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: acepBillable, ssDate: acepSsDate },
   ]
 }
 
@@ -351,12 +364,11 @@ export default function SiteTimelineModal({ smpId, onClose }) {
 
     return milestones.map((ms, idx) => {
       const st = statuses[idx]
+      // NDPD milestones: si actividad completada pero SS pendiente, mostrar pct real (no forzar 100)
+      if (ms.id === 'mos')   return (st === 'done' && ms.billable !== false) ? 100 : (rolloutItem?.mosPct  ?? null)
+      if (ms.id === 'intg')  return (st === 'done' && ms.billable !== false) ? 100 : (rolloutItem?.intgPct ?? null)
+      if (ms.id === 'close') return (st === 'done' && ms.billable !== false) ? 100 : (rolloutItem?.acepPct ?? null)
       if (st === 'done') return 100
-
-      // NDPD milestones
-      if (ms.id === 'mos')   return rolloutItem?.mosPct  ?? null
-      if (ms.id === 'intg')  return rolloutItem?.intgPct ?? null
-      if (ms.id === 'close') return rolloutItem?.acepPct ?? null
 
       // ACK milestones — calculate from ack_glosario regardless of pending/active/blocked
       const possibleAreas = MS_TO_AREAS[ms.id]
@@ -644,7 +656,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                       textTransform: 'uppercase', color: col.text, lineHeight: 1.2, textAlign: 'center',
                     }}>{ms.label}</div>
                     <div style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#6b7280', marginTop: 3, textAlign: 'center' }}>{displayDate}</div>
-                    {st === 'done' ? (
+                    {st === 'done' && ms.billable !== false ? (
                       <span style={{
                         display: 'inline-block', marginTop: 5,
                         fontSize: 8, fontWeight: 800, letterSpacing: .4, textTransform: 'uppercase',
@@ -659,14 +671,36 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                             width: `${Math.min(pct ?? 0, 100)}%`,
                             background: st === 'blocked'
                               ? 'linear-gradient(90deg,#dc2626,#f87171)'
-                              : (pct ?? 0) > 0
-                              ? 'linear-gradient(90deg,#d97706,#fbbf24)'
-                              : '#cbd5e1',
+                              : (pct ?? 0) === 0  ? '#cbd5e1'
+                              : (pct ?? 0) <= 25  ? 'linear-gradient(90deg,#c2410c,#ea580c)'
+                              : (pct ?? 0) <= 65  ? 'linear-gradient(90deg,#d97706,#fbbf24)'
+                              :                     'linear-gradient(90deg,#65a30d,#a3e635)',
                             transition: 'width .5s',
                           }}/>
                         </div>
                         {(pct ?? 0) > 0 && (
-                          <div style={{ fontSize: 7.5, fontWeight: 700, color: col.text, textAlign: 'center', marginTop: 2 }}>{pct}%</div>
+                          <div style={{
+                            fontSize: 7.5, fontWeight: 700, textAlign: 'center', marginTop: 2,
+                            color: st === 'blocked' ? '#dc2626'
+                              : (pct ?? 0) <= 25 ? '#c2410c'
+                              : (pct ?? 0) <= 65 ? '#d97706'
+                              : '#65a30d',
+                          }}>{pct}%</div>
+                        )}
+                      </div>
+                    )}
+                    {/* Indicador de facturabilidad — solo hitos NDPD con actividad completada */}
+                    {ms.billable !== null && (
+                      <div title={ms.billable ? `SS certificada: ${fmt(ms.ssDate)}` : 'SS pendiente — no facturable aún'}
+                        style={{ marginTop: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <svg width="12" height="38" viewBox="0 0 12 38" fill="none">
+                          <line x1="6" y1="0" x2="6" y2="26" stroke={ms.billable ? '#16a34a' : '#d97706'} strokeWidth="3" strokeDasharray={ms.billable ? 'none' : '4 3'}/>
+                          <path d="M6 38L0 24h12L6 38z" fill={ms.billable ? '#16a34a' : '#d97706'}/>
+                        </svg>
+                        {ms.billable && ms.ssDate && (
+                          <div style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#6b7280', marginTop: 2, textAlign: 'center' }}>
+                            {fmt(ms.ssDate)}
+                          </div>
                         )}
                       </div>
                     )}
@@ -676,7 +710,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             </div>
 
             {/* ── Conector ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0 10px' }}>
               <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
               <span style={{
                 fontSize: 8.5, fontWeight: 800, color: '#94a3b8',

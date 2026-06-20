@@ -145,6 +145,39 @@ function MiniBar({ pct }) {
   )
 }
 
+// Sub-barra para SMPs expandidos — más delgada y suave que MiniBar
+function SmpMiniBar({ pct }) {
+  const c = pct >= 100 ? '#86efac' : pct >= 80 ? '#fcd34d' : '#fca5a5'
+  const ct = pct >= 100 ? '#166534' : pct >= 80 ? '#92400e' : '#991b1b'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: 0.75 }}>
+      <div style={{ flex: 1, height: 3, background: '#e5e7eb', borderRadius: 2, minWidth: 60 }}>
+        <div style={{ height: 3, borderRadius: 2, background: c, width: `${Math.min(pct, 100)}%`, transition: 'width .3s' }} />
+      </div>
+      <span style={{ fontSize: 8, fontWeight: 700, color: ct, minWidth: 30 }}>{pct}%</span>
+    </div>
+  )
+}
+
+// Barra segmentada por proceso (5 bloques) para SMPs expandidos
+function SmpSegBar({ r }) {
+  return (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+      {PROCESOS.map(p => {
+        const fin = isFinal(r[p.key])
+        const vacio = !r[p.key]
+        return (
+          <div key={p.key} title={p.label} style={{
+            flex: 1, height: 6, borderRadius: 2,
+            background: fin ? '#86efac' : vacio ? '#e5e7eb' : '#fca5a5',
+            minWidth: 10,
+          }} />
+        )
+      })}
+    </div>
+  )
+}
+
 // Fila de un SMP hijo
 function SmpRow({ r }) {
   const navigate = useNavigate()
@@ -167,8 +200,9 @@ function SmpRow({ r }) {
       <td style={{ fontSize: 9, color: todoFin ? '#4b5563' : '#ef4444', fontWeight: 700, whiteSpace: 'nowrap' }}>
         {r.semanas_integracion || '—'} sem
       </td>
-      {/* SMPs y %Global vacíos */}
-      <td /><td />
+      {/* SMPs vacío + mini barra por SMP */}
+      <td />
+      <td><SmpMiniBar pct={Math.round(PROCESOS.filter(p => isFinal(r[p.key])).length / PROCESOS.length * 100)} /></td>
       {/* 5 procesos */}
       {PROCESOS.map(p => (
         <td key={p.key} style={{ textAlign: 'center' }}>
