@@ -1,15 +1,46 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, ReferenceLine, Treemap,
-  FunnelChart, Funnel, LabelList,
+  FunnelChart, Funnel, LabelList, ComposedChart,
 } from 'recharts'
 import { useAppStore }  from '../store/useAppStore'
 import { useAuthStore } from '../store/authStore'
+import { useFactStore } from '../store/useFactStore'
+import { loadRolloutData, loadRolloutFromSupabase } from '../lib/rolloutImport'
 import { calcSitio } from '../lib/calcSitio'
 import { cop, pct, MESES } from '../lib/catalog'
 import { buildTCOptions, matchTipoCuadrilla } from '../lib/cuadrilla'
+
+// ── Utilidades KPI tiempo de liberación ──────────────────────────
+function _parsePpaDate(v) {
+  if (!v) return null
+  const s = String(v).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const n = parseFloat(s)
+  if (!isNaN(n) && n > 10000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000)
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+  }
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`
+  return null
+}
+const _normMs   = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+const _diffDays = (a,b) => { if(!a||!b) return null; const d=Math.round((new Date(b)-new Date(a))/86400000); return d>=0?d:null }
+const _avgArr   = arr => arr.length ? Math.round(arr.reduce((a,v)=>a+v,0)/arr.length) : 0
+const KPI_MESES_LBL = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const _getPeriodKey = (monthKey, groupBy) => {
+  const [y,m] = monthKey.split('-').map(Number)
+  if (groupBy==='trimestre') return `${y}-Q${Math.ceil(m/3)}`
+  if (groupBy==='semestre')  return `${y}-H${m<=6?1:2}`
+  return monthKey
+}
+const _getPeriodLabel = (key, groupBy) => {
+  if (groupBy==='mes') { const [y,m]=key.split('-').map(Number); return `${KPI_MESES_LBL[m-1]} '${String(y).slice(2)}` }
+  const [y,p]=key.split('-'); return `${p} ${y}`
+}
 
 // ── Paleta ───────────────────────────────────────────────────────
 const CN = '#144E4A'
@@ -754,116 +785,6 @@ function parseRolloutCSV(text) {
 // ── Timeline month picker ─────────────────────────────────────────
 const MESES_SHORT = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC']
 
-function TimelineFilter({ mesesDisponibles, seleccion, onChange, añoActivo, onAñoChange }) {
-  const dragging  = React.useRef(false)
-  const dragStart = React.useRef(null)
-
-  const años = useMemo(() => [...new Set(mesesDisponibles.map(m => m.split('-')[0]))].sort(), [mesesDisponibles])
-  // Inicializar año al más reciente cuando llegan datos
-  React.useEffect(() => {
-    if (años.length && !añoActivo) onAñoChange(años[años.length - 1])
-  }, [años.join(',')])
-
-  // Los 12 meses del año activo
-  const mesesAño = useMemo(() =>
-    Array.from({ length: 12 }, (_, i) => `${añoActivo}-${String(i + 1).padStart(2, '0')}`)
-  , [añoActivo])
-
-  function rangoLabel() {
-    if (seleccion.size === 0) return 'Todos los meses'
-    const sorted = [...seleccion].sort()
-    const [y0, m0] = sorted[0].split('-').map(Number)
-    const [y1, m1] = sorted[sorted.length - 1].split('-').map(Number)
-    if (sorted.length === 1) return `${MESES_SHORT[m0-1]} ${y0}`
-    if (y0 === y1) return `${MESES_SHORT[m0-1]} – ${MESES_SHORT[m1-1]} ${y0}`
-    return `${MESES_SHORT[m0-1]} ${y0} – ${MESES_SHORT[m1-1]} ${y1}`
-  }
-
-  function applyRange(start, end) {
-    const i0 = Math.min(mesesAño.indexOf(start), mesesAño.indexOf(end))
-    const i1 = Math.max(mesesAño.indexOf(start), mesesAño.indexOf(end))
-    onChange(new Set(mesesAño.slice(i0, i1 + 1)))
-  }
-
-  const hoyKey = useMemo(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  }, [])
-  const esFuturo = m => m > hoyKey
-
-  function handleMouseDown(m, e) {
-    if (esFuturo(m)) return
-    e.preventDefault()
-    dragging.current = true; dragStart.current = m
-    if (seleccion.size === 1 && seleccion.has(m)) onChange(new Set())
-    else onChange(new Set([m]))
-  }
-  function handleMouseEnter(m) {
-    if (dragging.current && !esFuturo(m)) applyRange(dragStart.current, m)
-  }
-  function handleMouseUp()     { dragging.current = false }
-
-  return (
-    <div onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-      style={{ userSelect: 'none', marginBottom: 14 }}>
-
-      {/* Label rango seleccionado + filtro de año */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#1e40af' }}>
-          {rangoLabel()}
-          {seleccion.size > 0 && (
-            <button onMouseDown={e => { e.stopPropagation(); onChange(new Set()) }}
-              style={{ marginLeft: 8, fontSize: 9, border: 'none', background: 'none', color: '#6b7280', cursor: 'pointer', padding: 0 }}>
-              ✕ limpiar
-            </button>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-          {años.map(y => (
-            <button key={y} onMouseDown={e => {
-              e.preventDefault()
-              onAñoChange(y)
-              if (seleccion.size > 0) {
-                onChange(new Set([...seleccion].map(m => `${y}-${m.split('-')[1]}`)))
-              }
-            }}
-              style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 12, cursor: 'pointer', border: 'none',
-                background: añoActivo === y ? '#1e40af' : '#e5e7eb',
-                color:      añoActivo === y ? '#fff'    : '#6b7280',
-              }}>
-              {y}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Timeline — 12 meses del año activo */}
-      <div style={{ display: 'flex', gap: 2 }}>
-        {mesesAño.map(m => {
-          const [, mes] = m.split('-').map(Number)
-          const activo  = seleccion.size > 0 && seleccion.has(m)
-          return (
-            <div key={m}
-              onMouseDown={e => handleMouseDown(m, e)}
-              onMouseEnter={() => handleMouseEnter(m)}
-              style={{
-                flex: 1, textAlign: 'center',
-                cursor:   esFuturo(m) ? 'not-allowed' : 'pointer',
-                padding: '4px 2px', borderRadius: 3,
-                background: activo ? '#1e40af' : '#e5e7eb',
-                color:      activo ? '#fff'    : '#6b7280',
-                opacity:    esFuturo(m) ? 0.3 : 1,
-                fontSize: 9, fontWeight: 700,
-              }}>
-              {MESES_SHORT[mes - 1]}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSFmwCZWD4jMIPVe-tO1z8_kFkRRE8ZuQPlAvdno8XzTA0KBJHgUsoKLtzDp8U7lEPX5v6pJ_nqZWph/pub?gid=0&single=true&output=csv'
 const LS_DATA = 'tilt_csv_data'
@@ -875,17 +796,18 @@ function Tab6() {
   const [loading,   setLoading]   = useState(false)
   const [fetchedAt, setFetchedAt] = useState(null)
   const [fetchErr,  setFetchErr]  = useState(null)
-  const [filCuad,   setFilCuad]   = useState('')
-  const [filEstado, setFilEstado] = useState('TODOS')
-  const [filMeses,  setFilMeses]  = useState(new Set())
-  const [fil5G,     setFil5G]     = useState('TODOS')
-  const [filAño,    setFilAño]    = useState(null)
+  const [filCuad,     setFilCuad]     = useState('')
+  const [filEstado,   setFilEstado]   = useState('TODOS')
+  const [fil5G,       setFil5G]       = useState('TODOS')
+  const [slaGroupBy,  setSlaGroupBy]  = useState('mes')
+  const [slaSelRange, setSlaSelRange] = useState(null)
   const [showCW,      setShowCW]      = useState(false)
   const [show5G,      setShow5G]      = useState(false)
   const [cuadSearch,  setCuadSearch]  = useState('')
   const [cuadOpen,    setCuadOpen]    = useState(false)
-  const fileRef  = React.useRef()
-  const cuadRef  = React.useRef()
+  const fileRef     = React.useRef()
+  const cuadRef     = React.useRef()
+  const slaDragStart = React.useRef(null)
 
   async function fetchFromSheets(force = false) {
     setLoading(true); setFetchErr(null)
@@ -959,18 +881,30 @@ function Tab6() {
     }).filter(Boolean))].sort()
   }, [sitios])
 
+  const slaAvailablePeriods = useMemo(() => {
+    const seen = new Set()
+    for (const mk of mesesDisponibles) seen.add(_getPeriodKey(mk, slaGroupBy))
+    return [...seen].sort()
+  }, [mesesDisponibles, slaGroupBy])
+
+  React.useEffect(() => {
+    const onUp = () => { slaDragStart.current = null }
+    document.addEventListener('mouseup', onUp)
+    return () => document.removeEventListener('mouseup', onUp)
+  }, [])
+
   const filtered = useMemo(() => sitios.filter(s => {
     if (filCuad && s.cuadrilla !== filCuad) return false
     if (filEstado !== 'TODOS' && s.estado !== filEstado) return false
     if (fil5G === 'CON' && !s.es5G) return false
     if (fil5G === 'SIN' && s.es5G) return false
-    if (filMeses.size > 0 && s.tiFinish) {
-      const y = s.tiFinish.getFullYear()
-      const m = String(s.tiFinish.getMonth() + 1).padStart(2, '0')
-      if (!filMeses.has(`${y}-${m}`)) return false
+    if (slaSelRange && s.tiFinish) {
+      const mk = `${s.tiFinish.getFullYear()}-${String(s.tiFinish.getMonth()+1).padStart(2,'0')}`
+      const idx = slaAvailablePeriods.indexOf(_getPeriodKey(mk, slaGroupBy))
+      if (idx < slaSelRange[0] || idx > slaSelRange[1]) return false
     }
     return true
-  }), [sitios, filCuad, filEstado, filMeses, fil5G])
+  }), [sitios, filCuad, filEstado, slaSelRange, slaGroupBy, slaAvailablePeriods, fil5G])
 
   // Solo sitios con ambas fechas para cálculos y gráficas
   const filteredConTilt = useMemo(() => filtered.filter(s => s.tilt !== null), [filtered])
@@ -1009,8 +943,8 @@ function Tab6() {
       .map(([, v]) => ({ ...v, prom: Math.round(v.total / v.count) }))
   }, [filteredConTilt])
 
-  // Base sin filtro de mes — para curva de tendencia (siempre todos los meses)
-  const filteredSinMes = useMemo(() => sitios.filter(s => {
+  // Curva de tendencia — aplica cuadrilla/estado/5G pero NO el rango de fechas
+  const filteredSinRango = useMemo(() => sitios.filter(s => {
     if (filCuad && s.cuadrilla !== filCuad) return false
     if (filEstado !== 'TODOS' && s.estado !== filEstado) return false
     if (fil5G === 'CON' && !s.es5G) return false
@@ -1018,30 +952,59 @@ function Tab6() {
     return true
   }), [sitios, filCuad, filEstado, fil5G])
 
-  // Curva por mes — filtra solo por año seleccionado, no por mes
   const integPorMes = useMemo(() => {
     const map = {}
-    filteredSinMes.filter(s => s.integracionReal).forEach(s => {
+    filteredSinRango.filter(s => {
+      if (!s.integracionReal) return false
       const y = s.integracionReal.getFullYear()
-      if (filAño && String(y) !== String(filAño)) return
+      if (y < 2020) return false
+      if (slaSelRange) {
+        const mk = `${y}-${String(s.integracionReal.getMonth()+1).padStart(2,'0')}`
+        const idx = slaAvailablePeriods.indexOf(_getPeriodKey(mk, slaGroupBy))
+        if (idx < slaSelRange[0] || idx > slaSelRange[1]) return false
+      }
+      return true
+    }).forEach(s => {
+      const y = s.integracionReal.getFullYear()
       const m = s.integracionReal.getMonth()
       const key = `${y}-${String(m + 1).padStart(2, '0')}`
       if (!map[key]) map[key] = { label: `${MESES_SHORT[m]} ${String(y).slice(2)}`, count: 0 }
       map[key].count++
     })
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v)
-  }, [filteredSinMes, filAño])
+  }, [filteredSinRango, slaSelRange, slaGroupBy, slaAvailablePeriods])
 
-  // Por cuadrilla — CON filtro de mes usando integracionReal
+  const isSingleMonth = slaSelRange && slaSelRange[0] === slaSelRange[1] && slaGroupBy === 'mes'
+
+  const integPorDia = useMemo(() => {
+    if (!isSingleMonth) return []
+    const selectedPeriod = slaAvailablePeriods[slaSelRange[0]]
+    const map = {}
+    filteredSinRango.filter(s => {
+      if (!s.integracionReal) return false
+      const y = s.integracionReal.getFullYear()
+      if (y < 2020) return false
+      const mk = `${y}-${String(s.integracionReal.getMonth()+1).padStart(2,'0')}`
+      return mk === selectedPeriod
+    }).forEach(s => {
+      const d = s.integracionReal.getDate()
+      const mesAbr = MESES_SHORT[s.integracionReal.getMonth()]
+      if (!map[d]) map[d] = { dia: d, label: `${d}.${mesAbr[0]}${mesAbr.slice(1).toLowerCase()}`, count: 0 }
+      map[d].count++
+    })
+    return Object.values(map).sort((a, b) => a.dia - b.dia)
+  }, [filteredSinRango, isSingleMonth, slaAvailablePeriods, slaSelRange])
+
+  // Por cuadrilla — usa filtro de rango sobre integracionReal
   const filteredInteg = useMemo(() => filtered.filter(s => {
     if (!s.integracionReal) return false
-    if (filMeses.size > 0) {
-      const y = s.integracionReal.getFullYear()
-      const m = String(s.integracionReal.getMonth() + 1).padStart(2, '0')
-      if (!filMeses.has(`${y}-${m}`)) return false
+    if (slaSelRange) {
+      const mk = `${s.integracionReal.getFullYear()}-${String(s.integracionReal.getMonth()+1).padStart(2,'0')}`
+      const idx = slaAvailablePeriods.indexOf(_getPeriodKey(mk, slaGroupBy))
+      if (idx < slaSelRange[0] || idx > slaSelRange[1]) return false
     }
     return true
-  }), [filtered, filMeses])
+  }), [filtered, slaSelRange, slaGroupBy, slaAvailablePeriods])
 
   const integPorCuadrilla = useMemo(() => {
     const map = {}
@@ -1105,16 +1068,82 @@ function Tab6() {
         ))}
       </div>
 
-      {/* Timeline de meses */}
-      {mesesDisponibles.length > 0 && (
-        <TimelineFilter
-          mesesDisponibles={mesesDisponibles}
-          seleccion={filMeses}
-          onChange={setFilMeses}
-          añoActivo={filAño}
-          onAñoChange={setFilAño}
-        />
-      )}
+      {/* Timeline slicer */}
+      {mesesDisponibles.length > 0 && (() => {
+        const CELL_W = slaGroupBy==='semestre' ? 88 : slaGroupBy==='trimestre' ? 68 : 52
+        const yearGroups = []
+        for (const k of slaAvailablePeriods) {
+          const yr = k.split('-')[0]
+          if (yearGroups.length && yearGroups[yearGroups.length-1].year===yr) yearGroups[yearGroups.length-1].count++
+          else yearGroups.push({ year:yr, count:1 })
+        }
+        const selLabel = slaSelRange
+          ? slaSelRange[0]===slaSelRange[1]
+            ? _getPeriodLabel(slaAvailablePeriods[slaSelRange[0]], slaGroupBy)
+            : `${_getPeriodLabel(slaAvailablePeriods[slaSelRange[0]], slaGroupBy)} – ${_getPeriodLabel(slaAvailablePeriods[slaSelRange[1]], slaGroupBy)}`
+          : 'Todos los períodos'
+        return (
+          <div style={{ marginBottom:14, background:'#f8faf8', borderRadius:8, padding:'8px 10px', border:'1px solid #e8eae8' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+              <span style={{ fontSize:11, fontWeight:700, color:'#0369a1', minWidth:120 }}>{selLabel}</span>
+              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+                {slaSelRange && (
+                  <button onClick={() => setSlaSelRange(null)} style={{ padding:'1px 7px', borderRadius:4, border:'1px solid #e5e7eb', background:'#fff', color:'#ef4444', fontSize:10, cursor:'pointer', marginRight:6 }}>✕</button>
+                )}
+                {['mes','trimestre','semestre'].map(g => (
+                  <button key={g} onClick={() => { setSlaGroupBy(g); setSlaSelRange(null) }} style={{
+                    padding:'2px 8px', borderRadius:4, border:'1px solid',
+                    borderColor: slaGroupBy===g ? '#144E4A' : '#d1d5db',
+                    background:  slaGroupBy===g ? '#144E4A' : '#fff',
+                    color:       slaGroupBy===g ? '#fff'    : '#617561',
+                    fontSize:9, fontWeight:600, cursor:'pointer', textTransform:'uppercase', letterSpacing:.4,
+                  }}>{g}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ overflowX:'auto', userSelect:'none' }}>
+              <div style={{ display:'flex', paddingBottom:2 }}>
+                {yearGroups.map(({ year, count }) => (
+                  <div key={year} style={{ flex:`0 0 ${count*CELL_W}px`, fontSize:10, fontWeight:700, color:'#374151', paddingLeft:4, borderLeft:'2px solid #d1d5db' }}>{year}</div>
+                ))}
+              </div>
+              <div
+                style={{ display:'flex' }}
+                onTouchMove={e => {
+                  if (slaDragStart.current===null) return
+                  const touch = e.touches[0]
+                  const cell = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-slapidx]')
+                  if (!cell) return
+                  const j=Number(cell.dataset.slapidx), s=slaDragStart.current
+                  setSlaSelRange([Math.min(s,j), Math.max(s,j)])
+                }}
+                onTouchEnd={() => { slaDragStart.current=null }}
+              >
+                {slaAvailablePeriods.map((k,i) => {
+                  const sel=slaSelRange&&i>=slaSelRange[0]&&i<=slaSelRange[1]
+                  const isStart=slaSelRange&&i===slaSelRange[0], isEnd=slaSelRange&&i===slaSelRange[1]
+                  return (
+                    <div key={k} data-slapidx={i} style={{
+                      flex:`0 0 ${CELL_W}px`, height:30,
+                      background: sel?'#0369a1':'#e8eae8', color: sel?'#fff':'#617561',
+                      fontSize:9, fontWeight: sel?700:400,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      borderLeft: isStart?'2px solid #0284c7':'1px solid #fff',
+                      borderRight: isEnd?'2px solid #0284c7':'none',
+                      borderRadius: isStart&&isEnd?4:isStart?'4px 0 0 4px':isEnd?'0 4px 4px 0':0,
+                      cursor:'pointer', transition:'background .08s',
+                    }}
+                      onMouseDown={e => { e.preventDefault(); slaDragStart.current=i; setSlaSelRange([i,i]) }}
+                      onMouseEnter={() => { if(slaDragStart.current===null) return; const s=slaDragStart.current; setSlaSelRange([Math.min(s,i),Math.max(s,i)]) }}
+                      onTouchStart={() => { slaDragStart.current=i; setSlaSelRange([i,i]) }}
+                    >{_getPeriodLabel(k, slaGroupBy)}</div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Filtros + recargar en una sola línea */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center' }}>
@@ -1311,13 +1340,15 @@ function Tab6() {
       {filteredInteg.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
 
-          {/* Integraciones por mes — línea */}
+          {/* Integraciones por mes / por día (drill-down cuando hay 1 mes seleccionado) */}
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9", marginBottom: 10 }}>
-              Integraciones por Mes
+              {isSingleMonth
+                ? <>Integraciones por Día — {_getPeriodLabel(slaAvailablePeriods[slaSelRange[0]], 'mes')} <span style={{ color: '#144E4A' }}>({integPorDia.reduce((a, v) => a + v.count, 0)})</span></>
+                : 'Integraciones por Mes'}
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={integPorMes} margin={{ left: 0, right: 16, top: 16, bottom: 0 }}>
+              <LineChart data={isSingleMonth ? integPorDia : integPorMes} margin={{ left: 0, right: 16, top: 16, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
@@ -1713,6 +1744,291 @@ function Tab5({ filteredCalcs, subcs }) {
         </div>
       </div>
 
+      {/* ── KPI: Tiempo de Liberación por Hito ── */}
+      <KpiTiempoLiberacion />
+
+    </div>
+  )
+}
+
+// ── KPI Tiempo de Liberación por Hito (compartido con FactDashboard) ──
+function KpiTiempoLiberacion() {
+  const ppa          = useFactStore(s => s.ppa)
+  const [rolloutItems, setRolloutItems] = useState(() => loadRolloutData()?.items || null)
+  const [kpiGroupBy,   setKpiGroupBy]   = useState('mes')
+  const [kpiSelRange,  setKpiSelRange]  = useState(null)
+  const kpiDragStart = useRef(null)
+
+  useEffect(() => {
+    if (rolloutItems) return
+    loadRolloutFromSupabase().then(d => { if (d?.items) setRolloutItems(d.items) })
+  }, [])
+
+  useEffect(() => {
+    const onUp = () => { kpiDragStart.current = null }
+    document.addEventListener('mouseup', onUp)
+    return () => document.removeEventListener('mouseup', onUp)
+  }, [])
+
+  const ppaLibMap = useMemo(() => {
+    if (!ppa.length) return new Map()
+    const m = new Map()
+    for (const row of ppa) {
+      const key = `${(row.smp_id||'').toUpperCase()}|${_normMs(row.ms_name)}`
+      if (m.has(key)) continue
+      const grDate  = _parsePpaDate(row.gr_date)
+      const pctDate = _parsePpaDate(row.servicio_ejecutado_ppa_date)
+      let libDate = null
+      if (grDate && pctDate)                               libDate = pctDate > grDate ? pctDate : grDate
+      else if (grDate && (row.servicio_ejecutado_pct||0)>0) libDate = grDate
+      m.set(key, libDate)
+    }
+    return m
+  }, [ppa])
+
+  const siteTimings = useMemo(() => {
+    if (!rolloutItems || !ppaLibMap.size) return []
+    const out = []
+    for (const r of rolloutItems) {
+      const id     = (r.smpId||'').toUpperCase()
+      const anchor = r.mosDate?.slice(0,7) || r.intgDate?.slice(0,7) || r.acepDate?.slice(0,7)
+      if (!anchor) continue
+      const getLib = ms => ppaLibMap.get(`${id}|${_normMs(ms)}`) || null
+      const mosLib  = r.mosDate  ? getLib('SS MOS ok')              : null
+      const intgLib = r.intgDate ? getLib('SS Integracion ok')      : null
+      const acepLib = r.acepDate ? getLib('SS Aceptacion final ok') : null
+      const mosDays  = _diffDays(r.mosDate,  mosLib)
+      const intgDays = _diffDays(r.intgDate, intgLib)
+      const acepDays = _diffDays(r.acepDate, acepLib)
+      const totalDays = (r.mosDate && acepLib) ? _diffDays(r.mosDate, acepLib) : null
+      if (mosDays===null && intgDays===null && acepDays===null) continue
+      out.push({ month: anchor, mosDays, intgDays, acepDays, totalDays })
+    }
+    return out
+  }, [rolloutItems, ppaLibMap])
+
+  const availablePeriods = useMemo(() => {
+    const seen = new Set()
+    for (const s of siteTimings) seen.add(_getPeriodKey(s.month, kpiGroupBy))
+    return [...seen].sort()
+  }, [siteTimings, kpiGroupBy])
+
+  const kpiTrendData = useMemo(() => {
+    const buckets = new Map()
+    for (const s of siteTimings) {
+      const k = s.month
+      if (!buckets.has(k)) buckets.set(k, { mos:[], intg:[], acep:[], total:[] })
+      const b = buckets.get(k)
+      if (s.mosDays   !== null) b.mos.push(s.mosDays)
+      if (s.intgDays  !== null) b.intg.push(s.intgDays)
+      if (s.acepDays  !== null) b.acep.push(s.acepDays)
+      if (s.totalDays !== null) b.total.push(s.totalDays)
+    }
+    return [...buckets.keys()].sort().map(k => ({
+      period: k, label: _getPeriodLabel(k, 'mes'),
+      mos:   _avgArr(buckets.get(k)?.mos   || []) || null,
+      intg:  _avgArr(buckets.get(k)?.intg  || []) || null,
+      acep:  _avgArr(buckets.get(k)?.acep  || []) || null,
+      total: _avgArr(buckets.get(k)?.total || []) || null,
+    }))
+  }, [siteTimings])
+
+  const kpiSummaryBars = useMemo(() => {
+    const active = kpiSelRange
+      ? siteTimings.filter(s => { const idx=availablePeriods.indexOf(_getPeriodKey(s.month,kpiGroupBy)); return idx>=kpiSelRange[0]&&idx<=kpiSelRange[1] })
+      : siteTimings
+    const a = { mos:[], intg:[], acep:[], total:[] }
+    for (const s of active) {
+      if (s.mosDays   !== null) a.mos.push(s.mosDays)
+      if (s.intgDays  !== null) a.intg.push(s.intgDays)
+      if (s.acepDays  !== null) a.acep.push(s.acepDays)
+      if (s.totalDays !== null) a.total.push(s.totalDays)
+    }
+    return [
+      { label:'MOS',          color:'#144E4A', avg:_avgArr(a.mos),   n:a.mos.length   },
+      { label:'Integración',  color:'#0369a1', avg:_avgArr(a.intg),  n:a.intg.length  },
+      { label:'Acept. Final', color:'#7c3aed', avg:_avgArr(a.acep),  n:a.acep.length  },
+      { label:'Ciclo Total',  color:'#059669', avg:_avgArr(a.total), n:a.total.length },
+    ]
+  }, [siteTimings, kpiSelRange, kpiGroupBy, availablePeriods])
+
+  if (!rolloutItems) return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h2>Tiempo de Liberación por Hito</h2></div>
+      <div className="card-b" style={{ textAlign:'center', padding:'28px 0', color:'#9ca89c', fontSize:12 }}>
+        Carga el Rollout en "Por Facturar" para ver este análisis.
+      </div>
+    </div>
+  )
+
+  if (!siteTimings.length) return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="card-h"><h2>Tiempo de Liberación por Hito</h2></div>
+      <div className="card-b" style={{ textAlign:'center', padding:'28px 0', color:'#9ca89c', fontSize:12, lineHeight:1.6 }}>
+        Sin datos de tiempos de campo.<br/>
+        <span style={{ fontSize:11 }}>Vuelve a cargar el Rollout en "Por Facturar" para actualizar este análisis.</span>
+      </div>
+    </div>
+  )
+
+  const CELL_W = kpiGroupBy==='semestre' ? 88 : kpiGroupBy==='trimestre' ? 68 : 52
+  const yearGroups = []
+  for (const k of availablePeriods) {
+    const yr = k.split('-')[0]
+    if (yearGroups.length && yearGroups[yearGroups.length-1].year===yr) yearGroups[yearGroups.length-1].count++
+    else yearGroups.push({ year:yr, count:1 })
+  }
+  const selLabel = kpiSelRange
+    ? kpiSelRange[0]===kpiSelRange[1]
+      ? _getPeriodLabel(availablePeriods[kpiSelRange[0]], kpiGroupBy)
+      : `${_getPeriodLabel(availablePeriods[kpiSelRange[0]], kpiGroupBy)} – ${_getPeriodLabel(availablePeriods[kpiSelRange[1]], kpiGroupBy)}`
+    : 'Todos los períodos'
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="card-h" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
+        <h2>Tiempo de Liberación por Hito</h2>
+        <span style={{ fontSize:10, color:'#617561', fontWeight:400 }}>días promedio · actividad en campo → GR+% en PPA</span>
+      </div>
+      <div className="card-b">
+        {/* Timeline slicer */}
+        <div style={{ marginBottom:12, background:'#f8faf8', borderRadius:8, padding:'8px 10px', border:'1px solid #e8eae8' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:'#0369a1', minWidth:120 }}>{selLabel}</span>
+            <div style={{ display:'flex', alignItems:'center', gap:3 }}>
+              {kpiSelRange && (
+                <button onClick={() => setKpiSelRange(null)} style={{ padding:'1px 7px', borderRadius:4, border:'1px solid #e5e7eb', background:'#fff', color:'#ef4444', fontSize:10, cursor:'pointer', marginRight:6 }}>✕</button>
+              )}
+              {['mes','trimestre','semestre'].map(g => (
+                <button key={g} onClick={() => { setKpiGroupBy(g); setKpiSelRange(null) }} style={{
+                  padding:'2px 8px', borderRadius:4, border:'1px solid',
+                  borderColor: kpiGroupBy===g ? '#144E4A' : '#d1d5db',
+                  background:  kpiGroupBy===g ? '#144E4A' : '#fff',
+                  color:       kpiGroupBy===g ? '#fff'    : '#617561',
+                  fontSize:9, fontWeight:600, cursor:'pointer', textTransform:'uppercase', letterSpacing:.4,
+                }}>{g}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ overflowX:'auto', userSelect:'none' }}>
+            <div style={{ display:'flex', paddingBottom:2 }}>
+              {yearGroups.map(({ year, count }) => (
+                <div key={year} style={{ flex:`0 0 ${count*CELL_W}px`, fontSize:10, fontWeight:700, color:'#374151', paddingLeft:4, borderLeft:'2px solid #d1d5db' }}>{year}</div>
+              ))}
+            </div>
+            <div
+              style={{ display:'flex' }}
+              onTouchMove={e => {
+                if (kpiDragStart.current===null) return
+                const touch = e.touches[0]
+                const cell = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-pidx]')
+                if (!cell) return
+                const j=Number(cell.dataset.pidx), s=kpiDragStart.current
+                setKpiSelRange([Math.min(s,j), Math.max(s,j)])
+              }}
+              onTouchEnd={() => { kpiDragStart.current=null }}
+            >
+              {availablePeriods.map((k,i) => {
+                const sel=kpiSelRange&&i>=kpiSelRange[0]&&i<=kpiSelRange[1]
+                const isStart=kpiSelRange&&i===kpiSelRange[0], isEnd=kpiSelRange&&i===kpiSelRange[1]
+                return (
+                  <div key={k} data-pidx={i} style={{
+                    flex:`0 0 ${CELL_W}px`, height:30,
+                    background: sel?'#0369a1':'#e8eae8', color: sel?'#fff':'#617561',
+                    fontSize:9, fontWeight: sel?700:400,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    borderLeft: isStart?'2px solid #0284c7':'1px solid #fff',
+                    borderRight: isEnd?'2px solid #0284c7':'none',
+                    borderRadius: isStart&&isEnd?4:isStart?'4px 0 0 4px':isEnd?'0 4px 4px 0':0,
+                    cursor:'pointer', transition:'background .08s',
+                  }}
+                    onMouseDown={e => { e.preventDefault(); kpiDragStart.current=i; setKpiSelRange([i,i]) }}
+                    onMouseEnter={() => { if(kpiDragStart.current===null) return; const s=kpiDragStart.current; setKpiSelRange([Math.min(s,i),Math.max(s,i)]) }}
+                    onTouchStart={() => { kpiDragStart.current=i; setKpiSelRange([i,i]) }}
+                  >{_getPeriodLabel(k, kpiGroupBy)}</div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Gráficas */}
+        <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+          {/* Tendencia mensual */}
+          <div style={{ flex:'1 1 0', minWidth:0 }}>
+            <div style={{ fontSize:10, color:'#9ca89c', marginBottom:4 }}>Tendencia mensual</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={(() => {
+                if (!kpiSelRange) return kpiTrendData
+                const selKeys = new Set(availablePeriods.slice(kpiSelRange[0], kpiSelRange[1]+1))
+                return kpiTrendData.filter(d => selKeys.has(_getPeriodKey(d.period, kpiGroupBy)))
+              })()} margin={{ top:16, right:8, bottom:0, left:0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="label" tick={{ fontSize:9, fill:'#9ca89c' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:9, fill:'#9ca89c' }} axisLine={false} tickLine={false} width={32} tickFormatter={v=>`${v}d`} />
+                <Tooltip content={({ active, payload, label }) => {
+                  if (!active||!payload?.length) return null
+                  return (
+                    <div style={{ background:'#fff', border:'1px solid #e0e4e0', borderRadius:8, padding:'8px 12px', fontSize:10, boxShadow:'0 4px 12px rgba(0,0,0,.08)' }}>
+                      <div style={{ fontWeight:700, marginBottom:4, color:'#374151' }}>{label}</div>
+                      {payload.map(p => p.value!=null && (
+                        <div key={p.dataKey} style={{ color:p.color, display:'flex', justifyContent:'space-between', gap:12 }}>
+                          <span>{p.name}</span><strong>{p.value}d</strong>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }} />
+                <Line type="monotone" dataKey="total" name="Ciclo Total"  stroke="#059669" strokeWidth={2.5} dot={{ r:3, fill:'#059669' }} connectNulls />
+                <Line type="monotone" dataKey="acep"  name="Acept. Final" stroke="#7c3aed" strokeWidth={1.5} dot={{ r:2 }} strokeDasharray="4 2" connectNulls />
+                <Line type="monotone" dataKey="intg"  name="Integración"  stroke="#0369a1" strokeWidth={1.5} dot={{ r:2 }} strokeDasharray="4 2" connectNulls />
+                <Line type="monotone" dataKey="mos"   name="MOS"          stroke="#144E4A" strokeWidth={1.5} dot={{ r:2 }} strokeDasharray="4 2" connectNulls />
+              </ComposedChart>
+            </ResponsiveContainer>
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:6, paddingLeft:4 }}>
+              {[['#059669','Ciclo Total'],['#7c3aed','Acept. Final'],['#0369a1','Integración'],['#144E4A','MOS']].map(([c,l]) => (
+                <div key={l} style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <div style={{ width:14, height:2.5, background:c, borderRadius:2 }} />
+                  <span style={{ fontSize:9, color:'#617561' }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Barras de resumen */}
+          <div style={{ flex:'0 0 200px', minWidth:160 }}>
+            <div style={{ fontSize:10, color:'#9ca89c', marginBottom:4 }}>
+              {kpiSelRange ? `${kpiSelRange[1]-kpiSelRange[0]+1} período(s) seleccionado(s)` : 'Todos los períodos'}
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={kpiSummaryBars} margin={{ top:24, right:8, bottom:0, left:0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="label" tick={{ fontSize:9, fontWeight:600, fill:'#374151' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:9, fill:'#9ca89c' }} axisLine={false} tickLine={false} width={32} tickFormatter={v=>`${v}d`} />
+                <Tooltip cursor={{ fill:'#f8faf8' }} content={({ active, payload }) => {
+                  if (!active||!payload?.length) return null
+                  const d=payload[0].payload; if (!d.n) return null
+                  return (
+                    <div style={{ background:'#fff', border:'1px solid #e0e4e0', borderRadius:8, padding:'8px 12px', fontSize:10, boxShadow:'0 4px 12px rgba(0,0,0,.08)' }}>
+                      <div style={{ fontWeight:700, color:d.color, marginBottom:3 }}>{d.label}</div>
+                      <div>Promedio: <strong>{d.avg} días</strong></div>
+                      <div style={{ color:'#617561' }}>n = {d.n} SMPs</div>
+                    </div>
+                  )
+                }} />
+                <Bar dataKey="avg" radius={[5,5,0,0]} label={{ position:'top', fontSize:11, fontWeight:700, fill:'#09090b', formatter:v=>v>0?`${v}d`:'' }}>
+                  {kpiSummaryBars.map((e,i) => <Cell key={i} fill={e.n>0?e.color:'#e5e7eb'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div style={{ display:'flex', justifyContent:'space-around', marginTop:2 }}>
+              {kpiSummaryBars.map(h => (
+                <div key={h.label} style={{ textAlign:'center', fontSize:9, color:'#9ca89c' }}>{h.n>0?`n=${h.n}`:'—'}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
