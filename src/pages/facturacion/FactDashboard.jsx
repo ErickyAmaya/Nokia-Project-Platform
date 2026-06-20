@@ -902,17 +902,9 @@ export default function FactDashboard() {
                   Carga el Rollout en "Por Facturar" para ver este análisis.
                 </div>
               ) : !siteTimings.length ? (
-                <div style={{ padding: '16px 0', color: '#9ca89c', fontSize: 11, lineHeight: 1.8 }}>
-                  <div style={{ textAlign: 'center', marginBottom: 10 }}>Sin datos de tiempos de campo.<br />
-                    <span style={{ fontSize: 10 }}>Vuelve a cargar el Rollout en "Por Facturar" para actualizar este análisis.</span>
-                  </div>
-                  <div style={{ background: '#f8faf8', borderRadius: 6, padding: '8px 12px', fontSize: 10, color: '#617561', fontFamily: 'monospace' }}>
-                    <div>📦 Rollout items: {rolloutItems?.length ?? 0}</div>
-                    <div>📅 Con mosDate: {rolloutItems?.filter(r => r.mosDate).length ?? 0}</div>
-                    <div>📅 Con intgDate: {rolloutItems?.filter(r => r.intgDate).length ?? 0}</div>
-                    <div>📅 Con acepDate: {rolloutItems?.filter(r => r.acepDate).length ?? 0}</div>
-                    <div>🗂 PPA map size: {ppaLibMap.size}</div>
-                  </div>
+                <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12, lineHeight: 1.6 }}>
+                  Sin datos de tiempos de campo.<br />
+                  <span style={{ fontSize: 11 }}>Vuelve a cargar el Rollout en "Por Facturar" para actualizar este análisis.</span>
                 </div>
               ) : (
                 <>
