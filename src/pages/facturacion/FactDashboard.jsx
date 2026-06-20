@@ -340,7 +340,6 @@ export default function FactDashboard() {
     loadRolloutFromSupabase().then(d => { if (d?.items) setRolloutItems(d.items) })
   }, [])
 
-  useEffect(() => { setKpiSelRange(null) }, [kpiGroupBy])
 
   useEffect(() => {
     const onUp = () => { kpiDragStart.current = null }
@@ -934,7 +933,7 @@ export default function FactDashboard() {
                               <button onClick={() => setKpiSelRange(null)} style={{ padding: '1px 7px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#fff', color: '#ef4444', fontSize: 10, cursor: 'pointer', marginRight: 6 }}>✕</button>
                             )}
                             {['mes', 'trimestre', 'semestre'].map(g => (
-                              <button key={g} onClick={() => setKpiGroupBy(g)} style={{
+                              <button key={g} onClick={() => { setKpiGroupBy(g); setKpiSelRange(null) }} style={{
                                 padding: '2px 8px', borderRadius: 4, border: '1px solid',
                                 borderColor: kpiGroupBy === g ? '#144E4A' : '#d1d5db',
                                 background: kpiGroupBy === g ? '#144E4A' : '#fff',
