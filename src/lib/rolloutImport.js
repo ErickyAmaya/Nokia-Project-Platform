@@ -33,9 +33,12 @@ function extractDate(val) {
 function normalizeItem(item) {
   return {
     ...item,
-    mosSS:  extractDate(item.mosSS),
-    intgSS: extractDate(item.intgSS),
-    acepSS: extractDate(item.acepSS),
+    mosSS:    extractDate(item.mosSS),
+    intgSS:   extractDate(item.intgSS),
+    acepSS:   extractDate(item.acepSS),
+    mosDate:  extractDate(item.mosDate),
+    intgDate: extractDate(item.intgDate),
+    acepDate: extractDate(item.acepDate),
   }
 }
 
@@ -101,6 +104,10 @@ export async function parsearRollout(file) {
   const idxMosSS    = findCol(31, ['ss', 'mos'],     ['mos', 'ok'])
   const idxIntgSS   = findCol(55, ['qcp4', 'ok'],    ['qcp4'])
   const idxAcepSS   = findCol(65, ['acep', 'final'], ['ss', 'acep'])
+  // Fechas de completado de actividades en campo (para KPI de tiempo de liberación)
+  const idxMosDate  = findCol(27, ['main equipment', 'on site'], ['13.1'])
+  const idxIntgDate = findCol(45, ['integration complete'],      ['15.4'])
+  const idxAcepDate = findCol(58, ['commercial service'],        ['ms18'])
 
   // Pasos de progreso: MOS = 12 cols antes de mosSS; Intg y Acep = rango dinámico entre SS fechas
   const intgSteps = Math.max(idxIntgSS - idxMosSS - 1, 1)
@@ -125,9 +132,12 @@ export async function parsearRollout(file) {
     const siteName = String(row[idxSiteName] || '').trim()
     const smpName  = String(row[idxSmpName]  || '').trim()
 
-    const mosSS  = extractDate(row[idxMosSS])
-    const intgSS = extractDate(row[idxIntgSS])
-    const acepSS = extractDate(row[idxAcepSS])
+    const mosSS   = extractDate(row[idxMosSS])
+    const intgSS  = extractDate(row[idxIntgSS])
+    const acepSS  = extractDate(row[idxAcepSS])
+    const mosDate  = extractDate(row[idxMosDate])
+    const intgDate = extractDate(row[idxIntgDate])
+    const acepDate = extractDate(row[idxAcepDate])
 
     // 1-based args para countFilled/lastFilled*:
     //   MOS steps  → 12 cols que terminan justo antes de mosSS
@@ -144,6 +154,9 @@ export async function parsearRollout(file) {
       mosSS,
       intgSS,
       acepSS,
+      mosDate,
+      intgDate,
+      acepDate,
       mosPct:  Math.round((mosFilled  / 12)        * 100),
       intgPct: intgSS ? 100 : Math.round((intgFilled / intgSteps) * 100),
       acepPct: Math.round((acepFilled / acepSteps) * 100),

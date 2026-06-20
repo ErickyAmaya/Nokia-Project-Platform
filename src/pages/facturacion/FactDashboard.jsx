@@ -1,8 +1,46 @@
-import { useRef, useMemo, useState } from 'react'
+import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
+import { loadRolloutData, loadRolloutFromSupabase } from '../../lib/rolloutImport'
 import { showToast } from '../../components/Toast'
-import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, Legend } from 'recharts'
+import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, Legend, Cell } from 'recharts'
 import ReactApexChart from 'react-apexcharts'
+
+// ── Utilidades KPI tiempo de liberación ───────────────────────────
+function parsePpaDate(v) {
+  if (!v) return null
+  const s = String(v).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const n = parseFloat(s)
+  if (!isNaN(n) && n > 10000) {
+    const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000)
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
+  }
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`
+  return null
+}
+const normMs = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+const diffDays = (a, b) => {
+  if (!a || !b) return null
+  const d = Math.round((new Date(b) - new Date(a)) / 86400000)
+  return d >= 0 ? d : null
+}
+const avgArr = arr => arr.length ? Math.round(arr.reduce((a,v)=>a+v,0)/arr.length) : 0
+const KPI_MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const getPeriodKey = (monthKey, groupBy) => {
+  const [y, m] = monthKey.split('-').map(Number)
+  if (groupBy === 'trimestre') return `${y}-Q${Math.ceil(m/3)}`
+  if (groupBy === 'semestre')  return `${y}-H${m<=6?1:2}`
+  return monthKey
+}
+const getPeriodLabel = (key, groupBy) => {
+  if (groupBy === 'mes') {
+    const [y, m] = key.split('-').map(Number)
+    return `${KPI_MESES[m-1]} '${String(y).slice(2)}`
+  }
+  const [y, p] = key.split('-')
+  return `${p} ${y}`
+}
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 function fmtMes(yyyymm) {
@@ -292,8 +330,124 @@ export default function FactDashboard() {
   const [showRejected,   setShowRejected]   = useState(false)
   const [selectedMonth,  setSelectedMonth]  = useState('')
   const [removedModal,   setRemovedModal]   = useState(null)  // array of removed SPO items
+  const [rolloutItems,    setRolloutItems]    = useState(() => loadRolloutData()?.items || null)
+  const [kpiGroupBy,      setKpiGroupBy]      = useState('mes')
+  const [kpiSelRange,     setKpiSelRange]     = useState(null) // [startIdx, endIdx] | null
+  const kpiDragStart = useRef(null)
+
+  useEffect(() => {
+    if (rolloutItems) return
+    loadRolloutFromSupabase().then(d => { if (d?.items) setRolloutItems(d.items) })
+  }, [])
+
+  useEffect(() => { setKpiSelRange(null) }, [kpiGroupBy])
+
+  useEffect(() => {
+    const onUp = () => { kpiDragStart.current = null }
+    document.addEventListener('mouseup', onUp)
+    return () => document.removeEventListener('mouseup', onUp)
+  }, [])
+
 
   const invMap = useMemo(() => buildInvoicesMap(invoices), [invoices])
+
+  // PPA lookup: smpId|normMs → { libDate }
+  const ppaLibMap = useMemo(() => {
+    if (!ppa.length) return new Map()
+    const m = new Map()
+    for (const row of ppa) {
+      const key = `${(row.smp_id||'').toUpperCase()}|${normMs(row.ms_name)}`
+      if (m.has(key)) continue
+      const grDate  = parsePpaDate(row.gr_date)
+      const pctDate = parsePpaDate(row.servicio_ejecutado_ppa_date)
+      let libDate = null
+      if (grDate && pctDate)                              libDate = pctDate > grDate ? pctDate : grDate
+      else if (grDate && (row.servicio_ejecutado_pct||0)>0) libDate = grDate
+      m.set(key, libDate)
+    }
+    return m
+  }, [ppa])
+
+  // Per-site timings with month of mosDate as period anchor
+  const siteTimings = useMemo(() => {
+    if (!rolloutItems || !ppaLibMap.size) return []
+    const out = []
+    for (const r of rolloutItems) {
+      const id = (r.smpId||'').toUpperCase()
+      const anchor = r.mosDate?.slice(0,7) || r.intgDate?.slice(0,7) || r.acepDate?.slice(0,7)
+      if (!anchor) continue
+
+      const getLib = msName => ppaLibMap.get(`${id}|${normMs(msName)}`) || null
+
+      const mosLib  = r.mosDate  ? getLib('SS MOS ok')            : null
+      const intgLib = r.intgDate ? getLib('SS Integracion ok')    : null
+      const acepLib = r.acepDate ? getLib('SS Aceptacion final ok') : null
+
+      const mosDays  = diffDays(r.mosDate,  mosLib)
+      const intgDays = diffDays(r.intgDate, intgLib)
+      const acepDays = diffDays(r.acepDate, acepLib)
+      const totalDays = (r.mosDate && acepLib) ? diffDays(r.mosDate, acepLib) : null
+
+      if (mosDays===null && intgDays===null && acepDays===null) continue
+      out.push({ month: anchor, mosDays, intgDays, acepDays, totalDays })
+    }
+    return out
+  }, [rolloutItems, ppaLibMap])
+
+  // Sorted list of unique period keys
+  const availablePeriods = useMemo(() => {
+    const seen = new Set()
+    for (const s of siteTimings) {
+      const k = getPeriodKey(s.month, kpiGroupBy)
+      seen.add(k)
+    }
+    return [...seen].sort()
+  }, [siteTimings, kpiGroupBy])
+
+  // Trend line data: always monthly so selecting a quarter/semester shows its individual months
+  const kpiTrendData = useMemo(() => {
+    const buckets = new Map()
+    for (const s of siteTimings) {
+      const k = s.month // always YYYY-MM
+      if (!buckets.has(k)) buckets.set(k, { mos:[], intg:[], acep:[], total:[] })
+      const b = buckets.get(k)
+      if (s.mosDays   !== null) b.mos.push(s.mosDays)
+      if (s.intgDays  !== null) b.intg.push(s.intgDays)
+      if (s.acepDays  !== null) b.acep.push(s.acepDays)
+      if (s.totalDays !== null) b.total.push(s.totalDays)
+    }
+    return [...buckets.keys()].sort().map(k => ({
+      period: k,
+      label:  getPeriodLabel(k, 'mes'),
+      mos:    avgArr(buckets.get(k)?.mos   || []) || null,
+      intg:   avgArr(buckets.get(k)?.intg  || []) || null,
+      acep:   avgArr(buckets.get(k)?.acep  || []) || null,
+      total:  avgArr(buckets.get(k)?.total || []) || null,
+    }))
+  }, [siteTimings])
+
+  // Summary bars for selected periods (or all if none selected)
+  const kpiSummaryBars = useMemo(() => {
+    const active = kpiSelRange
+      ? siteTimings.filter(s => {
+          const idx = availablePeriods.indexOf(getPeriodKey(s.month, kpiGroupBy))
+          return idx >= kpiSelRange[0] && idx <= kpiSelRange[1]
+        })
+      : siteTimings
+    const a = { mos:[], intg:[], acep:[], total:[] }
+    for (const s of active) {
+      if (s.mosDays   !== null) a.mos.push(s.mosDays)
+      if (s.intgDays  !== null) a.intg.push(s.intgDays)
+      if (s.acepDays  !== null) a.acep.push(s.acepDays)
+      if (s.totalDays !== null) a.total.push(s.totalDays)
+    }
+    return [
+      { label: 'MOS',          color: '#144E4A', avg: avgArr(a.mos),   n: a.mos.length   },
+      { label: 'Integración',  color: '#0369a1', avg: avgArr(a.intg),  n: a.intg.length  },
+      { label: 'Acept. Final', color: '#7c3aed', avg: avgArr(a.acep),  n: a.acep.length  },
+      { label: 'Ciclo Total',  color: '#059669', avg: avgArr(a.total), n: a.total.length },
+    ]
+  }, [siteTimings, kpiSelRange, kpiGroupBy, availablePeriods])
 
   const stats = useMemo(() => {
     const activePpa = ppa.filter(r => !cancelledSpos.has(r.spo_number))
@@ -736,6 +890,206 @@ export default function FactDashboard() {
             </div>
           )}
 
+          {/* ── Tiempo de Liberación por Hito ───────────────────────── */}
+          <div className="card">
+            <div className="card-h" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <h2>Tiempo de Liberación por Hito</h2>
+              <span style={{ fontSize: 10, color: '#617561', fontWeight: 400 }}>días promedio · actividad en campo → GR+% en PPA</span>
+            </div>
+            <div className="card-b">
+              {!rolloutItems ? (
+                <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12 }}>
+                  Carga el Rollout en "Por Facturar" para ver este análisis.
+                </div>
+              ) : !siteTimings.length ? (
+                <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12 }}>
+                  Sin SMPs con hitos completados y liberados en PPA.
+                </div>
+              ) : (
+                <>
+                  {/* ── Timeline slicer ── */}
+                  {(() => {
+                    const CELL_W = kpiGroupBy === 'semestre' ? 88 : kpiGroupBy === 'trimestre' ? 68 : 52
+                    // Year header groups
+                    const yearGroups = []
+                    for (const k of availablePeriods) {
+                      const yr = k.split('-')[0]
+                      if (yearGroups.length && yearGroups[yearGroups.length-1].year === yr)
+                        yearGroups[yearGroups.length-1].count++
+                      else yearGroups.push({ year: yr, count: 1 })
+                    }
+                    const selLabel = kpiSelRange
+                      ? kpiSelRange[0] === kpiSelRange[1]
+                        ? getPeriodLabel(availablePeriods[kpiSelRange[0]], kpiGroupBy)
+                        : `${getPeriodLabel(availablePeriods[kpiSelRange[0]], kpiGroupBy)} – ${getPeriodLabel(availablePeriods[kpiSelRange[1]], kpiGroupBy)}`
+                      : 'Todos los períodos'
+                    return (
+                      <div style={{ marginBottom: 12, background: '#f8faf8', borderRadius: 8, padding: '8px 10px', border: '1px solid #e8eae8' }}>
+                        {/* Top row */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', minWidth: 120 }}>{selLabel}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            {kpiSelRange && (
+                              <button onClick={() => setKpiSelRange(null)} style={{ padding: '1px 7px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#fff', color: '#ef4444', fontSize: 10, cursor: 'pointer', marginRight: 6 }}>✕</button>
+                            )}
+                            {['mes', 'trimestre', 'semestre'].map(g => (
+                              <button key={g} onClick={() => setKpiGroupBy(g)} style={{
+                                padding: '2px 8px', borderRadius: 4, border: '1px solid',
+                                borderColor: kpiGroupBy === g ? '#144E4A' : '#d1d5db',
+                                background: kpiGroupBy === g ? '#144E4A' : '#fff',
+                                color: kpiGroupBy === g ? '#fff' : '#617561',
+                                fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: .4,
+                              }}>{g}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Timeline bar */}
+                        <div style={{ overflowX: 'auto', userSelect: 'none' }}>
+                          {/* Year labels row */}
+                          <div style={{ display: 'flex', paddingBottom: 2 }}>
+                            {yearGroups.map(({ year, count }) => (
+                              <div key={year} style={{ flex: `0 0 ${count * CELL_W}px`, fontSize: 10, fontWeight: 700, color: '#374151', paddingLeft: 4, borderLeft: '2px solid #d1d5db' }}>
+                                {year}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Period cells */}
+                          <div style={{ display: 'flex' }}>
+                            {availablePeriods.map((k, i) => {
+                              const sel = kpiSelRange && i >= kpiSelRange[0] && i <= kpiSelRange[1]
+                              const isStart = kpiSelRange && i === kpiSelRange[0]
+                              const isEnd   = kpiSelRange && i === kpiSelRange[1]
+                              return (
+                                <div
+                                  key={k}
+                                  style={{
+                                    flex: `0 0 ${CELL_W}px`,
+                                    height: 30,
+                                    background: sel ? '#0369a1' : '#e8eae8',
+                                    color: sel ? '#fff' : '#617561',
+                                    fontSize: 9, fontWeight: sel ? 700 : 400,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    borderLeft: isStart ? '2px solid #0284c7' : '1px solid #fff',
+                                    borderRight: isEnd  ? '2px solid #0284c7' : 'none',
+                                    borderRadius: isStart && isEnd ? 4 : isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : 0,
+                                    cursor: 'pointer',
+                                    transition: 'background .08s',
+                                  }}
+                                  onMouseDown={e => {
+                                    e.preventDefault()
+                                    kpiDragStart.current = i
+                                    setKpiSelRange([i, i])
+                                  }}
+                                  onMouseEnter={() => {
+                                    if (kpiDragStart.current === null) return
+                                    const s = kpiDragStart.current
+                                    setKpiSelRange([Math.min(s, i), Math.max(s, i)])
+                                  }}
+                                >
+                                  {getPeriodLabel(k, kpiGroupBy)}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* ── Dos gráficas lado a lado ── */}
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+
+                    {/* Izquierda — tendencia mensual */}
+                    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                      <div style={{ fontSize: 10, color: '#9ca89c', marginBottom: 4 }}>Tendencia mensual</div>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <ComposedChart data={(() => {
+                              if (!kpiSelRange) return kpiTrendData
+                              const selKeys = new Set(availablePeriods.slice(kpiSelRange[0], kpiSelRange[1] + 1))
+                              return kpiTrendData.filter(d => selKeys.has(getPeriodKey(d.period, kpiGroupBy)))
+                            })()} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9ca89c' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 9, fill: '#9ca89c' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}d`} />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null
+                              return (
+                                <div style={{ background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8, padding: '8px 12px', fontSize: 10, boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}>
+                                  <div style={{ fontWeight: 700, marginBottom: 4, color: '#374151' }}>{label}</div>
+                                  {payload.map(p => p.value != null && (
+                                    <div key={p.dataKey} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                      <span>{p.name}</span><strong>{p.value}d</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            }}
+                          />
+                          <Line type="monotone" dataKey="total" name="Ciclo Total"  stroke="#059669" strokeWidth={2.5} dot={{ r: 3, fill: '#059669' }} connectNulls />
+                          <Line type="monotone" dataKey="acep"  name="Acept. Final" stroke="#7c3aed" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" connectNulls />
+                          <Line type="monotone" dataKey="intg"  name="Integración"  stroke="#0369a1" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" connectNulls />
+                          <Line type="monotone" dataKey="mos"   name="MOS"          stroke="#144E4A" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" connectNulls />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6, paddingLeft: 4 }}>
+                        {[['#059669','Ciclo Total'],['#7c3aed','Acept. Final'],['#0369a1','Integración'],['#144E4A','MOS']].map(([c,l]) => (
+                          <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div style={{ width: 14, height: 2.5, background: c, borderRadius: 2 }} />
+                            <span style={{ fontSize: 9, color: '#617561' }}>{l}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Derecha — barras de resumen */}
+                    <div style={{ flex: '0 0 200px', minWidth: 160 }}>
+                      <div style={{ fontSize: 10, color: '#9ca89c', marginBottom: 4 }}>
+                        {kpiSelRange ? `${kpiSelRange[1] - kpiSelRange[0] + 1} período(s) seleccionado(s)` : 'Todos los períodos'}
+                      </div>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={kpiSummaryBars} margin={{ top: 24, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis dataKey="label" tick={{ fontSize: 9, fontWeight: 600, fill: '#374151' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 9, fill: '#9ca89c' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}d`} />
+                          <Tooltip
+                            cursor={{ fill: '#f8faf8' }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null
+                              const d = payload[0].payload
+                              if (!d.n) return null
+                              return (
+                                <div style={{ background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8, padding: '8px 12px', fontSize: 10, boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}>
+                                  <div style={{ fontWeight: 700, color: d.color, marginBottom: 3 }}>{d.label}</div>
+                                  <div>Promedio: <strong>{d.avg} días</strong></div>
+                                  <div style={{ color: '#617561' }}>n = {d.n} SMPs</div>
+                                </div>
+                              )
+                            }}
+                          />
+                          <Bar dataKey="avg" radius={[5, 5, 0, 0]}
+                            label={{ position: 'top', fontSize: 11, fontWeight: 700, fill: '#09090b', formatter: v => v > 0 ? `${v}d` : '' }}>
+                            {kpiSummaryBars.map((e, i) => (
+                              <Cell key={i} fill={e.n > 0 ? e.color : '#e5e7eb'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 2 }}>
+                        {kpiSummaryBars.map(h => (
+                          <div key={h.label} style={{ textAlign: 'center', fontSize: 9, color: '#9ca89c' }}>
+                            {h.n > 0 ? `n=${h.n}` : '—'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Breakdown por evento */}
           <div className="card">
             <div className="card-h"><h2>Estado por tipo de evento</h2></div>
@@ -802,6 +1156,7 @@ export default function FactDashboard() {
           </div>
         </>
       )}
+
     </div>
   )
 }
