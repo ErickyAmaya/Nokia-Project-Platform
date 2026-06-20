@@ -431,12 +431,12 @@ export default function SiteTimelineModal({ smpId, onClose }) {
       {/* Overlay */}
       <div onClick={onClose} style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
-        zIndex: 600, backdropFilter: 'blur(2px)',
+        zIndex: 1200, backdropFilter: 'blur(2px)',
       }}/>
 
       {/* Modal */}
       <div style={{
-        position: 'fixed', inset: '5vh 3vw', zIndex: 601,
+        position: 'fixed', inset: '5vh 3vw', zIndex: 1201,
         background: '#f0f2f0', borderRadius: 20, overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 64px rgba(0,0,0,.35)',
