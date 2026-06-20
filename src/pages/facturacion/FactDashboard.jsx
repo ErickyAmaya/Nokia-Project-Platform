@@ -902,8 +902,9 @@ export default function FactDashboard() {
                   Carga el Rollout en "Por Facturar" para ver este análisis.
                 </div>
               ) : !siteTimings.length ? (
-                <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12 }}>
-                  Sin SMPs con hitos completados y liberados en PPA.
+                <div style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12, lineHeight: 1.6 }}>
+                  Sin datos de tiempos de campo.<br />
+                  <span style={{ fontSize: 11 }}>Vuelve a cargar el Rollout en "Por Facturar" para actualizar este análisis.</span>
                 </div>
               ) : (
                 <>
