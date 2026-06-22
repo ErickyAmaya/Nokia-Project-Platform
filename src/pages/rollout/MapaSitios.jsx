@@ -23,8 +23,10 @@ function getTssSubSitios(sitio, gastos) {
   return [...new Set([...fromActs, ...fromGastos])].sort()
 }
 
-function pinColor(stats) {
-  if (!stats) return { fill: '#94a3b8', stroke: '#64748b', label: 'Sin datos ACK' }
+function pinColor(stats, pendienteIntegracion) {
+  if (!stats) return pendienteIntegracion
+    ? { fill: '#2563eb', stroke: '#1d4ed8', label: 'Pendiente Integración' }
+    : { fill: '#94a3b8', stroke: '#64748b', label: 'Sin datos ACK' }
   if (stats.todos)       return { fill: '#16a34a', stroke: '#15803d', label: 'Cerrado' }
   if (stats.pct >= 80)   return { fill: '#f59e0b', stroke: '#d97706', label: `${stats.pct}% completado` }
   if (stats.pct >= 40)   return { fill: '#f97316', stroke: '#ea580c', label: `${stats.pct}% completado` }
@@ -960,14 +962,25 @@ export default function MapaSitios() {
     return map
   }, [sitios])
 
+  // Sitio en Rollout (tiene SS MOS) pero aún sin entrada en la sábana ACK
+  const rolloutByName = useMemo(() => {
+    const map = {}
+    for (const i of rolloutItems) {
+      if (!i.siteName) continue
+      map[norm(i.siteName)] = i
+    }
+    return map
+  }, [rolloutItems])
+
   const pins = useMemo(() =>
     coords.map(c => {
       const stats = ackIndex[norm(c.site_name)] || null
-      const color = pinColor(stats)
+      const pendienteIntegracion = !stats && !!rolloutByName[norm(c.site_name)]?.mosSS
+      const color = pinColor(stats, pendienteIntegracion)
       const lc    = lcByName[norm(c.site_name)] || ''
       return { ...c, stats, color, lc }
     })
-  , [coords, ackIndex, lcByName])
+  , [coords, ackIndex, lcByName, rolloutByName])
 
   const lcOptions = useMemo(() => {
     const set = new Set(sitios.map(s => s.lc).filter(Boolean))
@@ -1240,6 +1253,7 @@ export default function MapaSitios() {
           { color: '#f97316', label: '40–79%' },
           { color: '#ef4444', label: '< 40%' },
           { color: '#94a3b8', label: 'Sin datos ACK' },
+          { color: '#2563eb', label: 'Pendiente Integración' },
         ].map(l => (
           <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: l.color }} />
@@ -1515,7 +1529,9 @@ export default function MapaSitios() {
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', paddingTop: 24 }}>
-                    Sin datos ACK para este sitio
+                    {selectedPin.color.label === 'Pendiente Integración'
+                      ? 'Sitio en Rollout — pendiente de integración (aún no aparece en ACK)'
+                      : 'Sin datos ACK para este sitio'}
                   </div>
                 )}
               </div>

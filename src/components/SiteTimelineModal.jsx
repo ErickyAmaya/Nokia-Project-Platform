@@ -506,7 +506,10 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               <div style={{ flexShrink: 0, marginTop: 1 }}>{ICONS.warn('#d97706')}</div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e', lineHeight: 1.3 }}>
-                  Sitio aún no registrado en el ACK
+                  Sitio aún no registrado en el ACK <span style={{
+                    marginLeft: 6, fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 10,
+                    background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap',
+                  }}>Pendiente Integración</span>
                 </div>
                 <div style={{ fontSize: 11, color: '#b45309', marginTop: 3, lineHeight: 1.4 }}>
                   Se muestran los datos del Rollout Nokia. Los hitos de seguimiento ACK aparecen como pendientes hasta que el sitio sea registrado.
