@@ -14,6 +14,15 @@ function norm(s) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 }
 
+// Un TSS no tiene coordenadas propias: representa un grupo cuyos sub-sitios
+// físicos (definidos en sus actividades al crearlo, o agregados luego desde
+// el Liquidador como gasto) son los que realmente necesitan coordenadas.
+function getTssSubSitios(sitio, gastos) {
+  const fromActs   = (sitio.actividades || []).map(a => a.sitioid).filter(Boolean)
+  const fromGastos = (gastos || []).filter(g => g.sitio === sitio.id).map(g => g.sub_sitio).filter(Boolean)
+  return [...new Set([...fromActs, ...fromGastos])].sort()
+}
+
 function pinColor(stats) {
   if (!stats) return { fill: '#94a3b8', stroke: '#64748b', label: 'Sin datos ACK' }
   if (stats.todos)       return { fill: '#16a34a', stroke: '#15803d', label: 'Cerrado' }
@@ -329,7 +338,7 @@ function LcSearch({ options, value, onChange }) {
   )
 }
 
-function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
+function SitiosUploadModal({ onClose, onDone, currentCoords, sitios, gastos, userRole }) {
   const [tab,       setTab]       = useState('masiva') // 'masiva' | 'sitio'
   const [rows,      setRows]      = useState([])
   const [newRows,   setNewRows]   = useState([])
@@ -341,16 +350,36 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
 
   // ── Tab "Por sitio" ──────────────────────────────────────────────
   const existingNames = useMemo(() => new Set(currentCoords.map(c => c.site_name.trim().toLowerCase())), [currentCoords])
-  const sitiosSinCoords = useMemo(() => (sitios || []).filter(s => s.nombre && !existingNames.has(s.nombre.trim().toLowerCase())).sort((a, b) => a.nombre.localeCompare(b.nombre)), [sitios, existingNames])
-  const todosLosSitios  = useMemo(() => (sitios || []).filter(s => s.nombre).sort((a, b) => a.nombre.localeCompare(b.nombre)), [sitios])
 
-  const [singleSitio,   setSingleSitio]   = useState('')
-  const [singleLat,     setSingleLat]     = useState('')
-  const [singleLng,     setSingleLng]     = useState('')
-  const [singlePaste,   setSinglePaste]   = useState('')
-  const [singleSaving,  setSingleSaving]  = useState(false)
-  const [singleResult,  setSingleResult]  = useState(null)
-  const [showAllSitios, setShowAllSitios] = useState(false)
+  const sitiosTI = useMemo(() =>
+    (sitios || []).filter(s => s.nombre && s.tipo !== 'TSS').sort((a, b) => a.nombre.localeCompare(b.nombre))
+  , [sitios])
+  const sitiosTISinCoords = useMemo(() =>
+    sitiosTI.filter(s => !existingNames.has(s.nombre.trim().toLowerCase()))
+  , [sitiosTI, existingNames])
+
+  // Grupos TSS expandidos a sus sub-sitios físicos (los que de verdad necesitan coordenadas)
+  const tssGroups = useMemo(() => {
+    return (sitios || [])
+      .filter(s => s.tipo === 'TSS' && s.nombre)
+      .map(s => {
+        const subSitios  = getTssSubSitios(s, gastos)
+        const pendientes = subSitios.filter(n => !existingNames.has(n.trim().toLowerCase()))
+        return { sitio: s, subSitios, pendientes }
+      })
+      .filter(g => g.subSitios.length > 0)
+      .sort((a, b) => a.sitio.nombre.localeCompare(b.sitio.nombre))
+  }, [sitios, gastos, existingNames])
+  const tssGroupsConPendientes = useMemo(() => tssGroups.filter(g => g.pendientes.length > 0), [tssGroups])
+
+  const [singleSitio,      setSingleSitio]      = useState('')
+  const [singleLat,        setSingleLat]        = useState('')
+  const [singleLng,        setSingleLng]        = useState('')
+  const [singlePaste,      setSinglePaste]      = useState('')
+  const [singleSaving,     setSingleSaving]     = useState(false)
+  const [singleResult,     setSingleResult]     = useState(null)
+  const [showAllSitios,    setShowAllSitios]    = useState(false)
+  const [selectedTssGroup, setSelectedTssGroup] = useState(null)
 
   function handlePaste(val) {
     setSinglePaste(val)
@@ -385,13 +414,23 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   }
 
   function downloadTemplate() {
-    const filas = sitiosSinCoords.length > 0
-      ? sitiosSinCoords.map(s => [s.nombre, '', ''])
-      : [['EJM.Sitio_Ejemplo', 4.7110, -74.0721]]
-    const ws = XLSX.utils.aoa_to_sheet([['site_name', 'lat', 'lng'], ...filas])
-    ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Coordenadas')
+
+    const filasTI = sitiosTISinCoords.length > 0
+      ? sitiosTISinCoords.map(s => [s.nombre, '', ''])
+      : [['EJM.Sitio_Ejemplo', 4.7110, -74.0721]]
+    const wsTI = XLSX.utils.aoa_to_sheet([['site_name', 'lat', 'lng'], ...filasTI])
+    wsTI['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, wsTI, 'Implementacion')
+
+    const filasTSS = tssGroupsConPendientes.flatMap(g => g.pendientes.map(sub => [g.sitio.nombre, sub, '', '']))
+    const wsTSS = XLSX.utils.aoa_to_sheet([
+      ['tss_padre', 'site_name', 'lat', 'lng'],
+      ...(filasTSS.length > 0 ? filasTSS : [['EJM.TSS_Grupo', 'EJM.SubSitio', 4.7110, -74.0721]]),
+    ])
+    wsTSS['!cols'] = [{ wch: 28 }, { wch: 28 }, { wch: 14 }, { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, wsTSS, 'TSS')
+
     XLSX.writeFile(wb, 'template_coordenadas_sitios.xlsx')
   }
 
@@ -412,14 +451,14 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
     const reader = new FileReader()
     reader.onload = ev => {
       const wb    = XLSX.read(ev.target.result, { type: 'array' })
-      const data  = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' })
-      const valid = data
-        .map(r => ({
-          site_name: (r.site_name || r['Site Name'] || r['SITE NAME'] || '').toString().trim(),
-          lat: parseFloat(r.lat || r['Lat'] || r['LAT'] || r['Latitud'] || ''),
-          lng: parseFloat(r.lng || r['Lng'] || r['LNG'] || r['Longitud'] || ''),
-        }))
-        .filter(r => r.site_name && !isNaN(r.lat) && !isNaN(r.lng))
+      const valid = wb.SheetNames.flatMap(name =>
+        XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '' })
+          .map(r => ({
+            site_name: (r.site_name || r['Site Name'] || r['SITE NAME'] || '').toString().trim(),
+            lat: parseFloat(r.lat || r['Lat'] || r['LAT'] || r['Latitud'] || ''),
+            lng: parseFloat(r.lng || r['Lng'] || r['LNG'] || r['Longitud'] || ''),
+          }))
+      ).filter(r => r.site_name && !isNaN(r.lat) && !isNaN(r.lng))
       const existing = new Set(currentCoords.map(c => c.site_name.trim().toLowerCase()))
       const nuevo    = valid.filter(r => !existing.has(r.site_name.toLowerCase()))
       setRows(valid)
@@ -445,6 +484,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
   }
 
   return (
+    <>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,.45)',
@@ -463,7 +503,7 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
           {[{ id: 'masiva', label: '📂 Carga masiva' }, { id: 'sitio', label: '📍 Por sitio' }].map(t => (
-            <button key={t.id} onClick={() => { setTab(t.id); setResult(null); setSingleResult(null) }}
+            <button key={t.id} onClick={() => { setTab(t.id); setResult(null); setSingleResult(null); setSelectedTssGroup(null) }}
               style={{ padding: '7px 18px', fontSize: 12, fontWeight: 700, border: 'none', borderBottom: tab === t.id ? '2px solid #1d4ed8' : '2px solid transparent', background: 'none', color: tab === t.id ? '#1d4ed8' : '#6b7280', cursor: 'pointer', marginBottom: -2 }}>
               {t.label}
             </button>
@@ -477,27 +517,49 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>SITIO</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 11, color: '#6b7280' }}>
-                  <input type="checkbox" checked={showAllSitios} onChange={e => { setShowAllSitios(e.target.checked); setSingleSitio('') }} />
+                  <input type="checkbox" checked={showAllSitios} onChange={e => { setShowAllSitios(e.target.checked); setSingleSitio(''); setSelectedTssGroup(null) }} />
                   Mostrar todos (incluye con coordenadas)
                 </label>
               </div>
               <select value={singleSitio} onChange={e => {
-                const nombre = e.target.value
-                setSingleSitio(nombre)
+                const val = e.target.value
+                setSingleSitio(val)
                 setSingleResult(null)
                 setSinglePaste('')
-                const existing = currentCoords.find(c => c.site_name.trim().toLowerCase() === nombre.trim().toLowerCase())
+
+                if (val.startsWith('TSS::')) {
+                  const nombre = val.slice(5)
+                  const group  = (showAllSitios ? tssGroups : tssGroupsConPendientes).find(g => g.sitio.nombre === nombre)
+                  setSelectedTssGroup(group || null)
+                  setSingleLat(''); setSingleLng('')
+                  return
+                }
+                setSelectedTssGroup(null)
+                const existing = currentCoords.find(c => c.site_name.trim().toLowerCase() === val.trim().toLowerCase())
                 if (existing) { setSingleLat(String(existing.lat)); setSingleLng(String(existing.lng)) }
                 else { setSingleLat(''); setSingleLng('') }
               }}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 12 }}>
                 <option value="">{showAllSitios ? '— Seleccionar sitio —' : '— Sitios sin coordenadas —'}</option>
-                {(showAllSitios ? todosLosSitios : sitiosSinCoords).map(s => {
-                  const tienCoords = existingNames.has(s.nombre.trim().toLowerCase())
-                  return <option key={s.id ?? s.nombre} value={s.nombre}>{s.nombre}{showAllSitios && tienCoords ? ' ✓' : ''}</option>
-                })}
+                {(showAllSitios ? sitiosTI : sitiosTISinCoords).length > 0 && (
+                  <optgroup label="Implementación">
+                    {(showAllSitios ? sitiosTI : sitiosTISinCoords).map(s => {
+                      const tienCoords = existingNames.has(s.nombre.trim().toLowerCase())
+                      return <option key={s.id ?? s.nombre} value={s.nombre}>{s.nombre}{showAllSitios && tienCoords ? ' ✓' : ''}</option>
+                    })}
+                  </optgroup>
+                )}
+                {(showAllSitios ? tssGroups : tssGroupsConPendientes).length > 0 && (
+                  <optgroup label="TSS">
+                    {(showAllSitios ? tssGroups : tssGroupsConPendientes).map(g => (
+                      <option key={g.sitio.id ?? g.sitio.nombre} value={`TSS::${g.sitio.nombre}`}>
+                        {g.sitio.nombre} — {g.pendientes.length}/{g.subSitios.length} pendientes
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
-              {!showAllSitios && sitiosSinCoords.length === 0 && (
+              {!showAllSitios && sitiosTISinCoords.length === 0 && tssGroupsConPendientes.length === 0 && (
                 <div style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>Todos los sitios ya tienen coordenadas.</div>
               )}
             </div>
@@ -664,6 +726,126 @@ function SitiosUploadModal({ onClose, onDone, currentCoords, sitios }) {
         </>}
       </div>
     </div>
+    {selectedTssGroup && (
+      <TssSubsitiosModal
+        tss={selectedTssGroup.sitio}
+        subSitios={showAllSitios ? selectedTssGroup.subSitios : selectedTssGroup.pendientes}
+        currentCoords={currentCoords}
+        userRole={userRole}
+        onClose={() => { setSelectedTssGroup(null); setSingleSitio('') }}
+        onSaved={onDone}
+      />
+    )}
+    </>
+  )
+}
+
+function TssSubsitiosModal({ tss, subSitios, currentCoords, userRole, onClose, onSaved }) {
+  const canEdit = !['viewer', 'rollout'].includes(userRole)
+
+  const [rows, setRows] = useState(() => subSitios.map(name => {
+    const existing = currentCoords.find(c => c.site_name.trim().toLowerCase() === name.trim().toLowerCase())
+    return {
+      name,
+      lat: existing ? String(existing.lat) : '',
+      lng: existing ? String(existing.lng) : '',
+      saving: false, saved: false, error: '',
+    }
+  }))
+  const [savingAll, setSavingAll] = useState(false)
+
+  function updRow(i, field, value) {
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value, saved: false, error: '' } : r))
+  }
+
+  async function saveRow(i) {
+    const row = rows[i]
+    const lat = parseFloat(row.lat)
+    const lng = parseFloat(row.lng)
+    if (isNaN(lat) || isNaN(lng)) {
+      setRows(prev => prev.map((r, idx) => idx === i ? { ...r, error: 'Lat/Lng inválidos' } : r))
+      return
+    }
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, saving: true, error: '' } : r))
+    const db = getSupabaseClient()
+    const { error } = await db.from('sitios_coordenadas').upsert({ site_name: row.name, lat, lng }, { onConflict: 'site_name' })
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, saving: false, saved: !error, error: error?.message || '' } : r))
+    if (!error) onSaved()
+  }
+
+  async function saveAll() {
+    const valid = rows
+      .map((r, idx) => ({ ...r, idx, lat: parseFloat(r.lat), lng: parseFloat(r.lng) }))
+      .filter(r => !isNaN(r.lat) && !isNaN(r.lng))
+    if (!valid.length) return
+    setSavingAll(true)
+    const db = getSupabaseClient()
+    const { error } = await db.from('sitios_coordenadas')
+      .upsert(valid.map(r => ({ site_name: r.name, lat: r.lat, lng: r.lng })), { onConflict: 'site_name' })
+    setSavingAll(false)
+    if (error) return
+    const savedIdx = new Set(valid.map(r => r.idx))
+    setRows(prev => prev.map((r, idx) => savedIdx.has(idx) ? { ...r, saved: true, error: '' } : r))
+    onSaved()
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10001,
+      background: 'rgba(0,0,0,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div style={{
+        background: '#fff', borderRadius: 14, padding: 24, width: 520, maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 16px 48px rgba(0,0,0,.3)',
+      }} onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📍 Sub-sitios de {tss.nombre}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 14 }}>
+          {rows.length} sub-sitio{rows.length !== 1 ? 's' : ''} — carga las coordenadas uno por uno o todas a la vez.
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {rows.map((row, i) => (
+            <div key={row.name} style={{
+              display: 'flex', gap: 6, alignItems: 'center',
+              background: row.saved ? '#f0fdf4' : '#f8faff',
+              border: '1px solid #e5e7eb', borderRadius: 8, padding: 8,
+            }}>
+              <div style={{ flex: '1 1 140px', fontSize: 11, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {row.name}
+              </div>
+              <input type="number" step="any" placeholder="Lat" value={row.lat} onChange={e => updRow(i, 'lat', e.target.value)}
+                disabled={!canEdit}
+                style={{ width: 80, padding: '5px 7px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11 }} />
+              <input type="number" step="any" placeholder="Lng" value={row.lng} onChange={e => updRow(i, 'lng', e.target.value)}
+                disabled={!canEdit}
+                style={{ width: 80, padding: '5px 7px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 11 }} />
+              {canEdit && (
+                <button onClick={() => saveRow(i)} disabled={row.saving} className="btn"
+                  style={{ fontSize: 10, padding: '5px 8px', cursor: row.saving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                  {row.saving ? '…' : row.saved ? '✓' : 'Guardar'}
+                </button>
+              )}
+              {row.error && <div style={{ fontSize: 10, color: '#dc2626' }}>{row.error}</div>}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} className="btn" style={{ fontSize: 11, padding: '7px 16px', cursor: 'pointer' }}>Cerrar</button>
+          {canEdit && (
+            <button onClick={saveAll} disabled={savingAll} className="btn bp"
+              style={{ fontSize: 11, padding: '7px 16px', cursor: savingAll ? 'not-allowed' : 'pointer', opacity: savingAll ? .6 : 1 }}>
+              {savingAll ? 'Guardando…' : 'Guardar todas las completas'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -687,6 +869,7 @@ export default function MapaSitios() {
 
   const sabana   = useAckStore(s => s.sabana)
   const sitios   = useAppStore(s => s.sitios)
+  const gastos   = useAppStore(s => s.gastos)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1395,6 +1578,8 @@ export default function MapaSitios() {
         <SitiosUploadModal
           currentCoords={coords}
           sitios={sitios}
+          gastos={gastos}
+          userRole={userRole}
           onClose={() => setUploadModal(false)}
           onDone={() => {
             const db = getSupabaseClient()
