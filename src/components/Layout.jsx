@@ -61,9 +61,8 @@ const SITIOS_NAV = [
 
 const ROLLOUT_NAV = [
   { to: '/rollout/ack',          label: 'Dashboard',  icon: '📊', id: 'ack-dashboard', roles: ['admin','coordinador','viewer','rollout'] },
-  { to: '/rollout/ack/tablas',   label: 'Forecast ACK', icon: '📋', id: 'ack-tablas',    roles: ['admin','coordinador','viewer','rollout'] },
+  { to: '/rollout/ack/forecast', label: 'ACK',          icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer','rollout'] },
   { to: '/rollout/ack/sitios',   label: 'Rollout',      icon: '📍', id: 'ack-sitios',    roles: ['admin','coordinador','viewer','rollout'] },
-  { to: '/rollout/ack/forecast', label: 'Reportes ACK', icon: '🖨', id: 'ack-forecast',  roles: ['admin','coordinador','viewer','rollout'] },
   { to: '/rollout/analitica',    label: 'Analítica',   icon: '📈', id: 'analitica',     roles: ['admin','coordinador','viewer','TI','TSS','CW','rollout'] },
   { to: '/rollout/mapa',         label: 'Mapa',        icon: '🗺', id: 'rollout-mapa',  roles: null },
 ]

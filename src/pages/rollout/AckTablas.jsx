@@ -519,7 +519,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
 }
 
 // ── Página principal ──────────────────────────────────────────────
-export default function AckTablas() {
+export default function AckTablas({ embedded = false } = {}) {
   const sabanaRaw    = useAckStore(s => s.sabana)
   const saveForecast = useAckStore(s => s.saveForecast)
   const proyectoSel  = useAckStore(s => s.proyectoSel)
@@ -575,41 +575,43 @@ export default function AckTablas() {
 
   return (
     <div>
-      <div className="dash-hdr mb14">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-              ACK — Tablas de Procesos
-            </h1>
-            {filtroBadge && (
-              <span style={{
-                fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20,
-                background: filtroBadge.bg, color: filtroBadge.color, whiteSpace: 'nowrap',
-              }}>
-                {filtroBadge.text}
-              </span>
-            )}
-            {proyectoSel.length > 0 && (
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
-                🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
-              </span>
-            )}
-            {vejez && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
-                background: '#fef3c7', color: '#92400e', whiteSpace: 'nowrap',
-                display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
-              }}
-                onClick={() => setVejez('')}
-                title="Clic para quitar filtro de vejez"
-              >
-                ⏱ Vejez: {VEJEZ_LABELS[vejez] || vejez} ×
-              </span>
-            )}
+      {!embedded && (
+        <div className="dash-hdr mb14">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
+                ACK — Tablas de Procesos
+              </h1>
+              {filtroBadge && (
+                <span style={{
+                  fontSize: 10, fontWeight: 800, padding: '2px 10px', borderRadius: 20,
+                  background: filtroBadge.bg, color: filtroBadge.color, whiteSpace: 'nowrap',
+                }}>
+                  {filtroBadge.text}
+                </span>
+              )}
+              {proyectoSel.length > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
+                  🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
+                </span>
+              )}
+              {vejez && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
+                  background: '#fef3c7', color: '#92400e', whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                }}
+                  onClick={() => setVejez('')}
+                  title="Clic para quitar filtro de vejez"
+                >
+                  ⏱ Vejez: {VEJEZ_LABELS[vejez] || vejez} ×
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-      </div>
+        </div>
+      )}
 
       {/* Tabs + filtros */}
       <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1.5px solid #e0e4e0', marginBottom: 16, overflowX: 'auto' }}>

@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAckStore, PROCESOS, nokiaWeekLabel, getNokiaWeek } from '../../store/useAckStore'
 import { useAppStore } from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { exportAckToExcel } from '../../lib/ackExcelExport'
+import AckTablas from './AckTablas'
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(val) {
@@ -765,7 +766,7 @@ function SeguimientoView({ sabana, prevSabana, estadosOcultos, forecasts, currLa
       <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
       <div style={{ fontSize: 14, fontWeight: 600 }}>Sin estados ocultos configurados</div>
       <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
-        Usa "Configurar Reporte" para ocultar estados que no se revisan con Nokia
+        Usa "Configurar" para ocultar estados que no se revisan con Nokia
       </div>
     </div>
   )
@@ -875,8 +876,9 @@ export default function AckForecast() {
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
   const canUpload = useAuthStore(s => !['viewer', 'rollout'].includes(s.user?.role))
 
+  const location = useLocation()
   const [filtro,     setFiltro]     = useState('pendientes')
-  const [activeView, setActiveView] = useState('reporte')
+  const [activeView, setActiveView] = useState(() => location.pathname.endsWith('/tablas') ? 'forecast' : 'reporte')
   const [setupOpen,  setSetupOpen]  = useState(false)
 
   const totalOcultos = useMemo(
@@ -957,25 +959,36 @@ export default function AckForecast() {
 
   return (
     <>
-      {/* ── Controles ── */}
-      <div className="dash-hdr mb14">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-              ACK — Reportes
-            </h1>
-            {filtroBadge && (
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
-                {filtroBadge.text}
-              </span>
-            )}
-            {proyectoSel.length > 0 && (
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
-                🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
-              </span>
-            )}
-          </div>
-          {canUpload && <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, flexWrap:'wrap' }}>
+      {/* ── Barra de tabs (fija — vive fuera del contenedor con scroll) ── */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        borderBottom: '2px solid #e0e4e0', marginBottom: 14,
+        flexWrap: 'wrap', rowGap: 8, position: 'relative',
+      }}>
+        <div style={{ display: 'flex', gap: 0 }}>
+          {[
+            { key: 'forecast', label: '📋 Forecast' },
+            { key: 'reporte',  label: '📄 Reporte Nokia' },
+          ].map(t => (
+            <button key={t.key} onClick={() => setActiveView(t.key)}
+              style={{
+                padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, marginBottom: -2,
+                borderBottom: activeView === t.key ? '2px solid #7c3aed' : '2px solid transparent',
+                color: activeView === t.key ? '#7c3aed' : '#6b7280',
+                transition: 'all .15s',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {canUpload && (
+          <div style={{
+            display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8,
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          }}>
             {/* Botón Semana Anterior */}
             <label
               onMouseEnter={() => setHoverPrev(true)}
@@ -986,10 +999,10 @@ export default function AckForecast() {
               onDrop={e => { e.preventDefault(); setDragPrev(false); const f = e.dataTransfer.files[0]; if (f && window.confirm(`¿Cargar "${f.name}" como Semana Anterior?`)) handlePrevFile(f) }}
               style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer',
                 border: dragPrev ? '1px dashed #3b82f6' : '1px solid #e0e4e0',
-                borderRadius:8, padding:'4px 10px', transition:'all .15s',
+                borderRadius:20, padding:'6px 14px', transition:'all .15s',
                 background: dragPrev ? '#eff6ff' : manualPrevSabana.length ? (hoverPrev ? '#bfdbfe' : '#dbeafe') : (hoverPrev ? '#dbeafe' : '#f9fafb'),
                 color: manualPrevSabana.length || hoverPrev ? '#1e40af' : '#6b7280',
-                fontSize:10, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
+                fontSize:11, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
               <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
                 onChange={e=>{ handlePrevFile(e.target.files?.[0]); e.target.value='' }} />
               <span>{loadingPrev ? '⏳' : '📂'}</span>
@@ -1012,65 +1025,86 @@ export default function AckForecast() {
               onDrop={e => { e.preventDefault(); setDragCurr(false); const f = e.dataTransfer.files[0]; if (f && window.confirm(`¿Cargar "${f.name}" como Semana Actual?`)) handleCurrFile(f) }}
               style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer',
                 border: dragCurr ? '1px dashed #16a34a' : '1px solid #e0e4e0',
-                borderRadius:8, padding:'4px 10px', transition:'all .15s',
+                borderRadius:20, padding:'6px 14px', transition:'all .15s',
                 background: dragCurr ? '#dcfce7' : currUploaded ? (hoverCurr ? '#dcfce7' : '#f0fdf4') : (hoverCurr ? '#dcfce7' : '#f9fafb'),
                 color: currUploaded || hoverCurr ? '#166534' : '#6b7280',
-                fontSize:10, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
+                fontSize:11, fontWeight:700, whiteSpace:'nowrap', userSelect:'none' }}>
               <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
                 onChange={e=>{ handleCurrFile(e.target.files?.[0]); e.target.value='' }} />
               <span>{loadingCurr ? '⏳' : '📂'}</span>
               <span>{loadingCurr ? 'Cargando...' : 'Cargar ACK Actual'}</span>
             </label>
-          </div>}
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-          {/* Tab switcher */}
-          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e0e4e0' }}>
-            {[
-              { key: 'reporte',     label: 'Reporte Nokia' },
-              { key: 'seguimiento', label: `Seguimiento${totalOcultos > 0 ? ` (${totalOcultos})` : ''}` },
-            ].map(t => (
-              <button key={t.key} onClick={() => setActiveView(t.key)}
-                style={{
-                  padding: '6px 12px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                  background: activeView === t.key ? '#1a3a5c' : '#fff',
-                  color:      activeView === t.key ? '#fff'    : '#4b5563',
-                  transition: 'all .15s',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
           </div>
+        )}
 
-          {activeView === 'reporte' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          <button onClick={() => setActiveView(activeView === 'seguimiento' ? 'reporte' : 'seguimiento')}
+            style={{
+              padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 20, cursor: 'pointer',
+              fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+              background: activeView === 'seguimiento' ? '#7c3aed' : '#f3f4f6',
+              color:      activeView === 'seguimiento' ? '#fff'    : '#1a3a5c',
+              borderColor: activeView === 'seguimiento' ? '#7c3aed' : '#d1d5db',
+            }}
+            title="Ver los estados excluidos del reporte y forecast ACK"
+          >
+            🚫 Estados Excluidos
+            {totalOcultos > 0 && (
+              <span style={{
+                background: activeView === 'seguimiento' ? 'rgba(255,255,255,.25)' : '#f59e0b',
+                color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800,
+              }}>
+                {totalOcultos}
+              </span>
+            )}
+          </button>
+
+          {canUpload && (
+            <button onClick={() => setSetupOpen(true)}
+              style={{ padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#f3f4f6', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 6 }}
+              title="Configurar estados visibles en el reporte y forecast ACK"
+            >
+              ⚙ Configurar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Contenido con scroll interno propio (header arriba queda fijo) ── */}
+      <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 210px)' }}>
+
+      {/* ── Encabezado del tab activo ── */}
+      <div className="dash-hdr mb14">
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
+              {activeView === 'reporte' ? 'ACK — Reporte Nokia' : activeView === 'forecast' ? 'ACK — Forecast' : 'ACK — Estados Excluidos'}
+            </h1>
+            {activeView === 'reporte' && filtroBadge && (
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
+                {filtroBadge.text}
+              </span>
+            )}
+            {proyectoSel.length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
+                🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
+              </span>
+            )}
+          </div>
+        </div>
+        {activeView === 'reporte' && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600, width: 'auto' }}>
               {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-          )}
 
-          {activeView === 'seguimiento' && canUpload && (
-            <button onClick={() => setSetupOpen(true)}
-              style={{ padding: '7px 12px', border: '1px solid #e0e4e0', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#fff', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 5 }}
-              title="Configurar estados visibles en el reporte Nokia"
-            >
-              ⚙ Configurar
-              {totalOcultos > 0 && (
-                <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800 }}>
-                  {totalOcultos}
-                </span>
-              )}
-            </button>
-          )}
-
-          {activeView === 'reporte' && (
             <button onClick={handleExcelExport} disabled={exporting}
-              style={{ padding: '7px 16px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ padding: '5px 12px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 5 }}
             >
               {exporting ? '⏳ Generando…' : '⬇ Exportar Excel'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── KPI resumen (solo en reporte) ── */}
@@ -1093,8 +1127,8 @@ export default function AckForecast() {
         </div>
       )}
 
-      {/* ── Secciones por proceso o Seguimiento ── */}
-      {activeView === 'reporte' ? (
+      {/* ── Secciones por proceso o Forecast ── */}
+      {activeView === 'reporte' && (
         REPORT_PROCESOS.map(p => (
           <ScreenProcess
             key={p.key}
@@ -1111,7 +1145,11 @@ export default function AckForecast() {
             onToggle={() => toggleExpanded(p.key)}
           />
         ))
-      ) : (
+      )}
+
+      {activeView === 'forecast' && <AckTablas embedded />}
+
+      {activeView === 'seguimiento' && (
         <SeguimientoView
           sabana={sabana}
           prevSabana={prevSabana}
@@ -1122,6 +1160,8 @@ export default function AckForecast() {
           empresaNombre={empresaNombre}
         />
       )}
+
+      </div>
 
       {/* ── Modal de configuración ── */}
       {setupOpen && (

@@ -44,7 +44,6 @@ import HwBodegaNokia           from './pages/materiales/HwBodegaNokia'
 import MatReportes        from './pages/materiales/MatReportes'
 import AckWrapper         from './pages/rollout/AckWrapper'
 import AckDashboard       from './pages/rollout/AckDashboard'
-import AckTablas          from './pages/rollout/AckTablas'
 import AckSitios          from './pages/rollout/AckSitios'
 import AckForecast        from './pages/rollout/AckForecast'
 import MapaSitios         from './pages/rollout/MapaSitios'
@@ -291,7 +290,7 @@ function AppRoutes() {
       }>
         <Route index                  element={<AckDashboard />} />
         <Route path="ack"             element={<AckDashboard />} />
-        <Route path="ack/tablas"      element={<AckTablas />} />
+        <Route path="ack/tablas"      element={<AckForecast />} />
         <Route path="ack/sitios"      element={<AckSitios />} />
         <Route path="ack/forecast"    element={<AckForecast />} />
       </Route>
