@@ -556,7 +556,7 @@ export default function ReportesPage() {
 
               <button
                 className="btn bp"
-                style={{ width: '100%', padding: '12px 0', fontSize: 14 }}
+                style={{ width: '100%', padding: '9px 0', fontSize: 12, justifyContent: 'center' }}
                 onClick={handleExport}
                 disabled={exporting || !Object.values(sheets).some(Boolean)}
               >
