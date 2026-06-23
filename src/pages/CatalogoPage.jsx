@@ -45,6 +45,7 @@ function SubcSection() {
 
   const user         = useAuthStore(s => s.user)
   const isAdmin      = user?.role === 'admin'
+  const isCoord      = user?.role === 'coordinador'
   const subcs        = useAppStore(s => s.subcs)
   const sitios       = useAppStore(s => s.sitios)
   const eliminarSubc = useAppStore(s => s.eliminarSubc)
@@ -112,8 +113,15 @@ function SubcSection() {
             {filtered.map(s => {
               const nSitios = sitios.filter(x => x.lc === s.lc).length
               return (
-                <tr key={s.lc}>
-                  <td style={{ fontWeight: 700, fontSize: 11 }}>{s.lc}</td>
+                <tr key={s.lc} style={s.activo === false ? { opacity: .55 } : undefined}>
+                  <td style={{ fontWeight: 700, fontSize: 11 }}>
+                    {s.lc}
+                    {s.activo === false && (
+                      <span className="badge" style={{ marginLeft: 6, fontSize: 8, background: '#f3f4f6', color: '#6b7280' }}>
+                        Inactiva
+                      </span>
+                    )}
+                  </td>
                   <td style={{ fontSize: 11 }}>{s.empresa || '—'}</td>
                   <td>
                     <span className="badge" style={{ fontSize: 9, background: (catColor[s.cat] || '#555') + '18', color: catColor[s.cat] || '#555f55', fontWeight: 700 }}>
@@ -129,7 +137,7 @@ function SubcSection() {
                       : <span style={{ color: '#ccc' }}>0</span>}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {(isAdmin || nSitios === 0) && (
+                    {(isAdmin || isCoord || nSitios === 0) && (
                       <button
                         className="btn bou"
                         style={{ marginRight: 4, padding: '2px 8px', fontSize: 10 }}

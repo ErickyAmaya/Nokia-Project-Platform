@@ -417,7 +417,7 @@ export default function CWLiquidadorView({ sitio }) {
               <label className="fl">LC / Subcontratista CW</label>
               <select className="fc" value={liq.lc || ''} disabled={locked} onChange={e => updLiqField('lc', e.target.value)}>
                 <option value="">— Seleccionar LC —</option>
-                {subcs.map(s => <option key={s.lc} value={s.lc}>{s.lc}</option>)}
+                {subcs.filter(s => s.activo !== false || s.lc === (liq.lc || '')).map(s => <option key={s.lc} value={s.lc}>{s.lc}</option>)}
               </select>
             </div>
           </div>

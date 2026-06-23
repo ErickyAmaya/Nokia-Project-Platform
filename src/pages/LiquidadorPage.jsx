@@ -522,7 +522,7 @@ export default function LiquidadorPage() {
                   disabled={isFinal}
                 >
                   <option value="">— Sin LC —</option>
-                  {subcs.map(s => (
+                  {subcs.filter(s => s.activo !== false || s.lc === lc).map(s => (
                     <option key={s.lc} value={s.lc}>{s.lc}</option>
                   ))}
                 </select>

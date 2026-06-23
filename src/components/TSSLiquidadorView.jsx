@@ -445,7 +445,7 @@ function SubcCard({
               onChange={e => onLcChange(lcField, e.target.value)}
             >
               <option value="">— Sin LC —</option>
-              {subcs.map(s => <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>)}
+              {subcs.filter(s => s.activo !== false || s.lc === lc).map(s => <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>)}
             </select>
           ) : lc && (
             <span style={{ textAlign: 'right', lineHeight: 1.3 }}>

@@ -194,6 +194,7 @@ export const useAppStore = create((set, get) => ({
       tel: r.tel || '', email: r.email || '',
       tipoCuadrilla: r.tipo_cuadrilla || 'TI Ingetel',
       esInterna: r.es_interna || false,
+      activo: r.activo !== false,
     }))
 
     const catalogCW = (catCWData || []).map(r => ({
@@ -544,7 +545,7 @@ export const useAppStore = create((set, get) => ({
     }
 
     if (table === 'subcontratistas') {
-      const sc = { lc: rec.lc, empresa: rec.empresa || rec.lc, cat: rec.cat || 'A', tel: rec.tel || '', email: rec.email || '', tipoCuadrilla: rec.tipo_cuadrilla || 'TI Ingetel', esInterna: rec.es_interna || false }
+      const sc = { lc: rec.lc, empresa: rec.empresa || rec.lc, cat: rec.cat || 'A', tel: rec.tel || '', email: rec.email || '', tipoCuadrilla: rec.tipo_cuadrilla || 'TI Ingetel', esInterna: rec.es_interna || false, activo: rec.activo !== false }
       set(s => {
         if (event === 'INSERT') {
           if (s.subcs.find(x => x.lc === rec.lc)) return {}
@@ -609,10 +610,11 @@ export const useAppStore = create((set, get) => ({
       email:          data.email || '',
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
+      activo:         data.activo !== false,
     }
     const { error } = await supabase.from('subcontratistas').insert(row)
     if (error) throw error
-    const local = { lc: row.lc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna }
+    const local = { lc: row.lc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo }
     set(s => ({ subcs: [...s.subcs, local].sort((a, b) => a.lc.localeCompare(b.lc)) }))
     get()._broadcastChange()
     return local
@@ -628,17 +630,57 @@ export const useAppStore = create((set, get) => ({
       email:          data.email || '',
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
+      activo:         data.activo !== false,
     }
     const { error } = await supabase.from('subcontratistas').update(row).eq('lc', originalLc)
     if (error) throw error
     const lcChanged = newLc !== originalLc
     set(s => ({
       subcs: s.subcs.map(x => x.lc === originalLc
-        ? { lc: newLc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna }
+        ? { lc: newLc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo }
         : x
       ),
       ...(lcChanged ? { sitios: s.sitios.map(x => x.lc === originalLc ? { ...x, lc: newLc } : x) } : {}),
     }))
+    get()._broadcastChange()
+  },
+
+  // Migra una cuadrilla a la otra modalidad (interna<->externa) sin afectar el
+  // costeo histórico: crea un LC nuevo con la modalidad destino y deja el LC
+  // original inactivo (sigue existiendo para que los sitios ya ejecutados
+  // conserven su condición).
+  migrarSubc: async (originalLc, { newLc, esInterna }) => {
+    const orig = get().subcs.find(x => x.lc === originalLc)
+    if (!orig) throw new Error('Subcontratista no encontrado')
+    const lcNuevo = (newLc || '').trim()
+    if (!lcNuevo) throw new Error('El nuevo LC es requerido')
+    if (get().subcs.find(x => x.lc === lcNuevo)) throw new Error(`Ya existe un subcontratista con LC "${lcNuevo}"`)
+
+    const newRow = {
+      lc: lcNuevo, empresa: orig.empresa, cat: orig.cat, tel: orig.tel, email: orig.email,
+      tipo_cuadrilla: orig.tipoCuadrilla, es_interna: !!esInterna, activo: true,
+    }
+    const { error: errIns } = await supabase.from('subcontratistas').insert(newRow)
+    if (errIns) throw errIns
+    const { error: errUpd } = await supabase.from('subcontratistas').update({ activo: false }).eq('lc', originalLc)
+    if (errUpd) throw errUpd
+
+    const local = { lc: newRow.lc, empresa: newRow.empresa, cat: newRow.cat, tel: newRow.tel, email: newRow.email, tipoCuadrilla: newRow.tipo_cuadrilla, esInterna: newRow.es_interna, activo: true }
+    set(s => ({
+      subcs: [...s.subcs.map(x => x.lc === originalLc ? { ...x, activo: false } : x), local]
+        .sort((a, b) => a.lc.localeCompare(b.lc)),
+    }))
+    get()._broadcastChange()
+    return local
+  },
+
+  toggleSubcActivo: async (lc) => {
+    const cur = get().subcs.find(x => x.lc === lc)
+    if (!cur) return
+    const activo = !cur.activo
+    const { error } = await supabase.from('subcontratistas').update({ activo }).eq('lc', lc)
+    if (error) throw error
+    set(s => ({ subcs: s.subcs.map(x => x.lc === lc ? { ...x, activo } : x) }))
     get()._broadcastChange()
   },
 

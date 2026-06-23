@@ -139,7 +139,7 @@ export default function NuevoTSSModal({ open, onClose, onCreated }) {
           <label className="fl">LC / Subcontratista Visita *</label>
           <select className="fc" value={lc} onChange={e => { setLc(e.target.value); setError('') }}>
             <option value="">— Seleccionar LC —</option>
-            {subcs.map(s => (
+            {subcs.filter(s => s.activo !== false).map(s => (
               <option key={s.lc} value={s.lc}>{s.lc} — {s.empresa}</option>
             ))}
           </select>
