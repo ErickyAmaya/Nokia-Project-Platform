@@ -402,7 +402,8 @@ export const useAckStore = create((set, get) => ({
     const channel = db()
       .channel(`ack-prefs:${userId}`)
       .on('broadcast', { event: 'update' }, ({ payload }) => {
-        set({ proyectoSel: payload.ack_proyectos ?? [] })
+        if ('ack_proyectos' in payload) set({ proyectoSel: payload.ack_proyectos ?? [] })
+        if ('ack_estados_ocultos' in payload) set({ estadosOcultos: payload.ack_estados_ocultos ?? {} })
       })
       .subscribe()
 
@@ -417,10 +418,13 @@ export const useAckStore = create((set, get) => ({
       if (!user) return
       const { data } = await db()
         .from('user_prefs')
-        .select('ack_proyectos')
+        .select('ack_proyectos, ack_estados_ocultos')
         .eq('user_id', user.id)
         .maybeSingle()
-      set({ proyectoSel: data?.ack_proyectos ?? [] })
+      set({
+        proyectoSel:    data?.ack_proyectos ?? [],
+        estadosOcultos: data?.ack_estados_ocultos ?? {},
+      })
     } catch { /* tabla no existe aún o sin conexión — ignorar */ }
   },
 
@@ -584,18 +588,20 @@ export const useAckStore = create((set, get) => ({
 
   clearManualPrev: () => set({ manualPrevSabana: [], manualPrevFileName: null }),
 
-  // Estados ocultos del reporte Nokia (compartido, guardado en config)
-  loadEstadosOcultos: async () => {
-    const { data } = await db().from('config').select('value').eq('key', 'ack_estados_ocultos').single()
-    if (data?.value) {
-      try { set({ estadosOcultos: JSON.parse(data.value) }) } catch {}
-    }
-  },
-
+  // Estados ocultos del reporte Nokia — por usuario, mismo patrón que proyectoSel
   saveEstadosOcultos: async (ocultos) => {
-    await db().from('config')
-      .upsert({ key: 'ack_estados_ocultos', value: JSON.stringify(ocultos) }, { onConflict: 'key' })
     set({ estadosOcultos: ocultos })
+    const channel = get()._prefsChannel
+    if (channel) {
+      channel.send({ type: 'broadcast', event: 'update', payload: { ack_estados_ocultos: ocultos } })
+        .catch(() => {})
+    }
+    const { data: { user } } = await db().auth.getUser()
+    if (!user) return
+    await db().from('user_prefs').upsert(
+      { user_id: user.id, ack_estados_ocultos: ocultos, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    )
   },
 
   // Guardar/editar un FC desde la tabla

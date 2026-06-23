@@ -510,14 +510,14 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
             {hasPrev ? (
               <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <NokiaFcTable rows={prevRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
+                  <NokiaFcTable rows={prev} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
+                  <NokiaFcTable rows={curr} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
                 </div>
               </div>
             ) : (
-              <NokiaFcTable rows={currRows} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
+              <NokiaFcTable rows={curr} procesoKey={proceso.key} forecasts={forecasts} ticketKey={cfg.ticket} label={`${cfg.nokia} - FORECAST`} color={cfg.color} />
             )}
           </div>
 
@@ -526,14 +526,14 @@ function ScreenProcess({ proceso, currRows, prevRows, currLabel, prevLabel, fore
             {hasPrev ? (
               <div style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <NokiaTicketTable rows={prevRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
+                  <NokiaTicketTable rows={prev} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
+                  <NokiaTicketTable rows={curr} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
                 </div>
               </div>
             ) : (
-              <NokiaTicketTable rows={currRows} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
+              <NokiaTicketTable rows={curr} procesoKey={proceso.key} ticketKey={cfg.ticket} label={`${cfg.nokia} - TICKET`} color={cfg.color} empresaNombre={empresaNombre} />
             )}
           </div>
         </div>

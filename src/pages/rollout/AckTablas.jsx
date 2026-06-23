@@ -346,7 +346,7 @@ function matchesVejez(semanas, vejez) {
 }
 
 // ── Tabla de un proceso ───────────────────────────────────────────
-function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro, vejez }) {
+function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, filtro, vejez, estadosOcultos }) {
   const cfg = PROC_CONFIG[procesoKey]
   const sentinelRef = useRef(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
@@ -372,7 +372,9 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
 
   const rows = useMemo(() => {
     const q = search.toLowerCase()
+    const ocultos = estadosOcultos?.[procesoKey] || []
     return sabana
+      .filter(r => !ocultos.length || !ocultos.includes(r[procesoKey]))
       .filter(r => {
         if (filtro === 'pendientes') return !isFinal(r[procesoKey])
         if (filtro === 'cerrados')   return  isFinal(r[procesoKey])
@@ -390,7 +392,7 @@ function ProcesoTabla({ procesoKey, sabana, forecasts, saveForecast, search, fil
         if (aFin !== bFin) return aFin ? 1 : -1
         return (b.semanas_integracion || 0) - (a.semanas_integracion || 0)
       })
-  }, [sabana, procesoKey, search, filtro, vejez])
+  }, [sabana, procesoKey, search, filtro, vejez, estadosOcultos])
 
   // Reset visible count cuando cambian los filtros/búsqueda
   useEffect(() => { setVisibleCount(PAGE_SIZE) }, [rows])
@@ -522,6 +524,7 @@ export default function AckTablas() {
   const saveForecast = useAckStore(s => s.saveForecast)
   const proyectoSel  = useAckStore(s => s.proyectoSel)
   const forecasts    = useAckStore(s => s.forecasts)
+  const estadosOcultos = useAckStore(s => s.estadosOcultos)
 
   const sabana = useMemo(() =>
     proyectoSel.length ? sabanaRaw.filter(r => proyectoSel.includes(r.proyecto_alcance)) : sabanaRaw
@@ -562,10 +565,11 @@ export default function AckTablas() {
   const pendCounts = useMemo(() => {
     const map = {}
     for (const p of PROCESOS) {
-      map[p.key] = sabana.filter(r => !isFinal(r[p.key]) && r[p.key]).length
+      const ocultos = estadosOcultos?.[p.key] || []
+      map[p.key] = sabana.filter(r => !isFinal(r[p.key]) && r[p.key] && (!ocultos.length || !ocultos.includes(r[p.key]))).length
     }
     return map
-  }, [sabana])
+  }, [sabana, estadosOcultos])
 
   const filtroBadge = FILTRO_BADGE[filtro]
 
@@ -652,6 +656,7 @@ export default function AckTablas() {
           search={sitio}
           filtro={filtro}
           vejez={vejez}
+          estadosOcultos={estadosOcultos}
         />
       </div>
 
