@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { SquaresExclude } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -1048,7 +1049,7 @@ export default function AckForecast() {
             }}
             title="Ver los estados excluidos del reporte y forecast ACK"
           >
-            🚫 Estados Excluidos
+            <SquaresExclude size={13} color={activeView === 'seguimiento' ? '#fff' : '#dc2626'} /> Estados Excluidos
             {totalOcultos > 0 && (
               <span style={{
                 background: activeView === 'seguimiento' ? 'rgba(255,255,255,.25)' : '#f59e0b',
