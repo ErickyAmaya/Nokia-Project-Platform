@@ -74,6 +74,10 @@ function calcTSSRow(s, subcs, catalogTI = [], gastos = []) {
       act.id === 'TSS_RD' ? catRd : catV
     const efectCat = act.catOver || cb
 
+    if (sid && !bySubsite[sid]) {
+      bySubsite[sid] = { ciudad: act.ciudad || '', cat: efectCat, subcV: 0, subcR: 0, subcRD: 0, subcVR: 0, nokiaV: 0, nokiaR: 0, nokiaRD: 0, nokiaVR: 0 }
+    }
+
     if (isNokia) {
       const pN = getPrecio('BASE', act.id, null, s.cat || 'A', act.ciudad, catalogTI)
       const n  = pN.nokia * cant
@@ -81,6 +85,13 @@ function calcTSSRow(s, subcs, catalogTI = [], gastos = []) {
       else if (act.id === 'TSS_R')  nokiaR  += n
       else if (act.id === 'TSS_RD') nokiaRD += n
       else if (act.id === 'TSS_VR') nokiaVR += n
+
+      if (sid) {
+        if (act.id === 'TSS_V')  bySubsite[sid].nokiaV  += n
+        if (act.id === 'TSS_R')  bySubsite[sid].nokiaR  += n
+        if (act.id === 'TSS_RD') bySubsite[sid].nokiaRD += n
+        if (act.id === 'TSS_VR') bySubsite[sid].nokiaVR += n
+      }
     }
 
     if (isSubc) {
@@ -93,7 +104,6 @@ function calcTSSRow(s, subcs, catalogTI = [], gastos = []) {
 
       // Accumulate per sub-site
       if (sid) {
-        if (!bySubsite[sid]) bySubsite[sid] = { ciudad: act.ciudad || '', cat: efectCat, subcV: 0, subcR: 0, subcRD: 0, subcVR: 0 }
         if (act.id === 'TSS_V')  bySubsite[sid].subcV  += sc
         if (act.id === 'TSS_R')  bySubsite[sid].subcR  += sc
         if (act.id === 'TSS_RD') bySubsite[sid].subcRD += sc
@@ -386,11 +396,11 @@ export default function ConsolidadoTSS() {
                           </td>
                           {/* Cant. Sitios — vacía */}
                           <td style={{ borderBottom: '1px solid #e0e8ff' }} />
-                          {/* Nokia — vacías (los precios nokia van al pack) */}
-                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
-                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
-                          <td style={{ background: '#f5f9ff', borderBottom: '1px solid #e0e8ff' }} />
-                          <td style={{ background: '#eef4ff', borderRight: '2px solid #93c5fd', borderBottom: '1px solid #e0e8ff' }} />
+                          {/* Nokia por sub-sitio */}
+                          <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.nokiaV || 0)}</td>
+                          <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.nokiaR || 0)}</td>
+                          <td className="num" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.nokiaRD || 0)}</td>
+                          <td className="num fw7" style={{ background: 'rgba(20,78,74,.06)', color: '#144E4A', borderRight: '2px solid rgba(20,78,74,.3)', borderBottom: '1px solid #e0e8ff' }}>{dash(d.nokiaVR || 0)}</td>
                           {/* SubC por sub-sitio — Vis vacío si lcVisita interna; Rep/Red siempre su valor */}
                           <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{r.esInternaVisita ? '' : dash(d.subcV || 0)}</td>
                           <td className="num" style={{ background: '#fffbeb', fontSize: 10, borderBottom: '1px solid #e0e8ff' }}>{dash(d.subcR || 0)}</td>
