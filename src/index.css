@@ -386,6 +386,14 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
   .dash-main-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
   .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 8px !important; }
 
+  /* ── ACK: barra de tabs — apilar en columna, sin centrado absoluto ── */
+  .ack-tabbar { flex-direction: column !important; align-items: stretch !important; }
+  .ack-tabbar-uploads {
+    position: static !important; transform: none !important;
+    width: 100%; justify-content: center !important;
+  }
+  .ack-tabbar-actions { width: 100%; justify-content: center !important; }
+
   /* ── Grids globales responsive ── */
   .g4, .g5 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
   .g3      { grid-template-columns: 1fr 1fr !important; gap: 8px; }

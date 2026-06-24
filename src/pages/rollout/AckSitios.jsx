@@ -447,7 +447,7 @@ export default function AckSitios() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchableSelect
             options={siteNames}
             value={search}

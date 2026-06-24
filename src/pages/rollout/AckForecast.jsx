@@ -961,7 +961,7 @@ export default function AckForecast() {
   return (
     <>
       {/* ── Barra de tabs (fija — vive fuera del contenedor con scroll) ── */}
-      <div style={{
+      <div className="ack-tabbar" style={{
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
         borderBottom: '2px solid #e0e4e0', marginBottom: 14,
         flexWrap: 'wrap', rowGap: 8, position: 'relative',
@@ -986,9 +986,10 @@ export default function AckForecast() {
         </div>
 
         {canUpload && (
-          <div style={{
+          <div className="ack-tabbar-uploads" style={{
             display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8,
             position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+            flexWrap: 'wrap', justifyContent: 'center',
           }}>
             {/* Botón Semana Anterior */}
             <label
@@ -1038,7 +1039,7 @@ export default function AckForecast() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <div className="ack-tabbar-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setActiveView(activeView === 'seguimiento' ? 'reporte' : 'seguimiento')}
             style={{
               padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 20, cursor: 'pointer',
