@@ -60,20 +60,40 @@ export async function parsePOPdf(file) {
     valor    = parseFloat(rawValue.replace(/\./g, '').replace(',', '.')) || null
   }
 
-  const ftMatch  = text.match(/Free Text[:\s]+([\w._\- ]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/i)
+  const ftMatch  = text.match(/Free Text[:\s]+([^\n]+?)(?:\s{2,}|Pls Add|Customer reference|Sales Order|\n)/i)
   const freeText = ftMatch?.[1]?.trim() || ''
   const parts    = freeText.split('_')
   const start    = parts[0].toUpperCase() === 'PO' ? 1 : 0
   const smpIdx   = parts.findIndex(p => /SMP-WO-/i.test(p))
   const siteId   = parts[start] || ''
   const siteName = smpIdx > start + 1 ? parts.slice(start + 1, smpIdx).join('_') : (parts[start + 1] || '')
-  const smpId    = smpIdx >= 0 ? parts[smpIdx] : (grab(text, /(SMP-WO-\d+)/i))
+  // En PO de ADJ/CR el segmento con el SMP suele traer texto extra pegado
+  // (sin "_" que lo separe) — se aísla solo el código vía regex.
+  const smpId    = smpIdx >= 0
+    ? (parts[smpIdx].match(/SMP-WO-\d+/i)?.[0] || parts[smpIdx])
+    : (grab(text, /(SMP-WO-\d+)/i))
+
+  // Descripción libre — texto entre el SMP y el sufijo "INGETELPROJECT" (si existe).
+  // Ej: "...SMP-WO-0364928 Bono administrativo para 30 sitios MOD P04-2026 INGETELPROJECT 1"
+  //     → "Bono administrativo para 30 sitios MOD P04-2026"
+  let descripcionLibre = ''
+  const smpMatchInFt = freeText.match(/SMP-WO-\d+/i)
+  if (smpMatchInFt) {
+    let rest = freeText.slice(smpMatchInFt.index + smpMatchInFt[0].length)
+    // PO de "Extra Works"/CR: el texto tras el SMP no es una frase descriptiva
+    // sino más campos pegados (ACC Indicator, CR ID, etc.) — no hay nada útil que extraer.
+    if (!/ACC Indicator/i.test(rest)) {
+      rest = rest.replace(/INGETELPROJECT.*$/i, '')
+      descripcionLibre = rest.replace(/_/g, ' ').replace(/\s+/g, ' ').trim()
+    }
+  }
 
   const isCancelled = /SPO Cancelled By/i.test(text)
 
   return { spo_number: normSPO(spo), smp_id: smpId, site_id: siteId, site_name: siteName,
            doc_date: docDate, supplier_name: supplierName, valor, moneda,
-           payment_terms: paymentTerms, pci_description: pciDesc, isCancelled }
+           payment_terms: paymentTerms, pci_description: pciDesc, isCancelled,
+           descripcion_libre: descripcionLibre }
 }
 
 function normSPO(v) {

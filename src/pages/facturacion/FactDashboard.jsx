@@ -1,5 +1,6 @@
 import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
+import { useAuthStore } from '../../store/authStore'
 import { loadRolloutData, loadRolloutFromSupabase } from '../../lib/rolloutImport'
 import { showToast } from '../../components/Toast'
 import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, Legend, Cell } from 'recharts'
@@ -313,6 +314,7 @@ function PpaRemovedModal({ items, onClose, onCancel, onDelete }) {
 
 export default function FactDashboard() {
   const fileRef          = useRef(null)
+  const user             = useAuthStore(s => s.user)
   const uploadPPA        = useFactStore(s => s.uploadPPA)
   const cancelPOBySpo    = useFactStore(s => s.cancelPOBySpo)
   const removePOFromSystem = useFactStore(s => s.removePOFromSystem)
@@ -650,7 +652,7 @@ export default function FactDashboard() {
           items={removedModal}
           onClose={() => setRemovedModal(null)}
           onCancel={async spo => {
-            const r = await cancelPOBySpo(spo)
+            const r = await cancelPOBySpo(spo, user?.email)
             if (!r.ok) showToast('Error al cancelar: ' + r.error, 'err')
           }}
           onDelete={async spo => {

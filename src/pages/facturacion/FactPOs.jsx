@@ -3,54 +3,7 @@ import { useFactStore, computeChanges, EVENTOS } from '../../store/useFactStore'
 import { useAuthStore } from '../../store/authStore'
 import { showToast } from '../../components/Toast'
 import { parsePOPdf } from '../../lib/pdfParser'
-
-function EditModal({ po, onClose, onSave }) {
-  const [form, setForm] = useState({ valor: po.valor || '', moneda: po.moneda || 'COP', smp_id: po.smp_id || '', supplier_name: po.supplier_name || '', payment_terms: po.payment_terms || '', pci_description: po.pci_description || '', cancelled: po.cancelled || false })
-  const [saving, setSaving] = useState(false)
-
-  async function handleSave() {
-    setSaving(true)
-    try {
-      await onSave(po.id, { ...form, valor: form.valor ? Number(String(form.valor).replace(/\./g, '').replace(',', '.')) : null })
-      showToast('PO actualizada')
-      onClose()
-    } catch (e) { showToast('Error: ' + e.message, 'err') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,.2)' }}>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Editar PO</div>
-        <div style={{ fontSize: 11, color: '#4b5563', marginBottom: 18 }}>SPO {po.spo_number} · {po.site_name || po.site_id}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div className="fg" style={{ flex: 2 }}><label className="fl">Valor</label><input className="fc" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="4180241" /></div>
-            <div className="fg" style={{ flex: 1 }}><label className="fl">Moneda</label><select className="fc" value={form.moneda} onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}><option>COP</option><option>USD</option><option>EUR</option></select></div>
-          </div>
-          <div className="fg">
-            <label className="fl">SMP ID {!po.smp_id && <span style={{ color: '#ef4444', fontSize: 9, fontWeight: 700, marginLeft: 4 }}>Sin dato del PDF</span>}</label>
-            <input className="fc" value={form.smp_id} onChange={e => setForm(f => ({ ...f, smp_id: e.target.value }))} placeholder="SMP-WO-0000000" />
-          </div>
-          <div className="fg"><label className="fl">Proveedor</label><input className="fc" value={form.supplier_name} onChange={e => setForm(f => ({ ...f, supplier_name: e.target.value }))} /></div>
-          <div className="fg"><label className="fl">Condición de pago</label><input className="fc" value={form.payment_terms} onChange={e => setForm(f => ({ ...f, payment_terms: e.target.value }))} /></div>
-          <div className="fg"><label className="fl">Descripción (PCI)</label><input className="fc" value={form.pci_description} onChange={e => setForm(f => ({ ...f, pci_description: e.target.value }))} /></div>
-          <div className="fg">
-            <label className="fl">Estado</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, padding: '6px 0' }}>
-              <input type="checkbox" checked={form.cancelled} onChange={e => setForm(f => ({ ...f, cancelled: e.target.checked }))} />
-              Marcar como cancelada (excluir de cálculos)
-            </label>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e4e0', background: '#fff', cursor: 'pointer', fontSize: 12 }}>Cancelar</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '7px 20px', borderRadius: 8, border: 'none', background: '#144E4A', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{saving ? 'Guardando…' : '✓ Guardar'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { useConfirm } from '../../components/ConfirmModal'
 
 function RechazadosModal({ items, onClose, onDelete }) {
   return (
@@ -135,6 +88,7 @@ function UpdateConfirmModal({ preview, spoInvoices, uploading, queueTotal, queue
   const hasChanges      = Object.keys(changes).length > 0
   const valorChanged    = 'valor' in changes
   const showNotaCredito = !isCancelled && valorChanged && spoInvoices.length > 0
+  const onlySmpIdChanged = hasChanges && Object.keys(changes).length === 1 && 'smp_id' in changes
 
   function handleConfirmClick() {
     onConfirm({
@@ -193,7 +147,11 @@ function UpdateConfirmModal({ preview, spoInvoices, uploading, queueTotal, queue
           </div>
         )}
 
-        {hasChanges ? (
+        {onlySmpIdChanged ? (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#1e40af', marginBottom: 10 }}>
+            ℹ Se detectó una mejora en la extracción del SMP ID — el PDF no cambió.
+          </div>
+        ) : hasChanges ? (
           <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#92400e', marginBottom: 10 }}>
             ⚠ {Object.keys(changes).length} campo{Object.keys(changes).length !== 1 ? 's' : ''} con cambios detectados. El PDF anterior será eliminado.
           </div>
@@ -235,7 +193,7 @@ function UpdateConfirmModal({ preview, spoInvoices, uploading, queueTotal, queue
           </div>
         )}
 
-        {!showNotaCredito && spoInvoices.length > 0 && (
+        {!showNotaCredito && valorChanged && spoInvoices.length > 0 && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#991b1b', marginBottom: 10 }}>
             ⚠ Esta PO tiene facturas registradas. El valor en Facturado se recalculará con el nuevo valor.
           </div>
@@ -254,7 +212,8 @@ function UpdateConfirmModal({ preview, spoInvoices, uploading, queueTotal, queue
   )
 }
 
-function HistorialModal({ spo_number, historial, onClose }) {
+function HistorialModal({ po, historial, onClose, onReactivar, isViewer }) {
+  const spo_number = po.spo_number
   const items = historial.filter(h => h.spo_number === spo_number)
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -266,6 +225,22 @@ function HistorialModal({ spo_number, historial, onClose }) {
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#4b5563' }}>✕</button>
         </div>
+        {po.cancelled && !isViewer && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 12px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 11, color: '#991b1b' }}>Esta PO está marcada como <strong>cancelada</strong> — excluida de los cálculos.</span>
+            <button
+              onClick={() => onReactivar(po)}
+              style={{ fontSize: 10, fontWeight: 700, color: '#166534', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              ↺ Reactivar
+            </button>
+          </div>
+        )}
+        {items.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af', fontSize: 11, fontStyle: 'italic' }}>
+            Sin historial registrado para esta PO.
+          </div>
+        )}
         {items.map((h, i) => {
           const changesArr = Object.entries(h.changes || {})
           return (
@@ -281,12 +256,14 @@ function HistorialModal({ spo_number, historial, onClose }) {
               ) : (
                 changesArr.map(([key, { old: oldVal, new: newVal }]) => {
                   const field = PO_FIELDS.find(f => f.key === key)
+                  const label = key === 'cancelled' ? 'Cancelada' : (field?.label || key)
+                  const fmtBool = v => key === 'cancelled' ? (v ? 'Sí' : 'No') : (v ?? '—')
                   return (
                     <div key={key} style={{ fontSize: 11, color: '#374151', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700 }}>{field?.label || key}:</span>{' '}
-                      <span style={{ textDecoration: 'line-through', color: '#b45309' }}>{oldVal ?? '—'}</span>
+                      <span style={{ fontWeight: 700 }}>{label}:</span>{' '}
+                      <span style={{ textDecoration: 'line-through', color: '#b45309' }}>{fmtBool(oldVal)}</span>
                       {' → '}
-                      <span style={{ color: '#166534', fontWeight: 700 }}>{newVal ?? '—'}</span>
+                      <span style={{ color: '#166534', fontWeight: 700 }}>{fmtBool(newVal)}</span>
                     </div>
                   )
                 })
@@ -311,7 +288,7 @@ export default function FactPOs() {
   const uploadPOPdf              = useFactStore(s => s.uploadPOPdf)
   const confirmarActualizacionPO = useFactStore(s => s.confirmarActualizacionPO)
   const loadHistorial            = useFactStore(s => s.loadHistorial)
-  const actualizarPO             = useFactStore(s => s.actualizarPO)
+  const toggleCancelarPO         = useFactStore(s => s.toggleCancelarPO)
   const deleteRejectedPo         = useFactStore(s => s.deleteRejectedPo)
   const uploading                = useFactStore(s => s.uploading)
   const pos                      = useFactStore(s => s.pos)
@@ -322,15 +299,14 @@ export default function FactPOs() {
 
   const user     = useAuthStore(s => s.user)
   const isViewer = user?.role === 'viewer'
+  const { confirm, ConfirmModalUI } = useConfirm()
 
   const [search,          setSearch]          = useState('')
   const [filtro,          setFiltro]          = useState('todas')
-  const [editPO,          setEditPO]          = useState(null)
   const [updatePreview,   setUpdatePreview]   = useState(null)   // { file, extracted, existing, changes }
   const [pendingUpdates,  setPendingUpdates]  = useState([])    // cola de POs existentes por confirmar
-  const [historialModal,  setHistorialModal]  = useState(null)  // spo_number
+  const [historialModal,  setHistorialModal]  = useState(null)  // po completo
   const [showRechazados,  setShowRechazados]  = useState(false)
-  const [sinPdfExpanded,  setSinPdfExpanded]  = useState(false)
 
   // Carga historial solo al entrar a esta página (no en el loadAll global)
   useEffect(() => { loadHistorial() }, [loadHistorial])
@@ -412,6 +388,22 @@ export default function FactPOs() {
     advanceUpdateQueue()
   }
 
+  // Respaldo manual — lo normal es que la cancelación/reactivación venga del PDF de Nokia.
+  async function handleReactivar(po) {
+    const ok = await confirm(
+      'Reactivar PO',
+      `¿Reactivar la PO ${po.spo_number}? Volverá a incluirse en los cálculos de facturación.`
+    )
+    if (!ok) return
+    try {
+      await toggleCancelarPO(po.id, false, user?.email)
+      showToast('PO reactivada')
+      setHistorialModal(null)
+    } catch (e) {
+      showToast('Error: ' + e.message, 'err')
+    }
+  }
+
   async function handleExportExcel() {
     try {
       const ExcelJS = (await import('exceljs')).default
@@ -429,6 +421,7 @@ export default function FactPOs() {
         { header: 'Proveedor',         key: 'prov',    width: 26 },
         { header: 'Condición de Pago', key: 'terms',   width: 22 },
         { header: 'Descripción PCI',   key: 'pci',     width: 34 },
+        { header: 'Descripción',       key: 'desc',    width: 34 },
         { header: 'PDF',               key: 'pdf',     width: 6  },
       ]
 
@@ -480,13 +473,14 @@ export default function FactPOs() {
           spo:    spoNum,
           fecha:  fechaVal,
           sitio:  ppaRow?.customer_site_name || po.site_name || '',
-          smp_id: po.smp_id || '',
+          smp_id: ppaRow?.smp_id || po.smp_id || '',
           ms:     ppaRow?.smp_name === 'Process_Implementation' ? (ppaRow?.ms_name || '') : (ppaRow?.smp_name || ''),
           valor:  po.valor != null ? Number(po.valor) : null,
           moneda: po.moneda || 'COP',
           prov:   po.supplier_name || '',
           terms:  po.payment_terms || '',
           pci:    po.pci_description || '',
+          desc:   po.pci_description || po.descripcion_libre || '',
           pdf:    po.pdf_url ? 'Sí' : 'No',
         })
       })
@@ -529,52 +523,59 @@ export default function FactPOs() {
 
   const ppaMap = useMemo(() => new Map(ppa.map(r => [r.spo_number, r])), [ppa])
 
-  const cancelledCount = useMemo(() => pos.filter(p => p.cancelled).length, [pos])
-
-  const enriched = useMemo(() => pos
-    .map(po => {
-      const ppaRow = ppaMap.get(po.spo_number)
-      return { ...po, ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '', customer_site_name: ppaRow?.customer_site_name || po.site_name || '', spo_date: ppaRow?.spo_date || '' }
+  // Universo completo de SPOs: unión de PPA (lo que Nokia reconoce) + PDFs cargados.
+  // Las que no tienen PDF se muestran igual, como filas "sin PDF" (sin valor/proveedor).
+  const allRows = useMemo(() => {
+    const posMap  = new Map(pos.map(p => [p.spo_number, p]))
+    const allSpos = new Set([...ppaMap.keys(), ...posMap.keys()])
+    return [...allSpos].map(spo => {
+      const po     = posMap.get(spo)
+      const ppaRow = ppaMap.get(spo)
+      if (po) {
+        return {
+          ...po,
+          smp_id: ppaRow?.smp_id || po.smp_id,
+          ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '',
+          customer_site_name: ppaRow?.customer_site_name || po.site_name || '',
+          spo_date: ppaRow?.spo_date || '', _hasPdf: !!po.pdf_url,
+        }
+      }
+      // Sin PDF — fila sintética a partir del PPA
+      return {
+        id: `ppa-${spo}`, spo_number: spo, cancelled: false, valor: null, moneda: 'COP',
+        smp_id: ppaRow?.smp_id || '',
+        supplier_name: '', payment_terms: '', pci_description: '', doc_date: '', pdf_url: null,
+        ms_name: ppaRow?.ms_name || '', smp_name: ppaRow?.smp_name || '',
+        customer_site_name: ppaRow?.customer_site_name || ppaRow?.site_reference_id || '',
+        spo_date: ppaRow?.spo_date || '', _hasPdf: false, _synthetic: true,
+      }
     })
+  }, [pos, ppaMap])
+
+  const sinPdfCount    = useMemo(() => allRows.filter(r => !r._hasPdf).length, [allRows])
+  const cancelledCount = useMemo(() => allRows.filter(r =>  r.cancelled).length, [allRows])
+
+  const enriched = useMemo(() => allRows
     .filter(po => {
-      if (filtro === 'activas')   return !po.cancelled
+      if (filtro === 'activas')    return !po.cancelled
       if (filtro === 'canceladas') return  po.cancelled
+      if (filtro === 'sin_pdf')    return !po._hasPdf
       return true
     })
-    .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.ms_name} ${po.smp_name} ${po.smp_id}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(po => !search || `${po.spo_number} ${po.customer_site_name} ${po.ms_name} ${po.smp_name} ${po.smp_id} ${po.pci_description || ''} ${po.descripcion_libre || ''}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       const ad = a.spo_date || a.doc_date || '', bd = b.spo_date || b.doc_date || ''
       if (!ad && !bd) return 0
       if (!ad) return 1
       if (!bd) return -1
       return bd.localeCompare(ad)
-    }), [pos, ppaMap, search, filtro])
-
-  // SPOs del PPA que no tienen PDF cargado (sin PO o con PO pero sin pdf_url)
-  const sinPdf = useMemo(() => {
-    const posMap = new Map(pos.map(p => [p.spo_number, p]))
-    const spoSeen = new Map()
-    for (const row of ppa) {
-      if (!row.spo_number || spoSeen.has(row.spo_number)) continue
-      spoSeen.set(row.spo_number, {
-        spo:   row.spo_number,
-        sitio: row.customer_site_name || row.site_reference_id || '',
-        smp:   row.smp_name === 'Process_Implementation' ? row.ms_name : (row.smp_name || ''),
-      })
-    }
-    const result = []
-    for (const [spo, info] of spoSeen) {
-      const po = posMap.get(spo)
-      if (!po || !po.pdf_url) result.push(info)
-    }
-    return result.sort((a, b) => a.sitio.localeCompare(b.sitio) || a.spo.localeCompare(b.spo))
-  }, [ppa, pos])
+    }), [allRows, search, filtro])
 
   return (
     <>
-      {editPO && <EditModal po={editPO} onClose={() => setEditPO(null)} onSave={actualizarPO} />}
+      <ConfirmModalUI />
       {updatePreview && <UpdateConfirmModal preview={updatePreview} spoInvoices={spoInvoices} uploading={uploading} queueTotal={pendingUpdates.length + 1} queueIndex={pendingUpdates.length} onClose={advanceUpdateQueue} onConfirm={handleConfirmarActualizacion} />}
-      {historialModal && <HistorialModal spo_number={historialModal} historial={historial} onClose={() => setHistorialModal(null)} />}
+      {historialModal && <HistorialModal po={historialModal} historial={historial} onClose={() => setHistorialModal(null)} onReactivar={handleReactivar} isViewer={isViewer} />}
       {showRechazados && <RechazadosModal items={rejectedPos} onClose={() => setShowRechazados(false)} onDelete={deleteRejectedPo} />}
 
       <div className="dash-hdr mb14">
@@ -589,15 +590,16 @@ export default function FactPOs() {
           </h1>
           <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>
             {pos.length} PO{pos.length !== 1 ? 's' : ''} cargada{pos.length !== 1 ? 's' : ''}
-            {sinPdf.length > 0 && <span style={{ marginLeft: 10, color: '#b45309', fontWeight: 600 }}>⚠ {sinPdf.length} sin PDF</span>}
+            {sinPdfCount > 0 && <span style={{ marginLeft: 10, color: '#b45309', fontWeight: 600 }}>⚠ {sinPdfCount} sin PDF</span>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input className="fc" placeholder="Buscar SPO, sitio…" value={search} onChange={e => setSearch(e.target.value)} style={{ fontSize: 11, width: 200 }} />
           <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, width: 'auto' }}>
-            <option value="activas">Activas ({pos.filter(p => !p.cancelled).length})</option>
+            <option value="activas">Activas ({allRows.filter(p => !p.cancelled).length})</option>
             <option value="canceladas">Canceladas ({cancelledCount})</option>
-            <option value="todas">Todas ({pos.length})</option>
+            <option value="sin_pdf">Sin PDF ({sinPdfCount})</option>
+            <option value="todas">Todas ({allRows.length})</option>
           </select>
           {pos.length > 0 && (
             <button onClick={handleExportExcel} style={{ fontSize: 11, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -619,48 +621,6 @@ export default function FactPOs() {
         </div>
       </div>
 
-      {sinPdf.length > 0 && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, marginBottom: 14, overflow: 'hidden' }}>
-          <div
-            onClick={() => setSinPdfExpanded(e => !e)}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', userSelect: 'none' }}
-          >
-            <span style={{ fontSize: 15 }}>⚠</span>
-            <span style={{ fontWeight: 700, color: '#92400e', fontSize: 12 }}>
-              {sinPdf.length} SPO{sinPdf.length !== 1 ? 's' : ''} sin PDF
-            </span>
-            <span style={{ color: '#b45309', fontSize: 11 }}>
-              — aparecen en el PPA pero aún no tienen documento cargado
-            </span>
-            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#b45309', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              {sinPdfExpanded ? '▲ Ocultar' : '▼ Ver lista'}
-            </span>
-          </div>
-          {sinPdfExpanded && (
-            <div style={{ borderTop: '1px solid #fde68a', maxHeight: 240, overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                <thead>
-                  <tr style={{ background: '#fef9e7', position: 'sticky', top: 0 }}>
-                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>SPO Number</th>
-                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>Sitio</th>
-                    <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, color: '#92400e', fontSize: 10, letterSpacing: .4 }}>SMP / MS Name</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sinPdf.map(({ spo, sitio, smp }) => (
-                    <tr key={spo} style={{ borderTop: '1px solid #fef3c7' }}>
-                      <td style={{ padding: '5px 12px', fontFamily: 'monospace', fontWeight: 700, color: '#92400e', fontSize: 10 }}>{spo}</td>
-                      <td style={{ padding: '5px 12px', color: '#78350f', fontSize: 11 }}>{sitio}</td>
-                      <td style={{ padding: '5px 12px', color: '#78350f', fontSize: 10 }}>{smp}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
       {enriched.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: '#617561', fontSize: 13 }}>
           {pos.length === 0 ? 'Sube los PDFs de PO para registrar los valores.' : 'Sin resultados.'}
@@ -670,18 +630,31 @@ export default function FactPOs() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
-                {['SPO', 'Fecha PO', 'Sitio', 'SMP ID', 'MS/SMP Name', 'Valor', 'Proveedor', 'PDF', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1 }}>{h}</th>
+                {[
+                  { h: 'SPO',          w: 90  },
+                  { h: 'Fecha PO',     w: undefined },
+                  { h: 'Sitio',        w: undefined },
+                  { h: 'SMP ID',       w: undefined },
+                  { h: 'MS/SMP Name',  w: undefined },
+                  { h: 'Descripción',  w: undefined },
+                  { h: 'Valor',        w: undefined },
+                  { h: 'PDF',          w: 70  },
+                ].map(({ h, w }) => (
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: '#92400e', fontSize: 11, letterSpacing: .5, whiteSpace: 'nowrap', position: 'sticky', top: 0, background: '#fffbeb', borderBottom: '1px solid #fcd34d', zIndex: 1, width: w }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {enriched.map(po => (
-                <tr key={po.id} style={{ borderTop: '1px solid #f0f0f0', opacity: po.cancelled ? 0.55 : 1 }}>
+                <tr key={po.id} style={{ borderTop: '1px solid #f0f0f0', opacity: po.cancelled ? 0.55 : 1, background: po._synthetic ? '#fffdf5' : undefined }}>
                   <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700 }}>
                     {po.spo_number}
                     {po.cancelled && (
-                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4, padding: '1px 5px', verticalAlign: 'middle' }}>
+                      <span
+                        onClick={() => !po._synthetic && setHistorialModal(po)}
+                        title={!po._synthetic ? 'Ver detalle / reactivar' : ''}
+                        style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 4, padding: '1px 5px', verticalAlign: 'middle', cursor: po._synthetic ? 'default' : 'pointer' }}
+                      >
                         Cancelada
                       </span>
                     )}
@@ -690,23 +663,24 @@ export default function FactPOs() {
                   <td style={{ padding: '7px 10px' }}>{po.customer_site_name}</td>
                   <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{po.smp_id}</td>
                   <td style={{ padding: '7px 10px', fontSize: 10, color: '#555' }}>{po.smp_name === 'Process_Implementation' ? po.ms_name : po.smp_name}</td>
+                  <td style={{ padding: '7px 10px', fontSize: 10, color: '#555', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={po.pci_description || po.descripcion_libre || ''}>{po.pci_description || po.descripcion_libre || '—'}</td>
                   <td style={{ padding: '7px 10px', fontWeight: 700, color: '#144E4A' }}>{fmtCOP(po.valor, po.moneda)}</td>
-                  <td style={{ padding: '7px 10px', fontSize: 10, color: '#555', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{po.supplier_name || '—'}</td>
                   <td style={{ padding: '7px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      {po.pdf_url ? <a href={po.pdf_url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontSize: 10, fontWeight: 600 }}>Ver PDF</a> : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
+                      {po.pdf_url
+                        ? <a href={po.pdf_url} target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontSize: 10, fontWeight: 600 }}>Ver PDF</a>
+                        : po._synthetic
+                          ? <span style={{ color: '#b45309', fontSize: 9, fontWeight: 700, background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>Sin PDF</span>
+                          : <span style={{ color: '#d4d4d8', fontSize: 10 }}>—</span>}
                       {historialMap[po.spo_number] && (
                         <span
-                          onClick={() => setHistorialModal(po.spo_number)}
+                          onClick={() => setHistorialModal(po)}
                           style={{ fontSize: 9, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           Actualizado · {new Date(historialMap[po.spo_number].changed_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
                     </div>
-                  </td>
-                  <td style={{ padding: '7px 10px' }}>
-                    {!isViewer && <button onClick={() => setEditPO(po)} style={{ fontSize: 10, color: '#555', background: 'none', border: '1px solid #e0e4e0', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' }}>Editar</button>}
                   </td>
                 </tr>
               ))}

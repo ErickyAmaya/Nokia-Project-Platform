@@ -279,8 +279,10 @@ export const useFactStore = create((set, get) => ({
       // eslint-disable-next-line no-unused-vars
       const { isCancelled: _ic, ...extractedClean } = extracted
       const record = { ...extractedClean, pdf_url: urlData.publicUrl, updated_at: new Date().toISOString() }
+      // Siempre sincroniza "cancelled" con lo que diga el PDF nuevo — si Nokia reactivó
+      // la PO y el PDF ya no trae "Cancelled", esto la reactiva sola sin acción manual.
+      record.cancelled = !!isCancelled
       if (isCancelled) {
-        record.cancelled = true
         // Preserve key fields from existing record — cancellation PDFs carry garbage data
         if (existing.valor     != null) record.valor     = existing.valor
         if (existing.moneda)            record.moneda    = existing.moneda
@@ -293,8 +295,12 @@ export const useFactStore = create((set, get) => ({
       if (error) throw error
 
       // 4. Registrar historial (nota_credito queda null cuando no aplica)
+      const changes = computeChanges(existing, extracted)
+      if (!!existing.cancelled !== record.cancelled) {
+        changes.cancelled = { old: !!existing.cancelled, new: record.cancelled }
+      }
       const { data: hRow } = await supabase.from('fact_pos_historial')
-        .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes: computeChanges(existing, extracted), old_pdf_url: existing.pdf_url, nota_credito: notaCredito || null })
+        .insert({ spo_number: extracted.spo_number, changed_by: changedBy, changes, old_pdf_url: existing.pdf_url, nota_credito: notaCredito || null })
         .select().single()
 
       // 5. Ajuste de precio: eliminar facturas revertidas por nota de crédito
@@ -319,13 +325,22 @@ export const useFactStore = create((set, get) => ({
     }
   },
 
-  // ── Actualizar PO manualmente ────────────────────────────────────
-  actualizarPO: async (id, updates) => {
+  // ── Cancelar/Reactivar PO manualmente (excepción — lo normal es que
+  // la cancelación venga del PDF de Nokia) — deja registro en historial.
+  toggleCancelarPO: async (id, cancelled, changedBy) => {
     const { data, error } = await supabase
-      .from('fact_pos').update({ ...updates, updated_at: new Date().toISOString() })
+      .from('fact_pos').update({ cancelled, updated_at: new Date().toISOString() })
       .eq('id', id).select().single()
     if (error) throw error
-    set(s => ({ pos: s.pos.map(p => p.id === id ? data : p) }))
+    const { data: hRow } = await supabase.from('fact_pos_historial')
+      .insert({ spo_number: data.spo_number, changed_by: changedBy,
+                changes: { cancelled: { old: !cancelled, new: cancelled } },
+                old_pdf_url: data.pdf_url, nota_credito: null })
+      .select().single()
+    set(s => ({
+      pos:       s.pos.map(p => p.id === id ? data : p),
+      historial: hRow ? [hRow, ...s.historial] : s.historial,
+    }))
   },
 
   // ── Registrar factura ────────────────────────────────────────────
@@ -381,12 +396,20 @@ export const useFactStore = create((set, get) => ({
   },
 
   // ── Rechazados ───────────────────────────────────────────────────
-  cancelPOBySpo: async (spoNumber) => {
+  cancelPOBySpo: async (spoNumber, changedBy) => {
     const { data, error } = await supabase
       .from('fact_pos').update({ cancelled: true, updated_at: new Date().toISOString() })
       .eq('spo_number', spoNumber).select().single()
     if (error) return { ok: false, error: error.message }
-    set(s => ({ pos: s.pos.map(p => p.spo_number === spoNumber ? data : p) }))
+    const { data: hRow } = await supabase.from('fact_pos_historial')
+      .insert({ spo_number: spoNumber, changed_by: changedBy,
+                changes: { cancelled: { old: false, new: true } },
+                old_pdf_url: data.pdf_url, nota_credito: null })
+      .select().single()
+    set(s => ({
+      pos:       s.pos.map(p => p.spo_number === spoNumber ? data : p),
+      historial: hRow ? [hRow, ...s.historial] : s.historial,
+    }))
     return { ok: true }
   },
 
