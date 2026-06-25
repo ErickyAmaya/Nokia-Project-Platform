@@ -1365,8 +1365,12 @@ export default function FactScytel() {
   const ppa              = useFactStore(s=>s.ppa)
   const _rawPos          = useFactStore(s=>s.pos)
   const pos              = useMemo(() => _rawPos.filter(p => !p.cancelled), [_rawPos])
+  const cancelledSpos    = useMemo(() => new Set(_rawPos.filter(p => p.cancelled).map(p => p.spo_number)), [_rawPos])
   const invoices         = useFactStore(s=>s.invoices)
-  const { margenes, billing, reports, loading, loadAll, registrarSpo, deleteBilling, actualizarPctMes, marcarPagada, deleteReport } = useScytelStore()
+  const { margenes, billing: _rawBilling, reports, loading, loadAll, registrarSpo, deleteBilling, actualizarPctMes, marcarPagada, deleteReport } = useScytelStore()
+  // Excluye registros de Scytel cuya PO subyacente fue cancelada en fact_pos —
+  // la cancelación no se propaga automáticamente a la tabla de billing de Scytel.
+  const billing          = useMemo(() => _rawBilling.filter(b => !cancelledSpos.has(b.spo_number)), [_rawBilling, cancelledSpos])
   const user       = useAuthStore(s=>s.user)
   const canBill    = user?.role === 'admin'
 
@@ -1452,6 +1456,7 @@ export default function FactScytel() {
     const billedSpos  = new Set(billing.map(b=>b.spo_number))
     return ppa
       .filter(p=>{
+        if (cancelledSpos.has(p.spo_number)) return false
         const cat = getSmpCat(p.smp_name).key
         if (cat !== 'impl' && cat !== 'adj') return false
         return scytelNames.has(norm(p.customer_site_name)) || billedSpos.has(p.spo_number)
@@ -1481,7 +1486,7 @@ export default function FactScytel() {
         }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[ppa,scytelSitios,billing,posMap,invMap,billingBySpo,siteToMes])
+  },[ppa,scytelSitios,billing,posMap,invMap,billingBySpo,siteToMes,cancelledSpos])
 
   // ── Agrupar: mes → sitio → cat → [rows] ──────────────────────
   const porMes = useMemo(()=>{
@@ -1643,7 +1648,7 @@ export default function FactScytel() {
           {...modal}
           onClose={()=>setModal(null)}
           onSave={async data=>{ await registrarSpo({ ...data, locked_by: user?.email }) }}
-          onDelete={async spoNumber=>{ await deleteBilling(billing.find(b=>b.spo_number===spoNumber)?.id) }}
+          onDelete={async spoNumber=>{ await deleteBilling(_rawBilling.find(b=>b.spo_number===spoNumber)?.id) }}
         />
       )}
 
