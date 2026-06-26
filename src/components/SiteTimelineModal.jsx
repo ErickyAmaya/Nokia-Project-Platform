@@ -129,7 +129,7 @@ function buildMilestones(rollout, forecast, sabana) {
   // isDone del círculo = actividad física completada (si hay rollout), si no sabana
   const mosDone   = rollout ? !!(mosActDate  && isPast(mosActDate))  : !!(mosSsDate && isPast(mosSsDate))
   const intgDone  = rollout ? !!(intgActDate && isPast(intgActDate)) : !!(sabana?.integracion && isPast(sabana.integracion))
-  const closeDone = rollout ? !!(acepActDate && isPast(acepActDate)) : !!(acepSsDate && isPast(acepSsDate))
+  const closeDone = !!(acepSsDate && isPast(acepSsDate))
 
   const hwcDone    = sabana?.gap_hw_cierre === GAP_DONE_HWC
   const docDone    = !!(sabana?.gap_doc && String(sabana.gap_doc).startsWith('9999'))
@@ -149,8 +149,8 @@ function buildMilestones(rollout, forecast, sabana) {
     { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,   ndpdLabel: null,                                                                     billable: null,         ssDate: null       },
     { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner, ndpdLabel: null,                                                                billable: null,         ssDate: null       },
     { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,                      lastDate: null,                          fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv, ndpdLabel: null,                                                                   billable: null,         ssDate: null       },
-    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air, ndpdLabel: null,                                                                    billable: null,         ssDate: null       },
-    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepActDate || acepSsDate, lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: acepBillable, ssDate: acepSsDate },
+    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: onAirDone ? acepActDate : null, lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air, ndpdLabel: null,                                                                    billable: null,         ssDate: null       },
+    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepSsDate || null,        lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: acepBillable, ssDate: acepSsDate },
   ]
 }
 
