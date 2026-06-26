@@ -6,8 +6,9 @@ import { useConfirm } from '../components/ConfirmModal'
 import { buildTiposCuadrilla } from '../lib/cuadrilla'
 
 const CATS = ['A', 'AA', 'AAA']
+const REGIONES = ['R1 – Costa', 'R2 – Noroccidente', 'R3 – Suroccidente', 'R4 – Centro', 'R5 – Oriente']
 
-const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: '', esInterna: false, activo: true }
+const EMPTY = { lc: '', empresa: '', cat: 'A', tel: '', email: '', tipoCuadrilla: '', esInterna: false, activo: true, region: '' }
 
 export default function SubcModal({ open, onClose, subc = null, hasSitios = false }) {
   const [form,   setForm]   = useState(EMPTY)
@@ -39,7 +40,7 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
   useEffect(() => {
     if (open) {
       setForm(subc
-        ? { lc: subc.lc, empresa: subc.empresa || '', cat: subc.cat || 'A', tel: subc.tel || '', email: subc.email || '', tipoCuadrilla: subc.tipoCuadrilla || TIPOS[0], esInterna: subc.esInterna || false, activo: subc.activo !== false }
+        ? { lc: subc.lc, empresa: subc.empresa || '', cat: subc.cat || 'A', tel: subc.tel || '', email: subc.email || '', tipoCuadrilla: subc.tipoCuadrilla || TIPOS[0], esInterna: subc.esInterna || false, activo: subc.activo !== false, region: subc.region || '' }
         : { ...EMPTY, tipoCuadrilla: TIPOS[0] }
       )
       setError('')
@@ -220,15 +221,24 @@ export default function SubcModal({ open, onClose, subc = null, hasSitios = fals
           />
         </div>
 
-        <div className="fg">
-          <label className="fl">Tipo de Cuadrilla</label>
-          <select className="fc" value={form.tipoCuadrilla} onChange={e => {
-            const val = e.target.value
-            setForm(f => ({ ...f, tipoCuadrilla: val, esInterna: val.toUpperCase().includes('SCYTEL') ? false : f.esInterna }))
-            setError('')
-          }}>
-            {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+        <div className="g2">
+          <div className="fg">
+            <label className="fl">Tipo de Cuadrilla</label>
+            <select className="fc" value={form.tipoCuadrilla} onChange={e => {
+              const val = e.target.value
+              setForm(f => ({ ...f, tipoCuadrilla: val, esInterna: val.toUpperCase().includes('SCYTEL') ? false : f.esInterna }))
+              setError('')
+            }}>
+              {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label className="fl">Región (Homebase)</label>
+            <select className="fc" value={form.region} onChange={e => upd('region', e.target.value)}>
+              <option value="">— Sin región —</option>
+              {REGIONES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="g2">

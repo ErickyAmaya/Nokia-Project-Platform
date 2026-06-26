@@ -53,7 +53,7 @@ function SubcSection() {
 
   const filtered = subcs.filter(s => {
     const q = search.toLowerCase()
-    return !q || `${s.lc} ${s.empresa} ${s.tipoCuadrilla}`.toLowerCase().includes(q)
+    return !q || `${s.lc} ${s.empresa} ${s.tipoCuadrilla} ${s.region || ''}`.toLowerCase().includes(q)
   })
 
   async function handleEliminar(subc) {
@@ -96,6 +96,7 @@ function SubcSection() {
               <th>Empresa</th>
               <th>Cat</th>
               <th>Tipo Cuadrilla</th>
+              <th>Región</th>
               <th>Teléfono</th>
               <th>Email</th>
               <th>Sitios</th>
@@ -105,7 +106,7 @@ function SubcSection() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: 32, color: '#9ca89c' }}>
+                <td colSpan={9} style={{ textAlign: 'center', padding: 32, color: '#9ca89c' }}>
                   {subcs.length === 0 ? 'Sin subcontratistas — agrega el primero' : 'Sin resultados'}
                 </td>
               </tr>
@@ -129,6 +130,7 @@ function SubcSection() {
                     </span>
                   </td>
                   <td style={{ fontSize: 10 }}>{s.tipoCuadrilla || '—'}</td>
+                  <td style={{ fontSize: 10 }}>{s.region || '—'}</td>
                   <td style={{ fontSize: 10 }}>{s.tel || '—'}</td>
                   <td style={{ fontSize: 10 }}>{s.email || '—'}</td>
                   <td className="num" style={{ fontSize: 10 }}>
@@ -155,7 +157,7 @@ function SubcSection() {
           </tbody>
           <tfoot>
             <tr className="tr-tot">
-              <td colSpan={8}><strong>{filtered.length}</strong> subcontratistas{search && ` (de ${subcs.length} total)`}</td>
+              <td colSpan={9}><strong>{filtered.length}</strong> subcontratistas{search && ` (de ${subcs.length} total)`}</td>
             </tr>
           </tfoot>
         </table>

@@ -195,6 +195,7 @@ export const useAppStore = create((set, get) => ({
       tipoCuadrilla: r.tipo_cuadrilla || 'TI Ingetel',
       esInterna: r.es_interna || false,
       activo: r.activo !== false,
+      region: r.region || '',
     }))
 
     const catalogCW = (catCWData || []).map(r => ({
@@ -611,10 +612,11 @@ export const useAppStore = create((set, get) => ({
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
       activo:         data.activo !== false,
+      region:         data.region || '',
     }
     const { error } = await supabase.from('subcontratistas').insert(row)
     if (error) throw error
-    const local = { lc: row.lc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo }
+    const local = { lc: row.lc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo, region: row.region }
     set(s => ({ subcs: [...s.subcs, local].sort((a, b) => a.lc.localeCompare(b.lc)) }))
     get()._broadcastChange()
     return local
@@ -631,13 +633,14 @@ export const useAppStore = create((set, get) => ({
       tipo_cuadrilla: data.tipoCuadrilla || 'TI Ingetel',
       es_interna:     data.esInterna || false,
       activo:         data.activo !== false,
+      region:         data.region || '',
     }
     const { error } = await supabase.from('subcontratistas').update(row).eq('lc', originalLc)
     if (error) throw error
     const lcChanged = newLc !== originalLc
     set(s => ({
       subcs: s.subcs.map(x => x.lc === originalLc
-        ? { lc: newLc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo }
+        ? { lc: newLc, empresa: row.empresa, cat: row.cat, tel: row.tel, email: row.email, tipoCuadrilla: row.tipo_cuadrilla, esInterna: row.es_interna, activo: row.activo, region: row.region }
         : x
       ),
       ...(lcChanged ? { sitios: s.sitios.map(x => x.lc === originalLc ? { ...x, lc: newLc } : x) } : {}),
