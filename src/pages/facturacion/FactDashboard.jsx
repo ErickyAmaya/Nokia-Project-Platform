@@ -3,8 +3,7 @@ import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_
 import { useAuthStore } from '../../store/authStore'
 import { loadRolloutData, loadRolloutFromSupabase } from '../../lib/rolloutImport'
 import { showToast } from '../../components/Toast'
-import { ComposedChart, Bar, Line, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, Legend, Cell } from 'recharts'
-import ReactApexChart from 'react-apexcharts'
+import { ComposedChart, Bar, Line, BarChart, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, Cell, ReferenceLine } from 'recharts'
 
 // ── Utilidades KPI tiempo de liberación ───────────────────────────
 function parsePpaDate(v) {
@@ -329,6 +328,7 @@ export default function FactDashboard() {
   const rejectedPos      = useFactStore(s => s.rejectedPos)
   const deleteRejectedPo = useFactStore(s => s.deleteRejectedPo)
 
+  const [activeAgingLabel, setActiveAgingLabel] = useState(null)
   const [showRejected,   setShowRejected]   = useState(false)
   const [selectedMonth,  setSelectedMonth]  = useState('')
   const [removedModal,   setRemovedModal]   = useState(null)  // array of removed SPO items
@@ -522,38 +522,6 @@ export default function FactDashboard() {
     })
   }, [invoices, ppa, pos])
 
-  const ohlcData = useMemo(() => {
-    const monthDays = {}
-    for (const inv of invoices) {
-      if (!inv.fecha_factura) continue
-      const ppaRow = ppa.find(r => r.spo_number === inv.spo_number)
-      if (!ppaRow) continue
-      const ev = EVENTOS.find(e => e.key === inv.evento)
-      if (!ev) continue
-      const pct = ppaRow[ev.pctCol] || 0
-      if (!pct) continue
-      const poData = pos.find(p => p.spo_number === inv.spo_number)
-      if (!poData?.valor) continue
-      const month = inv.fecha_factura.slice(0, 7)
-      const day   = inv.fecha_factura
-      if (!monthDays[month]) monthDays[month] = {}
-      if (!monthDays[month][day]) monthDays[month][day] = 0
-      monthDays[month][day] += poData.valor * pct / 100
-    }
-    return Object.entries(monthDays)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, days]) => {
-        const vals   = Object.values(days)
-        const sorted = Object.entries(days).sort(([a], [b]) => a.localeCompare(b))
-        const open   = Math.round(sorted[0][1])
-        const close  = Math.round(sorted[sorted.length - 1][1])
-        const high   = Math.round(Math.max(...vals))
-        const low    = Math.round(Math.min(...vals))
-        const [y, m] = month.split('-')
-        return { x: `${MESES[parseInt(m) - 1]} '${y.slice(2)}`, y: [open, high, low, close] }
-      })
-  }, [invoices, ppa, pos])
-
   const activeMonth = selectedMonth || (monthlyData.length ? monthlyData[monthlyData.length - 1].month : '')
 
   const dailyData = useMemo(() => {
@@ -584,37 +552,165 @@ export default function FactDashboard() {
     })
   }, [invoices, ppa, pos, activeMonth])
 
-  const catValueStats = useMemo(() => {
-    const CAT_KEYS = ['impl', 'adj', 'cw', 'cr', 'tss', 'other']
-    const allCats = [...SMP_CATS, { key: 'other', label: 'Otro', color: '#9ca89c' }]
-    const map = Object.fromEntries(allCats.map(c => [c.key, { cat: c, fc: 0, pf: 0, lib: 0 }]))
+  const { weeklyData, weeklyHitoMatrix } = useMemo(() => {
+    const SEMANAS = ['s1', 's2', 's3', 's4']
+    const weeks   = { s1: 0, s2: 0, s3: 0, s4: 0 }
+    const hitos   = { s1: { mos: 0, intg: 0, acep: 0 }, s2: { mos: 0, intg: 0, acep: 0 }, s3: { mos: 0, intg: 0, acep: 0 }, s4: { mos: 0, intg: 0, acep: 0 } }
+
+    const msToHito = ms => {
+      if (ms === 'SS MOS ok' || ms === 'SS Instalacion ok') return 'mos'
+      if (ms === 'SS Integracion ok')                       return 'intg'
+      if (ms === 'SS Aceptacion final ok')                  return 'acep'
+      return null
+    }
+
+    if (activeMonth) {
+      for (const inv of invoices) {
+        if (!inv.fecha_factura) continue
+        if (inv.fecha_factura.slice(0, 7) !== activeMonth) continue
+        const ppaRow = ppa.find(r => r.spo_number === inv.spo_number)
+        if (!ppaRow) continue
+        const ev = EVENTOS.find(e => e.key === inv.evento)
+        if (!ev) continue
+        const pct = ppaRow[ev.pctCol] || 0
+        if (!pct) continue
+        const poData = pos.find(p => p.spo_number === inv.spo_number)
+        if (!poData?.valor) continue
+        const day  = parseInt(inv.fecha_factura.slice(8, 10))
+        const w    = day <= 7 ? 's1' : day <= 14 ? 's2' : day <= 21 ? 's3' : 's4'
+        const val  = poData.valor * pct / 100
+        weeks[w]  += val
+        const hito = msToHito(ppaRow.ms_name)
+        if (hito) hitos[w][hito] += val
+      }
+    }
+
+    const LABELS = { s1: 'Sem 1 (1–7)', s2: 'Sem 2 (8–14)', s3: 'Sem 3 (15–21)', s4: 'Sem 4 (22–fin)' }
+    return {
+      weeklyData: [
+        { semana: 'Sem 1\n(1–7)',    valor: Math.round(weeks.s1) },
+        { semana: 'Sem 2\n(8–14)',   valor: Math.round(weeks.s2) },
+        { semana: 'Sem 3\n(15–21)',  valor: Math.round(weeks.s3) },
+        { semana: 'Sem 4\n(22–fin)', valor: Math.round(weeks.s4) },
+      ],
+      weeklyHitoMatrix: SEMANAS
+        .filter(w => weeks[w] > 0)
+        .map(w => ({ semana: LABELS[w], mos: Math.round(hitos[w].mos), intg: Math.round(hitos[w].intg), acep: Math.round(hitos[w].acep) })),
+    }
+  }, [invoices, ppa, pos, activeMonth])
+
+  const { ndpdAgingData, ndpdTotal, ndpdHitoStats } = useMemo(() => {
+    const IMPL_MS = new Set(['SS MOS ok', 'SS Integracion ok', 'SS Aceptacion final ok', 'SS Instalacion ok'])
+    const BUCKETS = [
+      { key: 'b0', label: '0–30 días',  max: 30,       color: '#c8dedd' },
+      { key: 'b1', label: '31–60 días', max: 60,       color: '#7eb5b2' },
+      { key: 'b2', label: '61–90 días', max: 90,       color: '#3a8a85' },
+      { key: 'b3', label: '+90 días',   max: Infinity, color: '#144E4A' },
+    ]
+    const buckets = Object.fromEntries(BUCKETS.map(b => [b.key, { valor: 0, sitios: new Set() }]))
+
+    const rMap = rolloutItems
+      ? new Map(rolloutItems.map(r => [r.smpId.toUpperCase(), r]))
+      : new Map()
+
+    const today = new Date()
+
+    // Stats por hito (pre-dedup, una fila por SPO)
+    const hitoMap = {
+      'SS MOS ok':              { label: 'MOS',         sitios: new Set(), totalDays: 0, count: 0, valor: 0 },
+      'SS Integracion ok':      { label: 'Integración', sitios: new Set(), totalDays: 0, count: 0, valor: 0 },
+      'SS Aceptacion final ok': { label: 'Acep. Final', sitios: new Set(), totalDays: 0, count: 0, valor: 0 },
+    }
+
+    // Replicar lógica libRows → noCompletados de FactPorFacturar
+    const deduped = new Map() // smp_id → { row, r, valor }
+
     for (const row of ppa) {
-      const cat = getSmpCat(row.smp_name)
-      const k   = cat.key in map ? cat.key : 'other'
-      const poData = pos.find(p => p.spo_number === row.spo_number)
-      const valor  = poData?.valor || 0
-      if (!valor) continue
+      if (cancelledSpos.has(row.spo_number)) continue
+
       const evs    = getEventosRow(row, invMap)
       const hasPF  = evs.some(e => e.status === 'facturar')
-      const hasFC  = evs.some(e => e.status === 'facturado')
       const hasGR  = !!row.sgr
-      const hasPct = EVENTOS.some(ev => (row[ev.pctCol] || 0) > 0)
-      for (const ev of evs) {
-        if (ev.status === 'facturar')  map[k].pf += valor * (ev.pct / 100)
-        if (ev.status === 'facturado') map[k].fc += valor * (ev.pct / 100)
+      const hasAnyPct = EVENTOS.some(ev => (row[ev.pctCol] || 0) > 0)
+      const hasFC  = evs.some(e => e.status === 'facturado')
+
+      if (hasPF) continue
+      if (hasGR && hasAnyPct && hasFC) continue
+      if (hasGR && hasAnyPct) continue
+
+      const cat = getSmpCat(row.smp_name)
+      if (cat.key !== 'impl') continue
+      if (!IMPL_MS.has(row.ms_name)) continue
+      if (invMap[`${row.spo_number}|servicio`]) continue
+
+      const r = rMap.get((row.smp_id || '').toUpperCase())
+      const ms = row.ms_name
+      const hitoSS = !r ? null
+        : ms === 'SS MOS ok'             ? r.mosSS
+        : ms === 'SS Integracion ok'     ? r.intgSS
+        : ms === 'SS Aceptacion final ok'? r.acepSS
+        : null
+
+      if (r && hitoSS) continue
+
+      const poData = pos.find(p => p.spo_number === row.spo_number)
+      if (!poData?.valor) continue
+      let pctNc = evs.reduce((a, e) => a + (e.invoiceable_pct ?? e.pct ?? 0), 0)
+      if (pctNc === 0) {
+        const invoicedPct = EVENTOS.reduce((a, e) => a + (invMap[`${row.spo_number}|${e.key}`]?.pct || 0), 0)
+        pctNc = Math.max(0, 100 - invoicedPct - (row.acuerdo_liberacion || 0))
       }
-      if (!hasPF && !hasFC && (!hasGR || !hasPct)) map[k].lib += valor
+      const valor = poData.valor * pctNc / 100
+
+      // Stats por hito (pre-dedup)
+      const h = hitoMap[ms]
+      if (h) {
+        h.sitios.add(row.smp_id)
+        h.valor += valor
+        const hitoDateStr = ms === 'SS MOS ok' ? r?.mosDate : ms === 'SS Integracion ok' ? r?.intgDate : r?.acepDate
+        if (hitoDateStr) {
+          const d = Math.floor((today - new Date(hitoDateStr)) / 86400000)
+          if (d >= 0) { h.totalDays += d; h.count++ }
+        }
+      }
+
+      deduped.set(row.smp_id, { row, r, valor })  // last wins → igual que new Map(array) en FactPorFacturar
     }
-    return CAT_KEYS
-      .filter(k => map[k] && (map[k].fc + map[k].pf + map[k].lib > 0))
-      .map(k => ({
-        label: map[k].cat.label,
-        color: map[k].cat.color,
-        fc:    Math.round(map[k].fc),
-        pf:    Math.round(map[k].pf),
-        lib:   Math.round(map[k].lib),
-      }))
-  }, [ppa, pos, invMap])
+
+    let total = 0
+    for (const { row, r, valor } of deduped.values()) {
+      total += valor
+
+      const dateStr = r?.intgDate || r?.mosDate
+      if (!dateStr) continue
+      const refDate = new Date(dateStr)
+      if (refDate > today) continue
+
+      const days   = Math.floor((today - refDate) / 86400000)
+      const bucket = BUCKETS.find(b => days <= b.max)
+      if (!bucket) continue
+      buckets[bucket.key].valor  += valor
+      buckets[bucket.key].sitios.add(row.smp_id || row.spo_number)
+    }
+
+    const ndpdHitoStats = ['SS MOS ok', 'SS Integracion ok', 'SS Aceptacion final ok']
+      .map(ms => {
+        const h = hitoMap[ms]
+        return { label: h.label, sitios: h.sitios.size, avgDays: h.count > 0 ? Math.round(h.totalDays / h.count) : 0, valor: Math.round(h.valor) }
+      })
+      .filter(h => h.sitios > 0)
+
+    return {
+      ndpdTotal: Math.round(total),
+      ndpdHitoStats,
+      ndpdAgingData: BUCKETS.map(b => ({
+        label:  b.label,
+        color:  b.color,
+        valor:  Math.round(buckets[b.key].valor),
+        sitios: buckets[b.key].sitios.size,
+      })).filter(b => b.sitios > 0),
+    }
+  }, [rolloutItems, ppa, pos, invMap, cancelledSpos])
 
   async function handleFile(e) {
     const file = e.target.files?.[0]
@@ -819,72 +915,168 @@ export default function FactDashboard() {
             </div>
           )}
 
-          {/* Fila 2: RadialBar (valor por categoría) + Candlestick (distribución mensual) */}
-          {(catValueStats.length > 0 || ohlcData.length > 0) && (
+          {/* Fila 2: Antigüedad NDPD + Distribución semanal */}
+          {(ndpdAgingData.length > 0 || weeklyData.length > 0) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
-              {/* RadialBarChart — valor total por categoría */}
-              {catValueStats.length > 0 && (
+              {/* Antigüedad NDPD pendiente Nokia */}
+              {ndpdAgingData.length > 0 ? (
                 <div className="card">
-                  <div className="card-h"><h2>Valor COP por categoría</h2></div>
-                  <div className="card-b" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <ResponsiveContainer width="100%" height={260}>
-                      <RadialBarChart
-                        innerRadius="20%" outerRadius="90%"
-                        data={catValueStats.map(c => ({ name: c.label, valor: c.fc + c.pf + c.lib, fill: c.color })).sort((a, b) => b.valor - a.valor)}
-                        startAngle={180} endAngle={-180}
-                      >
-                        <RadialBar dataKey="valor" cornerRadius={4} background={{ fill: '#f4f4f5' }} />
-                        <Tooltip formatter={val => [fmtCOP(val), 'Valor total']} contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }} />
-                        <Legend iconSize={8} iconType="circle" layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 10, color: '#4b5563' }} />
-                      </RadialBarChart>
+                  <div className="card-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                      <h2>Antigüedad (Pendiente NDPD)</h2>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#144E4A' }}>
+                        {fmtCOP(ndpdTotal)}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 10, color: '#617561', fontWeight: 400, whiteSpace: 'nowrap' }}>días desde integración · sin GR o % Nokia</span>
+                  </div>
+                  <div className="card-b">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={ndpdAgingData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }} barCategoryGap="35%"
+                        onMouseMove={s => setActiveAgingLabel(s?.activeLabel ?? null)}
+                        onMouseLeave={() => setActiveAgingLabel(null)}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
+                        <Tooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload?.length) return null
+                            const d = payload[0].payload
+                            return (
+                              <div style={{ background: '#fff', border: '1px solid #e0e4e0', borderRadius: 8, padding: '8px 12px', fontSize: 11 }}>
+                                <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                                <div>{fmtCOP(d.valor)}</div>
+                                <div style={{ color: '#617561', marginTop: 2 }}>{d.sitios} sitio{d.sitios !== 1 ? 's' : ''}</div>
+                              </div>
+                            )
+                          }}
+                          cursor={false}
+                        />
+                        <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                          {ndpdAgingData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                        </Bar>
+                        {activeAgingLabel && (
+                          <ReferenceLine x={activeAgingLabel} stroke="#144E4A" strokeWidth={1} strokeDasharray="4 2" />
+                        )}
+                      </BarChart>
                     </ResponsiveContainer>
+                    <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563', flexWrap: 'wrap' }}>
+                      {ndpdAgingData.map(d => (
+                        <span key={d.label}>
+                          <span style={{ display: 'inline-block', width: 10, height: 10, background: d.color, borderRadius: 2, marginRight: 4 }} />
+                          {d.label} · {d.sitios} sitio{d.sitios !== 1 ? 's' : ''}
+                        </span>
+                      ))}
+                    </div>
+                    {ndpdHitoStats.length > 0 && (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 14, fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <th style={{ textAlign: 'left',  padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>Hito</th>
+                            <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>Sitios</th>
+                            <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>Días prom.</th>
+                            <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>Valor COP</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ndpdHitoStats.map(h => (
+                            <tr key={h.label} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                              <td style={{ padding: '5px 6px', fontWeight: 600, color: '#374151' }}>{h.label}</td>
+                              <td style={{ padding: '5px 6px', textAlign: 'right', color: '#374151' }}>{h.sitios}</td>
+                              <td style={{ padding: '5px 6px', textAlign: 'right', color: h.avgDays > 90 ? '#ef4444' : h.avgDays > 60 ? '#f97316' : '#374151', fontWeight: h.avgDays > 60 ? 700 : 400 }}>
+                                {h.avgDays > 0 ? `${h.avgDays}d` : '—'}
+                              </td>
+                              <td style={{ padding: '5px 6px', textAlign: 'right', color: '#144E4A', fontWeight: 600 }}>{fmtCOP(h.valor)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : rolloutItems ? null : (
+                <div className="card">
+                  <div className="card-h"><h2>Antigüedad NDPD pendiente Nokia</h2></div>
+                  <div className="card-b" style={{ textAlign: 'center', padding: '28px 0', color: '#9ca89c', fontSize: 12 }}>
+                    Carga el Rollout en "Por Facturar" para ver este análisis.
                   </div>
                 </div>
               )}
 
-              {/* Candlestick — distribución diaria por mes */}
-              {ohlcData.length > 0 && (
+              {/* Barras semanales — distribución del mes activo */}
+              {weeklyData.some(w => w.valor > 0) && (
                 <div className="card">
-                  <div className="card-h"><h2>Distribución diaria por mes</h2></div>
+                  <div className="card-h"><h2>Distribución semanal</h2></div>
                   <div className="card-b">
-                    <ReactApexChart
-                      type="candlestick"
-                      height={250}
-                      series={[{ data: ohlcData }]}
-                      options={{
-                        chart: { toolbar: { show: false }, background: 'transparent' },
-                        xaxis: { type: 'category', labels: { style: { fontSize: '10px', colors: '#617561' } }, axisBorder: { show: false }, axisTicks: { show: false } },
-                        yaxis: { labels: { formatter: fmtK, style: { fontSize: '10px', colors: '#617561' } } },
-                        grid: { borderColor: '#f0f0f0', strokeDashArray: 3, xaxis: { lines: { show: false } } },
-                        plotOptions: {
-                          candlestick: {
-                            colors: { upward: '#86efac', downward: '#ef4444' },
-                            wick: { useFillColor: true },
-                          },
-                        },
-                        tooltip: {
-                          custom({ seriesIndex, dataPointIndex, w }) {
-                            const o = w.globals.seriesCandleO[seriesIndex][dataPointIndex]
-                            const h = w.globals.seriesCandleH[seriesIndex][dataPointIndex]
-                            const l = w.globals.seriesCandleL[seriesIndex][dataPointIndex]
-                            const c = w.globals.seriesCandleC[seriesIndex][dataPointIndex]
-                            const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
-                            return `<div style="padding:10px;font-size:11px;line-height:1.8">
-                              <b>${w.globals.labels[dataPointIndex]}</b><br/>
-                              🟢 Primer día: ${fmt(o)}<br/>
-                              ↑ Máximo día: ${fmt(h)}<br/>
-                              ↓ Mínimo día: ${fmt(l)}<br/>
-                              🔵 Último día: ${fmt(c)}
-                            </div>`
-                          }
-                        },
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: 16, fontSize: 9, color: '#4b5563' }}>
-                      <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#86efac', borderRadius: 2, marginRight: 4 }} />Último día &gt; primer día</span>
-                      <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Primer día &gt; último día</span>
-                      <span style={{ color: '#9ca3af' }}>Mechas = día máx/mín</span>
-                    </div>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={weeklyData} margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
+                        <defs>
+                          <linearGradient id="weekGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#1d4ed8" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#1d4ed8" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="semana" tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#617561' }} axisLine={false} tickLine={false} width={52} />
+                        <Tooltip
+                          formatter={val => [fmtCOP(val), 'Facturado']}
+                          labelFormatter={label => label.replace('\n', ' ')}
+                          contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e0e4e0' }}
+                          cursor={{ stroke: '#1d4ed8', strokeWidth: 1, strokeDasharray: '4 2' }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="valor"
+                          stroke="#1d4ed8"
+                          strokeWidth={2.5}
+                          fill="url(#weekGrad)"
+                          dot={{ r: 4, fill: '#1d4ed8', strokeWidth: 0 }}
+                          activeDot={{ r: 6, fill: '#1d4ed8', strokeWidth: 0 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    {weeklyHitoMatrix.length > 0 && (
+                      <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 9, color: '#4b5563', flexWrap: 'wrap' }}>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#1d4ed8', borderRadius: 2, marginRight: 4 }} />Valor más alto</span>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4 }} />Valor más bajo</span>
+                      </div>
+                    )}
+                    {weeklyHitoMatrix.length > 0 && (() => {
+                      const allVals = weeklyHitoMatrix.flatMap(r => [r.mos, r.intg, r.acep]).filter(v => v > 0)
+                      const maxVal  = Math.max(...allVals)
+                      const minVal  = Math.min(...allVals)
+                      return (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 34, fontSize: 11 }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                              <th style={{ textAlign: 'left',  padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>Hito</th>
+                              {weeklyHitoMatrix.map(r => (
+                                <th key={r.semana} style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 600, color: '#617561', fontSize: 10 }}>{r.semana}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[{ key: 'mos', label: 'MOS' }, { key: 'intg', label: 'Integración' }, { key: 'acep', label: 'Acep. Final' }].map(h => (
+                              <tr key={h.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                <td style={{ padding: '5px 6px', fontWeight: 600, color: '#374151' }}>{h.label}</td>
+                                {weeklyHitoMatrix.map(r => {
+                                  const v     = r[h.key]
+                                  const isMax = v > 0 && v === maxVal
+                                  const isMin = v > 0 && v === minVal && maxVal !== minVal
+                                  const color = isMax ? '#1d4ed8' : isMin ? '#ef4444' : v > 0 ? '#374151' : '#d1d5db'
+                                  return (
+                                    <td key={r.semana} style={{ padding: '5px 6px', textAlign: 'right', fontWeight: v > 0 ? 600 : 400, color }}>
+                                      {v > 0 ? fmtCOP(v) : '—'}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )
+                    })()}
                   </div>
                 </div>
               )}
