@@ -154,10 +154,10 @@ function buildMilestones(rollout, forecast, sabana) {
   ]
 }
 
-function getMsStatus(ms, idx, milestones) {
+function getMsStatus(ms, idx, milestones, hasStarted = false) {
   if (ms.isDone) return 'done'
   const prevDone = idx === 0 || milestones[idx - 1].isDone
-  if (!prevDone) return 'pending'
+  if (!prevDone && !hasStarted) return 'pending'
   if (ms.blocking) return 'blocked'
   return 'active'
 }
@@ -351,7 +351,25 @@ export default function SiteTimelineModal({ smpId, onClose }) {
   }, [invoices, allSitePos])
 
   const milestones = useMemo(() => buildMilestones(rolloutItem, forecast, sabanaRow), [rolloutItem, forecast, sabanaRow])
-  const statuses   = useMemo(() => milestones.map((ms, i) => getMsStatus(ms, i, milestones)), [milestones])
+
+  // Detecta hitos ACK que ya iniciaron (secuencia > mínima) aunque el anterior no esté done
+  const ackStarted = useMemo(() => {
+    const byArea = {}
+    ackGlosario.forEach(r => { if (!byArea[r.area]) byArea[r.area] = []; byArea[r.area].push(r) })
+    const result = {}
+    milestones.forEach(ms => {
+      const areas = MS_TO_AREAS[ms.id]
+      if (!areas || !ms.gapRaw) return
+      const rows = areas.flatMap(a => byArea[a] || []).filter(r => r.secuencia !== null)
+      if (!rows.length) return
+      const minSeq = Math.min(...rows.map(r => r.secuencia))
+      const cur = rows.find(r => r.gap === ms.gapRaw)
+      if (cur && cur.secuencia > minSeq) result[ms.id] = true
+    })
+    return result
+  }, [milestones, ackGlosario])
+
+  const statuses   = useMemo(() => milestones.map((ms, i) => getMsStatus(ms, i, milestones, ackStarted[ms.id] || false)), [milestones, ackStarted])
 
   // Progress % for each milestone (bar inside circle label area)
   // NDPD milestones: use rolloutItem pct fields; ACK milestones: use ack_glosario secuencia
