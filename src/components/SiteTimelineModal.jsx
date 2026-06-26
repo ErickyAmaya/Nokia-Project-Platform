@@ -143,14 +143,14 @@ function buildMilestones(rollout, forecast, sabana) {
   const acepBillable = rollout ? (closeDone? !!(acepSsDate && isPast(acepSsDate)) : null) : null
 
   return [
-    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    date: mosActDate  || mosSsDate,  lastDate: rollout?.mosLastDate  || null, fcDate: null,                          blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : 'Sin datos Rollout', billable: mosBillable,  ssDate: mosSsDate  },
-    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_hw_cierre, blocking: false, gapRaw: sabana?.gap_hw_cierre, ndpdLabel: null,                                                                     billable: null,         ssDate: null       },
-    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   date: intgActDate || null,       lastDate: rollout?.intgLastDate || null, fcDate: null,                          blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: intgBillable, ssDate: intgSsDate },
-    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_doc,        blocking: false, gapRaw: sabana?.gap_doc,   ndpdLabel: null,                                                                     billable: null,         ssDate: null       },
-    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     date: null,                      lastDate: null,                          fcDate: forecast?.fc_avance_site_owner, blocking: false, gapRaw: sabana?.gap_site_owner, ndpdLabel: null,                                                                billable: null,         ssDate: null       },
-    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, date: null,                      lastDate: null,                          fcDate: null,                          blocking: false, gapRaw: sabana?.gap_log_inv, ndpdLabel: null,                                                                   billable: null,         ssDate: null       },
-    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  date: onAirDone ? acepActDate : null, lastDate: null,                          fcDate: forecast?.fc_avance_on_air,    blocking: true,  gapRaw: sabana?.gap_on_air, ndpdLabel: null,                                                                    billable: null,         ssDate: null       },
-    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  date: acepSsDate || null,        lastDate: rollout?.acepLastDate || null, fcDate: forecast?.fc_cierre_on_air,    blocking: false, gapRaw: null,              ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout', billable: acepBillable, ssDate: acepSsDate },
+    { id: 'mos',    label: 'MOS',              iconKey: 'tower',    isDone: mosDone,    blocking: false, gapRaw: null,                   ndpdLabel: rollout ? (rollout.mosLastCol  || 'Sin iniciar') : 'Sin datos Rollout', actLabel: 'MOS Done',   actDate: mosActDate  || null, ssLabel: 'SS MOS OK',          billable: mosBillable,  ssDate: mosSsDate  },
+    { id: 'hwc',    label: 'HW Cierre',        iconKey: 'hardware', isDone: hwcDone,    blocking: false, gapRaw: sabana?.gap_hw_cierre,  ndpdLabel: null,                                                                     actLabel: null,          actDate: null,                           fcDate: forecast?.fc_avance_hw_cierre,  ssLabel: null,                 billable: null,         ssDate: null       },
+    { id: 'intg',   label: 'Integración',      iconKey: 'signal',   isDone: intgDone,   blocking: false, gapRaw: null,                   ndpdLabel: rollout ? (rollout.intgLastCol || 'Sin iniciar') : 'Sin datos Rollout', actLabel: 'Integ. Done', actDate: intgActDate || null,            fcDate: null,                           ssLabel: 'SS Integración OK',  billable: intgBillable, ssDate: intgSsDate },
+    { id: 'doc',    label: 'Documentación',    iconKey: 'doc',      isDone: docDone,    blocking: false, gapRaw: sabana?.gap_doc,        ndpdLabel: null,                                                                     actLabel: null,          actDate: null,                           fcDate: forecast?.fc_avance_doc,        ssLabel: null,                 billable: null,         ssDate: null       },
+    { id: 'so',     label: 'Entrega SO',       iconKey: 'person',   isDone: soDone,     blocking: false, gapRaw: sabana?.gap_site_owner, ndpdLabel: null,                                                                     actLabel: null,          actDate: null,                           fcDate: forecast?.fc_avance_site_owner, ssLabel: null,                 billable: null,         ssDate: null       },
+    { id: 'loginv', label: 'Log. Inversa',     iconKey: 'truck',    isDone: logInvDone, blocking: false, gapRaw: sabana?.gap_log_inv,    ndpdLabel: null,                                                                     actLabel: null,          actDate: null,                           fcDate: null,                           ssLabel: null,                 billable: null,         ssDate: null       },
+    { id: 'onair',  label: 'On Air',           iconKey: 'bolt',     isDone: onAirDone,  blocking: true,  gapRaw: sabana?.gap_on_air,     ndpdLabel: null,                                                                     actLabel: null,          actDate: onAirDone ? acepActDate : null, fcDate: forecast?.fc_avance_on_air,     ssLabel: null,                 billable: null,         ssDate: null       },
+    { id: 'close',  label: 'Aceptación Final', iconKey: 'check',    isDone: closeDone,  blocking: false, gapRaw: null,                   ndpdLabel: rollout ? (rollout.acepLastCol || 'Sin iniciar') : 'Sin datos Rollout', actLabel: 'Acep. Done',  actDate: acepActDate || null, ssLabel: 'SS Aceptación OK',   billable: acepBillable, ssDate: acepSsDate },
   ]
 }
 
@@ -588,7 +588,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                       onMouseLeave={() => setHoveredMs(null)}
                     >
                       {/* Tooltip sobre el círculo */}
-                      {(ms.gapRaw || ms.ndpdLabel) && hoveredMs === ms.id && (
+                      {(ms.gapRaw || ms.ndpdLabel || ms.actLabel) && hoveredMs === ms.id && (
                         <div style={{
                           position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%',
                           transform: 'translateX(-50%)',
@@ -601,11 +601,16 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                             border: '1px solid rgba(255,255,255,.1)',
                           }}>
                             <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-                              {ms.ndpdLabel ? 'NDPD Nokia' : 'ACK Nokia'}
+                              {ms.actLabel ? 'NDPD Nokia' : 'ACK Nokia'}
                             </div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f1f5f9' }}>
-                              {ms.ndpdLabel || ms.gapRaw}
+                            <div style={{ fontSize: 11, fontWeight: 700, color: st === 'done' ? '#4ade80' : st === 'blocked' ? '#f87171' : '#fbbf24' }}>
+                              {ms.isDone && ms.actLabel ? ms.actLabel : (ms.ndpdLabel || ms.gapRaw)}
                             </div>
+                            {(ms.actDate || ms.fcDate) && (
+                              <div style={{ fontSize: 9, color: '#fff', marginTop: 3 }}>
+                                {ms.actDate ? fmt(ms.actDate) : ms.isDone ? fmt(ms.fcDate) : `FC: ${fmt(ms.fcDate)}`}
+                              </div>
+                            )}
                           </div>
                           <div style={{
                             width: 0, height: 0, margin: '0 auto',
@@ -635,30 +640,19 @@ export default function SiteTimelineModal({ smpId, onClose }) {
             {/* Labels grid — separado del riel para dar espacio */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', marginTop: 14, marginBottom: 8 }}>
               {milestones.map((ms, idx) => {
-                const st          = statuses[idx]
-                const col         = C[st]
-                const pct         = msProgress[idx]
-                const displayDate = ms.date
-                  ? fmt(ms.date)
-                  : ms.lastDate && !ms.isDone
-                    ? fmt(ms.lastDate)
-                    : ms.fcDate
-                      ? `FC: ${fmt(ms.fcDate)}`
-                      : '—'
-                const isHovered   = hoveredMs === ms.id
+                const st  = statuses[idx]
+                const col = C[st]
+                const pct = msProgress[idx]
                 return (
                   <div
                     key={ms.id}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', padding: '0 4px' }}
-                    onMouseEnter={() => setHoveredMs(ms.id)}
-                    onMouseLeave={() => setHoveredMs(null)}
                   >
                     <div style={{
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: 12, fontWeight: 800, letterSpacing: .7,
                       textTransform: 'uppercase', color: col.text, lineHeight: 1.2, textAlign: 'center',
                     }}>{ms.label}</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#6b7280', marginTop: 3, textAlign: 'center' }}>{displayDate}</div>
                     {st === 'done' && ms.billable !== false ? (
                       <span style={{
                         display: 'inline-block', marginTop: 5,
@@ -694,15 +688,27 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                     )}
                     {/* Indicador de facturabilidad — solo hitos NDPD con actividad completada */}
                     {ms.billable !== null && (
-                      <div title={ms.billable ? `SS certificada: ${fmt(ms.ssDate)}` : 'SS pendiente — no facturable aún'}
-                        style={{ marginTop: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div
+                        style={{ marginTop: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}
+                      >
                         <svg width="12" height="38" viewBox="0 0 12 38" fill="none">
                           <line x1="6" y1="0" x2="6" y2="26" stroke={ms.billable ? '#16a34a' : '#d97706'} strokeWidth="3" strokeDasharray={ms.billable ? 'none' : '4 3'}/>
                           <path d="M6 38L0 24h12L6 38z" fill={ms.billable ? '#16a34a' : '#d97706'}/>
                         </svg>
-                        {ms.billable && ms.ssDate && (
-                          <div style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#6b7280', marginTop: 2, textAlign: 'center' }}>
-                            {fmt(ms.ssDate)}
+                        {hoveredMs === ms.id && (
+                          <div style={{ position: 'absolute', top: 0, left: 'calc(100% + 10px)', zIndex: 50, pointerEvents: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'flex-start', gap: 3 }}>
+                            <div style={{ width: 0, height: 0, flexShrink: 0, marginTop: 8, borderTop: '5px solid transparent', borderBottom: '5px solid transparent', borderRight: '5px solid #1e293b' }}/>
+                            <div style={{ background: '#1e293b', borderRadius: 8, padding: '6px 10px', boxShadow: '0 4px 16px rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.1)' }}>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
+                                NDPD Nokia
+                              </div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: ms.billable ? '#4ade80' : '#fbbf24' }}>
+                                {ms.ssLabel || '—'}
+                              </div>
+                              {ms.ssDate && (
+                                <div style={{ fontSize: 9, color: '#fff', marginTop: 2 }}>{fmt(ms.ssDate)}</div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -712,16 +718,6 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               })}
             </div>
 
-            {/* ── Conector ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '6px 0 10px' }}>
-              <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
-              <span style={{
-                fontSize: 8.5, fontWeight: 800, color: '#94a3b8',
-                letterSpacing: 1.2, textTransform: 'uppercase',
-                background: '#f0f2f0', padding: '0 8px',
-              }}>Facturación asociada</span>
-              <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
-            </div>
 
             {/* ── RIEL 2: Facturación ── */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -904,7 +900,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                     <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: .8, flexShrink: 0 }}>
                       Total facturado
                     </span>
-                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 800, color: '#111827', flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 600, color: '#111827', flexShrink: 0 }}>
                       {fmtCOP(totalBilled)}
                     </span>
                     <div style={{ flex: 1, height: 7, background: '#e2e8f0', borderRadius: 6, overflow: 'hidden' }}>
@@ -914,7 +910,7 @@ export default function SiteTimelineModal({ smpId, onClose }) {
                         background: factGradient(factPct),
                       }}/>
                     </div>
-                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 800, color: factColor(factPct), flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 600, color: factColor(factPct), flexShrink: 0 }}>
                       {factPct}%
                     </span>
                     <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0 }}>de {fmtCOP(totalPo)}</span>
@@ -930,13 +926,6 @@ export default function SiteTimelineModal({ smpId, onClose }) {
               const divider = (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 10px' }}>
-                    <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', letterSpacing: .6, whiteSpace: 'nowrap', textTransform: 'uppercase', background: '#f0f2f0', padding: '0 8px' }}>
-                      Pagos subcontratistas
-                    </span>
-                    <div style={{ flex: 1, height: 0, borderTop: '1.5px dashed #cbd5e1' }}/>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                     <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.6, textTransform: 'uppercase', color: '#d97706' }}>Pagos SubC</span>
                     <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#fde68a,transparent)' }}/>
