@@ -38,6 +38,10 @@ function isFinal(val) {
   return val.startsWith('9999') || val.startsWith('70.')
 }
 
+// Verde "Cerrado/100%" usado en toda la app — el relleno del botón
+// "Baseline Main SMP" siempre usa este mismo tono, solo varía el ancho.
+const MAIN_SMP_GREEN = '#16a34a'
+
 const PROCESOS = ['gap_hw_cierre','gap_on_air','gap_doc','gap_site_owner','gap_log_inv']
 
 const PROCESO_LABELS = {
@@ -1056,7 +1060,11 @@ export default function MapaSitios() {
   }, [selectedPin, sabana])
 
   const selectedAllMainSmps = useMemo(() =>
-    selectedSmps.filter(r => r.main_smp === r.smp).map(r => ({ smp: r.main_smp, proyecto: r.proyecto_alcance || '' }))
+    selectedSmps.filter(r => r.main_smp === r.smp).map(r => ({
+      smp:      r.main_smp,
+      proyecto: r.proyecto_alcance || '',
+      pct:      Math.round(PROCESOS.filter(p => isFinal(r[p])).length / PROCESOS.length * 100),
+    }))
   , [selectedSmps])
 
   const selectedMainSmp = selectedAllMainSmps[0]?.smp || null
@@ -1538,14 +1546,39 @@ export default function MapaSitios() {
 
               {/* Acciones */}
               <div style={{ padding: '11px 15px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {selectedAllMainSmps.length > 0 ? selectedAllMainSmps.map(({ smp, proyecto }) => (
+                {selectedAllMainSmps.length > 0 ? selectedAllMainSmps.map(({ smp, proyecto, pct }) => (
                   <Fragment key={smp}>
                     <button
                       onClick={() => window.dispatchEvent(new CustomEvent('open-site-timeline', { detail: { smp } }))}
-                      className="btn bp"
-                      style={{ fontSize: 11, padding: '7px 0', width: '100%', cursor: 'pointer' }}
+                      className="btn"
+                      style={{
+                        position: 'relative', overflow: 'hidden', fontSize: 11, padding: '5px 0',
+                        width: '100%', cursor: 'pointer', border: 'none', background: '#e5e7eb',
+                        display: 'flex', alignItems: 'center',
+                      }}
                     >
-                      📊 Ver BaseLine{selectedAllMainSmps.length > 1 && proyecto ? ` (${proyecto})` : ''}
+                      <div style={{
+                        position: 'absolute', inset: 0, width: `${pct}%`,
+                        background: MAIN_SMP_GREEN,
+                        transition: 'width .4s ease', pointerEvents: 'none',
+                      }} />
+                      {/* texto gris: verde sobre fondo claro */}
+                      <span style={{
+                        position: 'relative', zIndex: 1, color: MAIN_SMP_GREEN, paddingLeft: 14,
+                        whiteSpace: 'nowrap', pointerEvents: 'none',
+                      }}>
+                        Baseline Main SMP{selectedAllMainSmps.length > 1 && proyecto ? ` (${proyecto})` : ''}
+                      </span>
+                      {/* texto verde: blanco, clipado al área rellena */}
+                      <span style={{
+                        position: 'absolute', inset: 0, width: `${pct}%`, overflow: 'hidden',
+                        display: 'flex', alignItems: 'center', pointerEvents: 'none',
+                        transition: 'width .4s ease', zIndex: 2,
+                      }}>
+                        <span style={{ color: '#fff', paddingLeft: 14, whiteSpace: 'nowrap' }}>
+                          Baseline Main SMP{selectedAllMainSmps.length > 1 && proyecto ? ` (${proyecto})` : ''}
+                        </span>
+                      </span>
                     </button>
                     <button
                       onClick={() => navigate(`/rollout/ack/sitios?smp=${encodeURIComponent(smp)}`)}

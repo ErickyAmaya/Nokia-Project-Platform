@@ -8,6 +8,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { useAuthStore } from '../../store/authStore'
 import { exportAckToExcel } from '../../lib/ackExcelExport'
 import AckTablas from './AckTablas'
+import AdminAckGlosario from '../admin/AdminAckGlosario'
 
 // ── Helpers ───────────────────────────────────────────────────────
 function isFinal(val) {
@@ -142,15 +143,6 @@ const PROC_CFG = {
   gap_hw_cierre:  { label: 'CIERRE HW',         nokia: 'GAP CIERRE DE HW', color: '#ef4444', fa: 'fc_avance_hw_cierre',  ticket: 'ticket_hw_cierre_owner' },
 }
 
-const FILTRO_OPTS  = [
-  { value: 'todos',      label: 'Ver Todos' },
-  { value: 'pendientes', label: 'Solo Pendientes' },
-  { value: 'cerrados',   label: 'Solo Cerrados' },
-]
-const FILTRO_BADGE = {
-  pendientes: { bg: '#fee2e2', color: '#991b1b', text: '● Pendientes' },
-  cerrados:   { bg: '#dcfce7', color: '#166534', text: '✓ Cerrados' },
-}
 
 // ── Shared table styles ───────────────────────────────────────────
 function thStyle(color, forPrint, extra = {}) {
@@ -876,9 +868,9 @@ export default function AckForecast() {
   , [prevSabanaRaw, proyectoSel])
   const empresaNombre = useAppStore(s => s.empresaConfig?.nombre_corto || s.empresaConfig?.nombre || '')
   const canUpload = useAuthStore(s => !['viewer', 'rollout'].includes(s.user?.role))
+  const isAdmin   = useAuthStore(s => s.user?.role === 'admin')
 
   const location = useLocation()
-  const [filtro,     setFiltro]     = useState('pendientes')
   const [activeView, setActiveView] = useState(() => location.pathname.endsWith('/tablas') ? 'forecast' : 'reporte')
   const [setupOpen,  setSetupOpen]  = useState(false)
 
@@ -918,7 +910,6 @@ export default function AckForecast() {
     return () => document.getElementById('nokia-print-css')?.remove()
   }, [])
 
-  const filtroBadge = FILTRO_BADGE[filtro]
   const hasPrev     = prevSabana.length > 0
 
   // Estado de expansión por proceso — solo el primero abierto por defecto
@@ -942,7 +933,7 @@ export default function AckForecast() {
         sabana,
         prevSabana,
         forecasts,
-        filtro,
+        filtro: 'pendientes',
         estadosOcultos,
         currLabel: currFileLabel,
         prevLabel,
@@ -960,6 +951,7 @@ export default function AckForecast() {
 
   return (
     <>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)', overflow: 'hidden' }}>
       {/* ── Barra de tabs (fija — vive fuera del contenedor con scroll) ── */}
       <div className="ack-tabbar" style={{
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
@@ -984,6 +976,20 @@ export default function AckForecast() {
             </button>
           ))}
         </div>
+
+        {isAdmin && (
+          <button onClick={() => setActiveView('glosario')}
+            style={{
+              padding: '8px 16px', border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, marginBottom: -2, marginLeft: 'auto',
+              borderBottom: activeView === 'glosario' ? '2px solid #7c3aed' : '2px solid transparent',
+              color: activeView === 'glosario' ? '#7c3aed' : '#9ca3af',
+              transition: 'all .15s',
+            }}
+          >
+            ⚙ Glosario
+          </button>
+        )}
 
         {canUpload && (
           <div className="ack-tabbar-uploads" style={{
@@ -1039,54 +1045,15 @@ export default function AckForecast() {
           </div>
         )}
 
-        <div className="ack-tabbar-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setActiveView(activeView === 'seguimiento' ? 'reporte' : 'seguimiento')}
-            style={{
-              padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 20, cursor: 'pointer',
-              fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
-              background: activeView === 'seguimiento' ? '#7c3aed' : '#f3f4f6',
-              color:      activeView === 'seguimiento' ? '#fff'    : '#1a3a5c',
-              borderColor: activeView === 'seguimiento' ? '#7c3aed' : '#d1d5db',
-            }}
-            title="Ver los estados excluidos del reporte y forecast ACK"
-          >
-            <SquaresExclude size={13} color={activeView === 'seguimiento' ? '#fff' : '#dc2626'} /> Estados Excluidos
-            {totalOcultos > 0 && (
-              <span style={{
-                background: activeView === 'seguimiento' ? 'rgba(255,255,255,.25)' : '#f59e0b',
-                color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800,
-              }}>
-                {totalOcultos}
-              </span>
-            )}
-          </button>
-
-          {canUpload && (
-            <button onClick={() => setSetupOpen(true)}
-              style={{ padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#f3f4f6', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 6 }}
-              title="Configurar estados visibles en el reporte y forecast ACK"
-            >
-              ⚙ Configurar
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* ── Contenido con scroll interno propio (header arriba queda fijo) ── */}
-      <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 210px)' }}>
-
-      {/* ── Encabezado del tab activo ── */}
-      <div className="dash-hdr mb14">
+      {/* ── Encabezado del tab activo (fuera del scroll para que el scrollbar no tape los botones) ── */}
+      {activeView !== 'glosario' && <div className="dash-hdr mb14">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-              {activeView === 'reporte' ? 'ACK — Reporte Nokia' : activeView === 'forecast' ? 'ACK — Forecast' : 'ACK — Estados Excluidos'}
+              {activeView === 'reporte' ? 'ACK — Reporte Nokia' : activeView === 'forecast' ? 'ACK — Forecast' : activeView === 'glosario' ? 'ACK — Glosario' : 'ACK — Estados Excluidos'}
             </h1>
-            {activeView === 'reporte' && filtroBadge && (
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: filtroBadge.bg, color: filtroBadge.color }}>
-                {filtroBadge.text}
-              </span>
-            )}
             {proyectoSel.length > 0 && (
               <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: '#dbeafe', color: '#1e40af', whiteSpace: 'nowrap' }}>
                 🔖 {proyectoSel.length === 1 ? proyectoSel[0] : `${proyectoSel.length} proyectos`}
@@ -1096,9 +1063,34 @@ export default function AckForecast() {
         </div>
         {activeView === 'reporte' && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="fc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ fontSize: 11, fontWeight: 600, width: 'auto' }}>
-              {FILTRO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <button onClick={() => setActiveView(activeView === 'seguimiento' ? 'reporte' : 'seguimiento')}
+              style={{
+                padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: 8, cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+                background: activeView === 'seguimiento' ? '#7c3aed' : '#f3f4f6',
+                color:      activeView === 'seguimiento' ? '#fff'    : '#1a3a5c',
+              }}
+              title="Ver los estados excluidos del reporte y forecast ACK"
+            >
+              <SquaresExclude size={13} color={activeView === 'seguimiento' ? '#fff' : '#dc2626'} /> Estados Excluidos
+              {totalOcultos > 0 && (
+                <span style={{
+                  background: '#f59e0b',
+                  color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 8, fontWeight: 800,
+                }}>
+                  {totalOcultos}
+                </span>
+              )}
+            </button>
+
+            {canUpload && (
+              <button onClick={() => setSetupOpen(true)}
+                style={{ padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, background: '#f3f4f6', color: '#1a3a5c', display: 'flex', alignItems: 'center', gap: 6 }}
+                title="Configurar estados visibles en el reporte y forecast ACK"
+              >
+                ⚙ Configurar
+              </button>
+            )}
 
             <button onClick={handleExcelExport} disabled={exporting}
               style={{ padding: '5px 12px', border: 'none', borderRadius: 8, cursor: exporting ? 'default' : 'pointer', fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, background: exporting ? '#4b5563' : '#1a6b3c', color: '#fff', letterSpacing: .5, display: 'flex', alignItems: 'center', gap: 5 }}
@@ -1107,7 +1099,7 @@ export default function AckForecast() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── KPI resumen (solo en reporte) ── */}
       {activeView === 'reporte' && (
@@ -1129,6 +1121,8 @@ export default function AckForecast() {
         </div>
       )}
 
+      {/* ── Contenido con scroll interno propio ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 16 }}>
       {/* ── Secciones por proceso o Forecast ── */}
       {activeView === 'reporte' && (
         REPORT_PROCESOS.map(p => (
@@ -1140,7 +1134,7 @@ export default function AckForecast() {
             currLabel={currFileLabel}
             prevLabel={prevLabel}
             forecasts={forecasts}
-            filtro={filtro}
+            filtro="pendientes"
             estadosOcultos={estadosOcultos}
             empresaNombre={empresaNombre}
             expanded={expanded.has(p.key)}
@@ -1163,7 +1157,10 @@ export default function AckForecast() {
         />
       )}
 
+      {activeView === 'glosario' && <AdminAckGlosario />}
+
       </div>
+      </div>{/* ── cierra flex column ── */}
 
       {/* ── Modal de configuración ── */}
       {setupOpen && (

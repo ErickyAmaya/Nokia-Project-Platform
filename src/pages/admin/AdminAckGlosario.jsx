@@ -76,6 +76,11 @@ export default function AdminAckGlosario() {
     return m
   }, [byArea, filtroArea])
 
+  const filteredCount = useMemo(
+    () => [...filteredByArea.values()].reduce((sum, arr) => sum + arr.length, 0),
+    [filteredByArea]
+  )
+
   async function cycleValue(row) {
     // Cicla: null → true → false → null
     const next = row.se_puede_liberar === null ? true
@@ -195,39 +200,31 @@ export default function AdminAckGlosario() {
 
   return (
     <>
-      <div className="dash-hdr mb14">
-        <div>
-          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: 0 }}>
-            Glosario ACK
-            <span style={{ marginLeft: 10, background: '#f3f4f6', color: '#6b7280', borderRadius: 8, fontSize: 13, fontWeight: 600, padding: '2px 10px' }}>{rows.length} estados</span>
-          </h1>
-          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 2 }}>
-            Configura qué estados permiten la liberación en "Por Facturar". Clic en el badge para cambiar.
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select
-            className="fc"
-            value={filtroArea}
-            onChange={e => setFiltroArea(e.target.value)}
-            style={{ fontSize: 11 }}
-          >
-            <option value="todos">Todas las áreas</option>
-            {areas.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-      </div>
+      {/* ── Header sticky ── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 2, background: '#fbf9ff', paddingBottom: 10 }}>
 
-      {/* ── Leyenda ── */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>Se puede liberar:</span>
-        <span style={{ background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 5, fontSize: 10, fontWeight: 700, padding: '2px 9px' }}>SI</span>
-        <span style={{ fontSize: 10, color: '#6b7280' }}>Permite liberación</span>
-        <span style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 5, fontSize: 10, fontWeight: 700, padding: '2px 9px' }}>NO</span>
-        <span style={{ fontSize: 10, color: '#6b7280' }}>Bloquea liberación</span>
-        <span style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 5, fontSize: 10, fontWeight: 700, padding: '2px 9px' }}>—</span>
-        <span style={{ fontSize: 10, color: '#6b7280' }}>No aplica / Sin definir</span>
+      {/* ── Fila 1: título ── */}
+      <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>
+        Glosario ACK
+        <span style={{ marginLeft: 10, background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '2px 10px', verticalAlign: 'middle' }}>{filteredCount} estados</span>
+      </h1>
+
+      {/* ── Fila 2: subtítulo + filtro ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 11, color: '#4b5563', flex: 1 }}>
+          Configura qué estados permiten la liberación en "Por Facturar". Clic en el badge para cambiar.
+        </span>
+        <select
+          className="fc"
+          value={filtroArea}
+          onChange={e => setFiltroArea(e.target.value)}
+          style={{ fontSize: 11, width: 'auto', flexShrink: 0 }}
+        >
+          <option value="todos">Todas las áreas</option>
+          {areas.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
       </div>
+      </div>{/* ── cierra header sticky ── */}
 
       {/* ── Tabla por área ── */}
       {[...filteredByArea.entries()].map(([area, areaRows]) => {
