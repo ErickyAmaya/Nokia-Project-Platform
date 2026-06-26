@@ -359,7 +359,7 @@ export default function FactFacturado() {
       {rows.length === 0 ? (
         <EmptyState icon="🔍" title="Sin facturas" subtitle="No hay resultados con los filtros actuales." />
       ) : (
-        <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
+        <div className="card" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 860 }}>
             <thead>
               <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>

@@ -725,7 +725,7 @@ export default function FactPorFacturar() {
           ✓ No hay SPOs facturables pendientes
         </div>
       ) : (
-        <div className="card" style={{ overflow: 'auto', maxHeight: '55vh', marginBottom: 16 }}>
+        <div className="card" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)', marginBottom: 16 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 760 }}>
             <thead>
               <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>

@@ -626,7 +626,7 @@ export default function FactPOs() {
           {pos.length === 0 ? 'Sube los PDFs de PO para registrar los valores.' : 'Sin resultados.'}
         </div>
       ) : (
-        <div className="card" style={{ overflow: 'auto', maxHeight: compact ? 'calc(100vh - 210px)' : '65vh' }}>
+        <div className="card" style={{ overflow: 'auto', maxHeight: compact ? 'calc(100vh - 210px)' : 'calc(100vh - 200px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>

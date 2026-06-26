@@ -112,7 +112,7 @@ export default function FactSMPs() {
         </div>
       </div>
 
-      <div className="card" style={{ overflow: 'auto', maxHeight: '65vh' }}>
+      <div className="card" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 900 }}>
           <thead>
             <tr style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d' }}>
