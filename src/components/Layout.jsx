@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
+import { ClipboardList, Boxes, RadioTower, Receipt, ScanSearch } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -149,6 +149,7 @@ export default function Layout({ children }) {
   }
 
   const inHome        = location.pathname === '/modulos' || location.pathname === '/'
+  const inTools       = location.pathname.startsWith('/tools')
   const inMateriales  = location.pathname.startsWith('/materiales')
   const inSitios      = location.pathname === '/materiales/sitios' || location.pathname === '/materiales/hw/log-inversa'
   const inDespachos   = location.pathname === '/materiales/hw/despachos-pendientes'
@@ -205,13 +206,15 @@ export default function Layout({ children }) {
     ? []
     : inAdmin
       ? ADMIN_PANEL_NAV.filter(canSee)
-      : inMateriales
-        ? (inDespachos ? [] : inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
-        : inRollout
-          ? ROLLOUT_NAV.filter(canSee)
-          : inFacturacion
-            ? FACT_NAV.filter(canSee)
-            : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
+      : inTools
+        ? []
+        : inMateriales
+          ? (inDespachos ? [] : inSitios ? SITIOS_NAV.filter(canSee) : inHw ? HW_NAV.filter(canSee) : MAT_NAV.filter(canSee))
+          : inRollout
+            ? ROLLOUT_NAV.filter(canSee)
+            : inFacturacion
+              ? FACT_NAV.filter(canSee)
+              : [...ALL_NAV.filter(canSee), ...ADMIN_NAV.filter(canSee)]
 
   const canSwitchModule = !!user
   const badge = BADGE[role] || BADGE.viewer
@@ -251,7 +254,9 @@ export default function Layout({ children }) {
 
   const headerTitle = inAdmin
     ? 'Panel Admin'
-    : inDespachos
+    : inTools
+      ? 'Tools'
+      : inDespachos
       ? 'Pend. Despacho'
       : inSitios
         ? 'Sitios'
@@ -267,43 +272,51 @@ export default function Layout({ children }) {
               ? 'Project Modules'
               : 'Liquidador de Actividades'
 
-  const HeaderIcon = inRollout
-    ? RadioTower
-    : inFacturacion
-      ? Receipt
-      : inMateriales
-        ? Boxes
-        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
-          ? ClipboardList
-          : null
-
-  const moduleColor = inRollout
-    ? '#7c3aed'
-    : inFacturacion
-      ? '#b45309'
-      : inMateriales
-        ? '#1d4ed8'
-        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
-          ? '#144E4A'
-          : '#555f55'
-
-  const pageBg = inMateriales
-    ? '#f9fcff'
+  const HeaderIcon = inTools
+    ? ScanSearch
     : inRollout
-      ? '#fbf9ff'
+      ? RadioTower
       : inFacturacion
-        ? '#fffefb'
-        : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
-          ? '#f9fefb'
-          : '#f0f2f0'
+        ? Receipt
+        : inMateriales
+          ? Boxes
+          : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+            ? ClipboardList
+            : null
 
-  const moduleClass = inMateriales
-    ? 'mod-mat'
+  const moduleColor = inTools
+    ? '#0369a1'
     : inRollout
-      ? 'mod-rollout'
+      ? '#7c3aed'
       : inFacturacion
-        ? 'mod-fact'
-        : 'mod-liq'
+        ? '#b45309'
+        : inMateriales
+          ? '#1d4ed8'
+          : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+            ? '#144E4A'
+            : '#555f55'
+
+  const pageBg = inTools
+    ? '#f0f7ff'
+    : inMateriales
+      ? '#f9fcff'
+      : inRollout
+        ? '#fbf9ff'
+        : inFacturacion
+          ? '#fffefb'
+          : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
+            ? '#f9fefb'
+            : '#f0f2f0'
+
+  const moduleClass = inTools
+    ? 'mod-tools'
+    : inMateriales
+      ? 'mod-mat'
+      : inRollout
+        ? 'mod-rollout'
+        : inFacturacion
+          ? 'mod-fact'
+          : 'mod-liq'
 
   return (
     <div style={{ minHeight: '100svh', background: pageBg, transition: 'background .3s' }}>

@@ -59,6 +59,9 @@ const FactSMPs        = lazy(() => import('./pages/facturacion/FactSMPs'))
 const FactPagosSubc   = lazy(() => import('./pages/facturacion/FactPagosSubc'))
 const FactScytel      = lazy(() => import('./pages/facturacion/FactScytel'))
 
+// TSQA — lazy-load (xlsx parser inside)
+const TsqaPage = lazy(() => import('./pages/tsqa/TsqaPage'))
+
 // Other heavy pages: lazy-load so xlsx + recharts don't block initial bundle
 const CWPage        = lazy(() => import('./pages/CWPage'))
 const AnaliticaPage = lazy(() => import('./pages/AnaliticaPage'))
@@ -202,6 +205,12 @@ function AppRoutes() {
 
       <Route path="/tss" element={
         <ProtectedRoute allowedRoles={R_TSS}><Layout><ConsolidadoTSS /></Layout></ProtectedRoute>
+      } />
+
+      <Route path="/tools" element={
+        <ProtectedRoute allowedRoles={['admin']}>
+          {W(<TsqaPage />)}
+        </ProtectedRoute>
       } />
 
       <Route path="/cw" element={

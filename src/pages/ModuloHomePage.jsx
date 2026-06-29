@@ -1,17 +1,19 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ClipboardList, Boxes, RadioTower, Receipt } from 'lucide-react'
+import { ClipboardList, Boxes, RadioTower, Receipt, ScanSearch } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
 import { useMatStore }  from '../store/useMatStore'
 import { useAckStore }  from '../store/useAckStore'
 import { useFactStore, buildInvoicesMap, getEventosRow } from '../store/useFactStore'
+import { useTsqaStore } from '../store/useTsqaStore'
 
 const MODULE_ACCESS = {
   billing:     ['admin', 'coordinador', 'viewer', 'TI', 'TSS', 'CW'],
   materiales:  ['admin', 'coordinador', 'logistica', 'viewer'],
   rollout:     ['admin', 'coordinador', 'viewer', 'rollout'],
   facturacion: ['admin', 'coordinador', 'facturacion', 'viewer'],
+  tools:       ['admin'],
 }
 
 const MODULOS = [
@@ -51,6 +53,19 @@ const MODULOS = [
     color:       '#b45309',
     ruta:        '/facturacion',
   },
+  {
+    id:          'tools',
+    nombre:      'Tools',
+    corto:       'Tools',
+    descripcion: 'Herramientas de análisis y auditoría para uso interno.',
+    Icon:        ScanSearch,
+    color:       '#0369a1',
+    ruta:        '/tools',
+  },
+]
+
+const TOOLS_REGISTRY = [
+  { key: 'tsqa', label: 'TSQA', desc: 'Análisis de archivos TSS Nokia AirScale' },
 ]
 
 export default function ModuloHomePage() {
@@ -69,6 +84,11 @@ export default function ModuloHomePage() {
   const ackProyectoSel = useAckStore(s => s.proyectoSel)
   const factPPA        = useFactStore(s => s.ppa)
   const factInvoices   = useFactStore(s => s.invoices)
+  const tsqaAudits     = useTsqaStore(s => s.audits)
+  const tsqaLoaded     = useTsqaStore(s => s.loaded)
+  const loadTsqa       = useTsqaStore(s => s.loadAudits)
+
+  useEffect(() => { if (user?.role === 'admin' && !tsqaLoaded) loadTsqa() }, [user, tsqaLoaded])
 
   const matLoaded  = matCatalogo.length > 0
   const ackLoaded  = ackSabana.length > 0 || ackUploads.length > 0
@@ -158,6 +178,7 @@ export default function ModuloHomePage() {
       { val: m(factLoaded, liveMetrics.factPorFact,    'factPorFact'),    label: 'Por facturar' },
       { val: m(factLoaded, liveMetrics.factFacturado,  'factFacturado'),  label: 'Facturado'   },
     ]
+    if (id === 'tools') return []
     return []
   }
 
@@ -345,6 +366,28 @@ export default function ModuloHomePage() {
                         {ackProyectoSel.length === 1 ? ackProyectoSel[0] : `${ackProyectoSel.length} proyectos`}
                       </div>
                     )}
+                    {m.id === 'tools' ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {TOOLS_REGISTRY.map(t => {
+                          const count = t.key === 'tsqa' ? tsqaAudits.length : 0
+                          return (
+                            <div key={t.label} style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              background: `${m.color}10`, border: `1px solid ${m.color}30`,
+                              borderRadius: 8, padding: '5px 10px',
+                            }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: m.color }}>{t.label}</span>
+                              {tsqaLoaded && (
+                                <span style={{ fontSize: 10, color: '#71717a' }}>
+                                  {count === 0 ? 'sin sitios' : `${count} ${count === 1 ? 'sitio' : 'sitios'}`}
+                                </span>
+                              )}
+                              {!tsqaLoaded && <span style={{ fontSize: 10, color: '#9ca3af' }}>…</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
                     <div style={{ display: 'flex' }}>
                       {metrics.map((met, i) => (
                         <div key={i} style={{
@@ -363,6 +406,7 @@ export default function ModuloHomePage() {
                         </div>
                       ))}
                     </div>
+                    )}
                   </>
                 ) : (
                   <div style={{ fontSize: 11, color: '#a1a1aa', fontStyle: 'italic', textAlign: 'center', padding: '4px 0' }}>

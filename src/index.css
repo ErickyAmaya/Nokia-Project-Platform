@@ -195,6 +195,8 @@ input[type=date].fc   { -webkit-appearance: none; appearance: none; height: 34px
 .mod-fact    table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #d97706; }
 .mod-liq     table tbody tr:hover td { background: #f2fbf4 !important; }
 .mod-liq     table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+.mod-tools   table tbody tr:hover td { background: #eff6ff !important; }
+.mod-tools   table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #0369a1; }
 
 /* ── Countdown ping (banner periodo facturación) ─────────────── */
 @keyframes periodPing {
