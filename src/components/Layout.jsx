@@ -256,15 +256,9 @@ export default function Layout({ children }) {
     ? 'Panel Admin'
     : inTools
       ? 'Tools'
-      : inDespachos
-      ? 'Pend. Despacho'
-      : inSitios
-        ? 'Sitios'
-        : inHw
-          ? 'HW Nokia'
-          : inMateriales
-          ? 'Logística · WMS'
-          : inRollout
+      : inMateriales
+      ? 'Logística · WMS'
+      : inRollout
           ? 'Seguimiento Rollout'
           : inFacturacion
             ? 'Facturación'

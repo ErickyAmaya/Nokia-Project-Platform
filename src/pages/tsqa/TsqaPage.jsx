@@ -549,10 +549,10 @@ function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
             <tr>
-              <th style={{ ...TH_P, textAlign: 'center', width: 64 }}>Cant. TSQA</th>
+              <th style={{ ...TH_P, textAlign: 'center', width: 64 }}>Cant. TSS</th>
               <th style={{ ...TH_P, textAlign: 'center', width: 64 }}>Cant. HW</th>
-              <th style={{ ...TH_P, textAlign: 'left' }}>Modelos TSQA</th>
-              <th style={{ ...TH_P, textAlign: 'left' }}>Modelos HW Asignado</th>
+              <th style={{ ...TH_P, textAlign: 'left' }}>Modelos en TSS</th>
+              <th style={{ ...TH_P, textAlign: 'left' }}>Modelo HW Asignado</th>
               <th style={{ ...TH_P, textAlign: 'center', width: 100 }}>Estado</th>
             </tr>
           </thead>
@@ -606,7 +606,7 @@ function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = 
   const sectionStatus = hwSectionTotal === 0
     ? { label: '✗ Sin HW asignado', bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }
     : !totalsMatch
-      ? { label: `⚠ Cant. total difiere (TSQA: ${tsqaSectionTotal} / HW: ${hwSectionTotal})`, bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }
+      ? { label: `⚠ Cant. total difiere (TSS: ${tsqaSectionTotal} / HW: ${hwSectionTotal})`, bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }
       : allModelsMatch
         ? { label: `✓ Cantidad y modelos correctos (${tsqaSectionTotal} uds.)`, bg: '#f0fdf4', border: '#86efac', color: '#16a34a' }
         : { label: `✓ Cantidad correcta (${tsqaSectionTotal} uds.) · ⚠ Verificar modelos`, bg: '#fffbeb', border: '#fcd34d', color: '#b45309' }
@@ -625,9 +625,9 @@ function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
         <thead>
           <tr>
-            <th style={{ ...TH_S, textAlign: 'center', width: 64 }}>Cant. TSQA</th>
+            <th style={{ ...TH_S, textAlign: 'center', width: 64 }}>Cant. TSS</th>
             <th style={{ ...TH_S, textAlign: 'center', width: 64 }}>Cant. HW</th>
-            <th style={{ ...TH_S, textAlign: 'left' }}>Modelo TSQA</th>
+            <th style={{ ...TH_S, textAlign: 'left' }}>Modelo en TSS</th>
             <th style={{ ...TH_S, textAlign: 'left' }}>Modelo HW Asignado</th>
             <th style={{ ...TH_S, textAlign: 'center', width: 100, whiteSpace: 'nowrap' }}>Estado</th>
           </tr>
