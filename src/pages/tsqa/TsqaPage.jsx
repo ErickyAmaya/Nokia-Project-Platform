@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { parseTssFile } from './tsqaParser'
 import { useTsqaStore }  from '../../store/useTsqaStore'
 import { useAuthStore }  from '../../store/authStore'
+import { useHwStore }    from '../../store/useHwStore'
 
 const BRAND = '#0369a1'
 
@@ -67,9 +68,103 @@ const COL_LABEL = {
   textTransform: 'uppercase', letterSpacing: .5, marginBottom: 5,
 }
 
+// ── HW Nokia comparison helpers ────────────────────────────────────
+function norm(str) {
+  return String(str || '').toUpperCase().replace(/[\s\-_.]/g, '')
+}
+
+// Nokia HW catalog description patterns:
+//   RF direct   "AHPCA AirScale Dual RRH …"          → 1st word = model code (exact)
+//   RF MODULO   "MODULO 475964A AHFIHA …"             → 3rd word = model code
+//   Antenna     "ANTENA RR3VV-6520D-R5 …"             → 2nd word = model code
+//   Antenna*    "ANTENA DUALBEAM AMB4519R6V06 HUAW"   → 2nd word is descriptor; 3rd word = model code
+//   FPFH unit   "MODULO CS7136001 FPFH …"             → handled by pooled/isFpfhUnit
+function hwWords(hwDesc) {
+  return hwDesc.toUpperCase()
+    .split(/\s+/)
+    .map(w => w.replace(/[^A-Z0-9]/g, ''))
+    .filter(w => w.length > 0)
+}
+function hwContains(hwDesc, tsqaModel) {
+  const t = norm(tsqaModel)
+  if (t.length <= 3) return false
+  const words = hwWords(hwDesc)
+  if (!words.length) return false
+  const first = norm(words[0])
+
+  // ANTENA: normally 2nd word is the model code.
+  // Exception: "ANTENA DUALBEAM AMB4519R6V06 …" — 2nd word is a descriptor, 3rd is the code.
+  // So we check both 2nd and 3rd words.
+  if (first === 'ANTENA') {
+    const w2 = norm(words[1] || '')
+    const w3 = norm(words[2] || '')
+    return w2 === t || w2.startsWith(t) || t.startsWith(w2)
+        || w3 === t || w3.startsWith(t) || t.startsWith(w3)
+  }
+
+  // MODULO: 3rd word is the model code (2nd word is material number)
+  if (first === 'MODULO') {
+    return words.slice(2).map(norm).includes(t)
+  }
+
+  // Direct code first (AHPCA, AHPC, AQQA…): 1st word must match exactly
+  // — prevents "AHPC" from matching "AHPCA" or vice-versa
+  return first === t
+}
+
 function SiteDetail({ site }) {
   const [expandedWorks, setExpandedWorks] = useState({})
   const toggleWork = i => setExpandedWorks(p => ({ ...p, [i]: !p[i] }))
+
+  const hwEquipos    = useHwStore(s => s.hwEquipos)
+  const hwMovimientos = useHwStore(s => s.hwMovimientos)
+  const hwCatalogo   = useHwStore(s => s.hwCatalogo)
+  const loadHw       = useHwStore(s => s.loadAll)
+  const hwLoaded     = useHwStore(s => s.hwCatalogo.length > 0)
+
+  // Build HW inventory for this site: { descripcion → cantidad }
+  const hwSitio = useMemo(() => {
+    if (!hwLoaded) return null
+    const sNombre = site.siteName.toLowerCase()
+    const byCat = {}
+
+    // With serial
+    hwEquipos
+      .filter(e => e.ubicacion_actual?.toLowerCase() === sNombre)
+      .forEach(e => {
+        const cat = hwCatalogo.find(c => c.id === e.catalogo_id)
+        if (!cat) return
+        byCat[cat.descripcion] = (byCat[cat.descripcion] || 0) + 1
+      })
+
+    // Without serial (SALIDA movements, excludes pending)
+    hwMovimientos
+      .filter(m => m.tipo === 'SALIDA' && !m.serial && m.tipo_fuente !== 'PENDIENTE' && m.destino?.toLowerCase() === sNombre)
+      .forEach(m => {
+        const cat = hwCatalogo.find(c => c.id === m.catalogo_id)
+        if (!cat) return
+        byCat[cat.descripcion] = (byCat[cat.descripcion] || 0) + (m.cantidad || 1)
+      })
+
+    return byCat // { "PFAE 476348A IPA++": 2, ... }
+  }, [hwLoaded, hwEquipos, hwMovimientos, hwCatalogo, site.siteName])
+
+  // Match a TSQA model against HW inventory — return total qty found
+  function hwQty(tsqaModel) {
+    if (!hwSitio) return null
+    return Object.entries(hwSitio)
+      .filter(([desc]) => hwContains(desc, tsqaModel))
+      .reduce((sum, [, qty]) => sum + qty, 0)
+  }
+
+  // Build comparison rows for a TSQA list
+  function buildRows(tsqaItems) {
+    return tsqaItems.map(({ model, count }) => {
+      const hw = hwQty(model)
+      const match = hw === null ? null : hw === count
+      return { model, tsqa: count, hw, match }
+    })
+  }
 
   function RfGroup({ label, items, total, color }) {
     return (
@@ -306,9 +401,284 @@ function SiteDetail({ site }) {
             </div>
           </div>
 
+        {/* ══ AUDIT - HW NOKIA ══════════════════════════════════════ */}
+        <div style={{ ...SEC_WRAP, marginBottom: 0 }}>
+          <div style={SEC_HEAD}>
+            <span style={{ ...SEC_LABEL, background: '#7c3aed' }}>AUDIT - HW NOKIA</span>
+            <span style={{ fontSize: 11, color: '#6b7280' }}>Verificación vs inventario Logística</span>
+            {!hwLoaded && (
+              <button
+                onClick={() => loadHw()}
+                style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+              >Cargar HW</button>
+            )}
+          </div>
+
+          {!hwLoaded ? (
+            <div style={{ ...SEC_BODY, fontSize: 11, color: '#9ca3af' }}>
+              Haz clic en "Cargar HW" para cruzar con el inventario de Logística.
+            </div>
+          ) : (
+            <div style={{ ...SEC_BODY, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Antenas */}
+              {site.ant.instalar.length > 0 && (
+                <div>
+                  <div style={COL_LABEL}>Antenas a instalar</div>
+                  <HwCompareTable
+                    rows={buildRows(site.ant.instalar)}
+                    hwSitio={hwSitio}
+                    sectionLabel="antena"
+                    cetCount={site.cargaTorre?.antTotal ?? null}
+                  />
+                </div>
+              )}
+
+              {/* RF */}
+              {site.rf.instalar.length > 0 && (
+                <div>
+                  <div style={COL_LABEL}>RF modules a instalar</div>
+                  <HwCompareTable
+                    rows={buildRows(site.rf.instalar)}
+                    hwSitio={hwSitio}
+                    sectionLabel="RF module"
+                    cetCount={site.cargaTorre?.rfTotal ?? null}
+                  />
+                </div>
+              )}
+
+              {/* FPFH — totales agregados, modelo no importa */}
+              {site.energia?.fpfhInstalar?.length > 0 && (
+                <div>
+                  <div style={COL_LABEL}>FPFH a instalar</div>
+                  <HwCompareTable rows={buildRows(site.energia.fpfhInstalar.map(m => ({ model: m, count: 1 })))} hwSitio={hwSitio} sectionLabel="FPFH" pooled />
+                </div>
+              )}
+
+              {/* Sin HW registrado */}
+              {hwSitio && Object.keys(hwSitio).length === 0 && (
+                <div style={{ fontSize: 11, color: '#9ca3af' }}>No se encontró HW asignado a este sitio en Logística.</div>
+              )}
+            </div>
+          )}
+        </div>
+
         </div>
       </td>
     </tr>
+  )
+}
+
+// Extract significant tokens from a model name (len > 3, no common words)
+function modelTokens(model) {
+  return String(model).toUpperCase().split(/[\s\-_.+]+/)
+    .map(t => t.replace(/[^A-Z0-9]/g, ''))
+    .filter(t => t.length > 3)
+}
+
+// Accessories/cables: never count as RF/antenna/FPFH units
+const ACCESSORY_WORDS = ['CABLE', 'CONVERSOR', 'JUMPER', 'CONECTOR', 'ADAPTADOR', 'PIGTAIL', 'HDMI', 'BRACKET', 'GNSS', 'GPS']
+const isAccessory = desc => ACCESSORY_WORDS.some(w => norm(desc).includes(w))
+
+// Exact RF module catalog — only these 6 model codes qualify as RF modules
+const RF_MODEL_CODES = ['AHCA', 'AHFIHA', 'AHPCB', 'AQQA', 'AHPC', 'AHPCA']
+const isRfModuleHw = desc => RF_MODEL_CODES.some(code => hwContains(desc, code))
+
+// Exact antenna catalog — 2nd word of each "ANTENA <code> ..." HW description
+const ANTENNA_MODEL_CODES = [
+  '2VV-33B-R4-V6', '476348A', '4P-4L-C2', '84510992',
+  'ADU4516R6V06', 'APXVBB20B_43-C-I20', 'APXVLLLL15B_43-C-I20',
+  'ASI4517R3V06', 'ASI4517R3V18', 'AMB4519R6V06',
+  'JAHH-33C-R3B', 'RR3VV-6520D-R5', 'RRV4-65D-R6',
+  'RRVV-33B-R2', 'RRVV-65A-R4VB', 'RRVV-65B-R2VB',
+]
+const isAntennaHw = desc => ANTENNA_MODEL_CODES.some(code => hwContains(desc, code))
+
+function CetBadge({ cetCount, tsqaTotal }) {
+  if (cetCount == null) return null
+  const ok = cetCount === tsqaTotal
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      marginTop: 4, padding: '2px 8px',
+      background: ok ? '#f0fdf4' : '#fffbeb',
+      border: `1px solid ${ok ? '#86efac' : '#fcd34d'}`,
+      borderRadius: 4, fontSize: 10, fontWeight: 600,
+      color: ok ? '#16a34a' : '#b45309',
+    }}>
+      {ok
+        ? `✓ CARGA EN TORRE confirma ${cetCount} uds.`
+        : `⚠ CARGA EN TORRE: ${cetCount} uds. · DATOS RF: ${tsqaTotal} uds.`}
+    </div>
+  )
+}
+
+function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = false, cetCount = null }) {
+  const sectionTokens = [...new Set(rows.flatMap(r => modelTokens(r.model)))]
+
+  const isFpfhUnit = desc => { const d = norm(desc); return d.includes('FPFH') && d.includes('MODULO') }
+
+  // Type-specific fallback: antenas → must start with ANTENA
+  //                         RF module → must match one of the 6 catalog model codes exactly
+  const sectionHwTypeMatch = desc => {
+    if (sectionLabel === 'antena') return isAntennaHw(desc)
+    if (sectionLabel === 'RF module') return isRfModuleHw(desc)
+    return false
+  }
+
+  // Same-type HW at site (accessories always excluded)
+  const sectionHwAll = Object.entries(hwSitio).filter(([desc]) => {
+    if (isAccessory(desc)) return false
+    if (pooled) return isFpfhUnit(desc)
+    const d = norm(desc)
+    return rows.some(r => hwContains(desc, r.model))
+      || sectionTokens.some(t => d.includes(t))
+      || sectionHwTypeMatch(desc)
+  })
+
+  // ── Pooled mode (FPFH): one aggregated row, qty only, model irrelevant ──
+  if (pooled) {
+    const tsqaTotal = rows.reduce((s, r) => s + r.tsqa, 0)
+    const hwTotal   = sectionHwAll.reduce((s, [, q]) => s + q, 0)
+    const ok        = tsqaTotal === hwTotal
+    const rowBg     = hwTotal === 0 ? '#fff1f2' : ok ? '#f0fdf4' : '#fffbeb'
+    const TH_P = { padding: '5px 8px', background: '#f3f4f6', fontWeight: 700, fontSize: 10,
+      color: '#6b7280', letterSpacing: .4, textTransform: 'uppercase', border: '1px solid #e5e7eb', whiteSpace: 'nowrap' }
+    return (
+      <div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr>
+              <th style={{ ...TH_P, textAlign: 'center', width: 64 }}>Cant. TSQA</th>
+              <th style={{ ...TH_P, textAlign: 'center', width: 64 }}>Cant. HW</th>
+              <th style={{ ...TH_P, textAlign: 'left' }}>Modelos TSQA</th>
+              <th style={{ ...TH_P, textAlign: 'left' }}>Modelos HW Asignado</th>
+              <th style={{ ...TH_P, textAlign: 'center', width: 100 }}>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ background: rowBg }}>
+              <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', fontWeight: 700, color: '#0369a1' }}>{tsqaTotal}</td>
+              <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', fontWeight: 700, color: hwTotal > 0 ? '#16a34a' : '#9ca3af' }}>{hwTotal || '—'}</td>
+              <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', color: '#374151' }}>{rows.map(r => r.model).join(', ')}</td>
+              <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', color: hwTotal > 0 ? '#16a34a' : '#9ca3af', fontWeight: 600 }}>
+                {sectionHwAll.length > 0 ? sectionHwAll.map(([d, q]) => `${q}× ${d}`).join(' / ') : '—'}
+              </td>
+              <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                {hwTotal === 0
+                  ? <span style={{ color: '#dc2626', fontWeight: 700 }}>✗ Sin HW</span>
+                  : ok
+                    ? <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ OK</span>
+                    : <span style={{ color: '#d97706', fontWeight: 700 }}>⚠ Dif. cant.</span>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <CetBadge cetCount={cetCount} tsqaTotal={tsqaTotal} />
+      </div>
+    )
+  }
+
+  // ── Normal mode (Antenas / RF) ──────────────────────────────────────
+
+  const matchedDescs = new Set(
+    rows.flatMap(r => r.hw > 0
+      ? Object.keys(hwSitio).filter(desc => hwContains(desc, r.model))
+      : []
+    )
+  )
+  const altHw = sectionHwAll.filter(([desc]) => !matchedDescs.has(desc))
+
+  const enriched = rows.map(r => {
+    if (r.match !== false || r.hw > 0) return { ...r, altDescs: [] }
+    return { ...r, altDescs: altHw }
+  })
+
+  // ── Section totals (primary comparison) ──────────────────────────
+  const tsqaSectionTotal = rows.reduce((s, r) => s + r.tsqa, 0)
+  const hwSectionTotal   = sectionHwAll.reduce((s, [, q]) => s + q, 0)
+  const totalsMatch      = hwSectionTotal === tsqaSectionTotal
+  const hasModelDiff     = enriched.some(r => r.altDescs.length > 0 && r.hw === 0)
+  // Per-model: all rows have exact model match
+  const allModelsMatch   = enriched.every(r => r.match === true)
+
+  // Overall section status
+  const sectionStatus = hwSectionTotal === 0
+    ? { label: '✗ Sin HW asignado', bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }
+    : !totalsMatch
+      ? { label: `⚠ Cant. total difiere (TSQA: ${tsqaSectionTotal} / HW: ${hwSectionTotal})`, bg: '#fff1f2', border: '#fecaca', color: '#dc2626' }
+      : allModelsMatch
+        ? { label: `✓ Cantidad y modelos correctos (${tsqaSectionTotal} uds.)`, bg: '#f0fdf4', border: '#86efac', color: '#16a34a' }
+        : { label: `✓ Cantidad correcta (${tsqaSectionTotal} uds.) · ⚠ Verificar modelos`, bg: '#fffbeb', border: '#fcd34d', color: '#b45309' }
+
+  const TH_S = { padding: '5px 8px', background: '#f3f4f6', fontWeight: 700, fontSize: 10,
+    color: '#6b7280', letterSpacing: .4, textTransform: 'uppercase', border: '1px solid #e5e7eb', whiteSpace: 'nowrap' }
+
+  return (
+    <div>
+      {/* Primary: totals summary */}
+      <div style={{ padding: '6px 12px', marginBottom: 6, background: sectionStatus.bg, border: `1px solid ${sectionStatus.border}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: sectionStatus.color }}>
+        {sectionStatus.label}
+      </div>
+
+      {/* Secondary: per-model detail */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr>
+            <th style={{ ...TH_S, textAlign: 'center', width: 64 }}>Cant. TSQA</th>
+            <th style={{ ...TH_S, textAlign: 'center', width: 64 }}>Cant. HW</th>
+            <th style={{ ...TH_S, textAlign: 'left' }}>Modelo TSQA</th>
+            <th style={{ ...TH_S, textAlign: 'left' }}>Modelo HW Asignado</th>
+            <th style={{ ...TH_S, textAlign: 'center', width: 100, whiteSpace: 'nowrap' }}>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {enriched.map(({ model, tsqa, hw, match, altDescs }) => {
+            const altTotal = altDescs.reduce((s, [, q]) => s + q, 0)
+            const hwQtyShow = hw > 0 ? hw : altTotal > 0 ? altTotal : null
+
+            const hwModelCell = hw > 0
+              ? <span style={{ color: '#16a34a', fontWeight: 600 }}>{model}</span>
+              : altDescs.length > 0
+                ? <span style={{ color: '#92400e', fontWeight: 600 }}>{altDescs.map(([d]) => d).join(' / ')}</span>
+                : <span style={{ color: '#9ca3af' }}>—</span>
+
+            const statusCell = match === null
+              ? <span style={{ color: '#9ca3af' }}>—</span>
+              : match
+                ? <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ OK</span>
+                : altDescs.length > 0
+                  ? <span style={{ color: '#d97706', fontWeight: 700 }}>⚠ Dif. modelo</span>
+                  : hw > 0
+                    ? <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠ Dif. cant.</span>
+                    : <span style={{ color: '#dc2626', fontWeight: 700 }}>✗ Sin HW</span>
+
+            const rowBg = match === true ? '#f0fdf4'
+              : altDescs.length > 0 ? '#fffbeb'
+              : match === false ? '#fff1f2'
+              : '#fff'
+
+            return (
+              <tr key={model} style={{ background: rowBg }}>
+                <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', fontWeight: 700, color: '#0369a1' }}>{tsqa}</td>
+                <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', fontWeight: 700, color: hwQtyShow > 0 ? '#16a34a' : '#9ca3af' }}>
+                  {hwQtyShow ?? '—'}
+                </td>
+                <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', fontWeight: 600, color: '#111827' }}>{model}</td>
+                <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0' }}>{hwModelCell}</td>
+                <td style={{ padding: '6px 8px', border: '1px solid #f0f0f0', textAlign: 'center', whiteSpace: 'nowrap' }}>{statusCell}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {hasModelDiff && (
+        <div style={{ marginTop: 6, padding: '6px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 10, color: '#b45309', fontStyle: 'italic' }}>
+          ⚠ Por favor validar si el modelo de {sectionLabel} asignado fue autorizado, de lo contrario verificar y corregir antes de despachar a sitio.
+        </div>
+      )}
+      <CetBadge cetCount={cetCount} tsqaTotal={tsqaSectionTotal} />
+    </div>
   )
 }
 

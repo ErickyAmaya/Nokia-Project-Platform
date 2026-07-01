@@ -201,36 +201,70 @@ function FitBounds({ lcFilter, pins }) {
 }
 
 function SiteSearch({ options, onSelect }) {
-  const [query, setQuery] = useState('')
-  const [open,  setOpen]  = useState(false)
-  const ref               = useRef(null)
+  // Uncontrolled input: the browser manages the text natively so typing is
+  // always instant. React state only updates on the debounce interval (for
+  // the dropdown) and when transitioning between empty↔non-empty (for the ×).
+  const [filtered, setFiltered] = useState([])
+  const [open,     setOpen]     = useState(false)
+  const [hasText,  setHasText]  = useState(false)
+  const containerRef = useRef(null)
+  const inputRef     = useRef(null)
+  const timerRef     = useRef(null)
+  const prevHas      = useRef(false)
 
   useEffect(() => {
-    function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    function handler(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const filtered = useMemo(() =>
-    query.length < 1 ? options : options.filter(o => norm(o.site_name).includes(norm(query)))
-  , [options, query])
+  function handleChange(e) {
+    const val  = e.target.value
+    const has  = val.length > 0
+    // Only re-render for the × button when the empty↔non-empty boundary crosses
+    if (has !== prevHas.current) { prevHas.current = has; setHasText(has) }
+    if (!open) setOpen(true)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      setFiltered(val.length < 1
+        ? options
+        : options.filter(o => norm(o.site_name).includes(norm(val)))
+      )
+    }, 120)
+  }
 
-  function select(o) { setQuery(o.site_name); setOpen(false); onSelect(o) }
-  function clear()   { setQuery('');           setOpen(false); onSelect(null) }
+  function select(o) {
+    if (inputRef.current) inputRef.current.value = o.site_name
+    prevHas.current = true
+    setHasText(true)
+    setOpen(false)
+    onSelect(o)
+  }
+
+  function clear() {
+    if (inputRef.current) inputRef.current.value = ''
+    prevHas.current = false
+    setFiltered([])
+    setHasText(false)
+    setOpen(false)
+    onSelect(null)
+  }
 
   return (
-    <div ref={ref} style={{ position: 'relative', minWidth: 260 }}>
+    <div ref={containerRef} style={{ position: 'relative', minWidth: 260 }}>
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <input
+          ref={inputRef}
           className="fc"
           type="text"
           placeholder="🔍 Buscar sitio…"
-          value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true) }}
-          onFocus={() => setOpen(true)}
-          style={{ fontSize: 11, width: '100%', paddingRight: query ? 24 : 8 }}
+          onChange={handleChange}
+          onFocus={() => { setOpen(true); setFiltered(options) }}
+          style={{ fontSize: 11, width: '100%', paddingRight: hasText ? 24 : 8 }}
         />
-        {query && (
+        {hasText && (
           <span
             onMouseDown={e => { e.preventDefault(); clear() }}
             style={{ position: 'absolute', right: 8, cursor: 'pointer', color: '#6b7280', fontSize: 14 }}

@@ -39,6 +39,20 @@ export default function MatSitios() {
   const [expanded,      setExpanded]      = useState(null)
   const [togglingId,    setTogglingId]    = useState(null)
   const serialMatchRef = useRef(null)
+  const searchTimerRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  // Native listener: typing bypasses React's event system entirely
+  useEffect(() => {
+    const el = searchInputRef.current
+    if (!el) return
+    function onInput(e) {
+      clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = setTimeout(() => setSearch(e.target.value), 200)
+    }
+    el.addEventListener('input', onInput)
+    return () => el.removeEventListener('input', onInput)
+  }, [])
 
   useEffect(() => {
     if (!search) return
@@ -127,17 +141,37 @@ export default function MatSitios() {
     return data
   }, [sitios, movimientos, despachos, catalogo])
 
+  // Pre-index HW by site name so filtered is O(sites × hw_per_site) not O(sites × all_hw)
+  const hwBySite = useMemo(() => {
+    const map = {}
+    for (const e of hwEquipos) {
+      const key = e.ubicacion_actual?.toLowerCase()
+      if (!key) continue
+      if (!map[key]) map[key] = { equipos: [], movs: [] }
+      map[key].equipos.push(e)
+    }
+    for (const m of hwMovimientos) {
+      if (m.tipo !== 'SALIDA' || m.serial) continue
+      const key = m.destino?.toLowerCase()
+      if (!key) continue
+      if (!map[key]) map[key] = { equipos: [], movs: [] }
+      map[key].movs.push(m)
+    }
+    return map
+  }, [hwEquipos, hwMovimientos])
+
   const filtered = useMemo(() => sitios.filter(s => {
     const q = search.toLowerCase()
     if (filReg && s.regional !== filReg) return false
     if (!q) return true
     if (`${s.nombre} ${s.regional}`.toLowerCase().includes(q)) return true
     const sNombre = s.nombre.toLowerCase()
-    if (hwEquipos.some(e => e.ubicacion_actual?.toLowerCase() === sNombre && e.so?.toLowerCase().includes(q))) return true
-    if (hwEquipos.some(e => e.ubicacion_actual?.toLowerCase() === sNombre && e.serial?.toLowerCase().includes(q))) return true
-    if (hwMovimientos.some(m => m.tipo === 'SALIDA' && !m.serial && m.destino?.toLowerCase() === sNombre && m.so?.toLowerCase().includes(q))) return true
+    const hw = hwBySite[sNombre] || { equipos: [], movs: [] }
+    if (hw.equipos.some(e => e.so?.toLowerCase().includes(q))) return true
+    if (hw.equipos.some(e => e.serial?.toLowerCase().includes(q))) return true
+    if (hw.movs.some(m => m.so?.toLowerCase().includes(q))) return true
     return false
-  }), [sitios, search, filReg, hwEquipos, hwMovimientos])
+  }), [sitios, search, filReg, hwBySite])
 
   async function handleDelete(s) {
     const ok = await confirm('Eliminar Sitio', `¿Eliminar "${s.nombre}"?`)
@@ -185,8 +219,8 @@ export default function MatSitios() {
           })()}
 
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-            <input className="fc" placeholder="Buscar sitio…" value={search}
-              onChange={e => setSearch(e.target.value)} style={{ flex:1, minWidth:180 }} />
+            <input ref={searchInputRef} className="fc" placeholder="Buscar sitio…"
+              defaultValue={search} style={{ flex:1, minWidth:180 }} />
             <select className="fc" value={filReg} onChange={e => setFilReg(e.target.value)} style={{ maxWidth:200 }}>
               <option value="">Todas las regionales</option>
               {REGIONALES.map(r => <option key={r} value={r}>{r}</option>)}
@@ -219,7 +253,7 @@ export default function MatSitios() {
                 {filtered.map((s, i) => {
                   const rowKey = s.id ?? s.nombre ?? i
                   const sd     = sitioData[rowKey] || sitioData[s.nombre] || { movCount:0, despCount:0, valorTotal:0, materiales:[] }
-                  const isOpen = search ? true : expanded === rowKey
+                  const isOpen = expanded === rowKey
                   const hasMovs = sd.movCount > 0
 
                   return (

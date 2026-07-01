@@ -22,6 +22,54 @@ function groupByModel(modelMap) {
     .map(([model, count]) => ({ model, count }))
 }
 
+function parseCargaTorre(torre) {
+  if (!torre?.length) return null
+
+  // Find section-header rows by scanning all cells in each row
+  let antRow = -1, rfRow = -1
+  for (let r = 0; r < torre.length; r++) {
+    const txt = (torre[r] || []).slice(0, 30)
+      .map(c => String(c || '').toUpperCase()).join(' ')
+    if (antRow < 0 && txt.includes('ANTENAS A INSTALAR')) antRow = r
+    if (rfRow  < 0 && txt.includes('EQUIPOS A INSTALAR')) rfRow  = r
+    if (antRow >= 0 && rfRow >= 0) break
+  }
+  if (antRow < 0 && rfRow < 0) return null
+
+  // Col P = index 15. Scan [start, end) collecting quantities and models.
+  const extractSection = (start, end) => {
+    const items = []
+    for (let r = start; r < Math.min(end, torre.length); r++) {
+      const row  = torre[r] || []
+      const pVal = row[15]
+      if (pVal == null || pVal === '') continue
+      if (typeof pVal === 'number' && pVal > 0) {
+        // qty in col P — look for model description in surrounding cols
+        const model = [...row.slice(10, 15), ...row.slice(16, 22)]
+          .map(v => String(v || '').trim())
+          .find(v => v.length > 3 && !/^\d+$/.test(v)) || null
+        items.push({ count: Math.round(pVal), model })
+      } else if (typeof pVal === 'string' && pVal.trim().length > 1) {
+        items.push({ count: 1, model: pVal.trim() })
+      }
+    }
+    return items
+  }
+
+  const antEnd = rfRow > antRow && rfRow >= 0 ? rfRow : antRow + 30
+  const rfEnd  = rfRow >= 0 ? rfRow + 30 : 0
+
+  const antennas = antRow >= 0 ? extractSection(antRow, antEnd) : []
+  const rf       = rfRow  >= 0 ? extractSection(rfRow,  rfEnd)  : []
+
+  return {
+    antennas,
+    rf,
+    antTotal: antennas.reduce((s, i) => s + i.count, 0),
+    rfTotal:  rf.reduce((s, i) => s + i.count, 0),
+  }
+}
+
 function extractFpfh(rows) {
   const seen = new Set()
   const re = /FPFH[\w_-]*/gi
@@ -131,14 +179,16 @@ export function parseTssFile(buffer, filename) {
     return null
   }
 
-  const rfSheet  = wb.Sheets['DATOS RF']
-  const cwSheet  = wb.Sheets['SOLICITUD CW SOLUCION']
-  const powSheet = wb.Sheets['DATOS POWER']
+  const rfSheet    = wb.Sheets['DATOS RF']
+  const cwSheet    = wb.Sheets['SOLICITUD CW SOLUCION']
+  const powSheet   = wb.Sheets['DATOS POWER']
+  const torreSheet = wb.Sheets['CARGA EN TORRE']
   if (!rfSheet) return null
 
-  const rf  = XLSX.utils.sheet_to_json(rfSheet,  { header: 1, defval: null })
-  const cw  = cwSheet  ? XLSX.utils.sheet_to_json(cwSheet,  { header: 1, defval: null }) : []
-  const pow = powSheet ? XLSX.utils.sheet_to_json(powSheet, { header: 1, defval: null }) : []
+  const rf    = XLSX.utils.sheet_to_json(rfSheet,    { header: 1, defval: null })
+  const cw    = cwSheet    ? XLSX.utils.sheet_to_json(cwSheet,    { header: 1, defval: null }) : []
+  const pow   = powSheet   ? XLSX.utils.sheet_to_json(powSheet,   { header: 1, defval: null }) : []
+  const torre = torreSheet ? XLSX.utils.sheet_to_json(torreSheet, { header: 1, defval: null }) : []
 
   // SMP-WO from filename
   const smpMatch = filename.match(/SMP-WO-\d+/)
@@ -204,7 +254,8 @@ export function parseTssFile(buffer, filename) {
     }
   }
 
-  const fpfhModels = extractFpfh(rf)
+  const fpfhModels  = extractFpfh(rf)
+  const cargaTorre  = parseCargaTorre(torre)
 
   // ── CW header (SOLICITUD CW SOLUCION) ─────────────────────────────
   // F6:G8 merged → value at F6; AF6:AG8 merged → value at AF6
@@ -281,6 +332,7 @@ export function parseTssFile(buffer, filename) {
     specialAccess,
     accessObs,
     fpfhModels,
+    cargaTorre,
     cw:  { requerida: cwRequerida, enConjunto: cwEnConjunto, trabajos: cwTrabajo },
     energia,
     rf: {
