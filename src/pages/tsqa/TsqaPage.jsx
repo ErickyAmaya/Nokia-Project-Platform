@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { AudioLines, SatelliteDish, RadioTower, Wrench, HardHat, Zap, FolderDown } from 'lucide-react'
+import { AudioLines, SatelliteDish, RadioTower, Wrench, HardHat, Zap, FolderDown, ChevronDown, UserRoundCheck } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { parseTssFile } from './tsqaParser'
 import { useTsqaStore }  from '../../store/useTsqaStore'
@@ -117,6 +117,7 @@ function hwContains(hwDesc, tsqaModel) {
 function SiteDetail({ site }) {
   const [expandedWorks, setExpandedWorks] = useState({})
   const toggleWork = i => setExpandedWorks(p => ({ ...p, [i]: !p[i] }))
+  const [auditOpen, setAuditOpen] = useState(false)
 
   const hwEquipos    = useHwStore(s => s.hwEquipos)
   const hwMovimientos = useHwStore(s => s.hwMovimientos)
@@ -483,18 +484,28 @@ function SiteDetail({ site }) {
 
         {/* ══ AUDIT - HW NOKIA ══════════════════════════════════════ */}
         <div style={{ ...SEC_WRAP, marginBottom: 0 }}>
-          <div style={SEC_HEAD}>
-            <span style={SEC_LABEL}>AUDIT - HW NOKIA</span>
+          <div
+            style={{ ...SEC_HEAD, cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setAuditOpen(prev => !prev)}
+          >
+            <span style={{ ...SEC_LABEL, color: '#7c3aed' }}><UserRoundCheck size={13} />AUDIT - HW NOKIA</span>
             <span style={{ fontSize: 11, color: '#6b7280' }}>Verificación vs inventario Logística</span>
-            {!hwLoaded && (
-              <button
-                onClick={() => loadHw()}
-                style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
-              >Cargar HW</button>
-            )}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {!hwLoaded && (
+                <button
+                  onClick={e => { e.stopPropagation(); loadHw() }}
+                  style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+                >Cargar HW</button>
+              )}
+              <ChevronDown
+                size={16}
+                color="#9ca3af"
+                style={{ transform: auditOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}
+              />
+            </div>
           </div>
 
-          {!hwLoaded ? (
+          {auditOpen && (!hwLoaded ? (
             <div style={{ ...SEC_BODY, fontSize: 11, color: '#9ca3af' }}>
               Haz clic en "Cargar HW" para cruzar con el inventario de Logística.
             </div>
@@ -600,7 +611,7 @@ function SiteDetail({ site }) {
                 <div style={{ fontSize: 11, color: '#9ca3af' }}>No se encontró HW asignado a este sitio en Logística.</div>
               )}
             </div>
-          )}
+          ))}
         </div>
 
         </div>
@@ -806,7 +817,7 @@ export default function TsqaPage() {
   const { audits, loading: storeLoading, loaded, loadAudits, saveAudit, deleteAudit } = useTsqaStore()
   const userId = useAuthStore(s => s.user?.id)
 
-  const [expanded, setExpanded] = useState(null)
+  const [expanded,   setExpanded]  = useState(null)
   const [dragging, setDragging] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [errors,   setErrors]   = useState([])
