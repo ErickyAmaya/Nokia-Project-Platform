@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { AudioLines, SatelliteDish, RadioTower, Wrench, HardHat, Zap, FolderDown } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { parseTssFile } from './tsqaParser'
 import { useTsqaStore }  from '../../store/useTsqaStore'
@@ -51,8 +52,9 @@ function RfCounts({ data }) {
 
 // ── Detail panel ──────────────────────────────────────────────────
 const SEC_LABEL = {
-  fontSize: 10, fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase',
-  color: '#fff', padding: '3px 10px', borderRadius: 4, display: 'inline-block',
+  fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase',
+  color: '#475569', background: '#f1f5f9', border: '1px solid #e2e8f0',
+  padding: '3px 10px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 5,
 }
 const SEC_WRAP = {
   background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
@@ -166,19 +168,28 @@ function SiteDetail({ site }) {
     })
   }
 
+  // Merge CET items (primary) with DATOS RF items (fallback for missing models)
+  function mergeCetDatos(cetItems, datosItems) {
+    return cetItems.map(({ count, model }) => {
+      if (model) return { model, count }
+      const fallback = datosItems.find(d => d.count === count)
+      return { model: fallback?.model || '—', count }
+    })
+  }
+
   function RfGroup({ label, items, total, color }) {
     return (
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: 4 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color, marginBottom: total ? 4 : 0 }}>
           {label}
           <span style={{ marginLeft: 6, background: `${color}18`, color, borderRadius: 4, padding: '1px 6px', fontSize: 10 }}>{total}</span>
         </div>
-        {items.length > 0 ? items.map(({ model, count }) => (
-          <div key={model} style={{ fontSize: 11, color: '#4b5563', paddingLeft: 8, lineHeight: 1.9 }}>
+        {!!total && items.map(({ model, count }) => (
+          <div key={model} style={{ fontSize: 11, color: '#4b5563', paddingLeft: 8, lineHeight: 1.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <span style={{ color: '#111827', fontWeight: 600 }}>{model}</span>
             <span style={{ color: '#6b7280' }}> ×{count}</span>
           </div>
-        )) : <div style={{ fontSize: 11, color: '#6b7280', paddingLeft: 8 }}>—</div>}
+        ))}
       </div>
     )
   }
@@ -191,13 +202,13 @@ function SiteDetail({ site }) {
           {/* ══ SECCIÓN TI ══════════════════════════════════════════════ */}
           <div style={SEC_WRAP}>
             <div style={SEC_HEAD}>
-              <span style={{ ...SEC_LABEL, background: '#16a34a' }}>TI</span>
+              <span style={{ ...SEC_LABEL, color: '#1e40af' }}><Wrench size={13} />TI</span>
               <span style={{ fontSize: 10, color: '#6b7280' }}>Información técnica del sitio</span>
             </div>
-            <div style={{ ...SEC_BODY, display: 'grid', gridTemplateColumns: '1.3fr 0.8fr 1.1fr 1.1fr', gap: 16 }}>
+            <div style={{ ...SEC_BODY, display: 'grid', gridTemplateColumns: '1fr 0.6fr 1.5fr 1.5fr', gap: 12, alignItems: 'start' }}>
 
               {/* Info del sitio */}
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={COL_LABEL}>Sitio</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {site.address  && <div style={{ fontSize: 11, color: '#374151' }}>{site.address}</div>}
@@ -208,45 +219,107 @@ function SiteDetail({ site }) {
                     </div>
                   )}
                   {(site.specialAccess.length > 0 || site.accessObs) && (
-                    <div style={{ marginTop: 4 }}>
+                    <div style={{ marginTop: 8 }}>
                       <div style={{ ...COL_LABEL, marginBottom: 3 }}>Acceso especial</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: site.accessObs ? 3 : 0 }}>
                         {site.specialAccess.map(e => (
                           <span key={e} style={{ fontSize: 10, fontWeight: 600, background: '#faf5ff', color: '#7c3aed', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 6px' }}>{e}</span>
                         ))}
                       </div>
-                      {site.accessObs && <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.5 }}>{site.accessObs}</div>}
+                      {site.accessObs && <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.5, wordBreak: 'break-word' }}>{site.accessObs}</div>}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Torre */}
-              <div>
-                <div style={COL_LABEL}>Torre</div>
+              {/* Torre — card */}
+              <div style={{ minWidth: 0, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                  <div style={COL_LABEL}>Estructura</div>
+                  <RadioTower size={15} color="#92400e" />
+                </div>
                 {site.towerType   && <div style={{ fontSize: 12, color: '#111827', fontWeight: 600 }}>{site.towerType}</div>}
-                {site.towerHeight && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 3 }}>Altura: <strong>{site.towerHeight} m</strong></div>}
+                {site.towerHeight && <div style={{ fontSize: 11, color: '#92400e', marginTop: 3 }}>Altura: <strong>{site.towerHeight} m</strong></div>}
               </div>
 
-              {/* RF */}
-              <div>
-                <div style={COL_LABEL}>RF (RFS)</div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <RfGroup label="Instalar"  items={site.rf.instalar}  total={site.rf.totalInstalar}  color="#16a34a" />
-                  <RfGroup label="Reubicar"  items={site.rf.reubicar}  total={site.rf.totalReubicar}  color="#d97706" />
-                  <RfGroup label="Desmontar" items={site.rf.desmontar} total={site.rf.totalDesmontar} color="#dc2626" />
+              {/* RF — card */}
+              <div style={{ minWidth: 0, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={COL_LABEL}>RF (RFS)</div>
+                  <AudioLines size={15} color="#1d4ed8" />
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                  <RfGroup
+                    label="Instalar"
+                    items={site.cargaTorre?.rf?.length > 0 ? site.cargaTorre.rf : site.rf.instalar}
+                    total={site.cargaTorre?.rf?.length > 0 ? site.cargaTorre.rfTotal : site.rf.totalInstalar}
+                    color="#16a34a"
+                  />
+                  <RfGroup
+                    label="Reubicar"
+                    items={site.cargaTorre ? site.cargaTorre.rfReubicar  ?? [] : site.rf.reubicar}
+                    total={site.cargaTorre ? site.cargaTorre.rfReubTotal ?? 0  : site.rf.totalReubicar}
+                    color="#d97706"
+                  />
+                  <RfGroup
+                    label="Desmontar"
+                    items={site.cargaTorre?.rfDismount?.length > 0 ? site.cargaTorre.rfDismount : site.rf.desmontar}
+                    total={site.cargaTorre?.rfDismount?.length > 0 ? site.cargaTorre.rfDsmTotal : site.rf.totalDesmontar}
+                    color="#dc2626"
+                  />
                 </div>
               </div>
 
-              {/* Antenas */}
-              <div>
-                <div style={COL_LABEL}>Antenas</div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <RfGroup label="Instalar"  items={site.ant.instalar}  total={site.ant.totalInstalar}  color="#16a34a" />
-                  <RfGroup label="Reubicar"  items={site.ant.reubicar}  total={site.ant.totalReubicar}  color="#d97706" />
-                  <RfGroup label="Desmontar" items={site.ant.desmontar} total={site.ant.totalDesmontar} color="#dc2626" />
+              {/* Antenas — card */}
+              <div style={{ minWidth: 0, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={COL_LABEL}>Antenas</div>
+                  <SatelliteDish size={15} color="#166534" />
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                  <RfGroup
+                    label="Instalar"
+                    items={site.cargaTorre?.antennas?.length > 0 ? site.cargaTorre.antennas : site.ant.instalar}
+                    total={site.cargaTorre?.antennas?.length > 0 ? site.cargaTorre.antTotal : site.ant.totalInstalar}
+                    color="#16a34a"
+                  />
+                  <RfGroup
+                    label="Reubicar"
+                    items={site.cargaTorre ? site.cargaTorre.antReubicar  ?? [] : site.ant.reubicar}
+                    total={site.cargaTorre ? site.cargaTorre.antReubTotal ?? 0  : site.ant.totalReubicar}
+                    color="#d97706"
+                  />
+                  <RfGroup
+                    label="Desmontar"
+                    items={site.cargaTorre?.antDismount?.length > 0 ? site.cargaTorre.antDismount : site.ant.desmontar}
+                    total={site.cargaTorre?.antDismount?.length > 0 ? site.cargaTorre.antDsmTotal : site.ant.totalDesmontar}
+                    color="#dc2626"
+                  />
                 </div>
               </div>
+
+              {/* Configuración tecnológica — span full grid width */}
+              {site.comentariosGenerales?.length > 0 && (
+                <div style={{ gridColumn: '1 / -1', minWidth: 0 }}>
+                  <div style={COL_LABEL}>Configuración tecnológica</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {site.comentariosGenerales.map((entry, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', gap: 3, flexShrink: 0, flexWrap: 'nowrap' }}>
+                          {entry.techs.map(t => (
+                            <span key={t.label} style={{
+                              fontSize: 9, fontWeight: 700, color: '#fff',
+                              background: t.color, borderRadius: 3, padding: '2px 5px',
+                              whiteSpace: 'nowrap', letterSpacing: 0.3,
+                            }}>{t.label}</span>
+                          ))}
+                        </div>
+                        <span style={{ fontSize: 11, color: '#374151', lineHeight: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.config}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
@@ -255,7 +328,7 @@ function SiteDetail({ site }) {
           {(site.cw.requerida || site.cw.trabajos?.length > 0) && (
             <div style={SEC_WRAP}>
               <div style={SEC_HEAD}>
-                <span style={{ ...SEC_LABEL, background: BRAND }}>CW</span>
+                <span style={{ ...SEC_LABEL, color: '#166534' }}><HardHat size={13} />CW</span>
                 <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>
                   {site.cw.requerida === 'SI' ? 'Se Requiere CW' : site.cw.requerida === 'NO' ? 'No Requiere CW' : (site.cw.requerida || '—')}
                   {site.cw.enConjunto && (
@@ -308,33 +381,40 @@ function SiteDetail({ site }) {
           {/* ══ SECCIÓN ENERGÍA ════════════════════════════════════════ */}
           <div style={{ ...SEC_WRAP, marginBottom: 0 }}>
             <div style={SEC_HEAD}>
-              <span style={{ ...SEC_LABEL, background: '#d97706' }}>Energía</span>
+              <span style={{ ...SEC_LABEL, color: '#92400e' }}><Zap size={13} />Energía</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                {site.energia?.fpfhInstalar?.length > 0 && (
+                {(site.cargaTorre?.fpfh?.length > 0 || site.energia?.fpfhInstalar?.length > 0) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>FPFH a Instalar:</span>
-                    {site.energia.fpfhInstalar.map(m => (
-                      <span key={m} style={{
+                    {(site.cargaTorre?.fpfh?.length > 0
+                      ? site.cargaTorre.fpfh.map(i => ({ label: i.count > 1 ? `${i.model} ×${i.count}` : i.model, key: i.model }))
+                      : site.energia.fpfhInstalar.map(m => ({ label: m, key: m }))
+                    ).map(({ label, key }) => (
+                      <span key={key} style={{
                         fontSize: 10, fontWeight: 700,
                         background: '#dcfce7', color: '#166534', border: '1px solid #86efac',
                         borderRadius: 4, padding: '1px 8px',
-                      }}>{m}</span>
+                      }}>{label}</span>
                     ))}
                   </div>
                 )}
-                {site.energia?.fpfhReubicar?.length > 0 && (
+                {(site.cargaTorre?.fpfhReubicar?.length > 0 || site.energia?.fpfhReubicar?.length > 0) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>FPFH a Reubicar:</span>
-                    {site.energia.fpfhReubicar.map(m => (
-                      <span key={m} style={{
+                    {(site.cargaTorre?.fpfhReubicar?.length > 0
+                      ? site.cargaTorre.fpfhReubicar.map(i => ({ label: i.count > 1 ? `${i.model} ×${i.count}` : i.model, key: i.model }))
+                      : site.energia.fpfhReubicar.map(m => ({ label: m, key: m }))
+                    ).map(({ label, key }) => (
+                      <span key={key} style={{
                         fontSize: 10, fontWeight: 700,
                         background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047',
                         borderRadius: 4, padding: '1px 8px',
-                      }}>{m}</span>
+                      }}>{label}</span>
                     ))}
                   </div>
                 )}
-                {!site.energia?.fpfhInstalar?.length && !site.energia?.fpfhReubicar?.length && site.fpfhModels.length > 0 && (
+                {!site.cargaTorre?.fpfh?.length && !site.energia?.fpfhInstalar?.length &&
+                 !site.cargaTorre?.fpfhReubicar?.length && !site.energia?.fpfhReubicar?.length && site.fpfhModels.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {site.fpfhModels.map(m => (
                       <span key={m} style={{ fontSize: 10, fontWeight: 600, background: '#eff6ff', color: BRAND, border: `1px solid ${BRAND}44`, borderRadius: 4, padding: '1px 8px' }}>{m}</span>
@@ -404,7 +484,7 @@ function SiteDetail({ site }) {
         {/* ══ AUDIT - HW NOKIA ══════════════════════════════════════ */}
         <div style={{ ...SEC_WRAP, marginBottom: 0 }}>
           <div style={SEC_HEAD}>
-            <span style={{ ...SEC_LABEL, background: '#7c3aed' }}>AUDIT - HW NOKIA</span>
+            <span style={SEC_LABEL}>AUDIT - HW NOKIA</span>
             <span style={{ fontSize: 11, color: '#6b7280' }}>Verificación vs inventario Logística</span>
             {!hwLoaded && (
               <button
@@ -422,36 +502,96 @@ function SiteDetail({ site }) {
             <div style={{ ...SEC_BODY, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Antenas */}
-              {site.ant.instalar.length > 0 && (
+              {(site.cargaTorre?.antennas?.length > 0 || site.ant.instalar.length > 0) && (
                 <div>
                   <div style={COL_LABEL}>Antenas a instalar</div>
                   <HwCompareTable
-                    rows={buildRows(site.ant.instalar)}
+                    rows={buildRows(
+                      site.cargaTorre?.antennas?.length > 0
+                        ? mergeCetDatos(site.cargaTorre.antennas, site.ant.instalar)
+                        : site.ant.instalar
+                    )}
                     hwSitio={hwSitio}
                     sectionLabel="antena"
-                    cetCount={site.cargaTorre?.antTotal ?? null}
                   />
                 </div>
               )}
 
               {/* RF */}
-              {site.rf.instalar.length > 0 && (
+              {(site.cargaTorre?.rf?.length > 0 || site.rf.instalar.length > 0) && (
                 <div>
                   <div style={COL_LABEL}>RF modules a instalar</div>
                   <HwCompareTable
-                    rows={buildRows(site.rf.instalar)}
+                    rows={buildRows(
+                      site.cargaTorre?.rf?.length > 0
+                        ? mergeCetDatos(site.cargaTorre.rf, site.rf.instalar)
+                        : site.rf.instalar
+                    )}
                     hwSitio={hwSitio}
                     sectionLabel="RF module"
-                    cetCount={site.cargaTorre?.rfTotal ?? null}
                   />
                 </div>
               )}
 
-              {/* FPFH — totales agregados, modelo no importa */}
-              {site.energia?.fpfhInstalar?.length > 0 && (
+              {/* FPFH — CET como fuente primaria, DATOS POWER como respaldo */}
+              {(site.cargaTorre?.fpfh?.length > 0 || site.energia?.fpfhInstalar?.length > 0) && (
                 <div>
                   <div style={COL_LABEL}>FPFH a instalar</div>
-                  <HwCompareTable rows={buildRows(site.energia.fpfhInstalar.map(m => ({ model: m, count: 1 })))} hwSitio={hwSitio} sectionLabel="FPFH" pooled />
+                  <HwCompareTable
+                    rows={buildRows(
+                      site.cargaTorre?.fpfh?.length > 0
+                        ? mergeCetDatos(site.cargaTorre.fpfh, (site.energia?.fpfhInstalar || []).map(m => ({ model: m, count: 1 })))
+                        : (site.energia?.fpfhInstalar || []).map(m => ({ model: m, count: 1 }))
+                    )}
+                    hwSitio={hwSitio}
+                    sectionLabel="FPFH"
+                    pooled
+                  />
+                </div>
+              )}
+
+              {/* FPFH a reubicar */}
+              {site.cargaTorre?.fpfhReubicar?.length > 0 && (
+                <div>
+                  <div style={COL_LABEL}>FPFH a reubicar</div>
+                  <HwCompareTable
+                    rows={buildRows(site.cargaTorre.fpfhReubicar)}
+                    hwSitio={hwSitio}
+                    sectionLabel="FPFH"
+                    pooled
+                  />
+                </div>
+              )}
+
+              {/* Antenas a desmontar */}
+              {(site.cargaTorre?.antDismount?.length > 0 || site.ant.desmontar.length > 0) && (
+                <div>
+                  <div style={COL_LABEL}>Antenas a desmontar</div>
+                  <HwCompareTable
+                    rows={buildRows(
+                      site.cargaTorre?.antDismount?.length > 0
+                        ? mergeCetDatos(site.cargaTorre.antDismount, site.ant.desmontar)
+                        : site.ant.desmontar
+                    )}
+                    hwSitio={hwSitio}
+                    sectionLabel="antena"
+                  />
+                </div>
+              )}
+
+              {/* RF a desmontar */}
+              {(site.cargaTorre?.rfDismount?.length > 0 || site.rf.desmontar.length > 0) && (
+                <div>
+                  <div style={COL_LABEL}>RF a desmontar</div>
+                  <HwCompareTable
+                    rows={buildRows(
+                      site.cargaTorre?.rfDismount?.length > 0
+                        ? mergeCetDatos(site.cargaTorre.rfDismount, site.rf.desmontar)
+                        : site.rf.desmontar
+                    )}
+                    hwSitio={hwSitio}
+                    sectionLabel="RF module"
+                  />
                 </div>
               )}
 
@@ -494,26 +634,7 @@ const ANTENNA_MODEL_CODES = [
 ]
 const isAntennaHw = desc => ANTENNA_MODEL_CODES.some(code => hwContains(desc, code))
 
-function CetBadge({ cetCount, tsqaTotal }) {
-  if (cetCount == null) return null
-  const ok = cetCount === tsqaTotal
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      marginTop: 4, padding: '2px 8px',
-      background: ok ? '#f0fdf4' : '#fffbeb',
-      border: `1px solid ${ok ? '#86efac' : '#fcd34d'}`,
-      borderRadius: 4, fontSize: 10, fontWeight: 600,
-      color: ok ? '#16a34a' : '#b45309',
-    }}>
-      {ok
-        ? `✓ CARGA EN TORRE confirma ${cetCount} uds.`
-        : `⚠ CARGA EN TORRE: ${cetCount} uds. · DATOS RF: ${tsqaTotal} uds.`}
-    </div>
-  )
-}
-
-function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = false, cetCount = null }) {
+function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = false }) {
   const sectionTokens = [...new Set(rows.flatMap(r => modelTokens(r.model)))]
 
   const isFpfhUnit = desc => { const d = norm(desc); return d.includes('FPFH') && d.includes('MODULO') }
@@ -574,7 +695,6 @@ function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = 
             </tr>
           </tbody>
         </table>
-        <CetBadge cetCount={cetCount} tsqaTotal={tsqaTotal} />
       </div>
     )
   }
@@ -677,7 +797,6 @@ function HwCompareTable({ rows, hwSitio = {}, sectionLabel = 'equipo', pooled = 
           ⚠ Por favor validar si el modelo de {sectionLabel} asignado fue autorizado, de lo contrario verificar y corregir antes de despachar a sitio.
         </div>
       )}
-      <CetBadge cetCount={cetCount} tsqaTotal={tsqaSectionTotal} />
     </div>
   )
 }
@@ -702,7 +821,6 @@ export default function TsqaPage() {
     setLoading(true)
     setSaving(true)
     const newErrors = []
-    const existingIds = new Set(audits.map(s => s.id))
     for (const file of fileList) {
       if (!file.name.match(/\.xlsx?$/i)) {
         newErrors.push(`${file.name}: solo se admiten archivos .xlsx`)
@@ -712,7 +830,7 @@ export default function TsqaPage() {
         const buf = await file.arrayBuffer()
         const result = parseTssFile(new Uint8Array(buf), file.name)
         if (result) {
-          if (!existingIds.has(result.id)) await saveAudit(result, userId)
+          await saveAudit(result, userId)
         } else {
           newErrors.push(`${file.name}: no se encontró la hoja "DATOS RF"`)
         }
@@ -767,8 +885,37 @@ export default function TsqaPage() {
         ${extra}
       </div>`
 
-    const fpfhInst  = s.energia?.fpfhInstalar  || []
-    const fpfhReloc = s.energia?.fpfhReubicar   || []
+    // CET-aware data
+    const rfInstalar  = s.cargaTorre?.rf?.length > 0        ? s.cargaTorre.rf          : s.rf.instalar
+    const rfTotalInst = s.cargaTorre?.rf?.length > 0        ? s.cargaTorre.rfTotal     : s.rf.totalInstalar
+    const rfReub      = s.cargaTorre                        ? (s.cargaTorre.rfReubicar  ?? []) : s.rf.reubicar
+    const rfTotalReub = s.cargaTorre                        ? (s.cargaTorre.rfReubTotal ?? 0)  : s.rf.totalReubicar
+    const rfDsm       = s.cargaTorre?.rfDismount?.length > 0 ? s.cargaTorre.rfDismount : s.rf.desmontar
+    const rfTotalDsm  = s.cargaTorre?.rfDismount?.length > 0 ? s.cargaTorre.rfDsmTotal : s.rf.totalDesmontar
+
+    const antInstalar  = s.cargaTorre?.antennas?.length > 0   ? s.cargaTorre.antennas   : s.ant.instalar
+    const antTotalInst = s.cargaTorre?.antennas?.length > 0   ? s.cargaTorre.antTotal   : s.ant.totalInstalar
+    const antReub      = s.cargaTorre                         ? (s.cargaTorre.antReubicar  ?? []) : s.ant.reubicar
+    const antTotalReub = s.cargaTorre                         ? (s.cargaTorre.antReubTotal ?? 0)  : s.ant.totalReubicar
+    const antDsm       = s.cargaTorre?.antDismount?.length > 0 ? s.cargaTorre.antDismount : s.ant.desmontar
+    const antTotalDsm  = s.cargaTorre?.antDismount?.length > 0 ? s.cargaTorre.antDsmTotal : s.ant.totalDesmontar
+
+    const fpfhInstItems = s.cargaTorre?.fpfh?.length > 0
+      ? s.cargaTorre.fpfh
+      : (s.energia?.fpfhInstalar || []).map(m => ({ model: m, count: 1 }))
+    const fpfhReubItems = s.cargaTorre?.fpfhReubicar?.length > 0
+      ? s.cargaTorre.fpfhReubicar
+      : (s.energia?.fpfhReubicar || []).map(m => ({ model: m, count: 1 }))
+
+    const rfGroup = (label, items, total, color) => {
+      const badge = `<span style="background:${color}20;color:${color};border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700;margin-left:4px">${total}</span>`
+      const header = `<div style="font-size:10px;font-weight:700;color:${color};margin-bottom:${total ? 3 : 0}px">${label}${badge}</div>`
+      if (!total) return `<div style="flex:1;min-width:0">${header}</div>`
+      const rows = items.map(({model, count}) =>
+        `<div style="font-size:10px;color:#4b5563;padding-left:5px;line-height:1.8;white-space:nowrap"><b style="color:#111827">${model}</b><span style="color:#6b7280"> ×${count}</span></div>`
+      ).join('')
+      return `<div style="flex:1;min-width:0">${header}${rows}</div>`
+    }
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>TSQA · ${s.siteName}</title>
@@ -778,7 +925,11 @@ export default function TsqaPage() {
   h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
   .badge { display:inline-block; font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; background:#eff6ff; color:#0369a1; border:1px solid #bfdbfe; border-radius:6px; padding:3px 8px; }
   .sec { border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; margin-bottom:10px; }
-  .grid4 { display:grid; grid-template-columns:1.3fr 0.8fr 1.1fr 1.1fr; gap:16px; padding:14px 16px; }
+  .grid-ti { display:grid; grid-template-columns:1fr 0.6fr 1.5fr 1.5fr; gap:12px; padding:14px 16px; align-items:start; }
+  .card { border-radius:8px; padding:10px 12px; }
+  .card-amber { background:#fffbeb; border:1px solid #fde68a; }
+  .card-blue  { background:#eff6ff; border:1px solid #bfdbfe; }
+  .card-green { background:#f0fdf4; border:1px solid #bbf7d0; }
   .col-label { font-size:9px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
   .info-row { font-size:11px; color:#374151; margin-bottom:3px; }
   .cw-body { padding:10px 16px; display:flex; flex-direction:column; gap:8px; }
@@ -807,6 +958,7 @@ export default function TsqaPage() {
       ${s.smpWo ? `<span class="badge">${s.smpWo}</span>` : ''}
       ${s.siteType ? `<span class="badge">${s.siteType}</span>` : ''}
       ${s.date ? `<span class="badge">${fmtDate(new Date(s.date))}</span>` : ''}
+      ${s.subcontractor ? `<span class="badge" style="background:#f5f3ff;color:#6d28d9;border-color:#c4b5fd">SUBC. TSS: ${s.subcontractor}</span>` : ''}
     </div>
   </div>
   <div style="text-align:right;font-size:10px;color:#9ca3af">Nokia TSS · TSQA</div>
@@ -815,29 +967,52 @@ export default function TsqaPage() {
 <!-- TI -->
 <div class="sec">
   ${secHead('TI', '#16a34a')}
-  <div class="grid4">
-    <div>
+  <div class="grid-ti">
+    <!-- Sitio -->
+    <div style="min-width:0">
       <div class="col-label">Sitio</div>
       ${s.address  ? `<div class="info-row">${s.address}</div>` : ''}
       ${s.siteType ? `<div class="info-row" style="color:#0369a1;font-weight:600">◆ ${s.siteType}</div>` : ''}
       ${s.coords   ? `<div class="info-row" style="color:#6b7280;font-size:10px">${s.coords.lat.toFixed(6)}, ${s.coords.lon.toFixed(6)}</div>` : ''}
-      ${s.subcontractor ? `<div class="info-row" style="color:#6b7280">${s.subcontractor}</div>` : ''}
-      ${s.specialAccess?.length ? `<div class="info-row" style="color:#7c3aed;font-weight:600">⚠ ${s.specialAccess.join(' · ')}</div>` : ''}
+      ${s.specialAccess?.length ? `<div style="margin-top:6px"><div class="col-label" style="margin-bottom:3px">Acceso especial</div><div style="font-size:10px;color:#7c3aed;font-weight:600">${s.specialAccess.join(' · ')}</div></div>` : ''}
+      ${s.accessObs ? `<div style="font-size:10px;color:#6b7280;margin-top:4px;line-height:1.5;word-break:break-word">${s.accessObs}</div>` : ''}
     </div>
-    <div>
-      <div class="col-label">Torre</div>
-      ${s.towerType ? `<div class="info-row"><b>${s.towerType}</b>${s.towerHeight ? ` · ${s.towerHeight}m` : ''}</div>` : '<div class="info-row" style="color:#9ca3af">—</div>'}
+    <!-- Estructura -->
+    <div class="card card-amber" style="min-width:0">
+      <div class="col-label">Estructura</div>
+      ${s.towerType ? `<div style="font-size:12px;color:#111827;font-weight:700">${s.towerType}</div>` : '<div style="color:#9ca3af">—</div>'}
+      ${s.towerHeight ? `<div style="font-size:11px;color:#92400e;margin-top:3px">Altura: <b>${s.towerHeight} m</b></div>` : ''}
     </div>
-    <div>
-      <div class="col-label">RF</div>
-      <div class="info-row"><span style="color:#16a34a;font-weight:700">▲ ${s.rf.totalInstalar}</span> <span style="color:#d97706;font-weight:700">↔ ${s.rf.totalReubicar}</span> <span style="color:#dc2626;font-weight:700">▼ ${s.rf.totalDesmontar}</span></div>
-      <div style="margin-top:4px;font-size:10px">${modelRows([...s.rf.instalar,...s.rf.desmontar,...s.rf.reubicar])}</div>
+    <!-- RF -->
+    <div class="card card-blue" style="min-width:0">
+      <div class="col-label" style="margin-bottom:8px">RF (RFS)</div>
+      <div style="display:flex;gap:6px">
+        ${rfGroup('Instalar', rfInstalar, rfTotalInst, '#16a34a')}
+        ${rfGroup('Reubicar', rfReub, rfTotalReub, '#d97706')}
+        ${rfGroup('Desmontar', rfDsm, rfTotalDsm, '#dc2626')}
+      </div>
     </div>
-    <div>
-      <div class="col-label">Antenas</div>
-      <div class="info-row"><span style="color:#16a34a;font-weight:700">▲ ${s.ant.totalInstalar}</span> <span style="color:#d97706;font-weight:700">↔ ${s.ant.totalReubicar}</span> <span style="color:#dc2626;font-weight:700">▼ ${s.ant.totalDesmontar}</span></div>
-      <div style="margin-top:4px;font-size:10px">${modelRows([...s.ant.instalar,...s.ant.desmontar,...s.ant.reubicar])}</div>
+    <!-- Antenas -->
+    <div class="card card-green" style="min-width:0">
+      <div class="col-label" style="margin-bottom:8px">Antenas</div>
+      <div style="display:flex;gap:6px">
+        ${rfGroup('Instalar', antInstalar, antTotalInst, '#16a34a')}
+        ${rfGroup('Reubicar', antReub, antTotalReub, '#d97706')}
+        ${rfGroup('Desmontar', antDsm, antTotalDsm, '#dc2626')}
+      </div>
     </div>
+    ${s.comentariosGenerales?.length ? `
+    <!-- Configuración tecnológica -->
+    <div style="grid-column:1/-1;min-width:0;margin-top:4px;padding-top:10px;border-top:1px solid #f0f0f0">
+      <div class="col-label" style="margin-bottom:6px">Configuración tecnológica</div>
+      ${s.comentariosGenerales.map(entry => `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;overflow:hidden">
+          <div style="display:flex;gap:3px;flex-shrink:0">
+            ${entry.techs.map(t => `<span style="font-size:8px;font-weight:700;color:#fff;background:${t.color};border-radius:3px;padding:2px 5px;white-space:nowrap">${t.label}</span>`).join('')}
+          </div>
+          <span style="font-size:10px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${entry.config}</span>
+        </div>`).join('')}
+    </div>` : ''}
   </div>
 </div>
 
@@ -862,7 +1037,7 @@ export default function TsqaPage() {
 <!-- Energía -->
 <div class="sec">
   ${secHead('Energía', '#d97706',
-    fpfhInst.length  ? `<span style="font-size:10px;color:#6b7280;font-weight:600">FPFH a Instalar:</span> ${fpfhInst.map(m=>pill(m,'#dcfce7','#166534','#86efac')).join(' ')}` : ''
+    fpfhInstItems.length ? `<span style="font-size:10px;color:#6b7280;font-weight:600">FPFH a Instalar:</span> ${fpfhInstItems.map(i => pill(i.count > 1 ? `${i.model} ×${i.count}` : i.model, '#dcfce7', '#166534', '#86efac')).join(' ')}` : ''
   )}
   <div class="energy-body">
     ${(s.energia?.items||[]).map(p => `
@@ -952,7 +1127,7 @@ export default function TsqaPage() {
         style={{ display: 'none' }} onChange={e => { processFiles([...e.target.files]); e.target.value = '' }} />
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
             <span style={{
@@ -979,18 +1154,19 @@ export default function TsqaPage() {
             onDragLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151' }}
             onDrop={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151'; onDrop(e) }}
             style={{
-              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: 4, cursor: 'pointer',
               background: '#fff', border: '1.5px dashed #d1d5db', color: '#374151',
-              borderRadius: 10, padding: '8px 18px', fontSize: 12, fontWeight: 600,
+              borderRadius: 10, padding: '6px 32px', fontSize: 12, fontWeight: 600,
               transition: 'background .15s, border-color .15s, color .15s',
-              userSelect: 'none',
+              userSelect: 'none', alignSelf: 'stretch',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = '#f0f9ff'; e.currentTarget.style.borderColor = BRAND; e.currentTarget.style.color = BRAND }}
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151' }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
-            <span>Agregar TSS</span>
-            <span style={{ fontSize: 10, color: 'inherit', opacity: .6, fontWeight: 400 }}>· arrastra aquí</span>
+            <FolderDown size={16} strokeWidth={1.8} />
+            <span>+ Agregar TSS</span>
+            <span style={{ fontSize: 10, color: 'inherit', opacity: .6, fontWeight: 400 }}>Arrastra aquí (Archivos xlsx.)</span>
           </div>
           {hasSites && <>
             <button onClick={exportExcel} style={{
@@ -1059,7 +1235,7 @@ export default function TsqaPage() {
                   <th style={TH}>Sitio / SMP-WO</th>
                   <th style={TH}>Fecha</th>
                   <th style={TH}>Torre</th>
-                  <th style={TH}>Subcontratista</th>
+                  <th style={TH} title="Subcontratista TSS">SUBC. TSS</th>
                   <th style={{ ...TH, textAlign: 'center' }}>CW</th>
                   <th style={{ ...TH, textAlign: 'center' }}>FPFH</th>
                   <th style={{ ...TH, textAlign: 'center' }}>
@@ -1129,7 +1305,7 @@ export default function TsqaPage() {
                                 color: site.cw.requerida === 'SI' ? '#166534' : '#6b7280',
                                 display: 'inline-block',
                               }}>CW: {site.cw.requerida}</span>
-                              {site.cw.enConjunto && (
+                              {site.cw.enConjunto && site.cw.enConjunto !== 'NO' && (
                                 <span style={{
                                   fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4,
                                   background: '#fef9c3', color: '#854d0e', display: 'inline-block',
@@ -1142,32 +1318,36 @@ export default function TsqaPage() {
                         {/* FPFH */}
                         <td style={{ ...TD, textAlign: 'center' }}>
                           {(() => {
-                            const inst  = site.energia?.fpfhInstalar?.length  ?? 0
-                            const reloc = site.energia?.fpfhReubicar?.length  ?? 0
-                            const total = inst + reloc
-                            if (total === 0) return <span style={{ color: '#6b7280' }}>—</span>
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-                                {inst  > 0 && <span style={{ fontSize: 11, fontWeight: 600, background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 4, padding: '1px 7px' }}>+{inst} nuevo{inst > 1 ? 's' : ''}</span>}
-                                {reloc > 0 && <span style={{ fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047', borderRadius: 4, padding: '1px 7px' }}>↔ {reloc} reubic.</span>}
-                              </div>
-                            )
+                            const inst = site.cargaTorre ? (site.cargaTorre.fpfhTotal ?? 0) : (site.energia?.fpfhInstalar?.length ?? 0)
+                            if (!inst) return <span style={{ color: '#6b7280' }}>—</span>
+                            return <span style={{ fontSize: 11, fontWeight: 600, background: '#dcfce7', color: '#166534', border: '1px solid #86efac', borderRadius: 4, padding: '1px 7px' }}>+{inst} nuevo{inst > 1 ? 's' : ''}</span>
                           })()}
                         </td>
 
                         {/* RF */}
                         <td style={{ ...TD, textAlign: 'center' }}>
-                          <RfCounts data={site.rf} />
+                          <RfCounts data={{
+                            totalInstalar:  site.cargaTorre?.rf?.length > 0          ? site.cargaTorre.rfTotal      : site.rf.totalInstalar,
+                            totalReubicar:  site.cargaTorre                          ? (site.cargaTorre.rfReubTotal  ?? 0) : site.rf.totalReubicar,
+                            totalDesmontar: site.cargaTorre?.rfDismount?.length > 0  ? site.cargaTorre.rfDsmTotal   : site.rf.totalDesmontar,
+                          }} />
                           <div style={{ marginTop: 4 }}>
-                            <ModelList items={[...site.rf.instalar, ...site.rf.desmontar]} />
+                            <ModelList items={[
+                              ...(site.cargaTorre?.rf?.length > 0         ? site.cargaTorre.rf         : site.rf.instalar),
+                              ...(site.cargaTorre?.rfDismount?.length > 0 ? site.cargaTorre.rfDismount : site.rf.desmontar),
+                            ]} />
                           </div>
                         </td>
 
                         {/* Antenas */}
                         <td style={{ ...TD, textAlign: 'center' }}>
-                          <RfCounts data={site.ant} />
+                          <RfCounts data={{
+                            totalInstalar:  site.cargaTorre?.antennas?.length > 0    ? site.cargaTorre.antTotal     : site.ant.totalInstalar,
+                            totalReubicar:  site.cargaTorre                          ? (site.cargaTorre.antReubTotal ?? 0) : site.ant.totalReubicar,
+                            totalDesmontar: site.cargaTorre?.antDismount?.length > 0 ? site.cargaTorre.antDsmTotal  : site.ant.totalDesmontar,
+                          }} />
                           <div style={{ marginTop: 4 }}>
-                            <ModelList items={site.ant.instalar} />
+                            <ModelList items={site.cargaTorre?.antennas?.length > 0 ? site.cargaTorre.antennas : site.ant.instalar} />
                           </div>
                         </td>
 

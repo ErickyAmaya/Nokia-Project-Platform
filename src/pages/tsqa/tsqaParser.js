@@ -22,51 +22,174 @@ function groupByModel(modelMap) {
     .map(([model, count]) => ({ model, count }))
 }
 
+const TECH_BADGE_CONFIG = [
+  { re: /GSM.?850/i,          label: 'GSM850',    color: '#1e3a5f' },
+  { re: /UMTS.?850/i,         label: 'UMTS850',   color: '#1d4ed8' },
+  { re: /LTE.?700/i,          label: 'LTE700',    color: '#15803d' },
+  { re: /LTE.?850/i,          label: 'LTE850',    color: '#166534' },
+  { re: /LTE.?1900/i,         label: 'LTE1900',   color: '#16a34a' },
+  { re: /LTE.?2600/i,         label: 'LTE2600',   color: '#0d9488' },
+  { re: /5\s*G\b|NR.?2600/i,  label: '5G/NR',     color: '#7c3aed' },
+  { re: /SISTEMA.?RADIANTE/i, label: 'SIS.RAD.',  color: '#b45309' },
+]
+
+function parseComentariosGenerales(rf) {
+  let startRow = -1
+  for (let r = 0; r < rf.length; r++) {
+    const rowTxt = (rf[r] || []).slice(0, 10).map(c => String(c || '')).join(' ').toUpperCase()
+    if (rowTxt.includes('COMENTARIOS GENERALES')) { startRow = r + 1; break }
+  }
+  if (startRow < 0) return []
+
+  const entries = []
+  let pendingTechs = []
+
+  for (let r = startRow; r < Math.min(startRow + 150, rf.length); r++) {
+    const row = rf[r] || []
+    let techLabels = []
+    let contentCell = null
+
+    for (const cell of row) {
+      if (!cell) continue
+      const v = String(cell).trim()
+      if (!v) continue
+      if (v.length <= 60) {
+        const matched = TECH_BADGE_CONFIG.filter(c => c.re.test(v))
+        if (matched.length > 0) techLabels = matched
+      } else if (!contentCell) {
+        contentCell = v
+      }
+    }
+
+    if (techLabels.length > 0) pendingTechs = techLabels
+
+    if (contentCell && pendingTechs.length > 0) {
+      const lines = contentCell.split(/\n/).map(l => l.trim()).filter(Boolean)
+      const cfLine = lines.find(l => /CONFIGURACION\s+FINAL/i.test(l))
+      let config = null
+
+      if (cfLine) {
+        config = cfLine.replace(/CONFIGURACION\s+FINAL\s*/i, '').trim()
+      } else {
+        // Fallback: second meaningful line (skip tech_name repeat and bullet lines)
+        const candidates = lines.filter(l => l.length > 10 && l.toUpperCase() !== 'N/A')
+        const second = candidates[1] || candidates[0]
+        if (second && !second.startsWith('*')) config = second
+      }
+
+      if (config && config.toUpperCase() !== 'N/A') {
+        entries.push({ techs: pendingTechs.map(p => ({ label: p.label, color: p.color })), config })
+      }
+      pendingTechs = []
+    }
+  }
+
+  // Deduplicate: merge tech badges for identical configs
+  const deduped = []
+  for (const { techs, config } of entries) {
+    const existing = deduped.find(d => d.config === config)
+    if (existing) existing.techs.push(...techs)
+    else deduped.push({ techs: [...techs], config })
+  }
+
+  return deduped
+}
+
 function parseCargaTorre(torre) {
   if (!torre?.length) return null
 
-  // Find section-header rows by scanning all cells in each row
-  let antRow = -1, rfRow = -1
-  for (let r = 0; r < torre.length; r++) {
-    const txt = (torre[r] || []).slice(0, 30)
-      .map(c => String(c || '').toUpperCase()).join(' ')
-    if (antRow < 0 && txt.includes('ANTENAS A INSTALAR')) antRow = r
-    if (rfRow  < 0 && txt.includes('EQUIPOS A INSTALAR')) rfRow  = r
-    if (antRow >= 0 && rfRow >= 0) break
-  }
-  if (antRow < 0 && rfRow < 0) return null
+  const rawAntIns = [], rawRfIns  = []
+  const rawAntDsm = [], rawRfDsm  = []
+  const rawAntReub = [], rawRfReub = []
+  let inAntSection = null  // null = before any header, true = antennas, false = RF
+  const dbgHeaders = []
 
-  // Col P = index 15. Scan [start, end) collecting quantities and models.
-  const extractSection = (start, end) => {
-    const items = []
-    for (let r = start; r < Math.min(end, torre.length); r++) {
-      const row  = torre[r] || []
-      const pVal = row[15]
-      if (pVal == null || pVal === '') continue
-      if (typeof pVal === 'number' && pVal > 0) {
-        // qty in col P — look for model description in surrounding cols
-        const model = [...row.slice(10, 15), ...row.slice(16, 22)]
-          .map(v => String(v || '').trim())
-          .find(v => v.length > 3 && !/^\d+$/.test(v)) || null
-        items.push({ count: Math.round(pVal), model })
-      } else if (typeof pVal === 'string' && pVal.trim().length > 1) {
-        items.push({ count: 1, model: pVal.trim() })
+  for (let r = 0; r < torre.length; r++) {
+    const row = torre[r] || []
+
+    // ── Detect sub-section header rows by scanning all cells ──────────
+    let isAntHeader = false, isRfHeader = false
+    for (const cell of row) {
+      const c = String(cell || '').toUpperCase().trim()
+      if (c.length < 5 || c.length > 80) continue
+      if (c.includes('ANTENAS') && c.includes('INSTALAR'))                                isAntHeader = true
+      if (c.includes('EQUIPOS') && c.includes('INSTALAR') && !c.includes('INSTALADOS')) isRfHeader  = true
+    }
+    if (isAntHeader) { inAntSection = true;  dbgHeaders.push(`row${r}: ANT`);  continue }
+    if (isRfHeader)  { inAntSection = false; dbgHeaders.push(`row${r}: RF`);   continue }
+    if (inAntSection === null) continue
+
+    // ── Install: col M(12)=ESTADO, col P(15)=MODELO ──
+    const estadoIns = String(row[12] || '').toUpperCase().trim()
+    if (estadoIns.includes('INSTALAR') || estadoIns === 'REUBICADO') {
+      const model = String(row[15] || '').trim()
+      if (model.length > 1 && model !== '-') {
+        ;(inAntSection ? rawAntIns : rawRfIns).push({ model, reubicado: estadoIns === 'REUBICADO' })
       }
     }
-    return items
+
+    // ── Dismount/Reubicar: col B(1)=ESTADO, col E(4)=MODELO ──
+    const estadoDsm = String(row[1] || '').toUpperCase().trim()
+    if (estadoDsm === 'DESMONTE' || estadoDsm === 'A REUBICAR') {
+      const model = String(row[4] || '').trim()
+      if (model.length > 1 && model !== '-') {
+        if (estadoDsm === 'DESMONTE') {
+          ;(inAntSection ? rawAntDsm : rawRfDsm).push({ model })
+        } else {
+          ;(inAntSection ? rawAntReub : rawRfReub).push({ model })
+        }
+      }
+    }
   }
 
-  const antEnd = rfRow > antRow && rfRow >= 0 ? rfRow : antRow + 30
-  const rfEnd  = rfRow >= 0 ? rfRow + 30 : 0
+  // DEBUG — remove once confirmed working
+  console.log('[CET] headers found:', dbgHeaders)
+  console.log('[CET] rawAntIns:', JSON.stringify(rawAntIns))
+  console.log('[CET] rawRfIns:',  JSON.stringify(rawRfIns))
+  console.log('[CET] rawAntDsm:', JSON.stringify(rawAntDsm))
+  console.log('[CET] rawRfDsm:',  JSON.stringify(rawRfDsm))
 
-  const antennas = antRow >= 0 ? extractSection(antRow, antEnd) : []
-  const rf       = rfRow  >= 0 ? extractSection(rfRow,  rfEnd)  : []
+  // DEBUG: dump rows 10-50 to see raw CET data
+  for (let r = 10; r < Math.min(55, torre.length); r++) {
+    const row = torre[r] || []
+    const nonNull = row.map((v, i) => v != null ? `[${i}]=${JSON.stringify(v)}` : null).filter(Boolean)
+    if (nonNull.length) console.log(`[CET row${r}]`, nonNull.join(' | '))
+  }
+
+  const groupItems = rawItems => {
+    const counts = {}
+    for (const { model } of rawItems) {
+      const k = model.toUpperCase()
+      counts[k] = (counts[k] || 0) + 1
+    }
+    return Object.entries(counts).map(([model, count]) => ({ model, count }))
+  }
+
+  const rfRaw        = rawRfIns.filter(i => !/FPFH/i.test(i.model))
+  const fpfhRaw      = rawRfIns.filter(i =>  /FPFH/i.test(i.model))
+  const antennas     = groupItems(rawAntIns.filter(i => !i.reubicado))
+  const rf           = groupItems(rfRaw.filter(i => !i.reubicado))
+  const fpfh         = groupItems(fpfhRaw.filter(i => !i.reubicado))
+  const fpfhReubicar = groupItems(fpfhRaw.filter(i =>  i.reubicado))
+  const antDismount  = groupItems(rawAntDsm)
+  const rfDismount   = groupItems(rawRfDsm)
+  const antReubicar  = groupItems(rawAntReub)
+  const rfReubicar   = groupItems(rawRfReub)
+
+  if (!antennas.length && !rf.length && !fpfh.length && !antDismount.length && !rfDismount.length) {
+    return null
+  }
 
   return {
-    antennas,
-    rf,
-    antTotal: antennas.reduce((s, i) => s + i.count, 0),
-    rfTotal:  rf.reduce((s, i) => s + i.count, 0),
+    antennas, rf, fpfh, fpfhReubicar, antDismount, rfDismount, antReubicar, rfReubicar,
+    antTotal:          antennas.reduce((s, i) => s + i.count, 0),
+    rfTotal:           rf.reduce((s, i) => s + i.count, 0),
+    fpfhTotal:         fpfh.reduce((s, i) => s + i.count, 0),
+    fpfhReubicarTotal: fpfhReubicar.reduce((s, i) => s + i.count, 0),
+    antDsmTotal:       antDismount.reduce((s, i) => s + i.count, 0),
+    rfDsmTotal:        rfDismount.reduce((s, i) => s + i.count, 0),
+    antReubTotal:      antReubicar.reduce((s, i) => s + i.count, 0),
+    rfReubTotal:       rfReubicar.reduce((s, i) => s + i.count, 0),
   }
 }
 
@@ -179,10 +302,16 @@ export function parseTssFile(buffer, filename) {
     return null
   }
 
-  const rfSheet    = wb.Sheets['DATOS RF']
-  const cwSheet    = wb.Sheets['SOLICITUD CW SOLUCION']
-  const powSheet   = wb.Sheets['DATOS POWER']
-  const torreSheet = wb.Sheets['CARGA EN TORRE']
+  const findSheet = name => {
+    const norm = s => s.toUpperCase().replace(/\s+/g, ' ').trim()
+    const key  = Object.keys(wb.Sheets).find(k => norm(k) === norm(name))
+    return key ? wb.Sheets[key] : undefined
+  }
+
+  const rfSheet    = findSheet('DATOS RF')
+  const cwSheet    = findSheet('SOLICITUD CW SOLUCION')
+  const powSheet   = findSheet('DATOS POWER')
+  const torreSheet = findSheet('CARGA EN TORRE')
   if (!rfSheet) return null
 
   const rf    = XLSX.utils.sheet_to_json(rfSheet,    { header: 1, defval: null })
@@ -254,8 +383,9 @@ export function parseTssFile(buffer, filename) {
     }
   }
 
-  const fpfhModels  = extractFpfh(rf)
-  const cargaTorre  = parseCargaTorre(torre)
+  const fpfhModels          = extractFpfh(rf)
+  const cargaTorre          = parseCargaTorre(torre)
+  const comentariosGenerales = parseComentariosGenerales(rf)
 
   // ── CW header (SOLICITUD CW SOLUCION) ─────────────────────────────
   // F6:G8 merged → value at F6; AF6:AG8 merged → value at AF6
@@ -333,6 +463,7 @@ export function parseTssFile(buffer, filename) {
     accessObs,
     fpfhModels,
     cargaTorre,
+    comentariosGenerales,
     cw:  { requerida: cwRequerida, enConjunto: cwEnConjunto, trabajos: cwTrabajo },
     energia,
     rf: {
