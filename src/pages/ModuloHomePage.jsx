@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ClipboardList, Boxes, RadioTower, Receipt, ScanSearch } from 'lucide-react'
+import { ClipboardList, Boxes, RadioTower, Receipt, Toolbox } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -58,7 +58,7 @@ const MODULOS = [
     nombre:      'Tools',
     corto:       'Tools',
     descripcion: 'Herramientas de análisis y auditoría para uso interno.',
-    Icon:        ScanSearch,
+    Icon:        Toolbox,
     color:       '#0369a1',
     ruta:        '/tools',
   },

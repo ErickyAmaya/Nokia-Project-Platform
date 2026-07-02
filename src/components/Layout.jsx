@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { ClipboardList, Boxes, RadioTower, Receipt, ScanSearch } from 'lucide-react'
+import { ClipboardList, Boxes, RadioTower, Receipt, Toolbox, ShieldCogCorner } from 'lucide-react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -78,7 +78,7 @@ const FACT_NAV = [
 ]
 
 const BADGE = {
-  admin:       { label: '⚙ Admin',      cls: 'ub-admin' },
+  admin:       { label: 'Admin',         cls: 'ub-admin' },
   coordinador: { label: '🏢 Coord',     cls: 'ub-coord' },
   TI:          { label: '📡 TI',        cls: 'ub-op'    },
   TSS:         { label: '📡 TSS',       cls: 'ub-op'    },
@@ -266,17 +266,19 @@ export default function Layout({ children }) {
               ? 'Project Modules'
               : 'Liquidador de Actividades'
 
-  const HeaderIcon = inTools
-    ? ScanSearch
-    : inRollout
-      ? RadioTower
-      : inFacturacion
-        ? Receipt
-        : inMateriales
-          ? Boxes
-          : (!inAdmin && location.pathname !== '/modulos' && location.pathname !== '/')
-            ? ClipboardList
-            : null
+  const HeaderIcon = inAdmin
+    ? ShieldCogCorner
+    : inTools
+      ? Toolbox
+      : inRollout
+        ? RadioTower
+        : inFacturacion
+          ? Receipt
+          : inMateriales
+            ? Boxes
+            : location.pathname !== '/modulos' && location.pathname !== '/'
+              ? ClipboardList
+              : null
 
   const moduleColor = inTools
     ? '#0369a1'
@@ -567,7 +569,7 @@ export default function Layout({ children }) {
 
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,.35)', letterSpacing: 1.2,
             textTransform: 'uppercase', marginTop: 10, fontWeight: 700 }}>
-            {inAdmin ? '⚙ Panel Admin' : inDespachos ? '📦 Pend. Despacho' : inSitios ? '📍 Sitios' : inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
+            {inAdmin ? 'Panel Admin' :inDespachos ? '📦 Pend. Despacho' : inSitios ? '📍 Sitios' : inHw ? '📡 HW Nokia' : inMateriales ? '📦 Gestión de Materiales' : inRollout ? '📋 Rollout Nokia' : inFacturacion ? '🧾 Facturación' : '💰 Liquidador Nokia'}
           </div>
 
           {canSwitchModule && (
