@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import JSZip from 'jszip'
 import { EmptyState } from '../../components/EmptyState'
 import { useFactStore, buildInvoicesMap, getEventosRow, EVENTOS, getSmpCat, SMP_CATS } from '../../store/useFactStore'
 import { useAckStore }  from '../../store/useAckStore'
@@ -352,7 +353,8 @@ export default function FactPorFacturar() {
   const [filtroEv,  setFiltroEv]  = useState('todos')
   const [acuerdoModal, setAcuerdoModal] = useState(null)  // row para AcuerdoEspecialModal
   const [modal,     setModal]     = useState(null)
-  const [importing,  setImporting]  = useState(false)
+  const [importing,    setImporting]    = useState(false)
+  const [downloadingPOs, setDownloadingPOs] = useState(false)
   const importRef = useRef(null)
 
   const _savedRollout               = useMemo(() => loadRolloutData(), [])
@@ -651,6 +653,30 @@ export default function FactPorFacturar() {
 
   const fmtCOP = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v)
 
+  async function downloadAllPOs() {
+    const spoNums = [...new Set(rows.map(r => r.row.spo_number))]
+    const withPdf = spoNums
+      .map(spo => ({ spo, url: pos.find(p => p.spo_number === spo)?.pdf_url }))
+      .filter(x => x.url)
+    if (!withPdf.length) { showToast('Ninguna PO del listado tiene PDF adjunto', 'error'); return }
+    setDownloadingPOs(true)
+    try {
+      const zip = new JSZip()
+      await Promise.all(withPdf.map(async ({ spo, url }) => {
+        const res  = await fetch(url)
+        const blob = await res.blob()
+        zip.file(`PO_${spo}.pdf`, blob)
+      }))
+      const content = await zip.generateAsync({ type: 'blob' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(content)
+      a.download = `POs_Facturar_${new Date().toISOString().slice(0, 10)}.zip`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch { showToast('Error al descargar los PDFs', 'error') }
+    finally { setDownloadingPOs(false) }
+  }
+
   if (loading)     return <div style={{ textAlign: 'center', padding: '60px 20px', color: '#617561', fontSize: 13 }}>Cargando datos…</div>
   if (!ppa.length) return <EmptyState icon="📄" title="Sin datos de facturación" subtitle="Carga el PPA Nokia desde el Dashboard para comenzar." />
 
@@ -719,6 +745,15 @@ export default function FactPorFacturar() {
         {rows.length > 0 && <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{rows.length}</span>}
         {totalPorFacturar > 0 && <span style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 8, fontSize: 11, fontWeight: 700, padding: '2px 9px' }}>{fmtCOP(totalPorFacturar)}</span>}
         <span style={{ fontSize: 11, color: '#4b5563' }}>— {rows.length} SPO{rows.length !== 1 ? 's' : ''} facturables</span>
+        {rows.length > 0 && (
+          <button
+            onClick={downloadAllPOs}
+            disabled={downloadingPOs}
+            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '4px 12px', cursor: downloadingPOs ? 'default' : 'pointer', opacity: downloadingPOs ? .6 : 1, whiteSpace: 'nowrap' }}
+          >
+            {downloadingPOs ? '⏳ Descargando…' : '↓ Descargar POs'}
+          </button>
+        )}
       </div>
       {rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 20px', color: '#22c55e', fontSize: 14, fontWeight: 600 }}>

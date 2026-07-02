@@ -818,7 +818,6 @@ export default function TsqaPage() {
   const userId = useAuthStore(s => s.user?.id)
 
   const [expanded,   setExpanded]  = useState(null)
-  const [dragging, setDragging] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [errors,   setErrors]   = useState([])
   const [saving,   setSaving]   = useState(false)
@@ -855,7 +854,7 @@ export default function TsqaPage() {
   }, [audits, userId, saveAudit])
 
   const onDrop = useCallback((e) => {
-    e.preventDefault(); setDragging(false)
+    e.preventDefault()
     processFiles([...e.dataTransfer.files])
   }, [processFiles])
 
@@ -1109,30 +1108,7 @@ export default function TsqaPage() {
   const hasSites = sites.length > 0
 
   return (
-    <div
-      style={{ padding: '24px 20px', minHeight: '80vh' }}
-      onDragOver={e => { e.preventDefault(); setDragging(true) }}
-      onDrop={onDrop}
-    >
-
-      {/* ── Overlay drag ── */}
-      {dragging && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: '#eff6ff99', backdropFilter: 'blur(3px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: `3px dashed ${BRAND}`,
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-        >
-          <div style={{ textAlign: 'center', color: BRAND }}>
-            <div style={{ fontSize: 40 }}>📋</div>
-            <div style={{ fontSize: 17, fontWeight: 700, marginTop: 10 }}>Suelta los archivos TSS aquí</div>
-          </div>
-        </div>
-      )}
+    <div style={{ padding: '24px 20px', minHeight: '80vh' }}>
 
       <input ref={fileInputRef} type="file" accept=".xlsx,.xls" multiple
         style={{ display: 'none' }} onChange={e => { processFiles([...e.target.files]); e.target.value = '' }} />
