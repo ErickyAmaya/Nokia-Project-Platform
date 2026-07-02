@@ -15,9 +15,9 @@ const fmtDate = d =>
 function ModelList({ items }) {
   if (!items || items.length === 0) return <span style={{ color: '#6b7280' }}>—</span>
   return (
-    <span style={{ fontSize: 10, lineHeight: 1.6 }}>
+    <span style={{ fontSize: 10, lineHeight: 1.6, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
       {items.map(({ model, count }) => (
-        <span key={model} style={{ display: 'inline-block', marginRight: 6, whiteSpace: 'nowrap' }}>
+        <span key={model} style={{ display: 'inline', marginRight: 6 }}>
           <span style={{ color: '#374151', fontWeight: 600 }}>{model}</span>
           <span style={{ color: '#6b7280' }}>×{count}</span>
         </span>
@@ -1216,15 +1216,15 @@ export default function TsqaPage() {
       {hasSites && (
         <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 920 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820, tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={TH}>Sitio / SMP-WO</th>
-                  <th style={TH}>Fecha</th>
-                  <th style={TH}>Torre</th>
-                  <th style={TH} title="Subcontratista TSS">SUBC. TSS</th>
-                  <th style={{ ...TH, textAlign: 'center' }}>CW</th>
-                  <th style={{ ...TH, textAlign: 'center' }}>FPFH</th>
+                  <th style={{ ...TH, width: 130 }}>Sitio / SMP-WO</th>
+                  <th style={{ ...TH, width: 90 }}>Fecha</th>
+                  <th style={{ ...TH, width: 155 }}>Torre</th>
+                  <th style={{ ...TH, width: 80 }} title="Subcontratista TSS">SUBC. TSS</th>
+                  <th style={{ ...TH, width: 70, textAlign: 'center' }}>CW</th>
+                  <th style={{ ...TH, width: 75, textAlign: 'center' }}>FPFH</th>
                   <th style={{ ...TH, textAlign: 'center' }}>
                     <span style={{ color: '#86efac' }}>▲</span>
                     <span style={{ color: '#fde68a', margin: '0 4px' }}>↔</span>
@@ -1237,7 +1237,7 @@ export default function TsqaPage() {
                     <span style={{ color: '#fca5a5' }}>▼</span>
                     {' '}Antenas
                   </th>
-                  <th style={TH}></th>
+                  <th style={{ ...TH, width: 76 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1312,7 +1312,7 @@ export default function TsqaPage() {
                         </td>
 
                         {/* RF */}
-                        <td style={{ ...TD, textAlign: 'center' }}>
+                        <td style={{ ...TD, textAlign: 'center', overflow: 'hidden' }}>
                           <RfCounts data={{
                             totalInstalar:  site.cargaTorre?.rf?.length > 0          ? site.cargaTorre.rfTotal      : site.rf.totalInstalar,
                             totalReubicar:  site.cargaTorre                          ? (site.cargaTorre.rfReubTotal  ?? 0) : site.rf.totalReubicar,
@@ -1327,7 +1327,7 @@ export default function TsqaPage() {
                         </td>
 
                         {/* Antenas */}
-                        <td style={{ ...TD, textAlign: 'center' }}>
+                        <td style={{ ...TD, textAlign: 'center', overflow: 'hidden' }}>
                           <RfCounts data={{
                             totalInstalar:  site.cargaTorre?.antennas?.length > 0    ? site.cargaTorre.antTotal     : site.ant.totalInstalar,
                             totalReubicar:  site.cargaTorre                          ? (site.cargaTorre.antReubTotal ?? 0) : site.ant.totalReubicar,
