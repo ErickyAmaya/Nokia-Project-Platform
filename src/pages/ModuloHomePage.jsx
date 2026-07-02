@@ -13,7 +13,7 @@ const MODULE_ACCESS = {
   materiales:  ['admin', 'coordinador', 'logistica', 'viewer'],
   rollout:     ['admin', 'coordinador', 'viewer', 'rollout'],
   facturacion: ['admin', 'coordinador', 'facturacion', 'viewer'],
-  tools:       ['admin'],
+  tools:       ['admin', 'coordinador'],
 }
 
 const MODULOS = [

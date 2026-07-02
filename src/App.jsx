@@ -208,7 +208,7 @@ function AppRoutes() {
       } />
 
       <Route path="/tools" element={
-        <ProtectedRoute allowedRoles={['admin']}>
+        <ProtectedRoute allowedRoles={['admin', 'coordinador']}>
           {W(<TsqaPage />)}
         </ProtectedRoute>
       } />
