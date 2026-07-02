@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ClipboardList, Boxes, RadioTower, Receipt, Toolbox } from 'lucide-react'
+import { ClipboardList, Boxes, RadioTower, Receipt, Toolbox, ShieldCogCorner } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useAppStore }  from '../store/useAppStore'
@@ -451,7 +451,7 @@ export default function ModuloHomePage() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = '#6b7280'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8eae8'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.05)' }}
         >
-          <span style={{ fontSize: 15 }}>⚙</span>
+          <ShieldCogCorner size={16} color="#374151" />
           Panel Admin
           <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>→</span>
         </div>
